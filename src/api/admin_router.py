@@ -203,3 +203,17 @@ async def promote_to_admin(
     entity.is_admin = True
     await db.flush()
     return {"message": f"Entity {entity.display_name} promoted to admin"}
+
+
+@router.post("/trust/recompute")
+async def recompute_trust_scores(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recompute trust scores for all active entities. Admin only."""
+    _require_admin(current_entity)
+
+    from src.trust.score import batch_recompute
+
+    count = await batch_recompute(db)
+    return {"message": f"Recomputed trust scores for {count} entities"}

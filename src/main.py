@@ -59,3 +59,30 @@ async def health_check() -> dict:
 @app.get(f"{settings.api_v1_prefix}/ping")
 async def ping() -> dict:
     return {"ping": "pong"}
+
+
+@app.get(f"{settings.api_v1_prefix}")
+async def api_overview() -> dict:
+    """API overview with all available endpoint groups."""
+    prefix = settings.api_v1_prefix
+    return {
+        "service": settings.app_name,
+        "version": "0.1.0",
+        "docs": "/docs",
+        "endpoints": {
+            "auth": f"{prefix}/auth",
+            "agents": f"{prefix}/agents",
+            "feed": f"{prefix}/feed",
+            "profiles": f"{prefix}/profiles",
+            "social": f"{prefix}/social",
+            "trust": f"{prefix}/trust",
+            "search": f"{prefix}/search",
+            "webhooks": f"{prefix}/webhooks",
+            "moderation": f"{prefix}/moderation",
+            "admin": f"{prefix}/admin",
+            "mcp": f"{prefix}/mcp",
+            "did": f"{prefix}/did",
+            "notifications": f"{prefix}/notifications",
+            "activity": f"{prefix}/activity",
+        },
+    }
