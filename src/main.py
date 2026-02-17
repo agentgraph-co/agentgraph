@@ -6,6 +6,7 @@ from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
 from src.api.feed_router import router as feed_router
+from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
 from src.api.profile_router import router as profile_router
 from src.api.search_router import router as search_router
@@ -31,6 +32,7 @@ app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
+app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 
 
