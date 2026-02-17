@@ -13,6 +13,7 @@ from src.api.auth_service import (
     register_human,
 )
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_auth
 from src.api.schemas import (
     EntityResponse,
     LoginRequest,
@@ -28,7 +29,12 @@ from src.models import Entity
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:
@@ -42,7 +48,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return MessageResponse(message="Registration successful. Please verify your email.")
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit_auth)])
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     entity = await authenticate_human(db, body.email, body.password)
     if entity is None:

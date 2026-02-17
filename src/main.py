@@ -6,6 +6,7 @@ from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
 from src.api.feed_router import router as feed_router
 from src.api.profile_router import router as profile_router
+from src.api.social_router import router as social_router
 from src.api.trust_router import router as trust_router
 from src.config import settings
 
@@ -21,6 +22,7 @@ app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
+app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 
 

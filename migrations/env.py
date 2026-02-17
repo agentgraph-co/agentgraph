@@ -8,8 +8,8 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from src.database import Base
 import src.models  # noqa: F401 — import so Alembic sees all models
+from src.database import Base
 
 config = context.config
 if config.config_file_name is not None:

@@ -10,6 +10,16 @@ DB_URL = os.environ.get(
 )
 
 
+@pytest_asyncio.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear rate limiter state before every test."""
+    from src.api.rate_limit import _limiter
+
+    _limiter._windows.clear()
+    yield
+    _limiter._windows.clear()
+
+
 @pytest_asyncio.fixture
 async def db():
     engine = create_async_engine(DB_URL, echo=False)
