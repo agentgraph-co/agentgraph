@@ -11,7 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
-from src.models import Entity, Post, Submolt, TrustScore, Vote, VoteDirection
+from src.models import (
+    Entity,
+    EntityRelationship,
+    Post,
+    RelationshipType,
+    Submolt,
+    TrustScore,
+    Vote,
+    VoteDirection,
+)
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -97,6 +106,25 @@ async def create_post(
     )
     db.add(post)
     await db.flush()
+
+    # Notify parent post author on reply
+    if body.parent_post_id is not None:
+        parent = await db.get(Post, body.parent_post_id)
+        if parent and parent.author_entity_id != current_entity.id:
+            from src.api.notification_router import create_notification
+
+            snippet = body.content[:80]
+            await create_notification(
+                db,
+                entity_id=parent.author_entity_id,
+                kind="reply",
+                title="New reply",
+                body=(
+                    f"{current_entity.display_name} replied: "
+                    f"{snippet}"
+                ),
+                reference_id=str(post.id),
+            )
 
     return _build_post_response(post, current_entity, user_vote=None, reply_count=0)
 
@@ -331,6 +359,25 @@ async def vote_on_post(
         db.add(vote)
         post.vote_count += 1 if direction == VoteDirection.UP else -1
         await db.flush()
+
+        # Notify post author on upvote
+        if (
+            direction == VoteDirection.UP
+            and post.author_entity_id != current_entity.id
+        ):
+            from src.api.notification_router import create_notification
+
+            await create_notification(
+                db,
+                entity_id=post.author_entity_id,
+                kind="vote",
+                title="Post upvoted",
+                body=(
+                    f"{current_entity.display_name} upvoted your post"
+                ),
+                reference_id=str(post_id),
+            )
+
         return VoteResponse(
             post_id=post_id,
             direction=direction.value,
@@ -417,6 +464,95 @@ async def get_trending(
         ))
 
     return FeedResponse(posts=posts, next_cursor=None)
+
+
+@router.get("/following", response_model=FeedResponse)
+async def get_following_feed(
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get posts from entities the current user follows."""
+    # Get followed entity IDs
+    following_result = await db.execute(
+        select(EntityRelationship.target_entity_id).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    followed_ids = [row[0] for row in following_result.all()]
+
+    if not followed_ids:
+        return FeedResponse(posts=[], next_cursor=None)
+
+    query = (
+        select(Post, Entity, TrustScore.score)
+        .join(Entity, Post.author_entity_id == Entity.id)
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .where(
+            Post.author_entity_id.in_(followed_ids),
+            Post.parent_post_id.is_(None),
+            Post.is_hidden.is_(False),
+        )
+    )
+
+    if cursor:
+        cursor_id = _parse_cursor(cursor)
+        if cursor_id is None:
+            raise HTTPException(
+                status_code=400, detail="Invalid cursor"
+            )
+        query = query.where(Post.id < cursor_id)
+
+    query = query.order_by(
+        Post.created_at.desc(), Post.id.desc()
+    ).limit(limit + 1)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    post_ids = [row[0].id for row in rows]
+
+    reply_counts = {}
+    if post_ids:
+        rc_result = await db.execute(
+            select(Post.parent_post_id, func.count())
+            .where(Post.parent_post_id.in_(post_ids))
+            .group_by(Post.parent_post_id)
+        )
+        reply_counts = dict(rc_result.all())
+
+    user_votes = {}
+    if post_ids:
+        vote_result = await db.execute(
+            select(Vote.post_id, Vote.direction)
+            .where(
+                Vote.entity_id == current_entity.id,
+                Vote.post_id.in_(post_ids),
+            )
+        )
+        user_votes = {
+            row[0]: row[1].value for row in vote_result.all()
+        }
+
+    posts = []
+    for post, author, trust_score in rows:
+        posts.append(_build_post_response(
+            post,
+            author,
+            user_vote=user_votes.get(post.id),
+            reply_count=reply_counts.get(post.id, 0),
+        ))
+
+    next_cursor = None
+    if has_more and posts:
+        next_cursor = str(posts[-1].id)
+
+    return FeedResponse(posts=posts, next_cursor=next_cursor)
 
 
 # --- Helpers ---

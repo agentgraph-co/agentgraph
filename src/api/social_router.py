@@ -69,6 +69,19 @@ async def follow_entity(
     )
     db.add(rel)
     await db.flush()
+
+    # Notify the target
+    from src.api.notification_router import create_notification
+
+    await create_notification(
+        db,
+        entity_id=target_id,
+        kind="follow",
+        title="New follower",
+        body=f"{current_entity.display_name} started following you",
+        reference_id=str(current_entity.id),
+    )
+
     return FollowResponse(message=f"Now following {target.display_name}")
 
 
