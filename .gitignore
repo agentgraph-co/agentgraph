@@ -12,8 +12,8 @@ dist/
 venv/
 env/
 
-# Environment
-.env
+# Environment — secrets only (.env is committed as non-sensitive config)
+.env.secrets
 .env.local
 .env.production
 credentials.json
