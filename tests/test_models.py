@@ -248,6 +248,7 @@ async def test_all_tables_exist(db: AsyncSession):
     expected = [
         "alembic_version",
         "api_keys",
+        "audit_logs",
         "did_documents",
         "email_verifications",
         "entities",

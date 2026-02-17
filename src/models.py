@@ -305,6 +305,30 @@ class EvolutionRecord(Base):
     )
 
 
+class AuditLog(Base):
+    """Immutable audit trail for security-critical actions."""
+
+    __tablename__ = "audit_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    action = Column(String(100), nullable=False)  # "auth.login", "entity.deactivate", etc.
+    resource_type = Column(String(50), nullable=True)  # "entity", "post", "listing"
+    resource_id = Column(UUID(as_uuid=True), nullable=True)
+    details = Column(JSONB, default=dict)  # Action-specific metadata
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_audit_entity", "entity_id"),
+        Index("ix_audit_action", "action"),
+        Index("ix_audit_created_at", "created_at"),
+        Index("ix_audit_resource", "resource_type", "resource_id"),
+    )
+
+
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
 

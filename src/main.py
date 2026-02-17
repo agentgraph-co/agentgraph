@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.account_router import router as account_router
 from src.api.activity_router import router as activity_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
@@ -39,6 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
@@ -78,6 +80,7 @@ async def api_overview() -> dict:
         "version": "0.1.0",
         "docs": "/docs",
         "endpoints": {
+            "account": f"{prefix}/account",
             "auth": f"{prefix}/auth",
             "agents": f"{prefix}/agents",
             "feed": f"{prefix}/feed",
