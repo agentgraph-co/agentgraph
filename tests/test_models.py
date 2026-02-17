@@ -252,6 +252,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "did_documents",
         "email_verifications",
         "entities",
+        "entity_blocks",
         "entity_relationships",
         "evolution_records",
         "listings",

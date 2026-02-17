@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
-from src.models import Entity, EntityRelationship, RelationshipType
+from src.models import Entity, EntityBlock, EntityRelationship, RelationshipType
 
 router = APIRouter(prefix="/social", tags=["social"])
 
@@ -49,6 +49,18 @@ async def follow_entity(
     target = await db.get(Entity, target_id)
     if target is None or not target.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Check if blocked
+    is_blocked = await db.scalar(
+        select(EntityBlock).where(
+            EntityBlock.blocker_id == target_id,
+            EntityBlock.blocked_id == current_entity.id,
+        )
+    )
+    if is_blocked:
+        raise HTTPException(
+            status_code=403, detail="Cannot follow this entity"
+        )
 
     # Check if already following
     existing = await db.scalar(
@@ -199,4 +211,109 @@ async def get_social_stats(
         "entity_id": str(entity_id),
         "following_count": following_count,
         "followers_count": followers_count,
+    }
+
+
+# --- Blocking ---
+
+
+@router.post("/block/{target_id}")
+async def block_entity(
+    target_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Block an entity. Also removes any follow relationship."""
+    if current_entity.id == target_id:
+        raise HTTPException(
+            status_code=400, detail="Cannot block yourself"
+        )
+
+    target = await db.get(Entity, target_id)
+    if target is None:
+        raise HTTPException(
+            status_code=404, detail="Entity not found"
+        )
+
+    existing = await db.scalar(
+        select(EntityBlock).where(
+            EntityBlock.blocker_id == current_entity.id,
+            EntityBlock.blocked_id == target_id,
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409, detail="Already blocked"
+        )
+
+    block = EntityBlock(
+        id=uuid.uuid4(),
+        blocker_id=current_entity.id,
+        blocked_id=target_id,
+    )
+    db.add(block)
+
+    # Remove follow if exists
+    follow = await db.scalar(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.target_entity_id == target_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    if follow:
+        await db.delete(follow)
+
+    await db.flush()
+    return {"message": f"Blocked {target.display_name}"}
+
+
+@router.delete("/block/{target_id}")
+async def unblock_entity(
+    target_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unblock an entity."""
+    existing = await db.scalar(
+        select(EntityBlock).where(
+            EntityBlock.blocker_id == current_entity.id,
+            EntityBlock.blocked_id == target_id,
+        )
+    )
+    if not existing:
+        raise HTTPException(
+            status_code=404, detail="Not blocked"
+        )
+
+    await db.delete(existing)
+    await db.flush()
+    return {"message": "Unblocked"}
+
+
+@router.get("/blocked")
+async def list_blocked(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List entities blocked by the current user."""
+    result = await db.execute(
+        select(EntityBlock, Entity)
+        .join(Entity, EntityBlock.blocked_id == Entity.id)
+        .where(EntityBlock.blocker_id == current_entity.id)
+        .order_by(EntityBlock.created_at.desc())
+    )
+    rows = result.all()
+
+    return {
+        "blocked": [
+            {
+                "entity_id": str(block.blocked_id),
+                "display_name": entity.display_name,
+                "type": entity.type.value,
+                "blocked_at": block.created_at.isoformat(),
+            }
+            for block, entity in rows
+        ],
+        "count": len(rows),
     }

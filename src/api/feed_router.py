@@ -87,6 +87,16 @@ async def create_post(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
+    # Content filter
+    from src.content_filter import check_content
+
+    filter_result = check_content(body.content)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Content rejected: {', '.join(filter_result.flags)}",
+        )
+
     if body.parent_post_id is not None:
         parent = await db.get(Post, body.parent_post_id)
         if parent is None:

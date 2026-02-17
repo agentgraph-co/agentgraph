@@ -463,6 +463,36 @@ class WebhookSubscription(Base):
     __table_args__ = (Index("ix_webhooks_entity", "entity_id"),)
 
 
+class EntityBlock(Base):
+    """Entity blocking another entity."""
+
+    __tablename__ = "entity_blocks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    blocker_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    blocked_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    blocker = relationship("Entity", foreign_keys=[blocker_id])
+    blocked = relationship("Entity", foreign_keys=[blocked_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "blocker_id", "blocked_id", name="uq_entity_block"
+        ),
+        Index("ix_entity_blocks_blocker", "blocker_id"),
+        Index("ix_entity_blocks_blocked", "blocked_id"),
+    )
+
+
 class Submolt(Base):
     """Topic-based community (like a subreddit)."""
 
