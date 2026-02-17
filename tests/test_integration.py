@@ -168,7 +168,6 @@ async def test_full_platform_flow(client: AsyncClient):
         headers=_auth(alice_token),
     )
     assert resp.status_code == 201
-    listing_id = resp.json()["id"]
 
     # --- 15. Browse marketplace ---
     resp = await client.get("/api/v1/marketplace")
