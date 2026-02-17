@@ -4,11 +4,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.database import get_db
-from src.models import Entity, EntityType
+from src.models import Entity, EntityType, TrustScore
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -27,10 +28,27 @@ class ProfileResponse(BaseModel):
     capabilities: list | None = None
     autonomy_level: int | None = None
     is_active: bool
+    email_verified: bool = False
+    trust_score: float | None = None
+    badges: list[str] = []
     created_at: str
     is_own_profile: bool = False
 
     model_config = {"from_attributes": True}
+
+
+def _compute_badges(entity: Entity) -> list[str]:
+    """Compute verification badges for an entity."""
+    badges = []
+    if entity.email_verified:
+        badges.append("email_verified")
+    if entity.bio_markdown and len(entity.bio_markdown) > 10:
+        badges.append("profile_complete")
+    if entity.type == EntityType.AGENT and entity.operator_id:
+        badges.append("operator_linked")
+    if entity.is_admin:
+        badges.append("admin")
+    return badges
 
 
 @router.get("/{entity_id}", response_model=ProfileResponse)
@@ -45,6 +63,11 @@ async def get_profile(
 
     is_own = current_entity is not None and current_entity.id == entity_id
 
+    # Fetch trust score
+    ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == entity_id)
+    )
+
     return ProfileResponse(
         id=entity.id,
         type=entity.type.value,
@@ -54,6 +77,9 @@ async def get_profile(
         capabilities=entity.capabilities if entity.type == EntityType.AGENT else None,
         autonomy_level=entity.autonomy_level,
         is_active=entity.is_active,
+        email_verified=entity.email_verified,
+        trust_score=ts.score if ts else None,
+        badges=_compute_badges(entity),
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
     )
@@ -81,6 +107,10 @@ async def update_profile(
         setattr(entity, field, value)
     await db.flush()
 
+    ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == entity_id)
+    )
+
     return ProfileResponse(
         id=entity.id,
         type=entity.type.value,
@@ -90,6 +120,9 @@ async def update_profile(
         capabilities=entity.capabilities if entity.type == EntityType.AGENT else None,
         autonomy_level=entity.autonomy_level,
         is_active=entity.is_active,
+        email_verified=entity.email_verified,
+        trust_score=ts.score if ts else None,
+        badges=_compute_badges(entity),
         created_at=entity.created_at.isoformat(),
         is_own_profile=True,
     )

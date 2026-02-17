@@ -63,7 +63,23 @@ app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
 @app.get("/health")
 async def health_check() -> dict:
-    return {"status": "ok", "service": settings.app_name}
+    """Health check with database connectivity verification."""
+    from sqlalchemy import text
+
+    from src.database import async_session
+
+    health = {"status": "ok", "service": settings.app_name, "checks": {}}
+
+    # Check database
+    try:
+        async with async_session() as db:
+            await db.execute(text("SELECT 1"))
+        health["checks"]["database"] = "ok"
+    except Exception:
+        health["checks"]["database"] = "error"
+        health["status"] = "degraded"
+
+    return health
 
 
 @app.get(f"{settings.api_v1_prefix}/ping")
