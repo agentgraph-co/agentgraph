@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
 
+    # CORS
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
     # Rate limiting
     rate_limit_reads_per_minute: int = 100
     rate_limit_writes_per_minute: int = 20

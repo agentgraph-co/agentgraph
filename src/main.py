@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
+from src.api.did_router import router as did_router
 from src.api.feed_router import router as feed_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
@@ -23,9 +25,18 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
+app.include_router(did_router, prefix=settings.api_v1_prefix)
 app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
