@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.activity_router import router as activity_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
@@ -10,6 +11,7 @@ from src.api.did_router import router as did_router
 from src.api.feed_router import router as feed_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
+from src.api.notification_router import router as notification_router
 from src.api.profile_router import router as profile_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
@@ -33,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
@@ -45,6 +48,7 @@ app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
+app.include_router(notification_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")
