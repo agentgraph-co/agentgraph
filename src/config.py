@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_reads_per_minute: int = 100
     rate_limit_writes_per_minute: int = 20
+    rate_limit_auth_per_minute: int = 5
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

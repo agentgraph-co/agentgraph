@@ -172,7 +172,11 @@ async def test_social_stats(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_auth_rate_limit(client: AsyncClient):
-    """Auth endpoints should block after 5 attempts per minute."""
+    """Auth endpoints should block after limit is hit."""
+    from src.config import settings
+
+    settings.rate_limit_auth_per_minute = 5
+
     for i in range(5):
         await client.post(
             LOGIN_URL,

@@ -65,9 +65,9 @@ async def rate_limit_writes(request: Request) -> None:
 
 
 async def rate_limit_auth(request: Request) -> None:
-    """Stricter limit for auth endpoints: 5/min per IP."""
+    """Stricter limit for auth endpoints."""
     ip = _get_client_ip(request)
-    if not _limiter.check(f"auth:{ip}", 5):
+    if not _limiter.check(f"auth:{ip}", settings.rate_limit_auth_per_minute):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many attempts. Try again later.",
