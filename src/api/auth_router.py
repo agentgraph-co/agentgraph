@@ -7,10 +7,12 @@ from src.api.auth_service import (
     authenticate_human,
     create_access_token,
     create_refresh_token,
+    create_verification_token,
     decode_token,
     get_entity_by_email,
     get_entity_by_id,
     register_human,
+    verify_email_token,
 )
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_auth
@@ -44,8 +46,14 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
             detail="Registration failed",
         )
 
-    await register_human(db, body.email, body.password, body.display_name)
-    return MessageResponse(message="Registration successful. Please verify your email.")
+    entity = await register_human(db, body.email, body.password, body.display_name)
+    verification_token = await create_verification_token(db, entity.id)
+
+    # In production, send email with verification link.
+    # For dev/test, return the token in the response.
+    return MessageResponse(
+        message=f"Registration successful. Verification token: {verification_token}",
+    )
 
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit_auth)])
@@ -94,3 +102,37 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=EntityResponse)
 async def get_me(current_entity: Entity = Depends(get_current_entity)):
     return current_entity
+
+
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    """Verify email address using the token from registration."""
+    entity = await verify_email_token(db, token)
+    if entity is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token",
+        )
+    return MessageResponse(message="Email verified successfully")
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+async def resend_verification(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resend email verification token."""
+    if current_entity.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already verified",
+        )
+
+    token = await create_verification_token(db, current_entity.id)
+    return MessageResponse(
+        message=f"Verification token: {token}",
+    )

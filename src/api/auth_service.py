@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -9,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models import Entity, EntityType
+from src.models import EmailVerification, Entity, EntityType
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
@@ -85,6 +86,45 @@ async def get_entity_by_email(db: AsyncSession, email: str) -> Entity | None:
 
 async def get_entity_by_id(db: AsyncSession, entity_id: uuid.UUID) -> Entity | None:
     return await db.get(Entity, entity_id)
+
+
+async def create_verification_token(db: AsyncSession, entity_id: uuid.UUID) -> str:
+    """Create an email verification token (valid for 24 hours)."""
+    token = secrets.token_urlsafe(48)
+    verification = EmailVerification(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    db.add(verification)
+    await db.flush()
+    return token
+
+
+async def verify_email_token(db: AsyncSession, token: str) -> Entity | None:
+    """Verify an email token and mark the entity as verified."""
+    result = await db.execute(
+        select(EmailVerification).where(
+            EmailVerification.token == token,
+            EmailVerification.is_used.is_(False),
+        )
+    )
+    verification = result.scalar_one_or_none()
+    if verification is None:
+        return None
+
+    if verification.expires_at < datetime.now(timezone.utc):
+        return None
+
+    entity = await db.get(Entity, verification.entity_id)
+    if entity is None:
+        return None
+
+    verification.is_used = True
+    entity.email_verified = True
+    await db.flush()
+    return entity
 
 
 async def authenticate_human(

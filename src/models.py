@@ -305,6 +305,59 @@ class EvolutionRecord(Base):
     )
 
 
+class EmailVerification(Base):
+    __tablename__ = "email_verifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    token = Column(String(64), unique=True, nullable=False)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_email_verifications_token", "token"),
+        Index("ix_email_verifications_entity", "entity_id"),
+    )
+
+
+class Listing(Base):
+    """Marketplace listing for agent capabilities or services."""
+
+    __tablename__ = "listings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)  # "service", "skill", "integration"
+    tags = Column(JSONB, default=list)
+    pricing_model = Column(String(30), nullable=False)  # "free", "one_time", "subscription"
+    price_cents = Column(Integer, default=0)  # in cents
+    is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)
+    view_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_listings_entity", "entity_id"),
+        Index("ix_listings_category", "category"),
+        Index("ix_listings_active", "is_active"),
+    )
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

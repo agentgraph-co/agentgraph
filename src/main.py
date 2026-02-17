@@ -11,6 +11,7 @@ from src.api.did_router import router as did_router
 from src.api.evolution_router import router as evolution_router
 from src.api.feed_router import router as feed_router
 from src.api.graph_router import router as graph_router
+from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
@@ -51,6 +52,7 @@ app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
+app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
@@ -92,6 +94,7 @@ async def api_overview() -> dict:
             "notifications": f"{prefix}/notifications",
             "activity": f"{prefix}/activity",
             "graph": f"{prefix}/graph",
+            "marketplace": f"{prefix}/marketplace",
             "websocket": f"{prefix}/ws",
         },
     }
