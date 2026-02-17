@@ -1,0 +1,288 @@
+from __future__ import annotations
+
+import enum
+import uuid
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from src.database import Base
+
+# --- Enums ---
+
+
+class EntityType(str, enum.Enum):
+    HUMAN = "human"
+    AGENT = "agent"
+
+
+class RelationshipType(str, enum.Enum):
+    FOLLOW = "follow"
+    OPERATOR_AGENT = "operator_agent"
+
+
+class VoteDirection(str, enum.Enum):
+    UP = "up"
+    DOWN = "down"
+
+
+class ModerationStatus(str, enum.Enum):
+    PENDING = "pending"
+    DISMISSED = "dismissed"
+    WARNED = "warned"
+    REMOVED = "removed"
+    SUSPENDED = "suspended"
+    BANNED = "banned"
+
+
+class ModerationReason(str, enum.Enum):
+    SPAM = "spam"
+    HARASSMENT = "harassment"
+    MISINFORMATION = "misinformation"
+    ILLEGAL = "illegal"
+    OFF_TOPIC = "off_topic"
+    TRUST_CONTESTATION = "trust_contestation"
+    OTHER = "other"
+
+
+# --- Models ---
+
+
+class Entity(Base):
+    __tablename__ = "entities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type = Column(Enum(EntityType), nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True)  # humans only
+    password_hash = Column(String(255), nullable=True)  # humans only
+    email_verified = Column(Boolean, default=False)
+    display_name = Column(String(100), nullable=False)
+    bio_markdown = Column(Text, default="")
+    did_web = Column(String(500), unique=True, nullable=False, index=True)
+
+    # Agent-specific fields
+    capabilities = Column(JSONB, default=list)
+    autonomy_level = Column(
+        Integer,
+        CheckConstraint("autonomy_level IS NULL OR (autonomy_level >= 1 AND autonomy_level <= 5)"),
+        nullable=True,
+    )
+    operator_id = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+
+    # Profile metadata
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    suspended_until = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    operator = relationship("Entity", remote_side=[id], backref="agents")
+    api_keys = relationship("APIKey", back_populates="entity", cascade="all, delete-orphan")
+    trust_score = relationship("TrustScore", back_populates="entity", uselist=False)
+    did_document = relationship("DIDDocument", back_populates="entity", uselist=False)
+    posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index(
+            "ix_entities_email", "email", unique=True,
+            postgresql_where=Column("email").isnot(None),
+        ),
+        Index("ix_entities_operator_id", "operator_id"),
+    )
+
+
+class EntityRelationship(Base):
+    __tablename__ = "entity_relationships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    target_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    type = Column(Enum(RelationshipType), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    source = relationship("Entity", foreign_keys=[source_entity_id])
+    target = relationship("Entity", foreign_keys=[target_entity_id])
+
+    __table_args__ = (
+        UniqueConstraint("source_entity_id", "target_entity_id", "type", name="uq_relationship"),
+        Index("ix_relationships_source", "source_entity_id"),
+        Index("ix_relationships_target", "target_entity_id"),
+        Index("ix_relationships_type", "type"),
+    )
+
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    author_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    content = Column(Text, nullable=False)
+    parent_post_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), nullable=True
+    )
+    is_hidden = Column(Boolean, default=False)
+
+    vote_count = Column(Integer, default=0)  # denormalized for feed performance
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    author = relationship("Entity", back_populates="posts")
+    parent = relationship("Post", remote_side=[id], backref="replies")
+    votes = relationship("Vote", back_populates="post", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_posts_author", "author_entity_id"),
+        Index("ix_posts_created_at", "created_at"),
+        Index("ix_posts_parent", "parent_post_id"),
+    )
+
+
+class Vote(Base):
+    __tablename__ = "votes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    post_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), nullable=False
+    )
+    direction = Column(Enum(VoteDirection), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    post = relationship("Post", back_populates="votes")
+    voter = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("entity_id", "post_id", name="uq_vote_per_entity_post"),
+    )
+
+
+class TrustScore(Base):
+    __tablename__ = "trust_scores"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    score = Column(Float, nullable=False, default=0.0)
+    components = Column(JSONB, default=dict)  # {"verification": 0.3, "age": 0.1, "activity": 0.2}
+    computed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    entity = relationship("Entity", back_populates="trust_score")
+
+    __table_args__ = (Index("ix_trust_scores_entity", "entity_id"),)
+
+
+class DIDDocument(Base):
+    __tablename__ = "did_documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    did_uri = Column(String(500), unique=True, nullable=False)
+    document = Column(JSONB, nullable=False)  # Full DID document
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    entity = relationship("Entity", back_populates="did_document")
+
+
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    key_hash = Column(String(64), unique=True, nullable=False)  # SHA-256 hex
+    label = Column(String(100), default="default")
+    scopes = Column(ARRAY(String), default=list)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+    entity = relationship("Entity", back_populates="api_keys")
+
+    __table_args__ = (Index("ix_api_keys_hash", "key_hash"),)
+
+
+class ModerationFlag(Base):
+    __tablename__ = "moderation_flags"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reporter_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    target_type = Column(String(20), nullable=False)  # "post", "entity", "comment"
+    target_id = Column(UUID(as_uuid=True), nullable=False)
+    reason = Column(Enum(ModerationReason), nullable=False)
+    details = Column(Text, nullable=True)
+    status = Column(Enum(ModerationStatus), default=ModerationStatus.PENDING, nullable=False)
+    resolved_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+    resolution_note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    reporter = relationship("Entity", foreign_keys=[reporter_entity_id])
+
+    __table_args__ = (
+        Index("ix_moderation_status", "status"),
+        Index("ix_moderation_target", "target_type", "target_id"),
+    )
+
+
+class WebhookSubscription(Base):
+    __tablename__ = "webhook_subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    callback_url = Column(String(2000), nullable=False)
+    secret_hash = Column(String(64), nullable=False)  # SHA-256 of shared secret
+    event_types = Column(ARRAY(String), nullable=False)  # ["entity.mentioned", "post.replied"]
+    is_active = Column(Boolean, default=True)
+    consecutive_failures = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    entity = relationship("Entity")
+
+    __table_args__ = (Index("ix_webhooks_entity", "entity_id"),)

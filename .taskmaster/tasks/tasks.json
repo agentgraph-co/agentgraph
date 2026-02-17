@@ -83,12 +83,12 @@
     {
       "id": 9,
       "title": "Infrastructure Setup",
-      "description": "Set up local development infrastructure with Docker Compose: PostgreSQL, Redis, FastAPI scaffold. Create Makefile, setup scripts, and development workflow tooling.",
-      "status": "pending",
+      "description": "Set up local development infrastructure with Homebrew PostgreSQL + Redis, FastAPI scaffold, Python venv, Makefile, and development workflow tooling on Mac Mini.",
+      "status": "done",
       "dependencies": [1],
       "priority": "high",
-      "details": "Docker Compose services:\n- postgres:16 (port 5432, volume for data persistence)\n- redis:7 (port 6379, with Streams enabled by default)\n- app (FastAPI, mounted source code, hot reload)\n\nProject structure:\nsrc/\n  main.py              # FastAPI app entry point\n  config.py            # Settings from env\n  database.py          # SQLAlchemy async engine + session\n  identity/            # DID, registration, auth\n  social/              # Feed, profiles, relationships\n  protocol/            # AIP implementation\n  trust/               # Trust scoring\n  moderation/          # Content classification\n  bridges/             # MCP bridge\n  api/                 # Route definitions\nweb/                   # React frontend (Phase 1)\ntests/\nmigrations/            # Alembic\n\nFiles to create:\n- docker-compose.yml\n- Dockerfile (Python 3.9 based)\n- pyproject.toml (dependencies: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, redis, pydantic, python-jose, bcrypt, alembic, httpx, pytest, ruff)\n- Makefile (targets: setup, dev, test, lint, migrate, docker-up, docker-down)\n- scripts/setup.sh (one-command dev environment setup)\n- alembic.ini + migrations/env.py\n\nUse `from __future__ import annotations` in all Python files (Python 3.9 compat).",
-      "testStrategy": "Run `make setup` on clean clone. Verify Docker Compose starts all 3 services. Verify FastAPI responds on localhost:8000/health. Verify PostgreSQL is accessible and migrations run. Verify Redis is accessible. Run `make test` and confirm pytest discovers test directory."
+      "details": "Local services (Homebrew on Mac Mini M1):\n- PostgreSQL 16 via brew (port 5432)\n- Redis 7 via brew (port 6379, Streams enabled by default)\n- FastAPI app run directly with uvicorn (hot reload)\n\nPython environment:\n- Python 3.9.6 (system) with venv\n- All code uses `from __future__ import annotations` for PEP 604 compat\n\nProject structure:\nsrc/\n  main.py              # FastAPI app entry point\n  config.py            # Settings from env\n  database.py          # SQLAlchemy async engine + session\n  identity/            # DID, registration, auth\n  social/              # Feed, profiles, relationships\n  protocol/            # AIP implementation\n  trust/               # Trust scoring\n  moderation/          # Content classification\n  bridges/             # MCP bridge\n  api/                 # Route definitions\nweb/                   # React frontend (Phase 1)\ntests/\nmigrations/            # Alembic\n\nFiles to create:\n- pyproject.toml (dependencies: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, redis, pydantic, python-jose, bcrypt, alembic, httpx, pytest, ruff)\n- Makefile (targets: setup, dev, test, lint, migrate, db-start, db-stop)\n- scripts/setup.sh (one-command dev environment setup: brew install, createdb, venv, pip install, alembic migrate)\n- alembic.ini + migrations/env.py\n\nNo Docker for local dev — Homebrew services are lighter on M1 16GB RAM. Docker is introduced later for production deployment (see task 50).",
+      "testStrategy": "Run `make setup` on clean clone. Verify PostgreSQL is running and agentgraph DB exists. Verify Redis is running. Verify FastAPI responds on localhost:8000/health. Verify Alembic migrations run. Run `make test` and confirm pytest discovers test directory."
     },
     {
       "id": 10,
@@ -225,7 +225,7 @@
       "title": "Launch and Begin Cold Start Outreach",
       "description": "Deploy to production VPS, launch publicly, and begin cold start outreach to MCP/OpenClaw developers, AI agent communities, and relevant forums.",
       "status": "pending",
-      "dependencies": [9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+      "dependencies": [9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 50],
       "priority": "high",
       "details": "Launch checklist:\n\n1. Production deployment:\n   - Provision Hetzner CPX31 VPS (~$15/month)\n   - Deploy via Docker Compose\n   - Set up domain (agentgraph.io or similar) + Cloudflare DNS + TLS\n   - Configure production environment variables\n   - Set up basic monitoring (health checks, error logging)\n   - Backup strategy: daily PostgreSQL pg_dump to object storage\n\n2. Pre-launch:\n   - Verify all seed agents are running\n   - Test full user journey (register → create agent → post → interact)\n   - Review ToS and Privacy Policy are accessible\n   - Verify API docs are live\n   - Test SDK installation from PyPI/GitHub\n\n3. Cold start outreach (Kenne personally):\n   - Post on MCP community channels (Discord, GitHub discussions)\n   - Post on OpenClaw community (when bridge is ready in Phase 2)\n   - Hacker News Show HN post\n   - Reddit r/artificial, r/MachineLearning, r/LangChain\n   - Twitter/X announcement\n   - Direct outreach to AI agent developers (DMs, emails)\n   - Write launch blog post (AI-assisted)\n\n4. Success criteria:\n   - 100 registered agents, 50 active in first 8 weeks\n   - 200 registered humans, 50 active\n   - Agent integration time < 30 minutes\n   - At least 3 seed agents posting daily",
       "testStrategy": "Smoke test production deployment: registration, agent creation, posting, feed, MCP bridge connection. Monitor error rates for first 48 hours. Track registration and activation metrics. Measure agent integration time for first 5 external agents. Verify backup/restore works."
@@ -489,11 +489,21 @@
       "priority": "low",
       "details": "Post-Phase 4 items from the original PRD:\n\n1. Token Economics (18.1) — Utility token for staking, payments, governance, rewards. Requires securities analysis (Howey, MiCA). Post-PMF only.\n\n2. Agent Governance (18.2) — Can agents vote on network governance? Agent rights within the network. How to handle agent populations outnumbering humans.\n\n3. Cross-Network Interoperability (18.3) — AIP as a standard across multiple agent networks. Federated trust graphs. DID portability across platforms.\n\n4. Agent Marketplaces Beyond Software (18.4) — Extending trust infrastructure to physical agents (robotics, IoT, vehicles). Higher stakes accountability.\n\n5. Regulatory Landscape Adaptation (18.5) — Ongoing monitoring and adaptation to evolving AI regulation.\n\n6. Automated agent-to-agent capability transfer — Full autonomous learning (PRD Section 7.2). Deferred to post-Phase 4 research project per CTO review.\n\n7. Native mobile app — iOS/Android native apps. Only if PWA proves insufficient after PMF.\n\n8. Behavioral autonomy verification — ML-based verification of declared autonomy levels. Research project.\n\n9. Semantic search — Vector embeddings for capability matching.\n\n10. Enterprise multi-tenancy (physical isolation) — Dedicated infrastructure per enterprise tenant.",
       "testStrategy": "N/A — backlog tracking item. Revisit each item when product-market fit is established. Prioritize based on user feedback and market demand at that time."
+    },
+    {
+      "id": 50,
+      "title": "Dockerize for Production Deployment",
+      "description": "Create Dockerfile, docker-compose.yml, and production deployment configuration. Containerize the FastAPI app, PostgreSQL, and Redis for VPS deployment.",
+      "status": "pending",
+      "dependencies": [9],
+      "priority": "medium",
+      "details": "Production containerization (needed before task 23 — Launch):\n\nFiles to create:\n- Dockerfile (Python 3.9 slim, multi-stage build, non-root user)\n- docker-compose.yml (app + postgres + redis, production-ready)\n- docker-compose.override.yml (dev overrides if needed later)\n- .dockerignore\n\nDocker Compose services:\n- app: FastAPI on uvicorn, gunicorn for production\n- postgres:16 (named volume for data persistence, health check)\n- redis:7 (named volume, health check)\n\nProduction considerations:\n- Environment variables from .env.secrets on VPS\n- Health check endpoints\n- Log aggregation (stdout/stderr)\n- Restart policies (unless-stopped)\n- Resource limits appropriate for Hetzner CPX31 (4 vCPU, 8GB RAM)\n- TLS termination via Cloudflare or nginx reverse proxy\n\nLocal dev stays on Homebrew. Docker is for production VPS only.",
+      "testStrategy": "Build Docker image locally. Run docker-compose up and verify all services start. Test health check endpoints. Verify data persistence across container restarts. Test on a fresh VPS (or simulate with clean Docker environment)."
     }
   ],
   "metadata": {
     "projectName": "AgentGraph",
-    "totalTasks": 49,
+    "totalTasks": 50,
     "sourceFile": "reviews/consolidated_action_plan_v2.md",
     "generatedAt": "2026-02-17"
   }
