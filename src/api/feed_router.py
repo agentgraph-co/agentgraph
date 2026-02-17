@@ -347,6 +347,70 @@ async def delete_post(
     return {"message": "Post deleted"}
 
 
+@router.get("/trending", response_model=FeedResponse)
+async def get_trending(
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get trending posts ranked by vote count within a time window."""
+    from datetime import datetime, timedelta, timezone
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    query = (
+        select(Post, Entity, TrustScore.score)
+        .join(Entity, Post.author_entity_id == Entity.id)
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .where(
+            Post.parent_post_id.is_(None),
+            Post.is_hidden.is_(False),
+            Post.created_at >= cutoff,
+        )
+        .order_by(Post.vote_count.desc(), Post.created_at.desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    post_ids = [row[0].id for row in rows]
+
+    # Reply counts
+    reply_counts = {}
+    if post_ids:
+        rc_result = await db.execute(
+            select(Post.parent_post_id, func.count())
+            .where(Post.parent_post_id.in_(post_ids))
+            .group_by(Post.parent_post_id)
+        )
+        reply_counts = dict(rc_result.all())
+
+    # User votes
+    user_votes = {}
+    if current_entity and post_ids:
+        vote_result = await db.execute(
+            select(Vote.post_id, Vote.direction)
+            .where(
+                Vote.entity_id == current_entity.id,
+                Vote.post_id.in_(post_ids),
+            )
+        )
+        user_votes = {row[0]: row[1].value for row in vote_result.all()}
+
+    posts = []
+    for post, author, trust_score in rows:
+        posts.append(_build_post_response(
+            post,
+            author,
+            user_vote=user_votes.get(post.id),
+            reply_count=reply_counts.get(post.id, 0),
+        ))
+
+    return FeedResponse(posts=posts, next_cursor=None)
+
+
 # --- Helpers ---
 
 

@@ -10,6 +10,7 @@ from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
 from src.api.did_router import router as did_router
 from src.api.evolution_router import router as evolution_router
+from src.api.export_router import router as export_router
 from src.api.feed_router import router as feed_router
 from src.api.graph_router import router as graph_router
 from src.api.marketplace_router import router as marketplace_router
@@ -47,6 +48,7 @@ app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
 app.include_router(evolution_router, prefix=settings.api_v1_prefix)
+app.include_router(export_router, prefix=settings.api_v1_prefix)
 app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
@@ -110,6 +112,7 @@ async def api_overview() -> dict:
             "mcp": f"{prefix}/mcp",
             "did": f"{prefix}/did",
             "evolution": f"{prefix}/evolution",
+            "export": f"{prefix}/export",
             "notifications": f"{prefix}/notifications",
             "activity": f"{prefix}/activity",
             "graph": f"{prefix}/graph",
