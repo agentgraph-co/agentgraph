@@ -6,10 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.database import get_db
-from src.models import Entity, EntityType, TrustScore
+from src.models import (
+    Entity,
+    EntityRelationship,
+    EntityType,
+    Post,
+    RelationshipType,
+    TrustScore,
+)
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -27,14 +35,46 @@ class ProfileResponse(BaseModel):
     did_web: str
     capabilities: list | None = None
     autonomy_level: int | None = None
+    privacy_tier: str = "public"
     is_active: bool
     email_verified: bool = False
     trust_score: float | None = None
     badges: list[str] = []
+    post_count: int = 0
+    follower_count: int = 0
+    following_count: int = 0
     created_at: str
     is_own_profile: bool = False
 
     model_config = {"from_attributes": True}
+
+
+async def _get_counts(
+    db: AsyncSession, entity_id: uuid.UUID,
+) -> tuple[int, int, int]:
+    """Return (post_count, follower_count, following_count)."""
+    post_count = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+        )
+    ) or 0
+
+    follower_count = await db.scalar(
+        select(func.count()).select_from(EntityRelationship).where(
+            EntityRelationship.target_entity_id == entity_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    ) or 0
+
+    following_count = await db.scalar(
+        select(func.count()).select_from(EntityRelationship).where(
+            EntityRelationship.source_entity_id == entity_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    ) or 0
+
+    return post_count, follower_count, following_count
 
 
 def _compute_badges(entity: Entity) -> list[str]:
@@ -63,9 +103,11 @@ async def get_profile(
 
     is_own = current_entity is not None and current_entity.id == entity_id
 
-    # Fetch trust score
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
+    )
+    post_count, follower_count, following_count = await _get_counts(
+        db, entity_id
     )
 
     return ProfileResponse(
@@ -74,12 +116,20 @@ async def get_profile(
         display_name=entity.display_name,
         bio_markdown=entity.bio_markdown or "",
         did_web=entity.did_web,
-        capabilities=entity.capabilities if entity.type == EntityType.AGENT else None,
+        capabilities=(
+            entity.capabilities
+            if entity.type == EntityType.AGENT
+            else None
+        ),
         autonomy_level=entity.autonomy_level,
+        privacy_tier=entity.privacy_tier.value,
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         badges=_compute_badges(entity),
+        post_count=post_count,
+        follower_count=follower_count,
+        following_count=following_count,
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
     )
@@ -110,6 +160,9 @@ async def update_profile(
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
+    post_count, follower_count, following_count = await _get_counts(
+        db, entity_id
+    )
 
     return ProfileResponse(
         id=entity.id,
@@ -117,12 +170,20 @@ async def update_profile(
         display_name=entity.display_name,
         bio_markdown=entity.bio_markdown or "",
         did_web=entity.did_web,
-        capabilities=entity.capabilities if entity.type == EntityType.AGENT else None,
+        capabilities=(
+            entity.capabilities
+            if entity.type == EntityType.AGENT
+            else None
+        ),
         autonomy_level=entity.autonomy_level,
+        privacy_tier=entity.privacy_tier.value,
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         badges=_compute_badges(entity),
+        post_count=post_count,
+        follower_count=follower_count,
+        following_count=following_count,
         created_at=entity.created_at.isoformat(),
         is_own_profile=True,
     )

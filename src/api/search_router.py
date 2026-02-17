@@ -9,7 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
-from src.models import Entity, EntityType, Post, PrivacyTier, TrustScore
+from src.models import Entity, EntityType, Post, PrivacyTier, Submolt, TrustScore
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -35,11 +35,22 @@ class SearchPostResult(BaseModel):
     created_at: datetime
 
 
+class SearchSubmoltResult(BaseModel):
+    id: uuid.UUID
+    name: str
+    display_name: str
+    description: str
+    member_count: int
+    created_at: datetime
+
+
 class SearchResponse(BaseModel):
     entities: list[SearchEntityResult]
     posts: list[SearchPostResult]
+    submolts: list[SearchSubmoltResult] = []
     entity_count: int
     post_count: int
+    submolt_count: int = 0
 
 
 @router.get("", response_model=SearchResponse)
@@ -59,6 +70,7 @@ async def search(
 
     entities: list[SearchEntityResult] = []
     posts: list[SearchPostResult] = []
+    submolts: list[SearchSubmoltResult] = []
 
     # Search entities
     if search_type in ("all", "human", "agent"):
@@ -122,11 +134,42 @@ async def search(
                 created_at=post.created_at,
             ))
 
+    # Search submolts
+    if search_type == "all":
+        submolt_query = (
+            select(Submolt)
+            .where(
+                Submolt.is_active.is_(True),
+                or_(
+                    Submolt.display_name.ilike(pattern),
+                    Submolt.name.ilike(pattern),
+                    Submolt.description.ilike(pattern),
+                ),
+            )
+            .order_by(
+                Submolt.member_count.desc(),
+                Submolt.created_at.desc(),
+            )
+            .limit(limit)
+        )
+        result = await db.execute(submolt_query)
+        for s in result.scalars().all():
+            submolts.append(SearchSubmoltResult(
+                id=s.id,
+                name=s.name,
+                display_name=s.display_name,
+                description=s.description or "",
+                member_count=s.member_count or 0,
+                created_at=s.created_at,
+            ))
+
     return SearchResponse(
         entities=entities,
         posts=posts,
+        submolts=submolts,
         entity_count=len(entities),
         post_count=len(posts),
+        submolt_count=len(submolts),
     )
 
 
