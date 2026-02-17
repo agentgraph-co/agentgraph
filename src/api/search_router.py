@@ -9,7 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
-from src.models import Entity, EntityType, Post, TrustScore
+from src.models import Entity, EntityType, Post, PrivacyTier, TrustScore
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -67,6 +67,7 @@ async def search(
             .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
             .where(
                 Entity.is_active.is_(True),
+                Entity.privacy_tier == PrivacyTier.PUBLIC,
                 or_(
                     Entity.display_name.ilike(pattern),
                     Entity.bio_markdown.ilike(pattern),
@@ -144,6 +145,7 @@ async def search_entities(
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(
             Entity.is_active.is_(True),
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
             or_(
                 Entity.display_name.ilike(pattern),
                 Entity.bio_markdown.ilike(pattern),

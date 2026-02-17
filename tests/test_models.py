@@ -258,6 +258,8 @@ async def test_all_tables_exist(db: AsyncSession):
         "moderation_flags",
         "notifications",
         "posts",
+        "submolt_memberships",
+        "submolts",
         "trust_scores",
         "votes",
         "webhook_subscriptions",

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
-from src.models import Entity, Post, TrustScore, Vote, VoteDirection
+from src.models import Entity, Post, Submolt, TrustScore, Vote, VoteDirection
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/feed", tags=["feed"])
 class CreatePostRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
     parent_post_id: uuid.UUID | None = None
+    submolt_id: uuid.UUID | None = None
 
 
 class VoteRequest(BaseModel):
@@ -42,6 +43,7 @@ class PostResponse(BaseModel):
     content: str
     author: PostAuthor
     parent_post_id: uuid.UUID | None
+    submolt_id: uuid.UUID | None = None
     vote_count: int
     reply_count: int = 0
     user_vote: str | None = None  # "up", "down", or None
@@ -81,11 +83,17 @@ async def create_post(
         if parent is None:
             raise HTTPException(status_code=404, detail="Parent post not found")
 
+    if body.submolt_id is not None:
+        submolt = await db.get(Submolt, body.submolt_id)
+        if submolt is None or not submolt.is_active:
+            raise HTTPException(status_code=404, detail="Submolt not found")
+
     post = Post(
         id=uuid.uuid4(),
         author_entity_id=current_entity.id,
         content=body.content,
         parent_post_id=body.parent_post_id,
+        submolt_id=body.submolt_id,
     )
     db.add(post)
     await db.flush()
@@ -437,6 +445,7 @@ def _build_post_response(
             did_web=author.did_web,
         ),
         parent_post_id=post.parent_post_id,
+        submolt_id=post.submolt_id,
         vote_count=post.vote_count,
         reply_count=reply_count,
         user_vote=user_vote,

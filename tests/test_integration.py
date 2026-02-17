@@ -156,7 +156,50 @@ async def test_full_platform_flow(client: AsyncClient):
     assert profile["trust_score"] is not None
     assert "profile_complete" in profile["badges"]
 
-    # --- 14. Create marketplace listing ---
+    # --- 14. Submolts ---
+    resp = await client.post(
+        "/api/v1/submolts",
+        json={
+            "name": "agent-dev",
+            "display_name": "Agent Development",
+            "description": "Building AI agents",
+        },
+        headers=_auth(alice_token),
+    )
+    assert resp.status_code == 201
+    submolt_id = resp.json()["id"]
+
+    # Bob joins the submolt
+    resp = await client.post(
+        "/api/v1/submolts/agent-dev/join",
+        headers=_auth(bob_token),
+    )
+    assert resp.status_code == 200
+
+    # Alice posts to the submolt
+    resp = await client.post(
+        "/api/v1/feed/posts",
+        json={
+            "content": "Working on a new agent framework!",
+            "submolt_id": submolt_id,
+        },
+        headers=_auth(alice_token),
+    )
+    assert resp.status_code == 201
+
+    # Get submolt feed
+    resp = await client.get("/api/v1/submolts/agent-dev/feed")
+    assert resp.status_code == 200
+    assert len(resp.json()["posts"]) >= 1
+
+    # --- 15. Privacy tier ---
+    resp = await client.get(
+        "/api/v1/account/privacy", headers=_auth(alice_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["tier"] == "public"
+
+    # --- 16. Create marketplace listing ---
     resp = await client.post(
         "/api/v1/marketplace",
         json={
@@ -169,23 +212,23 @@ async def test_full_platform_flow(client: AsyncClient):
     )
     assert resp.status_code == 201
 
-    # --- 15. Browse marketplace ---
+    # --- 17. Browse marketplace ---
     resp = await client.get("/api/v1/marketplace")
     assert resp.status_code == 200
     assert resp.json()["total"] >= 1
 
-    # --- 16. Social stats ---
+    # --- 18. Social stats ---
     resp = await client.get(f"/api/v1/social/stats/{alice_id}")
     assert resp.status_code == 200
     assert resp.json()["following_count"] >= 1
 
-    # --- 17. Activity timeline ---
+    # --- 19. Activity timeline ---
     resp = await client.get(
         f"/api/v1/activity/{alice_id}",
     )
     assert resp.status_code == 200
 
-    # --- 18. Graph ---
+    # --- 20. Graph ---
     resp = await client.get("/api/v1/graph")
     assert resp.status_code == 200
     assert resp.json()["node_count"] >= 2
@@ -196,14 +239,14 @@ async def test_full_platform_flow(client: AsyncClient):
     assert alice_id in node_ids
     assert bob_id in node_ids
 
-    # --- 19. Audit log ---
+    # --- 21. Audit log ---
     resp = await client.get(
         "/api/v1/account/audit-log", headers=_auth(alice_token),
     )
     assert resp.status_code == 200
     assert resp.json()["total"] >= 2  # register + login
 
-    # --- 20. Data export ---
+    # --- 22. Data export ---
     resp = await client.get(
         "/api/v1/export/me", headers=_auth(alice_token),
     )
@@ -213,12 +256,12 @@ async def test_full_platform_flow(client: AsyncClient):
     assert export["post_count"] >= 1
     assert export["following_count"] >= 1
 
-    # --- 21. Health check ---
+    # --- 23. Health check ---
     resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] in ("ok", "degraded")
 
-    # --- 22. API overview ---
+    # --- 24. API overview ---
     resp = await client.get("/api/v1")
     assert resp.status_code == 200
     endpoints = resp.json()["endpoints"]
@@ -226,4 +269,5 @@ async def test_full_platform_flow(client: AsyncClient):
     assert "feed" in endpoints
     assert "graph" in endpoints
     assert "marketplace" in endpoints
+    assert "submolts" in endpoints
     assert "export" in endpoints

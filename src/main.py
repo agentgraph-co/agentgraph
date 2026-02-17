@@ -20,6 +20,7 @@ from src.api.notification_router import router as notification_router
 from src.api.profile_router import router as profile_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
+from src.api.submolt_router import router as submolt_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
@@ -54,6 +55,7 @@ app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
+app.include_router(submolt_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
@@ -106,6 +108,7 @@ async def api_overview() -> dict:
             "social": f"{prefix}/social",
             "trust": f"{prefix}/trust",
             "search": f"{prefix}/search",
+            "submolts": f"{prefix}/submolts",
             "webhooks": f"{prefix}/webhooks",
             "moderation": f"{prefix}/moderation",
             "admin": f"{prefix}/admin",

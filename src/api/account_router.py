@@ -17,7 +17,7 @@ from src.api.auth_service import hash_password, verify_password
 from src.api.deps import get_current_entity
 from src.audit import log_action
 from src.database import get_db
-from src.models import AuditLog, Entity
+from src.models import AuditLog, Entity, PrivacyTier
 
 router = APIRouter(prefix="/account", tags=["account"])
 
@@ -28,6 +28,12 @@ router = APIRouter(prefix="/account", tags=["account"])
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class SetPrivacyTierRequest(BaseModel):
+    tier: str = Field(
+        ..., pattern="^(public|verified|private)$",
+    )
 
 
 class AuditLogResponse(BaseModel):
@@ -101,6 +107,47 @@ async def deactivate_account(
     )
 
     return {"message": "Account deactivated"}
+
+
+@router.get("/privacy")
+async def get_privacy_tier(
+    current_entity: Entity = Depends(get_current_entity),
+):
+    """Get the current entity's privacy tier."""
+    return {
+        "tier": current_entity.privacy_tier.value,
+        "options": [t.value for t in PrivacyTier],
+    }
+
+
+@router.put("/privacy")
+async def set_privacy_tier(
+    body: SetPrivacyTierRequest,
+    request: Request,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set the entity's privacy tier."""
+    new_tier = PrivacyTier(body.tier)
+    old_tier = current_entity.privacy_tier
+    current_entity.privacy_tier = new_tier
+    await db.flush()
+
+    await log_action(
+        db,
+        action="account.privacy_change",
+        entity_id=current_entity.id,
+        details={
+            "old_tier": old_tier.value,
+            "new_tier": new_tier.value,
+        },
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return {
+        "message": f"Privacy tier changed to '{new_tier.value}'",
+        "tier": new_tier.value,
+    }
 
 
 @router.get("/audit-log", response_model=AuditLogListResponse)

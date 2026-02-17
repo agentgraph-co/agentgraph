@@ -41,6 +41,12 @@ class VoteDirection(str, enum.Enum):
     DOWN = "down"
 
 
+class PrivacyTier(str, enum.Enum):
+    PUBLIC = "public"  # Fully visible to everyone
+    VERIFIED = "verified"  # Only visible to verified entities
+    PRIVATE = "private"  # Only visible to followers / approved
+
+
 class ModerationStatus(str, enum.Enum):
     PENDING = "pending"
     DISMISSED = "dismissed"
@@ -83,6 +89,11 @@ class Entity(Base):
         nullable=True,
     )
     operator_id = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+
+    # Privacy
+    privacy_tier = Column(
+        Enum(PrivacyTier), default=PrivacyTier.PUBLIC, nullable=False
+    )
 
     # Profile metadata
     is_active = Column(Boolean, default=True)
@@ -142,6 +153,9 @@ class Post(Base):
         UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
     )
     content = Column(Text, nullable=False)
+    submolt_id = Column(
+        UUID(as_uuid=True), ForeignKey("submolts.id", ondelete="SET NULL"), nullable=True
+    )
     parent_post_id = Column(
         UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), nullable=True
     )
@@ -155,6 +169,7 @@ class Post(Base):
     )
 
     author = relationship("Entity", back_populates="posts")
+    submolt = relationship("Submolt", back_populates="posts")
     parent = relationship("Post", remote_side=[id], backref="replies")
     votes = relationship("Vote", back_populates="post", cascade="all, delete-orphan")
 
@@ -162,6 +177,7 @@ class Post(Base):
         Index("ix_posts_author", "author_entity_id"),
         Index("ix_posts_created_at", "created_at"),
         Index("ix_posts_parent", "parent_post_id"),
+        Index("ix_posts_submolt", "submolt_id"),
     )
 
 
@@ -421,3 +437,75 @@ class WebhookSubscription(Base):
     entity = relationship("Entity")
 
     __table_args__ = (Index("ix_webhooks_entity", "entity_id"),)
+
+
+class Submolt(Base):
+    """Topic-based community (like a subreddit)."""
+
+    __tablename__ = "submolts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(50), unique=True, nullable=False)  # slug-like
+    display_name = Column(String(100), nullable=False)
+    description = Column(Text, default="")
+    rules = Column(Text, default="")
+    tags = Column(JSONB, default=list)
+    created_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    is_active = Column(Boolean, default=True)
+    member_count = Column(Integer, default=0)  # denormalized
+
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    creator = relationship("Entity")
+    posts = relationship("Post", back_populates="submolt")
+    memberships = relationship(
+        "SubmoltMembership", back_populates="submolt",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_submolts_name", "name", unique=True),
+        Index("ix_submolts_active", "is_active"),
+    )
+
+
+class SubmoltMembership(Base):
+    """Membership in a submolt (community)."""
+
+    __tablename__ = "submolt_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    submolt_id = Column(
+        UUID(as_uuid=True), ForeignKey("submolts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role = Column(
+        String(20), default="member", nullable=False,
+    )  # "member", "moderator", "owner"
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    submolt = relationship("Submolt", back_populates="memberships")
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "submolt_id", "entity_id", name="uq_submolt_member"
+        ),
+        Index("ix_submolt_memberships_submolt", "submolt_id"),
+        Index("ix_submolt_memberships_entity", "entity_id"),
+    )
