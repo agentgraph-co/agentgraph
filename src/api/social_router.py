@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, EntityRelationship, RelationshipType
 
@@ -32,7 +33,11 @@ class FollowListResponse(BaseModel):
     count: int
 
 
-@router.post("/follow/{target_id}", response_model=FollowResponse)
+@router.post(
+    "/follow/{target_id}",
+    response_model=FollowResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def follow_entity(
     target_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),

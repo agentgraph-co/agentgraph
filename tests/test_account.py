@@ -103,14 +103,20 @@ async def test_deactivate_account(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_audit_log_empty(client: AsyncClient):
+async def test_audit_log_has_auth_entries(client: AsyncClient):
+    """Register + login create audit entries."""
     token = await _setup_user(client)
 
     resp = await client.get(
         f"{ACCOUNT_URL}/audit-log", headers=_auth(token),
     )
     assert resp.status_code == 200
-    assert resp.json()["total"] == 0
+    data = resp.json()
+    # Should have at least register + login entries
+    assert data["total"] >= 2
+    actions = [e["action"] for e in data["entries"]]
+    assert "auth.register" in actions
+    assert "auth.login" in actions
 
 
 @pytest.mark.asyncio
@@ -131,7 +137,6 @@ async def test_audit_log_after_password_change(client: AsyncClient):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] >= 1
     actions = [e["action"] for e in data["entries"]]
     assert "auth.password_change" in actions
 
@@ -139,6 +144,12 @@ async def test_audit_log_after_password_change(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_audit_log_pagination(client: AsyncClient):
     token = await _setup_user(client)
+
+    # Baseline count after register + login
+    resp = await client.get(
+        f"{ACCOUNT_URL}/audit-log", headers=_auth(token),
+    )
+    baseline = resp.json()["total"]
 
     # Create some audit entries via password changes
     for i in range(3):
@@ -159,5 +170,5 @@ async def test_audit_log_pagination(client: AsyncClient):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 3
+    assert data["total"] == baseline + 3
     assert len(data["entries"]) == 2

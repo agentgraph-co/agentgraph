@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth_service import (
@@ -24,6 +24,7 @@ from src.api.schemas import (
     RegisterRequest,
     TokenResponse,
 )
+from src.audit import log_action
 from src.config import settings
 from src.database import get_db
 from src.models import Entity
@@ -37,7 +38,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(rate_limit_auth)],
 )
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:
         # Don't reveal whether email exists — same message either way
@@ -49,21 +54,37 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     entity = await register_human(db, body.email, body.password, body.display_name)
     verification_token = await create_verification_token(db, entity.id)
 
-    # In production, send email with verification link.
-    # For dev/test, return the token in the response.
+    await log_action(
+        db,
+        action="auth.register",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
     return MessageResponse(
         message=f"Registration successful. Verification token: {verification_token}",
     )
 
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit_auth)])
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    body: LoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     entity = await authenticate_human(db, body.email, body.password)
     if entity is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    await log_action(
+        db,
+        action="auth.login",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
 
     access_token = create_access_token(entity.id, entity.type.value)
     refresh_token = create_refresh_token(entity.id)

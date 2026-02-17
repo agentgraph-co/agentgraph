@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Post, TrustScore, Vote, VoteDirection
 
@@ -64,7 +65,12 @@ class VoteResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/posts",
+    response_model=PostResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_post(
     body: CreatePostRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -255,7 +261,11 @@ async def get_replies(
     return FeedResponse(posts=posts, next_cursor=next_cursor)
 
 
-@router.post("/posts/{post_id}/vote", response_model=VoteResponse)
+@router.post(
+    "/posts/{post_id}/vote",
+    response_model=VoteResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def vote_on_post(
     post_id: uuid.UUID,
     body: VoteRequest,
