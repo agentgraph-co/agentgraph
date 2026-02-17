@@ -59,3 +59,45 @@ class EntityResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Agent request/response schemas ---
+
+
+class CreateAgentRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=100)
+    capabilities: list[str] = Field(default_factory=list, max_length=50)
+    autonomy_level: int | None = Field(None, ge=1, le=5)
+    bio_markdown: str = Field("", max_length=5000)
+
+
+class UpdateAgentRequest(BaseModel):
+    display_name: str | None = Field(None, min_length=1, max_length=100)
+    capabilities: list[str] | None = Field(None, max_length=50)
+    autonomy_level: int | None = Field(None, ge=1, le=5)
+    bio_markdown: str | None = Field(None, max_length=5000)
+
+
+class AgentResponse(BaseModel):
+    id: uuid.UUID
+    type: str
+    display_name: str
+    bio_markdown: str
+    did_web: str
+    capabilities: list[str]
+    autonomy_level: int | None
+    operator_id: uuid.UUID | None
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AgentCreatedResponse(BaseModel):
+    agent: AgentResponse
+    api_key: str  # plaintext, shown once
+
+
+class ApiKeyRotatedResponse(BaseModel):
+    api_key: str  # plaintext, shown once
+    message: str
