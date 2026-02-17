@@ -346,3 +346,257 @@ async def test_fork_tracking(client: AsyncClient):
     # Check B's lineage shows forked_from
     lineage_b = await client.get(f"{EVOLUTION_URL}/{agent_b}/lineage")
     assert lineage_b.json()["forked_from"] == agent_a
+
+
+# --- Approval workflow ---
+
+
+@pytest.mark.asyncio
+async def test_tier1_auto_approved(client: AsyncClient):
+    """Tier 1 changes (initial, update) are auto-approved."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "First version",
+            "capabilities_snapshot": ["chat"],
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["risk_tier"] == 1
+    assert data["approval_status"] == "auto_approved"
+
+
+@pytest.mark.asyncio
+async def test_tier2_pending_approval(client: AsyncClient):
+    """Tier 2 changes (capability_add) require approval."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    # First create initial version (auto-approved)
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Initial",
+            "capabilities_snapshot": ["chat"],
+        },
+        headers=_auth(token),
+    )
+
+    # Capability add = tier 2 = pending
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.1.0",
+            "change_type": "capability_add",
+            "change_summary": "Adding search capability",
+            "capabilities_snapshot": ["chat", "search"],
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["risk_tier"] == 2
+    assert data["approval_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_approve_evolution(client: AsyncClient):
+    """Operator can approve a pending evolution record."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Initial",
+        },
+        headers=_auth(token),
+    )
+
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "2.0.0",
+            "change_type": "capability_add",
+            "change_summary": "Adding capabilities",
+            "capabilities_snapshot": ["chat", "code-gen"],
+        },
+        headers=_auth(token),
+    )
+    record_id = resp.json()["id"]
+    assert resp.json()["approval_status"] == "pending"
+
+    # Approve it
+    resp = await client.post(
+        f"{EVOLUTION_URL}/records/{record_id}/approve",
+        json={"action": "approve", "note": "Looks good"},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["approval_status"] == "approved"
+    assert resp.json()["approval_note"] == "Looks good"
+    assert resp.json()["approved_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_reject_evolution(client: AsyncClient):
+    """Operator can reject a pending evolution record."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Initial",
+        },
+        headers=_auth(token),
+    )
+
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "2.0.0",
+            "change_type": "capability_remove",
+            "change_summary": "Removing capabilities",
+        },
+        headers=_auth(token),
+    )
+    record_id = resp.json()["id"]
+
+    resp = await client.post(
+        f"{EVOLUTION_URL}/records/{record_id}/approve",
+        json={"action": "reject", "note": "Not safe"},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["approval_status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_cannot_approve_auto_approved(client: AsyncClient):
+    """Cannot approve a record that's already auto-approved."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Initial",
+        },
+        headers=_auth(token),
+    )
+    record_id = resp.json()["id"]
+
+    resp = await client.post(
+        f"{EVOLUTION_URL}/records/{record_id}/approve",
+        json={"action": "approve"},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_pending_evolutions_list(client: AsyncClient):
+    """Get all pending evolution records for operator's agents."""
+    token = await _setup_operator(client)
+    agent_id = await _create_agent(client, token)
+
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Initial",
+        },
+        headers=_auth(token),
+    )
+
+    # Create two pending records
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.1.0",
+            "change_type": "capability_add",
+            "change_summary": "Adding cap 1",
+        },
+        headers=_auth(token),
+    )
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_id,
+            "version": "1.2.0",
+            "change_type": "capability_remove",
+            "change_summary": "Removing cap",
+        },
+        headers=_auth(token),
+    )
+
+    resp = await client.get(
+        f"{EVOLUTION_URL}/pending/all", headers=_auth(token),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["count"] == 2
+    for r in data["records"]:
+        assert r["approval_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_tier3_fork_pending(client: AsyncClient):
+    """Tier 3 changes (fork) require approval."""
+    token = await _setup_operator(client)
+    agent_a = await _create_agent(client, token, "SourceBot")
+    agent_b = await _create_agent(client, token, "ForkBot")
+
+    await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_a,
+            "version": "1.0.0",
+            "change_type": "initial",
+            "change_summary": "Source",
+        },
+        headers=_auth(token),
+    )
+
+    resp = await client.post(
+        EVOLUTION_URL,
+        json={
+            "entity_id": agent_b,
+            "version": "1.0.0",
+            "change_type": "fork",
+            "change_summary": "Forked from source",
+            "forked_from_entity_id": agent_a,
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["risk_tier"] == 3
+    assert data["approval_status"] == "pending"

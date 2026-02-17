@@ -47,6 +47,13 @@ class PrivacyTier(str, enum.Enum):
     PRIVATE = "private"  # Only visible to followers / approved
 
 
+class EvolutionApprovalStatus(str, enum.Enum):
+    AUTO_APPROVED = "auto_approved"  # Tier 1: low risk
+    PENDING = "pending"  # Tier 2/3: awaiting approval
+    APPROVED = "approved"  # Approved by operator/community
+    REJECTED = "rejected"  # Rejected
+
+
 class ModerationStatus(str, enum.Enum):
     PENDING = "pending"
     DISMISSED = "dismissed"
@@ -308,11 +315,28 @@ class EvolutionRecord(Base):
     capabilities_snapshot = Column(JSONB, default=list)  # capabilities at this version
     extra_metadata = Column(JSONB, default=dict)  # arbitrary version metadata
     anchor_hash = Column(String(64), nullable=True)  # future: on-chain anchor
+
+    # Approval workflow
+    risk_tier = Column(
+        Integer, default=1, nullable=False,
+    )  # 1=low, 2=capability change, 3=identity/behavioral
+    approval_status = Column(
+        Enum(EvolutionApprovalStatus),
+        default=EvolutionApprovalStatus.AUTO_APPROVED,
+        nullable=False,
+    )
+    approved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+    )
+    approval_note = Column(Text, nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     entity = relationship("Entity", foreign_keys=[entity_id])
     parent_record = relationship("EvolutionRecord", remote_side=[id])
     forked_from = relationship("Entity", foreign_keys=[forked_from_entity_id])
+    approver = relationship("Entity", foreign_keys=[approved_by])
 
     __table_args__ = (
         Index("ix_evolution_entity", "entity_id"),

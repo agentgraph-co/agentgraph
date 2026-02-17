@@ -17,7 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
 from src.database import get_db
-from src.models import Entity, EntityType, EvolutionRecord
+from src.models import (
+    Entity,
+    EntityType,
+    EvolutionApprovalStatus,
+    EvolutionRecord,
+)
 
 router = APIRouter(prefix="/evolution", tags=["evolution"])
 
@@ -35,6 +40,31 @@ class CreateEvolutionRequest(BaseModel):
     forked_from_entity_id: uuid.UUID | None = None
 
 
+class ApproveEvolutionRequest(BaseModel):
+    action: str = Field(..., pattern="^(approve|reject)$")
+    note: str = Field("", max_length=1000)
+
+
+# Tier classification: maps change_type to risk tier
+TIER_MAP = {
+    "initial": 1,  # Low risk: first version
+    "update": 1,  # Low risk: minor update
+    "capability_add": 2,  # Medium: adding capabilities
+    "capability_remove": 2,  # Medium: removing capabilities
+    "fork": 3,  # High: identity-level change
+}
+
+
+def _classify_risk_tier(change_type: str) -> int:
+    """Classify the risk tier of an evolution change.
+
+    Tier 1: Low risk (auto-approved) — updates, initial
+    Tier 2: Capability changes (needs community verification)
+    Tier 3: Identity/behavioral changes (needs operator approval)
+    """
+    return TIER_MAP.get(change_type, 2)
+
+
 class EvolutionResponse(BaseModel):
     id: uuid.UUID
     entity_id: uuid.UUID
@@ -46,6 +76,11 @@ class EvolutionResponse(BaseModel):
     capabilities_snapshot: list
     extra_metadata: dict
     anchor_hash: str | None
+    risk_tier: int = 1
+    approval_status: str = "auto_approved"
+    approved_by: uuid.UUID | None = None
+    approval_note: str | None = None
+    approved_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -64,6 +99,31 @@ class LineageResponse(BaseModel):
     forked_from: str | None
     fork_count: int
     timeline: list[EvolutionResponse]
+
+
+def _to_response(r: EvolutionRecord) -> EvolutionResponse:
+    return EvolutionResponse(
+        id=r.id,
+        entity_id=r.entity_id,
+        version=r.version,
+        parent_record_id=r.parent_record_id,
+        forked_from_entity_id=r.forked_from_entity_id,
+        change_type=r.change_type,
+        change_summary=r.change_summary,
+        capabilities_snapshot=r.capabilities_snapshot or [],
+        extra_metadata=r.extra_metadata or {},
+        anchor_hash=r.anchor_hash,
+        risk_tier=r.risk_tier or 1,
+        approval_status=(
+            r.approval_status.value
+            if r.approval_status
+            else "auto_approved"
+        ),
+        approved_by=r.approved_by,
+        approval_note=r.approval_note,
+        approved_at=r.approved_at,
+        created_at=r.created_at,
+    )
 
 
 def _compute_anchor_hash(record_data: dict) -> str:
@@ -128,6 +188,13 @@ async def create_evolution_record(
     }
     anchor_hash = _compute_anchor_hash(anchor_data)
 
+    # Classify risk tier and set approval status
+    risk_tier = _classify_risk_tier(body.change_type)
+    if risk_tier == 1:
+        approval_status = EvolutionApprovalStatus.AUTO_APPROVED
+    else:
+        approval_status = EvolutionApprovalStatus.PENDING
+
     record = EvolutionRecord(
         id=uuid.uuid4(),
         entity_id=body.entity_id,
@@ -139,28 +206,19 @@ async def create_evolution_record(
         capabilities_snapshot=body.capabilities_snapshot,
         extra_metadata=body.extra_metadata,
         anchor_hash=anchor_hash,
+        risk_tier=risk_tier,
+        approval_status=approval_status,
     )
     db.add(record)
 
-    # Update agent capabilities if snapshot provided
-    if body.capabilities_snapshot:
-        target.capabilities = body.capabilities_snapshot
+    # Update agent capabilities only if auto-approved
+    if approval_status == EvolutionApprovalStatus.AUTO_APPROVED:
+        if body.capabilities_snapshot:
+            target.capabilities = body.capabilities_snapshot
 
     await db.flush()
 
-    return EvolutionResponse(
-        id=record.id,
-        entity_id=record.entity_id,
-        version=record.version,
-        parent_record_id=record.parent_record_id,
-        forked_from_entity_id=record.forked_from_entity_id,
-        change_type=record.change_type,
-        change_summary=record.change_summary,
-        capabilities_snapshot=record.capabilities_snapshot or [],
-        extra_metadata=record.extra_metadata or {},
-        anchor_hash=record.anchor_hash,
-        created_at=record.created_at,
-    )
+    return _to_response(record)
 
 
 @router.get("/{entity_id}", response_model=EvolutionTimelineResponse)
@@ -183,22 +241,7 @@ async def get_evolution_timeline(
     records = result.scalars().all()
 
     return EvolutionTimelineResponse(
-        records=[
-            EvolutionResponse(
-                id=r.id,
-                entity_id=r.entity_id,
-                version=r.version,
-                parent_record_id=r.parent_record_id,
-                forked_from_entity_id=r.forked_from_entity_id,
-                change_type=r.change_type,
-                change_summary=r.change_summary,
-                capabilities_snapshot=r.capabilities_snapshot or [],
-                extra_metadata=r.extra_metadata or {},
-                anchor_hash=r.anchor_hash,
-                created_at=r.created_at,
-            )
-            for r in records
-        ],
+        records=[_to_response(r) for r in records],
         count=len(records),
     )
 
@@ -244,22 +287,7 @@ async def get_lineage(
         current_version=current_version,
         forked_from=forked_from,
         fork_count=fork_count,
-        timeline=[
-            EvolutionResponse(
-                id=r.id,
-                entity_id=r.entity_id,
-                version=r.version,
-                parent_record_id=r.parent_record_id,
-                forked_from_entity_id=r.forked_from_entity_id,
-                change_type=r.change_type,
-                change_summary=r.change_summary,
-                capabilities_snapshot=r.capabilities_snapshot or [],
-                extra_metadata=r.extra_metadata or {},
-                anchor_hash=r.anchor_hash,
-                created_at=r.created_at,
-            )
-            for r in records
-        ],
+        timeline=[_to_response(r) for r in records],
     )
 
 
@@ -298,3 +326,83 @@ async def compare_versions(
         "removed": sorted(caps_a - caps_b),
         "unchanged": sorted(caps_a & caps_b),
     }
+
+
+@router.get("/pending/all", response_model=EvolutionTimelineResponse)
+async def get_pending_evolutions(
+    current_entity: Entity = Depends(get_current_entity),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all pending evolution records for agents owned by current entity."""
+    result = await db.execute(
+        select(EvolutionRecord)
+        .join(Entity, EvolutionRecord.entity_id == Entity.id)
+        .where(
+            Entity.operator_id == current_entity.id,
+            EvolutionRecord.approval_status
+            == EvolutionApprovalStatus.PENDING,
+        )
+        .order_by(EvolutionRecord.created_at.desc())
+        .limit(limit)
+    )
+    records = result.scalars().all()
+    return EvolutionTimelineResponse(
+        records=[_to_response(r) for r in records],
+        count=len(records),
+    )
+
+
+@router.post(
+    "/records/{record_id}/approve",
+    response_model=EvolutionResponse,
+)
+async def approve_or_reject_evolution(
+    record_id: uuid.UUID,
+    body: ApproveEvolutionRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve or reject a pending evolution record.
+
+    Only the agent's operator can approve/reject.
+    """
+    record = await db.get(EvolutionRecord, record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404, detail="Evolution record not found"
+        )
+
+    if record.approval_status != EvolutionApprovalStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="Record is not pending approval",
+        )
+
+    # Verify operator owns the agent
+    agent = await db.get(Entity, record.entity_id)
+    if agent is None or agent.operator_id != current_entity.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the agent's operator can approve",
+        )
+
+    now = datetime.utcnow()
+
+    if body.action == "approve":
+        record.approval_status = EvolutionApprovalStatus.APPROVED
+        record.approved_by = current_entity.id
+        record.approval_note = body.note or None
+        record.approved_at = now
+
+        # Now apply the capability changes
+        if record.capabilities_snapshot:
+            agent.capabilities = record.capabilities_snapshot
+    else:
+        record.approval_status = EvolutionApprovalStatus.REJECTED
+        record.approved_by = current_entity.id
+        record.approval_note = body.note or None
+        record.approved_at = now
+
+    await db.flush()
+    return _to_response(record)
