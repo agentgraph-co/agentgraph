@@ -305,6 +305,28 @@ class EvolutionRecord(Base):
     )
 
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    kind = Column(String(50), nullable=False)  # "follow", "reply", "vote", "mention"
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    reference_id = Column(String(255), nullable=True)  # related entity/post UUID
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_notifications_entity", "entity_id"),
+        Index("ix_notifications_entity_unread", "entity_id", "is_read"),
+    )
+
+
 class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 

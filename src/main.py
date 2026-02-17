@@ -10,6 +10,7 @@ from src.api.auth_router import router as auth_router
 from src.api.did_router import router as did_router
 from src.api.evolution_router import router as evolution_router
 from src.api.feed_router import router as feed_router
+from src.api.graph_router import router as graph_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
@@ -18,6 +19,7 @@ from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
+from src.api.ws_router import router as ws_router
 from src.config import settings
 
 app = FastAPI(
@@ -43,6 +45,7 @@ app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
 app.include_router(evolution_router, prefix=settings.api_v1_prefix)
 app.include_router(feed_router, prefix=settings.api_v1_prefix)
+app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
@@ -51,6 +54,7 @@ app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
+app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")
@@ -87,5 +91,7 @@ async def api_overview() -> dict:
             "evolution": f"{prefix}/evolution",
             "notifications": f"{prefix}/notifications",
             "activity": f"{prefix}/activity",
+            "graph": f"{prefix}/graph",
+            "websocket": f"{prefix}/ws",
         },
     }

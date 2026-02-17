@@ -1,73 +1,85 @@
 """In-app notification endpoints.
 
 Provides notification management for entity activities like
-follows, replies, votes, and mentions.
+follows, replies, votes, and mentions. Persisted to database.
 """
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
-from src.models import Entity
+from src.database import get_db
+from src.models import Entity, Notification
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-# --- In-memory notification store (will be migrated to DB table) ---
-
-_notifications: dict[str, list[dict]] = {}  # entity_id -> [notification]
+# --- Public helper for creating notifications from other modules ---
 
 
-def _add_notification(
+async def create_notification(
+    db: AsyncSession,
     entity_id: uuid.UUID,
     kind: str,
     title: str,
     body: str,
     reference_id: str | None = None,
-) -> dict:
-    """Create a notification for an entity."""
-    key = str(entity_id)
-    if key not in _notifications:
-        _notifications[key] = []
+) -> Notification:
+    """Create a notification for an entity (persisted to DB)."""
+    notif = Notification(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        kind=kind,
+        title=title,
+        body=body,
+        reference_id=reference_id,
+    )
+    db.add(notif)
+    await db.flush()
 
-    notif = {
-        "id": str(uuid.uuid4()),
-        "kind": kind,
-        "title": title,
-        "body": body,
-        "reference_id": reference_id,
-        "is_read": False,
-        "created_at": datetime.utcnow().isoformat(),
-    }
-    _notifications[key].insert(0, notif)
+    # Broadcast via WebSocket if available
+    try:
+        from src.ws import manager
 
-    # Cap at 200 notifications per entity
-    if len(_notifications[key]) > 200:
-        _notifications[key] = _notifications[key][:200]
+        await manager.send_to_entity(
+            str(entity_id),
+            "notifications",
+            {
+                "type": "notification",
+                "notification": {
+                    "id": str(notif.id),
+                    "kind": kind,
+                    "title": title,
+                    "body": body,
+                    "reference_id": reference_id,
+                },
+            },
+        )
+    except Exception:
+        pass  # WebSocket delivery is best-effort
 
     return notif
-
-
-def clear_notifications() -> None:
-    """Clear all notifications. Used in testing."""
-    _notifications.clear()
 
 
 # --- Schemas ---
 
 
 class NotificationResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     kind: str
     title: str
     body: str
     reference_id: str | None
     is_read: bool
     created_at: str
+
+    model_config = {"from_attributes": True}
 
 
 class NotificationListResponse(BaseModel):
@@ -84,67 +96,98 @@ async def get_notifications(
     unread_only: bool = Query(False),
     limit: int = Query(50, ge=1, le=100),
     current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get notifications for the current entity."""
-    key = str(current_entity.id)
-    all_notifs = _notifications.get(key, [])
-
+    query = select(Notification).where(
+        Notification.entity_id == current_entity.id,
+    )
     if unread_only:
-        filtered = [n for n in all_notifs if not n["is_read"]]
-    else:
-        filtered = all_notifs
+        query = query.where(Notification.is_read.is_(False))
 
-    unread_count = sum(1 for n in all_notifs if not n["is_read"])
+    query = query.order_by(Notification.created_at.desc()).limit(limit)
+    result = await db.execute(query)
+    notifications = result.scalars().all()
+
+    # Get counts
+    total = await db.scalar(
+        select(func.count()).select_from(Notification).where(
+            Notification.entity_id == current_entity.id,
+        )
+    ) or 0
+
+    unread_count = await db.scalar(
+        select(func.count()).select_from(Notification).where(
+            Notification.entity_id == current_entity.id,
+            Notification.is_read.is_(False),
+        )
+    ) or 0
 
     return NotificationListResponse(
         notifications=[
-            NotificationResponse(**n) for n in filtered[:limit]
+            NotificationResponse(
+                id=n.id,
+                kind=n.kind,
+                title=n.title,
+                body=n.body,
+                reference_id=n.reference_id,
+                is_read=n.is_read,
+                created_at=n.created_at.isoformat(),
+            )
+            for n in notifications
         ],
         unread_count=unread_count,
-        total=len(all_notifs),
+        total=total,
     )
 
 
 @router.post("/{notification_id}/read")
 async def mark_as_read(
-    notification_id: str,
+    notification_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Mark a notification as read."""
-    key = str(current_entity.id)
-    notifs = _notifications.get(key, [])
+    notif = await db.get(Notification, notification_id)
+    if notif is None or notif.entity_id != current_entity.id:
+        raise HTTPException(
+            status_code=404, detail="Notification not found",
+        )
 
-    for n in notifs:
-        if n["id"] == notification_id:
-            n["is_read"] = True
-            return {"message": "Marked as read"}
-
-    raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    await db.flush()
+    return {"message": "Marked as read"}
 
 
 @router.post("/read-all")
 async def mark_all_as_read(
     current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Mark all notifications as read."""
-    key = str(current_entity.id)
-    notifs = _notifications.get(key, [])
-
-    count = 0
-    for n in notifs:
-        if not n["is_read"]:
-            n["is_read"] = True
-            count += 1
-
+    result = await db.execute(
+        update(Notification)
+        .where(
+            Notification.entity_id == current_entity.id,
+            Notification.is_read.is_(False),
+        )
+        .values(is_read=True)
+    )
+    count = result.rowcount
+    await db.flush()
     return {"message": f"Marked {count} notifications as read"}
 
 
 @router.get("/unread-count")
 async def unread_count(
     current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get the count of unread notifications."""
-    key = str(current_entity.id)
-    notifs = _notifications.get(key, [])
-    count = sum(1 for n in notifs if not n["is_read"])
+    count = await db.scalar(
+        select(func.count()).select_from(Notification).where(
+            Notification.entity_id == current_entity.id,
+            Notification.is_read.is_(False),
+        )
+    ) or 0
     return {"unread_count": count}

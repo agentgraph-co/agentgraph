@@ -1,0 +1,78 @@
+"""WebSocket endpoints for real-time updates.
+
+Provides WebSocket connections for live feed updates, notifications,
+and activity streams. Clients authenticate via query parameter token.
+"""
+from __future__ import annotations
+
+import json
+import logging
+
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+
+from src.api.auth_service import decode_token, get_entity_by_id
+from src.database import async_session
+from src.ws import manager
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["websocket"])
+
+
+async def _authenticate_ws(token: str) -> str | None:
+    """Validate a JWT token and return entity_id or None."""
+    payload = decode_token(token)
+    if payload is None or payload.get("kind") != "access":
+        return None
+
+    entity_id = payload.get("sub")
+    if not entity_id:
+        return None
+
+    async with async_session() as db:
+        entity = await get_entity_by_id(db, entity_id)
+        if entity is None or not entity.is_active:
+            return None
+
+    return entity_id
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    token: str = Query(...),
+    channels: str = Query("feed,notifications"),
+):
+    """WebSocket endpoint for real-time updates.
+
+    Query parameters:
+        token: JWT access token for authentication
+        channels: comma-separated channel names (feed, notifications, activity)
+    """
+    entity_id = await _authenticate_ws(token)
+    if entity_id is None:
+        await websocket.close(code=4001, reason="Authentication failed")
+        return
+
+    channel_list = [c.strip() for c in channels.split(",") if c.strip()]
+    valid_channels = {"feed", "notifications", "activity"}
+    channel_list = [c for c in channel_list if c in valid_channels]
+    if not channel_list:
+        channel_list = ["feed"]
+
+    await manager.connect(websocket, entity_id, channel_list)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                # Handle ping/pong for keepalive
+                if msg.get("type") == "ping":
+                    await websocket.send_text(
+                        json.dumps({"type": "pong"})
+                    )
+            except json.JSONDecodeError:
+                pass
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, entity_id)

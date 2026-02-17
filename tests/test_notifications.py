@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from src.api.notification_router import _add_notification, clear_notifications
+from src.api.notification_router import create_notification
 from src.database import get_db
 from src.main import app
 
@@ -19,13 +21,6 @@ async def client(db):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
-
-
-@pytest.fixture(autouse=True)
-def _clean_notifs():
-    clear_notifications()
-    yield
-    clear_notifications()
 
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -65,11 +60,11 @@ async def test_get_empty_notifications(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_notification_appears(client: AsyncClient):
+async def test_notification_appears(client: AsyncClient, db):
     token, entity_id = await _setup_user(client, USER)
 
-    import uuid
-    _add_notification(
+    await create_notification(
+        db,
         uuid.UUID(entity_id),
         kind="follow",
         title="New follower",
@@ -85,11 +80,11 @@ async def test_notification_appears(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_mark_as_read(client: AsyncClient):
+async def test_mark_as_read(client: AsyncClient, db):
     token, entity_id = await _setup_user(client, USER)
 
-    import uuid
-    notif = _add_notification(
+    notif = await create_notification(
+        db,
         uuid.UUID(entity_id),
         kind="reply",
         title="New reply",
@@ -97,7 +92,7 @@ async def test_mark_as_read(client: AsyncClient):
     )
 
     resp = await client.post(
-        f"{NOTIF_URL}/{notif['id']}/read", headers=_auth(token)
+        f"{NOTIF_URL}/{notif.id}/read", headers=_auth(token)
     )
     assert resp.status_code == 200
 
@@ -107,14 +102,13 @@ async def test_mark_as_read(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_mark_all_as_read(client: AsyncClient):
+async def test_mark_all_as_read(client: AsyncClient, db):
     token, entity_id = await _setup_user(client, USER)
 
-    import uuid
     eid = uuid.UUID(entity_id)
-    _add_notification(eid, kind="follow", title="F1", body="Follow 1")
-    _add_notification(eid, kind="follow", title="F2", body="Follow 2")
-    _add_notification(eid, kind="follow", title="F3", body="Follow 3")
+    await create_notification(db, eid, kind="follow", title="F1", body="Follow 1")
+    await create_notification(db, eid, kind="follow", title="F2", body="Follow 2")
+    await create_notification(db, eid, kind="follow", title="F3", body="Follow 3")
 
     resp = await client.post(f"{NOTIF_URL}/read-all", headers=_auth(token))
     assert resp.status_code == 200
@@ -125,13 +119,12 @@ async def test_mark_all_as_read(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_unread_count_endpoint(client: AsyncClient):
+async def test_unread_count_endpoint(client: AsyncClient, db):
     token, entity_id = await _setup_user(client, USER)
 
-    import uuid
     eid = uuid.UUID(entity_id)
-    _add_notification(eid, kind="vote", title="Vote", body="Upvote")
-    _add_notification(eid, kind="vote", title="Vote", body="Upvote")
+    await create_notification(db, eid, kind="vote", title="Vote", body="Upvote")
+    await create_notification(db, eid, kind="vote", title="Vote", body="Upvote")
 
     resp = await client.get(f"{NOTIF_URL}/unread-count", headers=_auth(token))
     assert resp.status_code == 200
@@ -139,16 +132,19 @@ async def test_unread_count_endpoint(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_unread_only_filter(client: AsyncClient):
+async def test_unread_only_filter(client: AsyncClient, db):
     token, entity_id = await _setup_user(client, USER)
 
-    import uuid
     eid = uuid.UUID(entity_id)
-    n1 = _add_notification(eid, kind="follow", title="F1", body="Follow 1")
-    _add_notification(eid, kind="follow", title="F2", body="Follow 2")
+    n1 = await create_notification(
+        db, eid, kind="follow", title="F1", body="Follow 1",
+    )
+    await create_notification(
+        db, eid, kind="follow", title="F2", body="Follow 2",
+    )
 
     # Mark first as read
-    await client.post(f"{NOTIF_URL}/{n1['id']}/read", headers=_auth(token))
+    await client.post(f"{NOTIF_URL}/{n1.id}/read", headers=_auth(token))
 
     resp = await client.get(
         NOTIF_URL, params={"unread_only": True}, headers=_auth(token)
@@ -161,7 +157,8 @@ async def test_unread_only_filter(client: AsyncClient):
 async def test_mark_nonexistent_notification(client: AsyncClient):
     token, _ = await _setup_user(client, USER)
 
+    fake_id = uuid.uuid4()
     resp = await client.post(
-        f"{NOTIF_URL}/nonexistent-id/read", headers=_auth(token)
+        f"{NOTIF_URL}/{fake_id}/read", headers=_auth(token)
     )
     assert resp.status_code == 404
