@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import (
     Entity,
@@ -16,23 +16,6 @@ from src.models import (
     Vote,
     VoteDirection,
 )
-
-TEST_DB_URL = "postgresql+asyncpg://localhost:5432/agentgraph"
-
-
-@pytest_asyncio.fixture
-async def db():
-    engine = create_async_engine(TEST_DB_URL, echo=False)
-    async with engine.connect() as conn:
-        trans = await conn.begin()
-        session = AsyncSession(bind=conn, expire_on_commit=False)
-        try:
-            yield session
-        finally:
-            await session.close()
-            await trans.rollback()
-    await engine.dispose()
-
 
 # --- Entity tests ---
 
@@ -254,8 +237,6 @@ async def test_create_follow_relationship(db: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_all_tables_exist(db: AsyncSession):
-    from sqlalchemy import text
-
     result = await db.execute(
         text(
             "SELECT table_name FROM information_schema.tables "

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from src.api.auth_router import router as auth_router
 from src.config import settings
 
 app = FastAPI(
@@ -11,6 +12,8 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+app.include_router(auth_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")

@@ -57,6 +57,11 @@ jobs:
           print('OK:', sys.argv[1])
           " {} \;
 
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/agentgraph_test
+        run: alembic upgrade head
+
       - name: Test
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/agentgraph_test
