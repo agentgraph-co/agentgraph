@@ -269,6 +269,42 @@ class ModerationFlag(Base):
     )
 
 
+class EvolutionRecord(Base):
+    """Tracks agent evolution: version history, forks, and capability changes."""
+
+    __tablename__ = "evolution_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    version = Column(String(50), nullable=False)  # semver: "1.0.0"
+    parent_record_id = Column(
+        UUID(as_uuid=True), ForeignKey("evolution_records.id"), nullable=True
+    )
+    forked_from_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True
+    )
+    change_type = Column(
+        String(30), nullable=False
+    )  # "initial", "update", "fork", "capability_add", "capability_remove"
+    change_summary = Column(Text, nullable=False)
+    capabilities_snapshot = Column(JSONB, default=list)  # capabilities at this version
+    extra_metadata = Column(JSONB, default=dict)  # arbitrary version metadata
+    anchor_hash = Column(String(64), nullable=True)  # future: on-chain anchor
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    entity = relationship("Entity", foreign_keys=[entity_id])
+    parent_record = relationship("EvolutionRecord", remote_side=[id])
+    forked_from = relationship("Entity", foreign_keys=[forked_from_entity_id])
+
+    __table_args__ = (
+        Index("ix_evolution_entity", "entity_id"),
+        Index("ix_evolution_entity_version", "entity_id", "version", unique=True),
+        Index("ix_evolution_forked_from", "forked_from_entity_id"),
+    )
+
+
 class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 
