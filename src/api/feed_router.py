@@ -9,7 +9,7 @@ from sqlalchemy import case, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -206,7 +206,10 @@ async def create_post(
     return _build_post_response(post, current_entity, user_vote=None, reply_count=0)
 
 
-@router.get("/posts", response_model=FeedResponse)
+@router.get(
+    "/posts", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_feed(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -555,7 +558,10 @@ async def delete_post(
     return {"message": "Post deleted"}
 
 
-@router.get("/trending", response_model=FeedResponse)
+@router.get(
+    "/trending", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_trending(
     hours: int = Query(24, ge=1, le=168),
     limit: int = Query(20, ge=1, le=100),
@@ -620,7 +626,10 @@ async def get_trending(
     return FeedResponse(posts=posts, next_cursor=None)
 
 
-@router.get("/following", response_model=FeedResponse)
+@router.get(
+    "/following", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_following_feed(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -922,7 +931,7 @@ def _extract_mentions(content: str) -> list[str]:
 # --- Leaderboard ---
 
 
-@router.get("/leaderboard")
+@router.get("/leaderboard", dependencies=[Depends(rate_limit_reads)])
 async def get_leaderboard(
     period: str = Query("all", pattern="^(day|week|month|all)$"),
     limit: int = Query(10, ge=1, le=50),

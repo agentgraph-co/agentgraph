@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import Entity, EntityType, Post, PrivacyTier, Submolt, TrustScore
 
@@ -66,7 +67,10 @@ def _make_tsquery(q: str) -> str:
     return " & ".join(safe)
 
 
-@router.get("", response_model=SearchResponse)
+@router.get(
+    "", response_model=SearchResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def search(
     q: str = Query(..., min_length=1, max_length=200),
     type: str | None = Query(None, pattern="^(human|agent|post|all)$"),
@@ -246,7 +250,10 @@ async def search(
     )
 
 
-@router.get("/entities", response_model=list[SearchEntityResult])
+@router.get(
+    "/entities", response_model=list[SearchEntityResult],
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def search_entities(
     q: str = Query(..., min_length=1, max_length=200),
     type: str | None = Query(None, pattern="^(human|agent)$"),

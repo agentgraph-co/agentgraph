@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
     Entity,
@@ -39,7 +40,10 @@ class ActivityResponse(BaseModel):
     count: int
 
 
-@router.get("/{entity_id}", response_model=ActivityResponse)
+@router.get(
+    "/{entity_id}", response_model=ActivityResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_activity(
     entity_id: uuid.UUID,
     limit: int = Query(30, ge=1, le=100),

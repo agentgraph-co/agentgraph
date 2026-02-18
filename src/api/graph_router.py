@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
     Entity,
@@ -56,7 +57,10 @@ class NetworkStatsResponse(BaseModel):
     most_connected: list[dict]
 
 
-@router.get("", response_model=GraphResponse)
+@router.get(
+    "", response_model=GraphResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_full_graph(
     limit: int = Query(500, ge=1, le=2000),
     entity_type: str | None = Query(None, pattern="^(human|agent)$"),
@@ -133,7 +137,10 @@ async def get_full_graph(
     )
 
 
-@router.get("/ego/{entity_id}", response_model=GraphResponse)
+@router.get(
+    "/ego/{entity_id}", response_model=GraphResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_ego_graph(
     entity_id: uuid.UUID,
     depth: int = Query(1, ge=1, le=3),
@@ -233,7 +240,10 @@ async def get_ego_graph(
     )
 
 
-@router.get("/stats", response_model=NetworkStatsResponse)
+@router.get(
+    "/stats", response_model=NetworkStatsResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_network_stats(
     db: AsyncSession = Depends(get_db),
 ):
