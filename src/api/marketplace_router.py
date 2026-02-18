@@ -478,9 +478,10 @@ async def create_listing_review(
             status_code=400, detail="Cannot review your own listing",
         )
 
-    # Content filter
+    # Content filter + sanitization
     if body.text:
         from src.content_filter import check_content
+        from src.content_filter import sanitize_html as _sanitize
 
         filter_result = check_content(body.text)
         if not filter_result.is_clean:
@@ -488,6 +489,7 @@ async def create_listing_review(
                 status_code=400,
                 detail=f"Content rejected: {', '.join(filter_result.flags)}",
             )
+        body.text = _sanitize(body.text)
 
     # Upsert: update if already reviewed
     existing = await db.scalar(
@@ -716,6 +718,20 @@ async def purchase_listing(
         ),
         reference_id=str(txn.id),
     )
+
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(listing.entity_id), "marketplace", {
+            "type": "purchase",
+            "transaction_id": str(txn.id),
+            "buyer_id": str(current_entity.id),
+            "buyer_name": current_entity.display_name,
+            "listing_title": listing.title,
+        })
+    except Exception:
+        pass  # Best-effort
 
     return _txn_response(txn)
 

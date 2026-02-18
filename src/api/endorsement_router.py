@@ -157,6 +157,19 @@ async def endorse_capability(
         reference_id=str(endorsement.id),
     )
 
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(entity_id), "profile", {
+            "type": "endorsement",
+            "capability": body.capability,
+            "endorser_id": str(current_entity.id),
+            "endorser_name": current_entity.display_name,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return EndorsementResponse(
         id=endorsement.id,
         agent_entity_id=entity_id,
