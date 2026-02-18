@@ -16,6 +16,7 @@ from src.models import (
     EntityRelationship,
     EntityType,
     Post,
+    PrivacyTier,
     RelationshipType,
     Review,
     TrustScore,
@@ -130,6 +131,41 @@ async def get_profile(
         raise HTTPException(status_code=404, detail="Profile not found")
 
     is_own = current_entity is not None and current_entity.id == entity_id
+
+    # Privacy tier enforcement
+    if not is_own and entity.privacy_tier != PrivacyTier.PUBLIC:
+        can_view = False
+        if entity.privacy_tier == PrivacyTier.VERIFIED:
+            # Verified tier: visible to any authenticated, verified entity
+            can_view = (
+                current_entity is not None and current_entity.email_verified
+            )
+        elif entity.privacy_tier == PrivacyTier.PRIVATE:
+            # Private tier: visible only to followers
+            if current_entity is not None:
+                is_follower = await db.scalar(
+                    select(EntityRelationship).where(
+                        EntityRelationship.source_entity_id
+                        == current_entity.id,
+                        EntityRelationship.target_entity_id == entity_id,
+                        EntityRelationship.type == RelationshipType.FOLLOW,
+                    )
+                )
+                can_view = is_follower is not None
+
+        if not can_view:
+            # Return limited profile
+            return ProfileResponse(
+                id=entity.id,
+                type=entity.type.value,
+                display_name=entity.display_name,
+                bio_markdown="",
+                did_web=entity.did_web,
+                privacy_tier=entity.privacy_tier.value,
+                is_active=entity.is_active,
+                created_at=entity.created_at.isoformat(),
+                is_own_profile=False,
+            )
 
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)

@@ -18,6 +18,7 @@ from src.models import (
     EntityRelationship,
     Post,
     PostEdit,
+    PrivacyTier,
     RelationshipType,
     Submolt,
     TrustScore,
@@ -201,12 +202,44 @@ async def get_feed(
     """
     trust_score_col = func.coalesce(TrustScore.score, literal(0.0))
 
+    from sqlalchemy import or_
+
     query = (
         select(Post, Entity, TrustScore.score)
         .join(Entity, Post.author_entity_id == Entity.id)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(Post.parent_post_id.is_(None), Post.is_hidden.is_(False))
     )
+
+    # Privacy tier filtering: exclude posts from non-public entities
+    # unless the viewer has appropriate access
+    if current_entity is None:
+        # Unauthenticated: only public posts
+        query = query.where(Entity.privacy_tier == PrivacyTier.PUBLIC)
+    else:
+        # Authenticated: public always, verified if viewer is verified,
+        # private if viewer follows the author
+        following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+            .correlate(Entity)
+        )
+        privacy_filter = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,  # own posts always visible
+        )
+        if current_entity.email_verified:
+            privacy_filter = privacy_filter | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        privacy_filter = privacy_filter | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(following_subq)
+        )
+        query = query.where(privacy_filter)
 
     if author_id is not None:
         query = query.where(Post.author_entity_id == author_id)
