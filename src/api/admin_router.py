@@ -28,6 +28,8 @@ from src.models import (
     Post,
     Review,
     Submolt,
+    Transaction,
+    TransactionStatus,
     Vote,
     WebhookSubscription,
 )
@@ -55,6 +57,9 @@ class PlatformStats(BaseModel):
     total_evolution_records: int
     pending_moderation_flags: int
     active_webhooks: int
+    total_transactions: int
+    total_revenue_cents: int
+    active_entities_30d: int
 
 
 class EntityListItem(BaseModel):
@@ -134,6 +139,25 @@ async def platform_stats(
         )
     ) or 0
 
+    total_transactions = await db.scalar(
+        select(func.count()).select_from(Transaction)
+    ) or 0
+    total_revenue = await db.scalar(
+        select(func.coalesce(func.sum(Transaction.amount_cents), 0)).where(
+            Transaction.status == TransactionStatus.COMPLETED,
+        )
+    ) or 0
+
+    from datetime import timedelta
+    from datetime import timezone as _tz
+
+    cutoff_30d = datetime.now(_tz.utc) - timedelta(days=30)
+    active_30d = await db.scalar(
+        select(func.count(func.distinct(Post.author_entity_id))).where(
+            Post.created_at >= cutoff_30d,
+        )
+    ) or 0
+
     return PlatformStats(
         total_entities=total_entities,
         total_humans=total_humans,
@@ -149,6 +173,9 @@ async def platform_stats(
         total_evolution_records=total_evolution,
         pending_moderation_flags=pending_flags,
         active_webhooks=active_webhooks,
+        total_transactions=total_transactions,
+        total_revenue_cents=total_revenue,
+        active_entities_30d=active_30d,
     )
 
 

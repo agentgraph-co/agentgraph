@@ -172,6 +172,33 @@ async def list_flags(
     )
 
 
+@router.get("/flags/{flag_id}", response_model=FlagResponse)
+async def get_flag(
+    flag_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single moderation flag. Accessible by the reporter or admins."""
+    flag = await db.get(ModerationFlag, flag_id)
+    if flag is None:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    # Only the reporter or an admin can view
+    if flag.reporter_entity_id != current_entity.id and not current_entity.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to view this flag")
+
+    return FlagResponse(
+        id=flag.id,
+        reporter_entity_id=flag.reporter_entity_id,
+        target_type=flag.target_type,
+        target_id=flag.target_id,
+        reason=flag.reason.value,
+        details=flag.details,
+        status=flag.status.value,
+        created_at=flag.created_at,
+    )
+
+
 @router.patch(
     "/flags/{flag_id}/resolve", response_model=FlagResponse,
     dependencies=[Depends(rate_limit_writes)],
@@ -428,6 +455,37 @@ async def list_appeals(
             for a in appeals
         ],
         "total": total,
+    }
+
+
+@router.get("/appeals/{appeal_id}")
+async def get_appeal(
+    appeal_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single appeal. Accessible by the appellant or admins."""
+    appeal = await db.get(ModerationAppeal, appeal_id)
+    if appeal is None:
+        raise HTTPException(status_code=404, detail="Appeal not found")
+
+    if appeal.appellant_id != current_entity.id and not current_entity.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to view this appeal",
+        )
+
+    return {
+        "id": str(appeal.id),
+        "flag_id": str(appeal.flag_id),
+        "appellant_id": str(appeal.appellant_id),
+        "reason": appeal.reason,
+        "status": appeal.status,
+        "resolved_by": str(appeal.resolved_by) if appeal.resolved_by else None,
+        "resolution_note": appeal.resolution_note,
+        "created_at": appeal.created_at.isoformat(),
+        "resolved_at": (
+            appeal.resolved_at.isoformat() if appeal.resolved_at else None
+        ),
     }
 
 

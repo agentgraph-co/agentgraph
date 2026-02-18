@@ -5,9 +5,9 @@ import secrets
 import uuid
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, HttpUrl, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
@@ -111,6 +111,19 @@ async def create_webhook(
             detail=f"Invalid event types: {', '.join(sorted(invalid))}",
         )
 
+    # Cap webhooks per entity
+    existing_count = await db.scalar(
+        select(func.count()).select_from(WebhookSubscription).where(
+            WebhookSubscription.entity_id == current_entity.id,
+            WebhookSubscription.is_active.is_(True),
+        )
+    ) or 0
+    if existing_count >= 10:
+        raise HTTPException(
+            status_code=409,
+            detail="Maximum of 10 active webhooks per entity",
+        )
+
     secret = secrets.token_urlsafe(32)
     secret_hash = hashlib.sha256(secret.encode()).hexdigest()
 
@@ -141,13 +154,21 @@ async def create_webhook(
 
 @router.get("", response_model=WebhookListResponse)
 async def list_webhooks(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
+    base = select(WebhookSubscription).where(
+        WebhookSubscription.entity_id == current_entity.id,
+    )
+    total = await db.scalar(
+        select(func.count()).select_from(base.subquery())
+    ) or 0
+
     result = await db.execute(
-        select(WebhookSubscription).where(
-            WebhookSubscription.entity_id == current_entity.id,
-        )
+        base.order_by(WebhookSubscription.created_at.desc())
+        .offset(offset).limit(limit)
     )
     subs = result.scalars().all()
     return WebhookListResponse(
@@ -161,7 +182,7 @@ async def list_webhooks(
             )
             for s in subs
         ],
-        count=len(subs),
+        count=total,
     )
 
 

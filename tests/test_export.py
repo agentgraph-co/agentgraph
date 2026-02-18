@@ -56,7 +56,7 @@ async def test_export_basic(client: AsyncClient):
     resp = await client.get(EXPORT_URL, headers=_auth(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["export_version"] == "1.1"
+    assert data["export_version"] == "1.2"
     assert data["profile"]["id"] == entity_id
     assert data["profile"]["display_name"] == USER["display_name"]
     assert data["post_count"] == 0
@@ -69,6 +69,8 @@ async def test_export_basic(client: AsyncClient):
     assert "reviews_given" in data
     assert "blocked_entities" in data
     assert "audit_log" in data
+    assert "transactions" in data
+    assert "listing_reviews_given" in data
     # exported_at should be an ISO timestamp, not the account creation time
     assert "T" in data["exported_at"]
     assert data["exported_at"] != data["profile"]["created_at"]

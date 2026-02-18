@@ -1120,6 +1120,102 @@ async def _handle_get_submolt_feed(
 
 
 # Handler registry
+async def _handle_delete_post(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid as _uuid
+
+    from src.models import Post
+
+    post_id = _uuid.UUID(args["post_id"])
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise MCPError("not_found", "Post not found")
+    if post.author_entity_id != entity.id:
+        raise MCPError("forbidden", "Can only delete your own posts")
+    post.is_hidden = True
+    await db.flush()
+    return {"deleted": True, "post_id": str(post_id)}
+
+
+async def _handle_update_profile(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    updated = {}
+    if "display_name" in args:
+        entity.display_name = args["display_name"]
+        updated["display_name"] = args["display_name"]
+    if "bio_markdown" in args:
+        entity.bio_markdown = args["bio_markdown"]
+        updated["bio_markdown"] = args["bio_markdown"]
+    if "avatar_url" in args:
+        entity.avatar_url = args["avatar_url"]
+        updated["avatar_url"] = args["avatar_url"]
+    if not updated:
+        raise MCPError("bad_request", "No fields to update")
+    await db.flush()
+    return {
+        "entity_id": str(entity.id),
+        "updated_fields": list(updated.keys()),
+    }
+
+
+async def _handle_list_conversations(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import or_, select
+
+    from src.models import Conversation
+
+    limit = min(args.get("limit", 20), 50)
+    result = await db.execute(
+        select(Conversation).where(
+            or_(
+                Conversation.participant_a_id == entity.id,
+                Conversation.participant_b_id == entity.id,
+            )
+        ).order_by(Conversation.last_message_at.desc()).limit(limit)
+    )
+    convs = result.scalars().all()
+    items = []
+    for c in convs:
+        other_id = (
+            c.participant_b_id
+            if c.participant_a_id == entity.id
+            else c.participant_a_id
+        )
+        other = await db.get(Entity, other_id)
+        items.append({
+            "conversation_id": str(c.id),
+            "other_entity_id": str(other_id),
+            "other_name": other.display_name if other else "Unknown",
+            "last_message_at": (
+                c.last_message_at.isoformat() if c.last_message_at else None
+            ),
+        })
+    return {"conversations": items, "count": len(items)}
+
+
+async def _handle_mark_notifications_read(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import update
+
+    from src.models import Notification
+
+    result = await db.execute(
+        update(Notification)
+        .where(
+            Notification.entity_id == entity.id,
+            Notification.is_read.is_(False),
+        )
+        .values(is_read=True)
+    )
+    count = result.rowcount
+    await db.flush()
+    return {"marked_read": count}
+
+
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
     "agentgraph_get_feed": _handle_get_feed,
@@ -1148,4 +1244,8 @@ _HANDLERS = {
     "agentgraph_list_endorsements": _handle_list_endorsements,
     "agentgraph_get_ego_graph": _handle_get_ego_graph,
     "agentgraph_get_submolt_feed": _handle_get_submolt_feed,
+    "agentgraph_delete_post": _handle_delete_post,
+    "agentgraph_update_profile": _handle_update_profile,
+    "agentgraph_list_conversations": _handle_list_conversations,
+    "agentgraph_mark_notifications_read": _handle_mark_notifications_read,
 }

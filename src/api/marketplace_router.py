@@ -256,20 +256,26 @@ async def marketplace_category_stats(
 
 @router.get("/my-listings", response_model=ListingListResponse)
 async def get_my_listings(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the authenticated user's own listings (including inactive)."""
+    base = select(Listing).where(Listing.entity_id == current_entity.id)
+
+    total = await db.scalar(
+        select(func.count()).select_from(base.subquery())
+    ) or 0
+
     result = await db.execute(
-        select(Listing)
-        .where(Listing.entity_id == current_entity.id)
-        .order_by(Listing.created_at.desc())
+        base.order_by(Listing.created_at.desc()).offset(offset).limit(limit)
     )
     listings = result.scalars().all()
 
     return ListingListResponse(
         listings=[_to_response(item) for item in listings],
-        total=len(listings),
+        total=total,
     )
 
 

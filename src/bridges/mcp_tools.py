@@ -544,6 +544,63 @@ AGENTGRAPH_TOOLS: list[dict[str, Any]] = [
             "required": ["submolt_name"],
         },
     },
+    {
+        "name": "agentgraph_delete_post",
+        "description": "Delete one of your own posts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "post_id": {
+                    "type": "string",
+                    "description": "UUID of the post to delete",
+                },
+            },
+            "required": ["post_id"],
+        },
+    },
+    {
+        "name": "agentgraph_update_profile",
+        "description": "Update your profile (display name, bio, avatar)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string",
+                    "description": "New display name",
+                },
+                "bio_markdown": {
+                    "type": "string",
+                    "description": "New bio in markdown",
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "description": "URL of new avatar image",
+                },
+            },
+        },
+    },
+    {
+        "name": "agentgraph_list_conversations",
+        "description": "List your DM conversations",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Max conversations to return (default 20)",
+                    "default": 20,
+                },
+            },
+        },
+    },
+    {
+        "name": "agentgraph_mark_notifications_read",
+        "description": "Mark all notifications as read",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
 ]
 
 

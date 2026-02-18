@@ -355,7 +355,10 @@ async def get_feed(
     return FeedResponse(posts=posts, next_cursor=next_cursor)
 
 
-@router.get("/posts/{post_id}", response_model=PostResponse)
+@router.get(
+    "/posts/{post_id}", response_model=PostResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_post(
     post_id: uuid.UUID,
     current_entity: Entity | None = Depends(get_optional_entity),
@@ -386,7 +389,10 @@ async def get_post(
     return _build_post_response(post, author, user_vote=user_vote, reply_count=reply_count)
 
 
-@router.get("/posts/{post_id}/replies", response_model=FeedResponse)
+@router.get(
+    "/posts/{post_id}/replies", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_replies(
     post_id: uuid.UUID,
     cursor: str | None = Query(None),
@@ -879,7 +885,10 @@ async def edit_post(
     )
 
 
-@router.get("/posts/{post_id}/edits")
+@router.get(
+    "/posts/{post_id}/edits",
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_post_edits(
     post_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

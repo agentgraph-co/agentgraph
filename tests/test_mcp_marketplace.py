@@ -289,4 +289,4 @@ async def test_mcp_tools_count(client: AsyncClient, db):
     resp = await client.get("/api/v1/mcp/tools")
     assert resp.status_code == 200
     tools = resp.json()["tools"]
-    assert len(tools) == 27
+    assert len(tools) == 31

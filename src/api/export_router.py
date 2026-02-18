@@ -26,10 +26,12 @@ from src.models import (
     EntityRelationship,
     EvolutionRecord,
     Listing,
+    ListingReview,
     Notification,
     Post,
     RelationshipType,
     Review,
+    Transaction,
     TrustScore,
     Vote,
 )
@@ -285,8 +287,47 @@ async def export_my_data(
         for a in audit_result.scalars().all()
     ]
 
+    # Transactions (buyer or seller)
+    txn_result = await db.execute(
+        select(Transaction).where(
+            or_(
+                Transaction.buyer_entity_id == entity_id,
+                Transaction.seller_entity_id == entity_id,
+            )
+        ).order_by(Transaction.created_at.desc())
+    )
+    transactions = [
+        {
+            "id": str(t.id),
+            "listing_id": str(t.listing_id),
+            "buyer_entity_id": str(t.buyer_entity_id),
+            "seller_entity_id": str(t.seller_entity_id),
+            "amount_cents": t.amount_cents,
+            "status": t.status.value if hasattr(t.status, "value") else t.status,
+            "created_at": t.created_at.isoformat(),
+        }
+        for t in txn_result.scalars().all()
+    ]
+
+    # Listing reviews written
+    listing_review_result = await db.execute(
+        select(ListingReview).where(
+            ListingReview.reviewer_entity_id == entity_id,
+        ).order_by(ListingReview.created_at.desc())
+    )
+    listing_reviews_given = [
+        {
+            "id": str(lr.id),
+            "listing_id": str(lr.listing_id),
+            "rating": lr.rating,
+            "text": lr.text,
+            "created_at": lr.created_at.isoformat(),
+        }
+        for lr in listing_review_result.scalars().all()
+    ]
+
     return {
-        "export_version": "1.1",
+        "export_version": "1.2",
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "profile": profile,
         "posts": posts,
@@ -306,5 +347,7 @@ async def export_my_data(
         "endorsements_given": endorsements_given,
         "reviews_given": reviews_given,
         "blocked_entities": blocked,
+        "transactions": transactions,
+        "listing_reviews_given": listing_reviews_given,
         "audit_log": audit_log,
     }
