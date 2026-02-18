@@ -19,7 +19,7 @@ from src.api.auth_service import (
     verify_password_reset_token,
 )
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_auth
+from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
     ChangeEmailRequest,
     EntityResponse,
@@ -50,6 +50,17 @@ async def register(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    # Content filter on display_name
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.display_name)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+        )
+    body.display_name = sanitize_html(body.display_name)
+
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:
         # Don't reveal whether email exists — same message either way
@@ -102,7 +113,10 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh", response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     payload = decode_token(body.refresh_token)
     if payload is None or payload.get("kind") != "refresh":
@@ -127,7 +141,10 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.get("/me", response_model=EntityResponse)
+@router.get(
+    "/me", response_model=EntityResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_me(current_entity: Entity = Depends(get_current_entity)):
     return current_entity
 
@@ -284,7 +301,10 @@ async def change_email(
     )
 
 
-@router.post("/logout", response_model=MessageResponse)
+@router.post(
+    "/logout", response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def logout(
     request: Request,
     current_entity: Entity = Depends(get_current_entity),
