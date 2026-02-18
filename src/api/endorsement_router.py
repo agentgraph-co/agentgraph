@@ -232,7 +232,10 @@ async def list_endorsements(
             Entity,
             CapabilityEndorsement.endorser_entity_id == Entity.id,
         )
-        .where(CapabilityEndorsement.agent_entity_id == entity_id)
+        .where(
+            CapabilityEndorsement.agent_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     if capability:
         query = query.where(
@@ -286,7 +289,10 @@ async def get_capability_summary(
             Entity,
             CapabilityEndorsement.endorser_entity_id == Entity.id,
         )
-        .where(CapabilityEndorsement.agent_entity_id == entity_id)
+        .where(
+            CapabilityEndorsement.agent_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
         .order_by(CapabilityEndorsement.capability)
     )
     rows = result.all()
@@ -514,7 +520,10 @@ async def list_reviews(
     result = await db.execute(
         select(Review, Entity.display_name)
         .join(Entity, Review.reviewer_entity_id == Entity.id)
-        .where(Review.target_entity_id == entity_id)
+        .where(
+            Review.target_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
         .order_by(Review.created_at.desc())
         .offset(offset)
         .limit(limit)

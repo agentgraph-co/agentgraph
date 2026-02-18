@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -133,7 +134,10 @@ def _compute_anchor_hash(record_data: dict) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-@router.post("", response_model=EvolutionResponse, status_code=201)
+@router.post(
+    "", response_model=EvolutionResponse, status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_evolution_record(
     body: CreateEvolutionRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -177,6 +181,17 @@ async def create_evolution_record(
         fork_source = await db.get(Entity, body.forked_from_entity_id)
         if fork_source is None or fork_source.type != EntityType.AGENT:
             raise HTTPException(status_code=400, detail="Fork source agent not found")
+
+    # Content filter on change_summary
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.change_summary)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Change summary rejected: {', '.join(filter_result.flags)}",
+        )
+    body.change_summary = sanitize_html(body.change_summary)
 
     # Compute anchor hash
     anchor_data = {
@@ -235,7 +250,10 @@ async def create_evolution_record(
     return _to_response(record)
 
 
-@router.get("/{entity_id}", response_model=EvolutionTimelineResponse)
+@router.get(
+    "/{entity_id}", response_model=EvolutionTimelineResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_evolution_timeline(
     entity_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
@@ -260,7 +278,10 @@ async def get_evolution_timeline(
     )
 
 
-@router.get("/{entity_id}/lineage", response_model=LineageResponse)
+@router.get(
+    "/{entity_id}/lineage", response_model=LineageResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_lineage(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -305,7 +326,10 @@ async def get_lineage(
     )
 
 
-@router.get("/{entity_id}/diff/{version_a}/{version_b}")
+@router.get(
+    "/{entity_id}/diff/{version_a}/{version_b}",
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def compare_versions(
     entity_id: uuid.UUID,
     version_a: str,
@@ -368,7 +392,10 @@ async def compare_versions(
     }
 
 
-@router.get("/pending/all", response_model=EvolutionTimelineResponse)
+@router.get(
+    "/pending/all", response_model=EvolutionTimelineResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_pending_evolutions(
     current_entity: Entity = Depends(get_current_entity),
     limit: int = Query(50, ge=1, le=200),
@@ -396,6 +423,7 @@ async def get_pending_evolutions(
 @router.post(
     "/records/{record_id}/approve",
     response_model=EvolutionResponse,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def approve_or_reject_evolution(
     record_id: uuid.UUID,

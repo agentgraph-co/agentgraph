@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.bridges.mcp_handler import MCPError, handle_tool_call
 from src.bridges.mcp_tools import get_tool_definitions
 from src.database import get_db
@@ -33,7 +34,7 @@ class ToolCallResponse(BaseModel):
     is_error: bool = False
 
 
-@router.get("/tools")
+@router.get("/tools", dependencies=[Depends(rate_limit_reads)])
 async def list_tools():
     """List all available MCP tools.
 
@@ -43,7 +44,10 @@ async def list_tools():
     return {"tools": get_tool_definitions()}
 
 
-@router.post("/tools/call", response_model=ToolCallResponse)
+@router.post(
+    "/tools/call", response_model=ToolCallResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def call_tool(
     body: ToolCallRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -60,6 +64,18 @@ async def call_tool(
             entity=current_entity,
             db=db,
         )
+
+        # Audit log
+        from src.audit import log_action
+
+        await log_action(
+            db,
+            action="mcp.tool_call",
+            entity_id=current_entity.id,
+            resource_type="mcp_tool",
+            details={"tool_name": body.name},
+        )
+
         return ToolCallResponse(
             tool_name=body.name,
             result=result,
