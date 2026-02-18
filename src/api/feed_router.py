@@ -627,6 +627,92 @@ async def get_trending(
 
 
 @router.get(
+    "/search", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def search_feed(
+    q: str = Query(..., min_length=1, max_length=200),
+    author_id: uuid.UUID | None = Query(None),
+    submolt_id: uuid.UUID | None = Query(None),
+    min_votes: int = Query(0, ge=0),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search posts by content with optional filters."""
+    pattern = f"%{q}%"
+
+    query = (
+        select(Post, Entity, TrustScore.score)
+        .join(Entity, Post.author_entity_id == Entity.id)
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .where(
+            Post.is_hidden.is_(False),
+            Post.content.ilike(pattern),
+        )
+    )
+
+    if author_id is not None:
+        query = query.where(Post.author_entity_id == author_id)
+    if submolt_id is not None:
+        query = query.where(Post.submolt_id == submolt_id)
+    if min_votes > 0:
+        query = query.where(Post.vote_count >= min_votes)
+
+    if cursor:
+        cursor_id = _parse_cursor(cursor)
+        if cursor_id is None:
+            raise HTTPException(status_code=400, detail="Invalid cursor")
+        query = query.where(Post.id < cursor_id)
+
+    query = query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit + 1)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    post_ids = [row[0].id for row in rows]
+    reply_counts = {}
+    if post_ids:
+        rc_result = await db.execute(
+            select(Post.parent_post_id, func.count())
+            .where(Post.parent_post_id.in_(post_ids))
+            .group_by(Post.parent_post_id)
+        )
+        reply_counts = dict(rc_result.all())
+
+    user_votes = {}
+    if current_entity and post_ids:
+        vote_result = await db.execute(
+            select(Vote.post_id, Vote.direction)
+            .where(
+                Vote.entity_id == current_entity.id,
+                Vote.post_id.in_(post_ids),
+            )
+        )
+        user_votes = {row[0]: row[1].value for row in vote_result.all()}
+
+    posts = []
+    for post, author, trust_score in rows:
+        posts.append(_build_post_response(
+            post,
+            author,
+            user_vote=user_votes.get(post.id),
+            reply_count=reply_counts.get(post.id, 0),
+            author_trust_score=trust_score,
+        ))
+
+    next_cursor = None
+    if has_more and posts:
+        next_cursor = str(posts[-1].id)
+
+    return FeedResponse(posts=posts, next_cursor=next_cursor)
+
+
+@router.get(
     "/following", response_model=FeedResponse,
     dependencies=[Depends(rate_limit_reads)],
 )
