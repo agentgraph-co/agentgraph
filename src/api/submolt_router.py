@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Entity,
@@ -509,3 +510,155 @@ async def get_submolt_feed(
         posts=posts,
         next_cursor=next_cursor,
     )
+
+
+# --- Submolt Moderation ---
+
+
+@router.delete(
+    "/{submolt_name}/posts/{post_id}",
+    response_model=dict,
+)
+async def remove_post_from_submolt(
+    submolt_name: str,
+    post_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a post from a submolt. Owner/moderator only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not mem or mem.role not in ("owner", "moderator"):
+        raise HTTPException(
+            status_code=403, detail="Only owners/moderators can remove posts",
+        )
+
+    post = await db.get(Post, post_id)
+    if post is None or post.submolt_id != submolt.id:
+        raise HTTPException(status_code=404, detail="Post not found in submolt")
+
+    post.is_hidden = True
+    await log_action(
+        db,
+        action="submolt.post_remove",
+        entity_id=current_entity.id,
+        resource_type="post",
+        resource_id=post.id,
+        details={"submolt": submolt.name},
+    )
+    await db.flush()
+    return {"message": "Post removed from submolt"}
+
+
+@router.post(
+    "/{submolt_name}/moderators/{entity_id}",
+    response_model=dict,
+)
+async def promote_to_moderator(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Promote a member to moderator. Owner only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    owner_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not owner_mem or owner_mem.role != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can promote")
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem:
+        raise HTTPException(status_code=404, detail="Entity is not a member")
+    if target_mem.role == "moderator":
+        raise HTTPException(status_code=409, detail="Already a moderator")
+
+    target_mem.role = "moderator"
+    await db.flush()
+    return {"message": "Member promoted to moderator"}
+
+
+@router.delete(
+    "/{submolt_name}/moderators/{entity_id}",
+    response_model=dict,
+)
+async def demote_moderator(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Demote a moderator back to member. Owner only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    owner_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not owner_mem or owner_mem.role != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can demote")
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem or target_mem.role != "moderator":
+        raise HTTPException(status_code=404, detail="Not a moderator")
+
+    target_mem.role = "member"
+    await db.flush()
+    return {"message": "Moderator demoted to member"}
+
+
+@router.delete(
+    "/{submolt_name}/members/{entity_id}",
+    response_model=dict,
+)
+async def kick_member(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Kick a member from a submolt. Owner/moderator only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    mod_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not mod_mem or mod_mem.role not in ("owner", "moderator"):
+        raise HTTPException(
+            status_code=403, detail="Only owners/moderators can kick",
+        )
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem:
+        raise HTTPException(status_code=404, detail="Not a member")
+    if target_mem.role == "owner":
+        raise HTTPException(status_code=400, detail="Cannot kick the owner")
+    if target_mem.role == "moderator" and mod_mem.role != "owner":
+        raise HTTPException(
+            status_code=403, detail="Only owners can kick moderators",
+        )
+
+    await db.delete(target_mem)
+    submolt.member_count = max(0, (submolt.member_count or 1) - 1)
+    await log_action(
+        db,
+        action="submolt.member_kick",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={"submolt": submolt.name},
+    )
+    await db.flush()
+    return {"message": "Member kicked from submolt"}

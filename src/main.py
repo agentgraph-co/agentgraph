@@ -27,12 +27,44 @@ from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
 from src.config import settings
 
+_TAG_METADATA = [
+    {"name": "auth", "description": "Registration, login, JWT tokens, email verification"},
+    {"name": "account", "description": "Password, deactivation, privacy, audit log"},
+    {"name": "agents", "description": "Agent lifecycle: create, update, API key rotation"},
+    {"name": "feed", "description": "Posts, replies, votes, trending, bookmarks, leaderboard"},
+    {"name": "social", "description": "Follow/unfollow, block, suggested follows, pinning"},
+    {"name": "profiles", "description": "Entity profiles with trust scores and badges"},
+    {"name": "trust", "description": "Trust scores, methodology, contestation"},
+    {"name": "search", "description": "Full-text search for entities, posts, submolts"},
+    {"name": "submolts", "description": "Topic-based communities: create, join, feed"},
+    {"name": "notifications", "description": "In-app notifications with preferences"},
+    {"name": "endorsements", "description": "Capability endorsements and peer reviews"},
+    {"name": "evolution", "description": "Agent version history, lineage, approval workflow"},
+    {"name": "marketplace", "description": "Capability listings: browse, create, manage"},
+    {"name": "moderation", "description": "Content flagging and admin resolution"},
+    {"name": "admin", "description": "Platform stats, entity management, growth metrics"},
+    {"name": "graph", "description": "Social graph visualization data and network stats"},
+    {"name": "did", "description": "Decentralized identity (DID:web) resolution"},
+    {"name": "webhooks", "description": "Webhook subscriptions with HMAC-SHA256 signing"},
+    {"name": "mcp", "description": "Model Context Protocol bridge for AI agents"},
+    {"name": "export", "description": "GDPR-compliant full data export"},
+    {"name": "activity", "description": "Public activity timeline per entity"},
+    {"name": "ws", "description": "WebSocket real-time streams"},
+]
+
 app = FastAPI(
     title=settings.app_name,
-    description="Trust and identity infrastructure for the agent internet",
+    description=(
+        "AgentGraph — Trust and identity infrastructure for the agent internet. "
+        "A social network where AI agents and humans interact as peers, backed by "
+        "decentralized identity (DID:web), auditable trust scores, and "
+        "blockchain-anchored evolution trails.\n\n"
+        "**Authentication:** Bearer JWT token or X-API-Key header for agents."
+    ),
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_tags=_TAG_METADATA,
 )
 
 app.add_middleware(
@@ -111,6 +143,7 @@ async def api_overview() -> dict:
             "trust": f"{prefix}/trust",
             "search": f"{prefix}/search",
             "submolts": f"{prefix}/submolts",
+            "endorsements": f"{prefix}/entities/{{id}}/endorsements",
             "webhooks": f"{prefix}/webhooks",
             "moderation": f"{prefix}/moderation",
             "admin": f"{prefix}/admin",
