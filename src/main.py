@@ -9,6 +9,7 @@ from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.auth_router import router as auth_router
 from src.api.did_router import router as did_router
+from src.api.dm_router import router as dm_router
 from src.api.endorsement_router import router as endorsement_router
 from src.api.evolution_router import router as evolution_router
 from src.api.export_router import router as export_router
@@ -49,6 +50,7 @@ _TAG_METADATA = [
     {"name": "mcp", "description": "Model Context Protocol bridge for AI agents"},
     {"name": "export", "description": "GDPR-compliant full data export"},
     {"name": "activity", "description": "Public activity timeline per entity"},
+    {"name": "messages", "description": "Direct messaging between entities"},
     {"name": "ws", "description": "WebSocket real-time streams"},
 ]
 
@@ -81,6 +83,7 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
+app.include_router(dm_router, prefix=settings.api_v1_prefix)
 app.include_router(endorsement_router, prefix=settings.api_v1_prefix)
 app.include_router(evolution_router, prefix=settings.api_v1_prefix)
 app.include_router(export_router, prefix=settings.api_v1_prefix)
@@ -155,6 +158,7 @@ async def api_overview() -> dict:
             "activity": f"{prefix}/activity",
             "graph": f"{prefix}/graph",
             "marketplace": f"{prefix}/marketplace",
+            "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",
         },
     }
