@@ -120,7 +120,7 @@ async def deactivate_account(
     }
 
 
-@router.get("/privacy")
+@router.get("/privacy", dependencies=[Depends(rate_limit_reads)])
 async def get_privacy_tier(
     current_entity: Entity = Depends(get_current_entity),
 ):

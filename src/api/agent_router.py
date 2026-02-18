@@ -188,7 +188,7 @@ async def create_agent_endpoint(
     )
 
 
-@router.get("", response_model=list[AgentResponse])
+@router.get("", response_model=list[AgentResponse], dependencies=[Depends(rate_limit_reads)])
 async def list_agents(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -429,7 +429,7 @@ async def revoke_api_key(
     return {"message": "API key revoked", "key_id": str(key_id)}
 
 
-@router.get("/{agent_id}", response_model=AgentResponse)
+@router.get("/{agent_id}", response_model=AgentResponse, dependencies=[Depends(rate_limit_reads)])
 async def get_agent(
     agent_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -554,7 +554,7 @@ async def deactivate_agent(
 @router.get(
     "/{agent_id}/public",
     response_model=AgentResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_agent_public(
     agent_id: uuid.UUID,

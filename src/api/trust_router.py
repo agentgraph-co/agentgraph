@@ -218,6 +218,7 @@ async def refresh_trust_score(
     "/entities/{entity_id}/trust/contest",
     response_model=ContestResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def contest_trust_score(
     entity_id: uuid.UUID,
@@ -230,6 +231,17 @@ async def contest_trust_score(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only contest your own trust score",
         )
+
+    # Content filter on reason text
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.reason)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Contest reason rejected: {', '.join(filter_result.flags)}",
+        )
+    body.reason = sanitize_html(body.reason)
 
     flag = ModerationFlag(
         id=uuid.uuid4(),

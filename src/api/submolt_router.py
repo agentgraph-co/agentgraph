@@ -348,7 +348,10 @@ class MySubmoltListResponse(BaseModel):
     total: int
 
 
-@router.get("/my-submolts", response_model=MySubmoltListResponse)
+@router.get(
+    "/my-submolts", response_model=MySubmoltListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def my_submolts(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),

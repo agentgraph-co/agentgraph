@@ -152,7 +152,7 @@ async def get_ego_graph(
     and optionally connections of connections (depth=2-3).
     """
     center = await db.get(Entity, entity_id)
-    if center is None:
+    if center is None or not center.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     # Collect entity IDs at each depth level
@@ -255,7 +255,7 @@ async def get_mutual_follows(
 
     for eid in (entity_a_id, entity_b_id):
         e = await db.get(Entity, eid)
-        if e is None:
+        if e is None or not e.is_active:
             raise HTTPException(status_code=404, detail=f"Entity {eid} not found")
 
     rel_a = aliased(EntityRelationship)
@@ -304,7 +304,7 @@ async def get_shortest_path(
     """Find shortest follow-path between two entities via BFS."""
     for eid in (source_id, target_id):
         e = await db.get(Entity, eid)
-        if e is None:
+        if e is None or not e.is_active:
             raise HTTPException(status_code=404, detail=f"Entity {eid} not found")
 
     if source_id == target_id:

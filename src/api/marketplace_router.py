@@ -292,7 +292,10 @@ async def marketplace_category_stats(
     }
 
 
-@router.get("/my-listings", response_model=ListingListResponse)
+@router.get(
+    "/my-listings", response_model=ListingListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_my_listings(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -632,6 +635,7 @@ async def create_listing_review(
 @router.get(
     "/{listing_id}/reviews",
     response_model=ListingReviewListResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def list_listing_reviews(
     listing_id: uuid.UUID,
@@ -776,6 +780,18 @@ async def purchase_listing(
         raise HTTPException(
             status_code=400, detail="Cannot purchase your own listing",
         )
+
+    # Content filter on notes
+    if body.notes:
+        from src.content_filter import check_content, sanitize_html
+
+        filter_result = check_content(body.notes)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Purchase notes rejected: {', '.join(filter_result.flags)}",
+            )
+        body.notes = sanitize_html(body.notes)
 
     # For free listings, auto-complete
     is_free = listing.pricing_model == "free" or listing.price_cents == 0
