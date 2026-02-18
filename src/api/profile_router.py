@@ -158,7 +158,10 @@ class ProfileListResponse(BaseModel):
     has_more: bool
 
 
-@router.get("", response_model=ProfileListResponse)
+@router.get(
+    "", response_model=ProfileListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def browse_profiles(
     q: str | None = None,
     entity_type: str | None = None,
@@ -169,7 +172,10 @@ async def browse_profiles(
     """Browse entity profiles with optional filters."""
     from sqlalchemy import or_
 
-    query = select(Entity).where(Entity.is_active.is_(True))
+    query = select(Entity).where(
+        Entity.is_active.is_(True),
+        Entity.privacy_tier != PrivacyTier.PRIVATE,
+    )
 
     if q:
         pattern = f"%{q}%"

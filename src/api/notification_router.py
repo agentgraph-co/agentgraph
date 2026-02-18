@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Notification, NotificationPreference
 
@@ -152,20 +152,26 @@ class NotificationListResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.get("", response_model=NotificationListResponse)
+@router.get(
+    "", response_model=NotificationListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_notifications(
     unread_only: bool = Query(False),
+    kind: str | None = Query(None),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get notifications for the current entity."""
+    """Get notifications for the current entity. Filter by kind (e.g. follow, reply, vote)."""
     query = select(Notification).where(
         Notification.entity_id == current_entity.id,
     )
     if unread_only:
         query = query.where(Notification.is_read.is_(False))
+    if kind:
+        query = query.where(Notification.kind == kind)
 
     query = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(query)
@@ -258,7 +264,7 @@ async def delete_notification(
     return {"message": "Notification deleted"}
 
 
-@router.get("/unread-count")
+@router.get("/unread-count", dependencies=[Depends(rate_limit_reads)])
 async def unread_count(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -298,7 +304,10 @@ class UpdatePreferencesRequest(BaseModel):
     message_enabled: bool | None = None
 
 
-@router.get("/preferences", response_model=NotificationPreferencesResponse)
+@router.get(
+    "/preferences", response_model=NotificationPreferencesResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_notification_preferences(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),

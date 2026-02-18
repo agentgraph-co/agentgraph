@@ -182,14 +182,17 @@ async def platform_stats(
 @router.get("/entities", response_model=EntityListResponse)
 async def list_entities(
     type: str | None = Query(None, pattern="^(human|agent)$"),
+    q: str | None = Query(None, max_length=200),
     active_only: bool = Query(True),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all entities. Admin only."""
+    """List all entities. Admin only. Use q to search by name or email."""
     _require_admin(current_entity)
+
+    from sqlalchemy import or_
 
     query = select(Entity).order_by(Entity.created_at.desc())
     count_query = select(func.count()).select_from(Entity)
@@ -200,6 +203,15 @@ async def list_entities(
     elif type == "agent":
         query = query.where(Entity.type == EntityType.AGENT)
         count_query = count_query.where(Entity.type == EntityType.AGENT)
+
+    if q:
+        pattern = f"%{q}%"
+        search_filter = or_(
+            Entity.display_name.ilike(pattern),
+            Entity.email.ilike(pattern),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
     if active_only:
         query = query.where(Entity.is_active.is_(True))
@@ -651,6 +663,36 @@ async def cleanup_token_blacklist(
 
     removed = await cleanup_expired_blacklist(db)
     return {"message": f"Removed {removed} expired blacklist entries", "removed": removed}
+
+
+@router.patch(
+    "/posts/{post_id}/hide",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def admin_hide_post(
+    post_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hide a post (soft delete). Admin only."""
+    _require_admin(current_entity)
+
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.is_hidden:
+        return {"message": "Post is already hidden"}
+
+    post.is_hidden = True
+    await log_action(
+        db,
+        action="admin.post.hide",
+        entity_id=current_entity.id,
+        resource_type="post",
+        resource_id=post.id,
+    )
+    await db.flush()
+    return {"message": "Post hidden"}
 
 
 @router.get("/audit-logs")

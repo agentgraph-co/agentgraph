@@ -750,3 +750,57 @@ async def get_transaction(
     if txn.buyer_entity_id != current_entity.id and txn.seller_entity_id != current_entity.id:
         raise HTTPException(status_code=403, detail="Not authorized to view this transaction")
     return _txn_response(txn)
+
+
+@router.patch(
+    "/purchases/{transaction_id}/cancel",
+    response_model=TransactionResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def cancel_transaction(
+    transaction_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a pending transaction. Only the buyer can cancel."""
+    txn = await db.get(Transaction, transaction_id)
+    if txn is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.buyer_entity_id != current_entity.id:
+        raise HTTPException(status_code=403, detail="Only the buyer can cancel")
+    if txn.status != TransactionStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel a transaction with status '{txn.status.value}'",
+        )
+
+    txn.status = TransactionStatus.CANCELLED
+    await db.flush()
+    return _txn_response(txn)
+
+
+@router.patch(
+    "/purchases/{transaction_id}/refund",
+    response_model=TransactionResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def refund_transaction(
+    transaction_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Refund a completed transaction. Only the seller can refund."""
+    txn = await db.get(Transaction, transaction_id)
+    if txn is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.seller_entity_id != current_entity.id:
+        raise HTTPException(status_code=403, detail="Only the seller can refund")
+    if txn.status != TransactionStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot refund a transaction with status '{txn.status.value}'",
+        )
+
+    txn.status = TransactionStatus.REFUNDED
+    await db.flush()
+    return _txn_response(txn)
