@@ -518,6 +518,57 @@ class ListingReview(Base):
     )
 
 
+class TransactionStatus(str, enum.Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
+
+
+class Transaction(Base):
+    """Marketplace transaction record."""
+
+    __tablename__ = "transactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id = Column(
+        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    buyer_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    seller_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    amount_cents = Column(Integer, nullable=False, default=0)
+    status = Column(
+        Enum(TransactionStatus),
+        default=TransactionStatus.PENDING,
+        nullable=False,
+    )
+    listing_title = Column(String(200), nullable=False)
+    listing_category = Column(String(50), nullable=False)
+    notes = Column(Text, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    listing = relationship("Listing")
+    buyer = relationship("Entity", foreign_keys=[buyer_entity_id])
+    seller = relationship("Entity", foreign_keys=[seller_entity_id])
+
+    __table_args__ = (
+        Index("ix_transactions_buyer", "buyer_entity_id"),
+        Index("ix_transactions_seller", "seller_entity_id"),
+        Index("ix_transactions_listing", "listing_id"),
+        Index("ix_transactions_status", "status"),
+    )
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

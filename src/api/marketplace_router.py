@@ -16,7 +16,7 @@ from sqlalchemy.sql import func
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
-from src.models import Entity, Listing, ListingReview
+from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
 
 router = APIRouter(prefix="/marketplace", tags=["marketplace"])
 
@@ -468,3 +468,169 @@ async def delete_listing_review(
     await db.delete(review)
     await db.flush()
     return {"message": "Review deleted"}
+
+
+# --- Purchase / Transaction Endpoints ---
+
+
+class PurchaseRequest(BaseModel):
+    notes: str | None = Field(None, max_length=500)
+
+
+class TransactionResponse(BaseModel):
+    id: uuid.UUID
+    listing_id: uuid.UUID | None
+    buyer_entity_id: uuid.UUID
+    seller_entity_id: uuid.UUID
+    amount_cents: int
+    status: str
+    listing_title: str
+    listing_category: str
+    notes: str | None = None
+    completed_at: str | None = None
+    created_at: str
+
+
+class TransactionListResponse(BaseModel):
+    transactions: list[TransactionResponse]
+    total: int
+
+
+def _txn_response(txn: Transaction) -> TransactionResponse:
+    return TransactionResponse(
+        id=txn.id,
+        listing_id=txn.listing_id,
+        buyer_entity_id=txn.buyer_entity_id,
+        seller_entity_id=txn.seller_entity_id,
+        amount_cents=txn.amount_cents,
+        status=txn.status.value,
+        listing_title=txn.listing_title,
+        listing_category=txn.listing_category,
+        notes=txn.notes,
+        completed_at=txn.completed_at.isoformat() if txn.completed_at else None,
+        created_at=txn.created_at.isoformat(),
+    )
+
+
+@router.post(
+    "/{listing_id}/purchase",
+    response_model=TransactionResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def purchase_listing(
+    listing_id: uuid.UUID,
+    body: PurchaseRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Purchase a marketplace listing. Creates a transaction record."""
+    listing = await db.get(Listing, listing_id)
+    if listing is None or not listing.is_active:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.entity_id == current_entity.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot purchase your own listing",
+        )
+
+    # For free listings, auto-complete
+    is_free = listing.pricing_model == "free" or listing.price_cents == 0
+
+    from datetime import datetime, timezone
+    txn = Transaction(
+        id=uuid.uuid4(),
+        listing_id=listing.id,
+        buyer_entity_id=current_entity.id,
+        seller_entity_id=listing.entity_id,
+        amount_cents=listing.price_cents or 0,
+        status=TransactionStatus.COMPLETED if is_free else TransactionStatus.PENDING,
+        listing_title=listing.title,
+        listing_category=listing.category,
+        notes=body.notes,
+        completed_at=datetime.now(timezone.utc) if is_free else None,
+    )
+    db.add(txn)
+    await db.flush()
+
+    # Notify the seller
+    from src.api.notification_router import create_notification
+
+    await create_notification(
+        db,
+        entity_id=listing.entity_id,
+        kind="review",
+        title="New purchase",
+        body=(
+            f"{current_entity.display_name} purchased your listing "
+            f"'{listing.title}'"
+        ),
+        reference_id=str(txn.id),
+    )
+
+    return _txn_response(txn)
+
+
+@router.get(
+    "/purchases/history",
+    response_model=TransactionListResponse,
+)
+async def get_purchase_history(
+    role: str = Query("buyer", pattern="^(buyer|seller|all)$"),
+    status: str | None = Query(None, pattern="^(pending|completed|refunded|cancelled)$"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get transaction history for the current entity."""
+    from sqlalchemy import or_
+
+    if role == "buyer":
+        base_filter = Transaction.buyer_entity_id == current_entity.id
+    elif role == "seller":
+        base_filter = Transaction.seller_entity_id == current_entity.id
+    else:
+        base_filter = or_(
+            Transaction.buyer_entity_id == current_entity.id,
+            Transaction.seller_entity_id == current_entity.id,
+        )
+
+    query = select(Transaction).where(base_filter)
+    count_query = select(func.count()).select_from(Transaction).where(base_filter)
+
+    if status:
+        txn_status = TransactionStatus(status)
+        query = query.where(Transaction.status == txn_status)
+        count_query = count_query.where(Transaction.status == txn_status)
+
+    total = await db.scalar(count_query) or 0
+
+    result = await db.execute(
+        query.order_by(Transaction.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    transactions = result.scalars().all()
+
+    return TransactionListResponse(
+        transactions=[_txn_response(t) for t in transactions],
+        total=total,
+    )
+
+
+@router.get(
+    "/purchases/{transaction_id}",
+    response_model=TransactionResponse,
+)
+async def get_transaction(
+    transaction_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a specific transaction (must be buyer or seller)."""
+    txn = await db.get(Transaction, transaction_id)
+    if txn is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.buyer_entity_id != current_entity.id and txn.seller_entity_id != current_entity.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this transaction")
+    return _txn_response(txn)

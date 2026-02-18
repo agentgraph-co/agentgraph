@@ -271,6 +271,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "submolt_memberships",
         "submolts",
         "token_blacklist",
+        "transactions",
         "trust_scores",
         "votes",
         "webhook_subscriptions",
