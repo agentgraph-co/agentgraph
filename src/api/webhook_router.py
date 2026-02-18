@@ -28,6 +28,9 @@ VALID_EVENT_TYPES = {
     "dm.received",
     "trust.updated",
     "moderation.flagged",
+    "endorsement.created",
+    "endorsement.removed",
+    "evolution.created",
 }
 
 

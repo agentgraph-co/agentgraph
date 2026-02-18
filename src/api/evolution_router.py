@@ -247,6 +247,35 @@ async def create_evolution_record(
     )
     await db.flush()
 
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(body.entity_id), "evolution", {
+            "type": "evolution_created",
+            "record_id": str(record.id),
+            "version": body.version,
+            "change_type": body.change_type,
+            "risk_tier": risk_tier,
+        })
+    except Exception:
+        pass  # Best-effort
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "evolution.created", {
+            "record_id": str(record.id),
+            "agent_id": str(body.entity_id),
+            "version": body.version,
+            "change_type": body.change_type,
+            "risk_tier": risk_tier,
+            "operator_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     return _to_response(record)
 
 

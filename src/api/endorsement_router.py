@@ -182,6 +182,21 @@ async def endorse_capability(
     except Exception:
         pass  # Best-effort
 
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "endorsement.created", {
+            "endorsement_id": str(endorsement.id),
+            "agent_id": str(entity_id),
+            "capability": body.capability,
+            "tier": endorsement.tier,
+            "endorser_id": str(current_entity.id),
+            "endorser_name": current_entity.display_name,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return EndorsementResponse(
         id=endorsement.id,
         agent_entity_id=entity_id,
@@ -373,6 +388,18 @@ async def remove_endorsement(
 
     await db.delete(endorsement)
     await db.flush()
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "endorsement.removed", {
+            "agent_id": str(entity_id),
+            "capability": capability,
+            "endorser_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
 
 
 # --- Review Endpoints ---

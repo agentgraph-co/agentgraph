@@ -98,6 +98,17 @@ async def create_flag(
             detail="You already have a pending flag on this target",
         )
 
+    if body.details:
+        from src.content_filter import check_content, sanitize_html
+
+        filter_result = check_content(body.details)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Details rejected: {', '.join(filter_result.flags)}",
+            )
+        body.details = sanitize_html(body.details)
+
     flag = ModerationFlag(
         id=uuid.uuid4(),
         reporter_entity_id=current_entity.id,

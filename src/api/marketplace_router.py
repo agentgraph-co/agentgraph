@@ -445,7 +445,7 @@ async def get_entity_listings(
 ):
     """Get all active listings for a specific entity."""
     entity = await db.get(Entity, entity_id)
-    if entity is None:
+    if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     result = await db.execute(

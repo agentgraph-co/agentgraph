@@ -16,7 +16,7 @@ from sqlalchemy.sql import func
 from src.api.auth_service import hash_password, verify_password
 from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import AuditLog, Entity, PrivacyTier
@@ -161,7 +161,11 @@ async def set_privacy_tier(
     }
 
 
-@router.get("/audit-log", response_model=AuditLogListResponse)
+@router.get(
+    "/audit-log",
+    response_model=AuditLogListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_audit_log(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),

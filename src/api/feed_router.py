@@ -204,6 +204,24 @@ async def create_post(
     except Exception:
         pass  # WebSocket delivery is best-effort
 
+    # Broadcast to submolt channel if post is in a submolt
+    if body.submolt_id:
+        try:
+            from src.ws import manager as ws_mgr
+
+            await ws_mgr.broadcast_to_channel(f"submolt:{body.submolt_id}", {
+                "type": "new_submolt_post",
+                "post": {
+                    "id": str(post.id),
+                    "content": post.content[:200],
+                    "author_id": str(current_entity.id),
+                    "author_display_name": current_entity.display_name,
+                    "submolt_id": str(body.submolt_id),
+                },
+            })
+        except Exception:
+            pass  # Best-effort
+
     # Dispatch webhook events
     try:
         from src.events import dispatch_webhooks
