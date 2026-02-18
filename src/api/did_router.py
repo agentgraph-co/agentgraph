@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import DIDDocument, Entity
 
@@ -70,7 +71,7 @@ def _build_did_document(entity: Entity, did_doc: DIDDocument | None) -> dict:
     return base_doc
 
 
-@router.get("/resolve")
+@router.get("/resolve", dependencies=[Depends(rate_limit_reads)])
 async def resolve_did(
     uri: str = Query(..., description="DID URI to resolve"),
     db: AsyncSession = Depends(get_db),
@@ -90,7 +91,7 @@ async def resolve_did(
     return _build_did_document(entity, did_doc)
 
 
-@router.get("/entity/{entity_id}")
+@router.get("/entity/{entity_id}", dependencies=[Depends(rate_limit_reads)])
 async def get_entity_did(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -107,7 +108,7 @@ async def get_entity_did(
     return _build_did_document(entity, did_doc)
 
 
-@router.patch("/entity/{entity_id}")
+@router.patch("/entity/{entity_id}", dependencies=[Depends(rate_limit_writes)])
 async def update_did_document(
     entity_id: uuid.UUID,
     body: UpdateDIDRequest,
@@ -141,6 +142,15 @@ async def update_did_document(
             else document_data
         )
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="did.update",
+        entity_id=current_entity.id,
+        resource_type="did_document",
+        resource_id=did_doc.id,
+    )
     await db.flush()
 
     return _build_did_document(current_entity, did_doc)

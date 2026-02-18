@@ -171,6 +171,30 @@ async def refresh_trust_score(
             raw=raw_value, weight=w, contribution=round(raw_value * w, 4),
         )
 
+    # WebSocket broadcast
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(entity_id), "trust", {
+            "type": "trust_updated",
+            "score": ts.score,
+            "components": ts.components,
+        })
+    except Exception:
+        pass  # Best-effort
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "trust.updated", {
+            "entity_id": str(entity_id),
+            "score": ts.score,
+            "components": ts.components,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return TrustScoreResponse(
         entity_id=ts.entity_id,
         score=ts.score,

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     Entity,
@@ -89,6 +89,16 @@ async def follow_entity(
         type=RelationshipType.FOLLOW,
     )
     db.add(rel)
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="social.follow",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=target_id,
+    )
     await db.flush()
 
     # Notify the target
@@ -103,10 +113,37 @@ async def follow_entity(
         reference_id=str(current_entity.id),
     )
 
+    # WebSocket broadcast
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(target_id), "social", {
+            "type": "follow",
+            "follower_id": str(current_entity.id),
+            "follower_name": current_entity.display_name,
+        })
+    except Exception:
+        pass  # Best-effort
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "entity.followed", {
+            "target_id": str(target_id),
+            "follower_id": str(current_entity.id),
+            "follower_name": current_entity.display_name,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return FollowResponse(message=f"Now following {target.display_name}")
 
 
-@router.delete("/follow/{target_id}", response_model=FollowResponse)
+@router.delete(
+    "/follow/{target_id}", response_model=FollowResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def unfollow_entity(
     target_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -121,6 +158,16 @@ async def unfollow_entity(
     )
     if existing is None:
         raise HTTPException(status_code=404, detail="Not following this entity")
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="social.unfollow",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=target_id,
+    )
 
     await db.delete(existing)
     await db.flush()
@@ -229,7 +276,10 @@ async def bulk_unfollow(
     return {"unfollowed": unfollowed, "results": results}
 
 
-@router.get("/following/{entity_id}", response_model=FollowListResponse)
+@router.get(
+    "/following/{entity_id}", response_model=FollowListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_following(
     entity_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
@@ -275,7 +325,10 @@ async def get_following(
     )
 
 
-@router.get("/followers/{entity_id}", response_model=FollowListResponse)
+@router.get(
+    "/followers/{entity_id}", response_model=FollowListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_followers(
     entity_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
@@ -321,7 +374,10 @@ async def get_followers(
     )
 
 
-@router.get("/stats/{entity_id}")
+@router.get(
+    "/stats/{entity_id}",
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_social_stats(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -354,7 +410,7 @@ async def get_social_stats(
 # --- Blocking ---
 
 
-@router.post("/block/{target_id}")
+@router.post("/block/{target_id}", dependencies=[Depends(rate_limit_writes)])
 async def block_entity(
     target_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -390,6 +446,16 @@ async def block_entity(
     )
     db.add(block)
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="social.block",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=target_id,
+    )
+
     # Remove follow if exists
     follow = await db.scalar(
         select(EntityRelationship).where(
@@ -402,10 +468,22 @@ async def block_entity(
         await db.delete(follow)
 
     await db.flush()
+
+    # WebSocket broadcast (notify blocked entity)
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(target_id), "social", {
+            "type": "blocked",
+            "blocker_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     return {"message": f"Blocked {target.display_name}"}
 
 
-@router.delete("/block/{target_id}")
+@router.delete("/block/{target_id}", dependencies=[Depends(rate_limit_writes)])
 async def unblock_entity(
     target_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -423,12 +501,22 @@ async def unblock_entity(
             status_code=404, detail="Not blocked"
         )
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="social.unblock",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=target_id,
+    )
+
     await db.delete(existing)
     await db.flush()
     return {"message": "Unblocked"}
 
 
-@router.get("/blocked")
+@router.get("/blocked", dependencies=[Depends(rate_limit_reads)])
 async def list_blocked(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -470,7 +558,7 @@ async def list_blocked(
 # --- Suggested Follows ---
 
 
-@router.get("/suggested")
+@router.get("/suggested", dependencies=[Depends(rate_limit_reads)])
 async def get_suggested_follows(
     limit: int = 10,
     current_entity: Entity = Depends(get_current_entity),
@@ -535,7 +623,7 @@ async def get_suggested_follows(
 # --- Pin/Unpin Posts ---
 
 
-@router.post("/pin/{post_id}")
+@router.post("/pin/{post_id}", dependencies=[Depends(rate_limit_writes)])
 async def pin_post(
     post_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -565,6 +653,17 @@ async def pin_post(
         )
 
     post.is_pinned = not post.is_pinned
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="social.pin_toggle",
+        entity_id=current_entity.id,
+        resource_type="post",
+        resource_id=post_id,
+        details={"is_pinned": post.is_pinned},
+    )
     await db.flush()
     return {
         "post_id": str(post_id),

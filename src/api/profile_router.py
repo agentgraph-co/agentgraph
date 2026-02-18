@@ -234,7 +234,10 @@ async def browse_profiles(
     )
 
 
-@router.get("/{entity_id}", response_model=ProfileResponse)
+@router.get(
+    "/{entity_id}", response_model=ProfileResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_profile(
     entity_id: uuid.UUID,
     current_entity: Entity | None = Depends(get_optional_entity),
@@ -370,6 +373,17 @@ async def update_profile(
         update_data["privacy_tier"] = PrivacyTier(tier_val)
     for field, value in update_data.items():
         setattr(entity, field, value)
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="profile.update",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={"fields": list(update_data.keys())},
+    )
     await db.flush()
 
     ts = await db.scalar(

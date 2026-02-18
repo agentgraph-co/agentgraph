@@ -223,6 +223,18 @@ async def send_message(
     except Exception:
         pass  # Best-effort
 
+    # Audit log
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="dm.send",
+        entity_id=current_entity.id,
+        resource_type="direct_message",
+        resource_id=msg.id,
+        details={"recipient_id": str(body.recipient_id)},
+    )
+
     return MessageResponse(
         id=msg.id,
         conversation_id=conv.id,
@@ -435,6 +447,17 @@ async def delete_message(
             status_code=403, detail="Can only delete your own messages",
         )
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="dm.delete_message",
+        entity_id=current_entity.id,
+        resource_type="direct_message",
+        resource_id=message_id,
+        details={"conversation_id": str(conversation_id)},
+    )
+
     await db.delete(msg)
     await db.flush()
 
@@ -459,6 +482,16 @@ async def delete_conversation(
 
     if current_entity.id not in (conv.participant_a_id, conv.participant_b_id):
         raise HTTPException(status_code=403, detail="Not a participant")
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="dm.delete_conversation",
+        entity_id=current_entity.id,
+        resource_type="conversation",
+        resource_id=conversation_id,
+    )
 
     # Delete all messages first, then the conversation
     await db.execute(

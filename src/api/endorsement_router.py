@@ -142,6 +142,18 @@ async def endorse_capability(
     db.add(endorsement)
     await db.flush()
 
+    # Audit log
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="endorsement.create",
+        entity_id=current_entity.id,
+        resource_type="endorsement",
+        resource_id=endorsement.id,
+        details={"agent_id": str(entity_id), "capability": body.capability},
+    )
+
     # Send notification
     from src.api.notification_router import create_notification
 
@@ -341,6 +353,18 @@ async def remove_endorsement(
         raise HTTPException(
             status_code=404, detail="Endorsement not found",
         )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="endorsement.delete",
+        entity_id=current_entity.id,
+        resource_type="endorsement",
+        resource_id=endorsement.id,
+        details={"agent_id": str(entity_id), "capability": capability},
+    )
+
     await db.delete(endorsement)
     await db.flush()
 
@@ -414,6 +438,18 @@ async def create_review(
     )
     db.add(review)
     await db.flush()
+
+    # Audit log
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="review.create",
+        entity_id=current_entity.id,
+        resource_type="review",
+        resource_id=review.id,
+        details={"target_id": str(entity_id), "rating": body.rating},
+    )
 
     # Notify reviewed entity
     from src.api.notification_router import create_notification
@@ -564,5 +600,17 @@ async def delete_review(
         raise HTTPException(
             status_code=404, detail="Review not found",
         )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="review.delete",
+        entity_id=current_entity.id,
+        resource_type="review",
+        resource_id=review.id,
+        details={"target_id": str(entity_id)},
+    )
+
     await db.delete(review)
     await db.flush()
