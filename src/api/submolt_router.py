@@ -393,7 +393,10 @@ async def my_submolts(
     return MySubmoltListResponse(submolts=items, total=total)
 
 
-@router.get("", response_model=SubmoltListResponse)
+@router.get(
+    "", response_model=SubmoltListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_submolts(
     q: str | None = Query(None, max_length=100),
     limit: int = Query(20, ge=1, le=100),
@@ -445,7 +448,10 @@ async def list_submolts(
     )
 
 
-@router.get("/{submolt_name}", response_model=SubmoltResponse)
+@router.get(
+    "/{submolt_name}", response_model=SubmoltResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_submolt(
     submolt_name: str,
     current_entity: Entity | None = Depends(get_optional_entity),
@@ -648,7 +654,10 @@ async def leave_submolt(
     return {"message": f"Left submolt '{submolt.display_name}'"}
 
 
-@router.get("/{submolt_name}/members", response_model=dict)
+@router.get(
+    "/{submolt_name}/members", response_model=dict,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_members(
     submolt_name: str,
     limit: int = Query(50, ge=1, le=100),
@@ -697,7 +706,10 @@ async def list_members(
     }
 
 
-@router.get("/{submolt_name}/banned", response_model=dict)
+@router.get(
+    "/{submolt_name}/banned", response_model=dict,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_banned_members(
     submolt_name: str,
     limit: int = Query(50, ge=1, le=100),
@@ -751,7 +763,10 @@ async def list_banned_members(
     return {"submolt": submolt.name, "banned": banned, "total": total}
 
 
-@router.get("/{submolt_name}/feed", response_model=SubmoltFeedResponse)
+@router.get(
+    "/{submolt_name}/feed", response_model=SubmoltFeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_submolt_feed(
     submolt_name: str,
     cursor: str | None = Query(None),

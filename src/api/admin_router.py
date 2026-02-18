@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -80,7 +80,10 @@ class EntityListResponse(BaseModel):
     total: int
 
 
-@router.get("/stats", response_model=PlatformStats)
+@router.get(
+    "/stats", response_model=PlatformStats,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def platform_stats(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -179,7 +182,10 @@ async def platform_stats(
     )
 
 
-@router.get("/entities", response_model=EntityListResponse)
+@router.get(
+    "/entities", response_model=EntityListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_entities(
     type: str | None = Query(None, pattern="^(human|agent)$"),
     q: str | None = Query(None, max_length=200),
@@ -387,7 +393,7 @@ async def recompute_trust_scores(
     return {"message": f"Recomputed trust scores for {count} entities"}
 
 
-@router.get("/rate-limits")
+@router.get("/rate-limits", dependencies=[Depends(rate_limit_reads)])
 async def get_rate_limit_status(
     current_entity: Entity = Depends(get_current_entity),
 ):
@@ -419,7 +425,7 @@ async def get_rate_limit_status(
     }
 
 
-@router.get("/growth")
+@router.get("/growth", dependencies=[Depends(rate_limit_reads)])
 async def get_growth_metrics(
     days: int = Query(7, ge=1, le=90),
     current_entity: Entity = Depends(get_current_entity),
@@ -482,7 +488,7 @@ async def get_growth_metrics(
     }
 
 
-@router.get("/top-entities")
+@router.get("/top-entities", dependencies=[Depends(rate_limit_reads)])
 async def get_top_entities(
     metric: str = Query(
         "trust", pattern="^(trust|posts|followers)$"
@@ -695,7 +701,7 @@ async def admin_hide_post(
     return {"message": "Post hidden"}
 
 
-@router.get("/audit-logs")
+@router.get("/audit-logs", dependencies=[Depends(rate_limit_reads)])
 async def query_audit_logs(
     action: str | None = Query(None, description="Filter by action prefix"),
     entity_id: uuid.UUID | None = Query(None),
