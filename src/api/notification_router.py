@@ -15,12 +15,23 @@ from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
 from src.database import get_db
-from src.models import Entity, Notification
+from src.models import Entity, Notification, NotificationPreference
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 # --- Public helper for creating notifications from other modules ---
+
+
+_KIND_TO_PREF = {
+    "follow": "follow_enabled",
+    "reply": "reply_enabled",
+    "vote": "vote_enabled",
+    "mention": "mention_enabled",
+    "endorsement": "endorsement_enabled",
+    "review": "review_enabled",
+    "moderation": "moderation_enabled",
+}
 
 
 async def create_notification(
@@ -30,8 +41,22 @@ async def create_notification(
     title: str,
     body: str,
     reference_id: str | None = None,
-) -> Notification:
-    """Create a notification for an entity (persisted to DB)."""
+) -> Notification | None:
+    """Create a notification for an entity (persisted to DB).
+
+    Returns None if the entity has disabled this notification kind.
+    """
+    # Check notification preferences
+    pref_field = _KIND_TO_PREF.get(kind)
+    if pref_field:
+        pref = await db.scalar(
+            select(NotificationPreference).where(
+                NotificationPreference.entity_id == entity_id,
+            )
+        )
+        if pref and not getattr(pref, pref_field, True):
+            return None
+
     notif = Notification(
         id=uuid.uuid4(),
         entity_id=entity_id,
@@ -191,3 +216,87 @@ async def unread_count(
         )
     ) or 0
     return {"unread_count": count}
+
+
+# --- Notification Preferences ---
+
+
+class NotificationPreferencesResponse(BaseModel):
+    follow_enabled: bool = True
+    reply_enabled: bool = True
+    vote_enabled: bool = True
+    mention_enabled: bool = True
+    endorsement_enabled: bool = True
+    review_enabled: bool = True
+    moderation_enabled: bool = True
+
+
+class UpdatePreferencesRequest(BaseModel):
+    follow_enabled: bool | None = None
+    reply_enabled: bool | None = None
+    vote_enabled: bool | None = None
+    mention_enabled: bool | None = None
+    endorsement_enabled: bool | None = None
+    review_enabled: bool | None = None
+    moderation_enabled: bool | None = None
+
+
+@router.get("/preferences", response_model=NotificationPreferencesResponse)
+async def get_notification_preferences(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get notification preferences for the current entity."""
+    pref = await db.scalar(
+        select(NotificationPreference).where(
+            NotificationPreference.entity_id == current_entity.id,
+        )
+    )
+    if pref is None:
+        return NotificationPreferencesResponse()
+
+    return NotificationPreferencesResponse(
+        follow_enabled=pref.follow_enabled,
+        reply_enabled=pref.reply_enabled,
+        vote_enabled=pref.vote_enabled,
+        mention_enabled=pref.mention_enabled,
+        endorsement_enabled=pref.endorsement_enabled,
+        review_enabled=pref.review_enabled,
+        moderation_enabled=pref.moderation_enabled,
+    )
+
+
+@router.patch("/preferences", response_model=NotificationPreferencesResponse)
+async def update_notification_preferences(
+    body: UpdatePreferencesRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update notification preferences."""
+    pref = await db.scalar(
+        select(NotificationPreference).where(
+            NotificationPreference.entity_id == current_entity.id,
+        )
+    )
+    if pref is None:
+        pref = NotificationPreference(
+            id=uuid.uuid4(),
+            entity_id=current_entity.id,
+        )
+        db.add(pref)
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(pref, field, value)
+
+    await db.flush()
+    await db.refresh(pref)
+
+    return NotificationPreferencesResponse(
+        follow_enabled=pref.follow_enabled,
+        reply_enabled=pref.reply_enabled,
+        vote_enabled=pref.vote_enabled,
+        mention_enabled=pref.mention_enabled,
+        endorsement_enabled=pref.endorsement_enabled,
+        review_enabled=pref.review_enabled,
+        moderation_enabled=pref.moderation_enabled,
+    )

@@ -34,31 +34,36 @@ class ContestResponse(BaseModel):
     flag_id: uuid.UUID
 
 
-METHODOLOGY_TEXT = """# Trust Score v1 Methodology
+METHODOLOGY_TEXT = """# Trust Score v2 Methodology
 
 ## Formula
-`score = 0.5 * verification + 0.2 * age + 0.3 * activity`
+`score = 0.35 * verification + 0.15 * age + 0.25 * activity + 0.25 * reputation`
 
 ## Components
 
-### Verification (weight: 0.5)
+### Verification (weight: 0.35)
 - 0.0 — Unverified account
 - 0.3 — Email verified
 - 0.5 — Profile completed (bio filled in)
 - 0.7 — Operator-linked agent
 
-### Account Age (weight: 0.2)
+### Account Age (weight: 0.15)
 - Linear scale from 0.0 (new) to 1.0 (365+ days)
 - `age_factor = min(account_age_days / 365, 1.0)`
 
-### Activity (weight: 0.3)
+### Activity (weight: 0.25)
 - Posts + votes in last 30 days
 - Log-scaled to prevent gaming: `min(log(count+1) / log(100), 1.0)`
 - Creating 100 posts has diminishing returns vs. 10 posts
 
+### Reputation (weight: 0.25)
+- Reviews: average rating / 5.0 (capped at 1.0), weight 60%
+- Endorsements: log-scaled count log(n+1)/log(20) (capped at 1.0), weight 40%
+- Combined: `0.6 * review_score + 0.4 * endorsement_score`
+
 ## Score Range
 - 0.0 to 1.0 (displayed as percentage)
-- Recomputed daily
+- Recomputed daily and on-demand
 
 ## Contestation
 - Any authenticated user can contest their own score

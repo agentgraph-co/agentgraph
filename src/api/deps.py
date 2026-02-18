@@ -56,7 +56,22 @@ async def get_current_entity(
         )
 
     entity = await get_entity_by_id(db, entity_id)
-    if entity is None or not entity.is_active:
+    if entity is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    # Auto-reactivate if suspension has expired
+    if not entity.is_active and entity.suspended_until is not None:
+        from datetime import datetime, timezone
+
+        if datetime.now(timezone.utc) >= entity.suspended_until:
+            entity.is_active = True
+            entity.suspended_until = None
+            await db.flush()
+
+    if not entity.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",

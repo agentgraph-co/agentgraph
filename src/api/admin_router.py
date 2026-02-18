@@ -9,6 +9,7 @@ from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Bookmark,
@@ -453,3 +454,68 @@ async def get_top_entities(
                 for e, cnt in result.all()
             ],
         }
+
+
+@router.patch("/listings/{listing_id}/feature")
+async def toggle_featured_listing(
+    listing_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle featured status on a listing. Admin only."""
+    _require_admin(current_entity)
+
+    listing = await db.get(Listing, listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    listing.is_featured = not (listing.is_featured or False)
+    await log_action(
+        db,
+        action="admin.listing.feature_toggle",
+        entity_id=current_entity.id,
+        resource_type="listing",
+        resource_id=listing.id,
+        details={"is_featured": listing.is_featured},
+    )
+    await db.flush()
+    return {
+        "message": f"Listing {'featured' if listing.is_featured else 'unfeatured'}",
+        "is_featured": listing.is_featured,
+    }
+
+
+@router.patch("/entities/{entity_id}/suspend")
+async def suspend_entity(
+    entity_id: uuid.UUID,
+    days: int = Query(..., ge=1, le=365),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Temporarily suspend an entity for N days. Admin only."""
+    from datetime import timedelta, timezone
+
+    _require_admin(current_entity)
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if entity.id == current_entity.id:
+        raise HTTPException(status_code=400, detail="Cannot suspend yourself")
+
+    until = datetime.now(timezone.utc) + timedelta(days=days)
+    entity.is_active = False
+    entity.suspended_until = until
+    await log_action(
+        db,
+        action="admin.entity.suspend",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity.id,
+        details={"days": days, "until": until.isoformat()},
+    )
+    await db.flush()
+    return {
+        "message": f"Entity suspended until {until.isoformat()[:10]}",
+        "suspended_until": until.isoformat(),
+    }

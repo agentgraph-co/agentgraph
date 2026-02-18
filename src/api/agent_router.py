@@ -20,6 +20,7 @@ from src.api.schemas import (
     MessageResponse,
     UpdateAgentRequest,
 )
+from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, EntityType
 
@@ -57,6 +58,14 @@ async def create_agent_endpoint(
         capabilities=body.capabilities,
         autonomy_level=body.autonomy_level,
         bio_markdown=body.bio_markdown,
+    )
+    await log_action(
+        db,
+        action="agent.create",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={"display_name": body.display_name},
     )
     return AgentCreatedResponse(
         agent=AgentResponse.model_validate(agent),
@@ -122,6 +131,13 @@ async def rotate_key(
     _require_owner(current_entity, agent)
 
     new_key = await rotate_api_key(db, agent)
+    await log_action(
+        db,
+        action="agent.key_rotate",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+    )
     return ApiKeyRotatedResponse(
         api_key=new_key,
         message="API key rotated. Old key is now revoked.",
@@ -141,5 +157,12 @@ async def deactivate_agent(
     _require_owner(current_entity, agent)
 
     agent.is_active = False
+    await log_action(
+        db,
+        action="agent.deactivate",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+    )
     await db.flush()
     return MessageResponse(message="Agent deactivated")

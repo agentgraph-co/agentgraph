@@ -259,6 +259,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "evolution_records",
         "listings",
         "moderation_flags",
+        "notification_preferences",
         "notifications",
         "post_edits",
         "posts",

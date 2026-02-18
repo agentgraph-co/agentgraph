@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Bookmark,
@@ -479,6 +480,13 @@ async def delete_post(
         raise HTTPException(status_code=403, detail="Not your post")
 
     post.is_hidden = True
+    await log_action(
+        db,
+        action="post.delete",
+        entity_id=current_entity.id,
+        resource_type="post",
+        resource_id=post.id,
+    )
     await db.flush()
     return {"message": "Post deleted"}
 

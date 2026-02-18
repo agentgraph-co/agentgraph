@@ -46,22 +46,57 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _get_entity_id(request: Request) -> str | None:
+    """Extract entity ID from request state if authenticated."""
+    return getattr(request.state, "entity_id", None)
+
+
+def _rate_limit_response(
+    remaining: int, limit: int, window: int = 60,
+) -> dict[str, str]:
+    """Generate rate limit headers."""
+    return {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(max(0, remaining)),
+        "X-RateLimit-Window": str(window),
+    }
+
+
 async def rate_limit_reads(request: Request) -> None:
     ip = _get_client_ip(request)
-    if not _limiter.check(f"read:{ip}", settings.rate_limit_reads_per_minute):
+    limit = settings.rate_limit_reads_per_minute
+    if not _limiter.check(f"read:{ip}", limit):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Rate limit exceeded",
         )
+    # Per-entity limit (2x IP limit to be generous)
+    entity_id = _get_entity_id(request)
+    if entity_id:
+        entity_limit = limit * 2
+        if not _limiter.check(f"read:entity:{entity_id}", entity_limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded",
+            )
 
 
 async def rate_limit_writes(request: Request) -> None:
     ip = _get_client_ip(request)
-    if not _limiter.check(f"write:{ip}", settings.rate_limit_writes_per_minute):
+    limit = settings.rate_limit_writes_per_minute
+    if not _limiter.check(f"write:{ip}", limit):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Rate limit exceeded",
         )
+    entity_id = _get_entity_id(request)
+    if entity_id:
+        entity_limit = limit * 2
+        if not _limiter.check(f"write:entity:{entity_id}", entity_limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded",
+            )
 
 
 async def rate_limit_auth(request: Request) -> None:

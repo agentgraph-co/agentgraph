@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Entity,
@@ -189,6 +190,18 @@ async def resolve_flag(
             if target_entity:
                 target_entity.is_active = False
 
+    await log_action(
+        db,
+        action=f"moderation.resolve.{body.status.value}",
+        entity_id=current_entity.id,
+        resource_type="moderation_flag",
+        resource_id=flag.id,
+        details={
+            "target_type": flag.target_type,
+            "target_id": str(flag.target_id),
+            "resolution": body.status.value,
+        },
+    )
     await db.flush()
 
     return FlagResponse(

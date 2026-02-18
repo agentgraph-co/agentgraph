@@ -448,6 +448,34 @@ class Notification(Base):
     )
 
 
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    # Per-kind toggles (all default True = opt-in)
+    follow_enabled = Column(Boolean, default=True)
+    reply_enabled = Column(Boolean, default=True)
+    vote_enabled = Column(Boolean, default=True)
+    mention_enabled = Column(Boolean, default=True)
+    endorsement_enabled = Column(Boolean, default=True)
+    review_enabled = Column(Boolean, default=True)
+    moderation_enabled = Column(Boolean, default=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+
 class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 

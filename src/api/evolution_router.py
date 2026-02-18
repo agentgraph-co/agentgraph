@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Entity,
@@ -404,5 +405,17 @@ async def approve_or_reject_evolution(
         record.approval_note = body.note or None
         record.approved_at = now
 
+    await log_action(
+        db,
+        action=f"evolution.{body.action}",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=record.id,
+        details={
+            "agent_id": str(record.entity_id),
+            "version": record.version,
+            "risk_tier": record.risk_tier,
+        },
+    )
     await db.flush()
     return _to_response(record)
