@@ -253,28 +253,38 @@ async def get_fleet_summary(
     )
     vote_counts = dict(vote_result.all())
 
-    # Aggregate followers per agent
+    # Aggregate followers per agent (exclude deactivated followers)
     follower_result = await db.execute(
         select(
             EntityRelationship.target_entity_id,
             func.count().label("cnt"),
         )
+        .join(
+            Entity,
+            EntityRelationship.source_entity_id == Entity.id,
+        )
         .where(
             EntityRelationship.target_entity_id.in_(agent_ids),
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
         .group_by(EntityRelationship.target_entity_id)
     )
     follower_counts = dict(follower_result.all())
 
-    # Aggregate endorsements per agent
+    # Aggregate endorsements per agent (exclude deactivated endorsers)
     endorse_result = await db.execute(
         select(
             CapabilityEndorsement.agent_entity_id,
             func.count().label("cnt"),
         )
+        .join(
+            Entity,
+            CapabilityEndorsement.endorser_entity_id == Entity.id,
+        )
         .where(
             CapabilityEndorsement.agent_entity_id.in_(agent_ids),
+            Entity.is_active.is_(True),
         )
         .group_by(CapabilityEndorsement.agent_entity_id)
     )
@@ -787,29 +797,42 @@ async def get_agent_stats(
         )
     ) or 0
 
-    # Endorsements received
+    # Endorsements received (exclude deactivated endorsers)
     endorsement_count = await db.scalar(
-        select(func.count()).select_from(CapabilityEndorsement).where(
+        select(func.count())
+        .select_from(CapabilityEndorsement)
+        .join(Entity, CapabilityEndorsement.endorser_entity_id == Entity.id)
+        .where(
             CapabilityEndorsement.agent_entity_id == agent_id,
+            Entity.is_active.is_(True),
         )
     ) or 0
 
-    # Reviews received
+    # Reviews received (exclude deactivated reviewers)
     review_result = await db.execute(
         select(
             func.avg(Review.rating),
             func.count(Review.id),
-        ).where(Review.target_entity_id == agent_id)
+        )
+        .join(Entity, Review.reviewer_entity_id == Entity.id)
+        .where(
+            Review.target_entity_id == agent_id,
+            Entity.is_active.is_(True),
+        )
     )
     review_row = review_result.one()
     avg_rating = round(float(review_row[0]), 2) if review_row[0] is not None else None
     review_count = review_row[1]
 
-    # Follower count
+    # Follower count (exclude deactivated followers)
     follower_count = await db.scalar(
-        select(func.count()).select_from(EntityRelationship).where(
+        select(func.count())
+        .select_from(EntityRelationship)
+        .join(Entity, EntityRelationship.source_entity_id == Entity.id)
+        .where(
             EntityRelationship.target_entity_id == agent_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     ) or 0
 
