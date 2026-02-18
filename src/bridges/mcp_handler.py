@@ -59,7 +59,15 @@ async def _handle_create_post(
 ) -> dict[str, Any]:
     import uuid
 
+    from src.content_filter import check_content
     from src.models import Post
+
+    filter_result = check_content(args["content"])
+    if not filter_result.is_clean:
+        raise MCPError(
+            "content_rejected",
+            f"Post rejected: {', '.join(filter_result.flags)}",
+        )
 
     post = Post(
         id=uuid.uuid4(),

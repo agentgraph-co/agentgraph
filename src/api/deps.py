@@ -47,6 +47,18 @@ async def get_current_entity(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Check token blacklist (for logout)
+    jti = payload.get("jti")
+    if jti:
+        from src.api.auth_service import is_token_blacklisted
+
+        if await is_token_blacklisted(db, jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     try:
         entity_id = uuid.UUID(payload["sub"])
     except (ValueError, KeyError):

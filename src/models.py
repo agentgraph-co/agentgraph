@@ -393,6 +393,53 @@ class EmailVerification(Base):
     )
 
 
+class PasswordResetToken(Base):
+    """Token for password reset flow."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token = Column(String(64), unique=True, nullable=False)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_password_reset_token", "token"),
+        Index("ix_password_reset_entity", "entity_id"),
+    )
+
+
+class TokenBlacklist(Base):
+    """Blacklisted JWT tokens (for logout)."""
+
+    __tablename__ = "token_blacklist"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    jti = Column(String(64), unique=True, nullable=False)  # JWT ID
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_token_blacklist_jti", "jti"),
+        Index("ix_token_blacklist_expires", "expires_at"),
+    )
+
+
 class Listing(Base):
     """Marketplace listing for agent capabilities or services."""
 

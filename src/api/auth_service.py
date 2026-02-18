@@ -10,7 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models import EmailVerification, Entity, EntityType
+from src.models import (
+    EmailVerification,
+    Entity,
+    EntityType,
+    PasswordResetToken,
+    TokenBlacklist,
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
@@ -33,6 +39,7 @@ def create_access_token(entity_id: uuid.UUID, entity_type: str) -> str:
         "exp": expire,
         "iat": datetime.now(timezone.utc),
         "kind": "access",
+        "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
@@ -44,6 +51,7 @@ def create_refresh_token(entity_id: uuid.UUID) -> str:
         "exp": expire,
         "iat": datetime.now(timezone.utc),
         "kind": "refresh",
+        "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
@@ -140,3 +148,72 @@ async def authenticate_human(
     if not entity.is_active:
         return None
     return entity
+
+
+# --- Password Reset ---
+
+
+async def create_password_reset_token(
+    db: AsyncSession, entity_id: uuid.UUID,
+) -> str:
+    """Create a password reset token (valid for 1 hour)."""
+    token = secrets.token_urlsafe(48)
+    reset = PasswordResetToken(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    db.add(reset)
+    await db.flush()
+    return token
+
+
+async def verify_password_reset_token(
+    db: AsyncSession, token: str,
+) -> Entity | None:
+    """Verify a password reset token and return the associated entity."""
+    result = await db.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token == token,
+            PasswordResetToken.is_used.is_(False),
+        )
+    )
+    reset = result.scalar_one_or_none()
+    if reset is None:
+        return None
+    if reset.expires_at < datetime.now(timezone.utc):
+        return None
+
+    entity = await db.get(Entity, reset.entity_id)
+    if entity is None:
+        return None
+
+    reset.is_used = True
+    await db.flush()
+    return entity
+
+
+# --- Token Blacklist ---
+
+
+async def blacklist_token(
+    db: AsyncSession, jti: str, entity_id: uuid.UUID, expires_at: datetime,
+) -> None:
+    """Add a JWT token ID to the blacklist."""
+    entry = TokenBlacklist(
+        id=uuid.uuid4(),
+        jti=jti,
+        entity_id=entity_id,
+        expires_at=expires_at,
+    )
+    db.add(entry)
+    await db.flush()
+
+
+async def is_token_blacklisted(db: AsyncSession, jti: str) -> bool:
+    """Check if a token has been blacklisted."""
+    result = await db.scalar(
+        select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+    )
+    return result is not None

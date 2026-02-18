@@ -5,23 +5,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth_service import (
     authenticate_human,
+    blacklist_token,
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     create_verification_token,
     decode_token,
     get_entity_by_email,
     get_entity_by_id,
+    hash_password,
     register_human,
     verify_email_token,
+    verify_password_reset_token,
 )
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_auth
 from src.api.schemas import (
     EntityResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
     RefreshRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
 )
 from src.audit import log_action
@@ -157,3 +163,99 @@ async def resend_verification(
     return MessageResponse(
         message=f"Verification token: {token}",
     )
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Request a password reset token.
+
+    Always returns success to prevent email enumeration.
+    In production, the token would be emailed rather than returned.
+    """
+    entity = await get_entity_by_email(db, body.email)
+    if entity is None or not entity.is_active:
+        # Don't reveal whether account exists
+        return MessageResponse(
+            message="If an account with that email exists, a reset token has been generated.",
+        )
+
+    token = await create_password_reset_token(db, entity.id)
+
+    await log_action(
+        db,
+        action="auth.password_reset_requested",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return MessageResponse(
+        message=f"Password reset token: {token}",
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+async def reset_password(
+    body: ResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset password using a valid reset token."""
+    entity = await verify_password_reset_token(db, body.token)
+    if entity is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    entity.password_hash = hash_password(body.new_password)
+    await db.flush()
+
+    await log_action(
+        db,
+        action="auth.password_reset",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return MessageResponse(message="Password reset successful. Please log in.")
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    request: Request,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Logout and revoke the current access token."""
+    from src.api.auth_service import decode_token as _decode
+
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "")
+    payload = _decode(token)
+
+    if payload and payload.get("jti"):
+        from datetime import datetime, timezone
+
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        await blacklist_token(db, payload["jti"], current_entity.id, exp)
+
+    await log_action(
+        db,
+        action="auth.logout",
+        entity_id=current_entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return MessageResponse(message="Logged out successfully")

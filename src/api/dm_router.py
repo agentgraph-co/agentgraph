@@ -131,6 +131,15 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ):
     """Send a direct message to another entity."""
+    from src.content_filter import check_content
+
+    result = check_content(body.content)
+    if not result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Message rejected: {', '.join(result.flags)}",
+        )
+
     if body.recipient_id == current_entity.id:
         raise HTTPException(
             status_code=400, detail="Cannot send a message to yourself",
