@@ -56,11 +56,22 @@ async def test_export_basic(client: AsyncClient):
     resp = await client.get(EXPORT_URL, headers=_auth(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["export_version"] == "1.0"
+    assert data["export_version"] == "1.1"
     assert data["profile"]["id"] == entity_id
     assert data["profile"]["display_name"] == USER["display_name"]
     assert data["post_count"] == 0
     assert data["following_count"] == 0
+    # Verify new export fields exist
+    assert "bookmarks" in data
+    assert "notifications" in data
+    assert "direct_messages" in data
+    assert "endorsements_given" in data
+    assert "reviews_given" in data
+    assert "blocked_entities" in data
+    assert "audit_log" in data
+    # exported_at should be an ISO timestamp, not the account creation time
+    assert "T" in data["exported_at"]
+    assert data["exported_at"] != data["profile"]["created_at"]
 
 
 @pytest.mark.asyncio
