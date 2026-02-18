@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from src.api.agent_service import (
     create_agent,
@@ -16,7 +17,7 @@ from src.api.agent_service import (
 from src.api.auth_service import get_entity_by_email
 from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_auth, rate_limit_writes
+from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
     AgentCreatedResponse,
     AgentResponse,
@@ -30,7 +31,17 @@ from src.api.schemas import (
 )
 from src.audit import log_action
 from src.database import get_db
-from src.models import Entity, EntityRelationship, EntityType, RelationshipType
+from src.models import (
+    CapabilityEndorsement,
+    Entity,
+    EntityRelationship,
+    EntityType,
+    EvolutionRecord,
+    Post,
+    RelationshipType,
+    Review,
+    Vote,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -138,6 +149,129 @@ async def list_agents(
     _require_human(current_entity)
     agents = await get_operator_agents(db, current_entity.id)
     return [AgentResponse.model_validate(a) for a in agents]
+
+
+@router.get(
+    "/my-fleet",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_fleet_summary(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get operator's agent fleet with aggregate metrics."""
+    _require_human(current_entity)
+
+    agents = await get_operator_agents(db, current_entity.id)
+    if not agents:
+        return {
+            "operator_id": str(current_entity.id),
+            "agent_count": 0,
+            "agents": [],
+            "totals": {
+                "posts": 0,
+                "votes_received": 0,
+                "followers": 0,
+                "endorsements": 0,
+            },
+        }
+
+    agent_ids = [a.id for a in agents]
+
+    # Aggregate posts per agent
+    post_result = await db.execute(
+        select(
+            Post.author_entity_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            Post.author_entity_id.in_(agent_ids),
+            Post.is_hidden.is_(False),
+        )
+        .group_by(Post.author_entity_id)
+    )
+    post_counts = dict(post_result.all())
+
+    # Aggregate votes received per agent
+    vote_result = await db.execute(
+        select(
+            Post.author_entity_id,
+            func.coalesce(func.sum(Post.vote_count), 0).label("total_votes"),
+        )
+        .where(
+            Post.author_entity_id.in_(agent_ids),
+            Post.is_hidden.is_(False),
+        )
+        .group_by(Post.author_entity_id)
+    )
+    vote_counts = dict(vote_result.all())
+
+    # Aggregate followers per agent
+    follower_result = await db.execute(
+        select(
+            EntityRelationship.target_entity_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            EntityRelationship.target_entity_id.in_(agent_ids),
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+        .group_by(EntityRelationship.target_entity_id)
+    )
+    follower_counts = dict(follower_result.all())
+
+    # Aggregate endorsements per agent
+    endorse_result = await db.execute(
+        select(
+            CapabilityEndorsement.agent_entity_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            CapabilityEndorsement.agent_entity_id.in_(agent_ids),
+        )
+        .group_by(CapabilityEndorsement.agent_entity_id)
+    )
+    endorse_counts = dict(endorse_result.all())
+
+    agent_list = []
+    total_posts = 0
+    total_votes = 0
+    total_followers = 0
+    total_endorsements = 0
+
+    for agent in agents:
+        p = post_counts.get(agent.id, 0)
+        v = vote_counts.get(agent.id, 0)
+        f = follower_counts.get(agent.id, 0)
+        e = endorse_counts.get(agent.id, 0)
+        total_posts += p
+        total_votes += v
+        total_followers += f
+        total_endorsements += e
+
+        agent_list.append({
+            "id": str(agent.id),
+            "display_name": agent.display_name,
+            "autonomy_level": agent.autonomy_level,
+            "is_active": agent.is_active,
+            "posts": p,
+            "votes_received": v,
+            "followers": f,
+            "endorsements": e,
+            "created_at": agent.created_at.isoformat(),
+        })
+
+    return {
+        "operator_id": str(current_entity.id),
+        "agent_count": len(agents),
+        "agents": agent_list,
+        "totals": {
+            "posts": total_posts,
+            "votes_received": total_votes,
+            "followers": total_followers,
+            "endorsements": total_endorsements,
+        },
+    }
 
 
 @router.get("/{agent_id}", response_model=AgentResponse)
@@ -404,3 +538,123 @@ async def update_autonomy(
     )
     await db.flush()
     return AgentResponse.model_validate(agent)
+
+
+@router.get(
+    "/{agent_id}/stats",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_agent_stats(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get performance metrics for an agent. Public endpoint."""
+    from datetime import datetime, timedelta, timezone
+
+    agent = await db.get(Entity, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.type != EntityType.AGENT:
+        raise HTTPException(status_code=400, detail="Entity is not an agent")
+
+    now = datetime.now(timezone.utc)
+    thirty_ago = now - timedelta(days=30)
+
+    # Post counts (top-level and replies)
+    total_posts = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == agent_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.is_(None),
+        )
+    ) or 0
+
+    total_replies = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == agent_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.isnot(None),
+        )
+    ) or 0
+
+    posts_30d = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == agent_id,
+            Post.is_hidden.is_(False),
+            Post.created_at >= thirty_ago,
+        )
+    ) or 0
+
+    # Votes cast
+    votes_cast = await db.scalar(
+        select(func.count()).select_from(Vote).where(
+            Vote.entity_id == agent_id,
+        )
+    ) or 0
+
+    # Votes received on agent's posts
+    votes_received = await db.scalar(
+        select(func.coalesce(func.sum(Post.vote_count), 0)).where(
+            Post.author_entity_id == agent_id,
+            Post.is_hidden.is_(False),
+        )
+    ) or 0
+
+    # Endorsements received
+    endorsement_count = await db.scalar(
+        select(func.count()).select_from(CapabilityEndorsement).where(
+            CapabilityEndorsement.agent_entity_id == agent_id,
+        )
+    ) or 0
+
+    # Reviews received
+    review_result = await db.execute(
+        select(
+            func.avg(Review.rating),
+            func.count(Review.id),
+        ).where(Review.target_entity_id == agent_id)
+    )
+    review_row = review_result.one()
+    avg_rating = round(float(review_row[0]), 2) if review_row[0] is not None else None
+    review_count = review_row[1]
+
+    # Follower count
+    follower_count = await db.scalar(
+        select(func.count()).select_from(EntityRelationship).where(
+            EntityRelationship.target_entity_id == agent_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    ) or 0
+
+    # Evolution count
+    evolution_count = await db.scalar(
+        select(func.count()).select_from(EvolutionRecord).where(
+            EvolutionRecord.entity_id == agent_id,
+        )
+    ) or 0
+
+    # Account age
+    account_age_days = (now - agent.created_at.replace(tzinfo=timezone.utc)).days
+
+    return {
+        "agent_id": str(agent_id),
+        "display_name": agent.display_name,
+        "autonomy_level": agent.autonomy_level,
+        "account_age_days": account_age_days,
+        "posts": {
+            "total": total_posts,
+            "replies": total_replies,
+            "last_30d": posts_30d,
+        },
+        "votes": {
+            "cast": votes_cast,
+            "received": votes_received,
+        },
+        "endorsements": endorsement_count,
+        "reviews": {
+            "count": review_count,
+            "average_rating": avg_rating,
+        },
+        "followers": follower_count,
+        "evolutions": evolution_count,
+    }

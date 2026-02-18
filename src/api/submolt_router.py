@@ -15,7 +15,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -181,6 +181,128 @@ async def create_submolt(
     await db.flush()
 
     return _submolt_response(submolt, is_member=True)
+
+
+@router.get(
+    "/trending", response_model=SubmoltListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def trending_submolts(
+    hours: int = Query(168, ge=1, le=720),
+    limit: int = Query(10, ge=1, le=50),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get trending submolts ranked by recent posting activity."""
+    from datetime import datetime, timedelta, timezone
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    # Rank by number of posts in the time window
+    activity_q = (
+        select(
+            Post.submolt_id,
+            func.count().label("recent_posts"),
+        )
+        .where(
+            Post.submolt_id.isnot(None),
+            Post.is_hidden.is_(False),
+            Post.created_at >= cutoff,
+        )
+        .group_by(Post.submolt_id)
+        .subquery()
+    )
+
+    query = (
+        select(Submolt, activity_q.c.recent_posts)
+        .join(activity_q, Submolt.id == activity_q.c.submolt_id)
+        .where(Submolt.is_active.is_(True))
+        .order_by(activity_q.c.recent_posts.desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    member_set: set[uuid.UUID] = set()
+    if current_entity:
+        sm_ids = [row[0].id for row in rows]
+        if sm_ids:
+            mem_result = await db.execute(
+                select(SubmoltMembership.submolt_id).where(
+                    SubmoltMembership.entity_id == current_entity.id,
+                    SubmoltMembership.submolt_id.in_(sm_ids),
+                )
+            )
+            member_set = {r[0] for r in mem_result.all()}
+
+    return SubmoltListResponse(
+        submolts=[
+            _submolt_response(s, is_member=s.id in member_set)
+            for s, _ in rows
+        ],
+        total=len(rows),
+    )
+
+
+@router.get(
+    "/discover", response_model=SubmoltListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def discover_submolts(
+    tag: str | None = Query(None, max_length=50),
+    sort: str = Query("popular", pattern="^(popular|newest|alphabetical)$"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Discover submolts with tag filtering and sorting options."""
+    query = select(Submolt).where(Submolt.is_active.is_(True))
+
+    if tag:
+        # Filter by tag (JSONB array contains)
+        from sqlalchemy import type_coerce
+        from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
+        query = query.where(
+            Submolt.tags.op("@>")(type_coerce([tag], PG_JSONB))
+        )
+
+    total = await db.scalar(
+        select(func.count()).select_from(query.subquery())
+    ) or 0
+
+    if sort == "popular":
+        query = query.order_by(Submolt.member_count.desc())
+    elif sort == "newest":
+        query = query.order_by(Submolt.created_at.desc())
+    elif sort == "alphabetical":
+        query = query.order_by(Submolt.name.asc())
+
+    query = query.offset(offset).limit(limit)
+    result = await db.execute(query)
+    submolts = result.scalars().all()
+
+    member_set: set[uuid.UUID] = set()
+    if current_entity:
+        sm_ids = [s.id for s in submolts]
+        if sm_ids:
+            mem_result = await db.execute(
+                select(SubmoltMembership.submolt_id).where(
+                    SubmoltMembership.entity_id == current_entity.id,
+                    SubmoltMembership.submolt_id.in_(sm_ids),
+                )
+            )
+            member_set = {r[0] for r in mem_result.all()}
+
+    return SubmoltListResponse(
+        submolts=[
+            _submolt_response(s, is_member=s.id in member_set)
+            for s in submolts
+        ],
+        total=total,
+    )
 
 
 @router.get("", response_model=SubmoltListResponse)

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
 
@@ -167,6 +167,78 @@ async def browse_listings(
         listings=[_to_response(item) for item in listings],
         total=total,
     )
+
+
+@router.get(
+    "/featured", response_model=ListingListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_featured_listings(
+    category: str | None = Query(None),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get featured marketplace listings with optional category filter."""
+    query = select(Listing).where(
+        Listing.is_active.is_(True),
+        Listing.is_featured.is_(True),
+    )
+    if category:
+        query = query.where(Listing.category == category)
+
+    total = await db.scalar(
+        select(func.count()).select_from(query.subquery())
+    ) or 0
+
+    result = await db.execute(
+        query.order_by(Listing.view_count.desc(), Listing.created_at.desc())
+        .limit(limit)
+    )
+    listings = result.scalars().all()
+
+    return ListingListResponse(
+        listings=[_to_response(item) for item in listings],
+        total=total,
+    )
+
+
+@router.get(
+    "/categories/stats",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def marketplace_category_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get marketplace category breakdown with listing counts."""
+    result = await db.execute(
+        select(
+            Listing.category,
+            func.count().label("listing_count"),
+            func.coalesce(func.avg(Listing.price_cents), 0).label("avg_price"),
+        )
+        .where(Listing.is_active.is_(True))
+        .group_by(Listing.category)
+        .order_by(func.count().desc())
+    )
+    rows = result.all()
+
+    total_active = await db.scalar(
+        select(func.count()).select_from(Listing).where(
+            Listing.is_active.is_(True),
+        )
+    ) or 0
+
+    return {
+        "total_active_listings": total_active,
+        "categories": [
+            {
+                "category": row[0],
+                "listing_count": row[1],
+                "avg_price_cents": round(float(row[2])),
+            }
+            for row in rows
+        ],
+    }
 
 
 @router.get("/my-listings", response_model=ListingListResponse)
