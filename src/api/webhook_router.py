@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, WebhookSubscription
@@ -170,7 +170,10 @@ async def create_webhook(
     )
 
 
-@router.get("", response_model=WebhookListResponse)
+@router.get(
+    "", response_model=WebhookListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_webhooks(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -204,7 +207,10 @@ async def list_webhooks(
     )
 
 
-@router.get("/{webhook_id}", response_model=WebhookResponse)
+@router.get(
+    "/{webhook_id}", response_model=WebhookResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_webhook(
     webhook_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,9 +22,18 @@ router = APIRouter(prefix="/did", tags=["did"])
 
 
 class ServiceEndpoint(BaseModel):
-    id: str
-    type: str
-    serviceEndpoint: str  # noqa: N815 — W3C DID spec field name
+    id: str = Field(..., max_length=200)
+    type: str = Field(..., max_length=100)
+    serviceEndpoint: str = Field(  # noqa: N815 — W3C DID spec field name
+        ..., max_length=2000,
+    )
+
+    @field_validator("serviceEndpoint")
+    @classmethod
+    def validate_url_scheme(cls, v: str) -> str:
+        if not v.startswith("https://"):
+            raise ValueError("serviceEndpoint must use https:// scheme")
+        return v
 
 
 class UpdateDIDRequest(BaseModel):

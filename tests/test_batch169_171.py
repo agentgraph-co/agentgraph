@@ -41,7 +41,7 @@ async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     data = resp.json()
     token = data["access_token"]
     refresh = data.get("refresh_token", "")
-    me = await client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
+    await client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
     return token, refresh
 
 

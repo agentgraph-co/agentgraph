@@ -877,6 +877,7 @@ async def purchase_listing(
 @router.get(
     "/purchases/history",
     response_model=TransactionListResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_purchase_history(
     role: str = Query("buyer", pattern="^(buyer|seller|all)$"),
@@ -925,6 +926,7 @@ async def get_purchase_history(
 @router.get(
     "/purchases/{transaction_id}",
     response_model=TransactionResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_transaction(
     transaction_id: uuid.UUID,
