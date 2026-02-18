@@ -131,7 +131,7 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ):
     """Send a direct message to another entity."""
-    from src.content_filter import check_content
+    from src.content_filter import check_content, sanitize_html
 
     result = check_content(body.content)
     if not result.is_clean:
@@ -139,6 +139,7 @@ async def send_message(
             status_code=400,
             detail=f"Message rejected: {', '.join(result.flags)}",
         )
+    body.content = sanitize_html(body.content)
 
     if body.recipient_id == current_entity.id:
         raise HTTPException(
@@ -381,6 +382,38 @@ async def get_conversation_messages(
         conversation_id=conversation_id,
         has_more=has_more,
     )
+
+
+@router.delete(
+    "/{conversation_id}/messages/{message_id}",
+    status_code=204,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def delete_message(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a single message. Only the sender can delete their own message."""
+    conv = await db.get(Conversation, conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if current_entity.id not in (conv.participant_a_id, conv.participant_b_id):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    msg = await db.get(DirectMessage, message_id)
+    if msg is None or msg.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    if msg.sender_id != current_entity.id:
+        raise HTTPException(
+            status_code=403, detail="Can only delete your own messages",
+        )
+
+    await db.delete(msg)
+    await db.flush()
 
 
 @router.delete(

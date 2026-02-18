@@ -332,7 +332,13 @@ async def update_profile(
     if entity is None:
         raise HTTPException(status_code=404, detail="Profile not found")
 
+    from src.content_filter import sanitize_html
+
     update_data = body.model_dump(exclude_unset=True)
+    if "bio_markdown" in update_data and update_data["bio_markdown"]:
+        update_data["bio_markdown"] = sanitize_html(update_data["bio_markdown"])
+    if "display_name" in update_data and update_data["display_name"]:
+        update_data["display_name"] = sanitize_html(update_data["display_name"])
     for field, value in update_data.items():
         setattr(entity, field, value)
     await db.flush()

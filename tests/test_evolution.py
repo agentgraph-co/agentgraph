@@ -285,10 +285,10 @@ async def test_compare_versions(client: AsyncClient):
     resp = await client.get(f"{EVOLUTION_URL}/{agent_id}/diff/1.0.0/2.0.0")
     assert resp.status_code == 200
     data = resp.json()
-    assert "search" in data["added"]
-    assert "code" in data["added"]
-    assert "translate" in data["removed"]
-    assert "chat" in data["unchanged"]
+    assert "search" in data["capabilities"]["added"]
+    assert "code" in data["capabilities"]["added"]
+    assert "translate" in data["capabilities"]["removed"]
+    assert "chat" in data["capabilities"]["unchanged"]
 
 
 @pytest.mark.asyncio

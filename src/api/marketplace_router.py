@@ -111,11 +111,13 @@ async def create_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new marketplace listing."""
+    from src.content_filter import sanitize_html
+
     listing = Listing(
         id=uuid.uuid4(),
         entity_id=current_entity.id,
-        title=body.title,
-        description=body.description,
+        title=sanitize_html(body.title),
+        description=sanitize_html(body.description),
         category=body.category,
         tags=body.tags,
         pricing_model=body.pricing_model,

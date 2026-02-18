@@ -78,3 +78,60 @@ def check_content(text: str) -> FilterResult:
         result.flag("excessive_links", 0.6)
 
     return result
+
+
+# --- HTML Sanitization ---
+
+# Tags that are never allowed (script, event handlers, etc.)
+_DANGEROUS_TAG_RE = re.compile(
+    r"<\s*/?\s*(script|iframe|object|embed|form|input|textarea|button|link|meta"
+    r"|style|base|applet|marquee|bgsound|svg|math)\b[^>]*>",
+    re.I,
+)
+
+# Event handler attributes: onclick, onerror, onload, etc.
+_EVENT_HANDLER_RE = re.compile(
+    r"\bon\w+\s*=",
+    re.I,
+)
+
+# javascript: and data: URIs in attributes
+_DANGEROUS_URI_RE = re.compile(
+    r"(javascript|vbscript|data)\s*:",
+    re.I,
+)
+
+# HTML comments that could hide content
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+
+
+def sanitize_html(text: str) -> str:
+    """Strip dangerous HTML from user-generated text.
+
+    Removes script tags, event handlers, dangerous URIs, and HTML
+    comments while preserving plain text and safe Markdown formatting.
+    """
+    if not text:
+        return text
+
+    # Remove HTML comments
+    text = _HTML_COMMENT_RE.sub("", text)
+
+    # Remove dangerous tags entirely (including content for script/style)
+    text = re.sub(
+        r"<\s*(script|style)\b[^>]*>.*?</\s*(script|style)\s*>",
+        "",
+        text,
+        flags=re.I | re.S,
+    )
+
+    # Remove remaining dangerous tags (self-closing or opening)
+    text = _DANGEROUS_TAG_RE.sub("", text)
+
+    # Remove event handler attributes from any remaining HTML
+    text = _EVENT_HANDLER_RE.sub("", text)
+
+    # Neutralize dangerous URIs
+    text = _DANGEROUS_URI_RE.sub("", text)
+
+    return text

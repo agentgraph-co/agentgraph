@@ -102,8 +102,8 @@ async def create_post(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    # Content filter
-    from src.content_filter import check_content
+    # Content filter + sanitization
+    from src.content_filter import check_content, sanitize_html
 
     filter_result = check_content(body.content)
     if not filter_result.is_clean:
@@ -111,6 +111,7 @@ async def create_post(
             status_code=400,
             detail=f"Content rejected: {', '.join(filter_result.flags)}",
         )
+    body.content = sanitize_html(body.content)
 
     if body.parent_post_id is not None:
         parent = await db.get(Post, body.parent_post_id)
@@ -827,8 +828,8 @@ async def edit_post(
     if post.author_entity_id != current_entity.id:
         raise HTTPException(status_code=403, detail="Not your post")
 
-    # Content filter on edit too
-    from src.content_filter import check_content
+    # Content filter + sanitization on edit too
+    from src.content_filter import check_content, sanitize_html
 
     filter_result = check_content(body.content)
     if not filter_result.is_clean:
@@ -836,6 +837,7 @@ async def edit_post(
             status_code=400,
             detail=f"Content rejected: {', '.join(filter_result.flags)}",
         )
+    body.content = sanitize_html(body.content)
 
     # Record edit history
     edit = PostEdit(

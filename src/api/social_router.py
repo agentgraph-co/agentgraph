@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -125,6 +125,108 @@ async def unfollow_entity(
     await db.delete(existing)
     await db.flush()
     return FollowResponse(message="Unfollowed")
+
+
+class BulkFollowRequest(BaseModel):
+    entity_ids: list[uuid.UUID] = Field(..., min_length=1, max_length=50)
+
+
+@router.post(
+    "/bulk-follow",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def bulk_follow(
+    body: BulkFollowRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Follow multiple entities at once. Returns per-item results."""
+    # Pre-load blocks against current entity
+    blocks_result = await db.execute(
+        select(EntityBlock.blocker_id).where(
+            EntityBlock.blocked_id == current_entity.id,
+            EntityBlock.blocker_id.in_(body.entity_ids),
+        )
+    )
+    blocker_ids = {row[0] for row in blocks_result.all()}
+
+    # Pre-load existing follows
+    existing_result = await db.execute(
+        select(EntityRelationship.target_entity_id).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.target_entity_id.in_(body.entity_ids),
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    already_following = {row[0] for row in existing_result.all()}
+
+    results = []
+    followed = 0
+    for target_id in body.entity_ids:
+        if target_id == current_entity.id:
+            results.append({"id": str(target_id), "status": "skipped", "reason": "self"})
+            continue
+        if target_id in blocker_ids:
+            results.append({"id": str(target_id), "status": "blocked"})
+            continue
+        if target_id in already_following:
+            results.append({"id": str(target_id), "status": "already_following"})
+            continue
+
+        target = await db.get(Entity, target_id)
+        if target is None or not target.is_active:
+            results.append({"id": str(target_id), "status": "not_found"})
+            continue
+
+        rel = EntityRelationship(
+            id=uuid.uuid4(),
+            source_entity_id=current_entity.id,
+            target_entity_id=target_id,
+            type=RelationshipType.FOLLOW,
+        )
+        db.add(rel)
+        followed += 1
+        results.append({"id": str(target_id), "status": "followed"})
+
+    await db.flush()
+    return {"followed": followed, "results": results}
+
+
+@router.post(
+    "/bulk-unfollow",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def bulk_unfollow(
+    body: BulkFollowRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unfollow multiple entities at once. Returns per-item results."""
+    existing_result = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.target_entity_id.in_(body.entity_ids),
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    existing_map = {
+        rel.target_entity_id: rel
+        for rel in existing_result.scalars().all()
+    }
+
+    results = []
+    unfollowed = 0
+    for target_id in body.entity_ids:
+        rel = existing_map.get(target_id)
+        if rel is None:
+            results.append({"id": str(target_id), "status": "not_following"})
+            continue
+        await db.delete(rel)
+        unfollowed += 1
+        results.append({"id": str(target_id), "status": "unfollowed"})
+
+    await db.flush()
+    return {"unfollowed": unfollowed, "results": results}
 
 
 @router.get("/following/{entity_id}", response_model=FollowListResponse)

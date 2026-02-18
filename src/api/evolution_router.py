@@ -319,13 +319,39 @@ async def compare_versions(
     caps_a = set(record_a.capabilities_snapshot or [])
     caps_b = set(record_b.capabilities_snapshot or [])
 
+    # Metadata diff
+    meta_a = record_a.extra_metadata or {}
+    meta_b = record_b.extra_metadata or {}
+    all_keys = set(meta_a.keys()) | set(meta_b.keys())
+    metadata_diff = {}
+    for key in sorted(all_keys):
+        val_a = meta_a.get(key)
+        val_b = meta_b.get(key)
+        if val_a != val_b:
+            metadata_diff[key] = {"from": val_a, "to": val_b}
+
     return {
         "entity_id": str(entity_id),
         "version_a": version_a,
         "version_b": version_b,
-        "added": sorted(caps_b - caps_a),
-        "removed": sorted(caps_a - caps_b),
-        "unchanged": sorted(caps_a & caps_b),
+        "capabilities": {
+            "added": sorted(caps_b - caps_a),
+            "removed": sorted(caps_a - caps_b),
+            "unchanged": sorted(caps_a & caps_b),
+        },
+        "change_types": {
+            "from": record_a.change_type,
+            "to": record_b.change_type,
+        },
+        "summaries": {
+            "version_a": record_a.change_summary,
+            "version_b": record_b.change_summary,
+        },
+        "risk_tiers": {
+            "from": record_a.risk_tier or 1,
+            "to": record_b.risk_tier or 1,
+        },
+        "metadata_diff": metadata_diff,
     }
 
 
