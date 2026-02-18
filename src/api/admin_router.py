@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
@@ -218,7 +219,15 @@ async def deactivate_entity(
 
     entity.is_active = False
     await db.flush()
-    return {"message": f"Entity {entity.display_name} deactivated"}
+
+    cascade = await cascade_deactivate(
+        db, entity_id, performed_by=current_entity.id,
+    )
+
+    return {
+        "message": f"Entity {entity.display_name} deactivated",
+        "cascade": cascade,
+    }
 
 
 @router.patch(
@@ -559,7 +568,13 @@ async def suspend_entity(
         details={"days": days, "until": until.isoformat()},
     )
     await db.flush()
+
+    cascade = await cascade_deactivate(
+        db, entity.id, performed_by=current_entity.id,
+    )
+
     return {
         "message": f"Entity suspended until {until.isoformat()[:10]}",
         "suspended_until": until.isoformat(),
+        "cascade": cascade,
     }

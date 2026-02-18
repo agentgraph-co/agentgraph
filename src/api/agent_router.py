@@ -14,6 +14,7 @@ from src.api.agent_service import (
     rotate_api_key,
 )
 from src.api.auth_service import get_entity_by_email
+from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_auth, rate_limit_writes
 from src.api.schemas import (
@@ -221,6 +222,11 @@ async def deactivate_agent(
         resource_id=agent.id,
     )
     await db.flush()
+
+    await cascade_deactivate(
+        db, agent.id, performed_by=current_entity.id,
+    )
+
     return MessageResponse(message="Agent deactivated")
 
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
@@ -196,6 +197,11 @@ async def resolve_flag(
             target_entity = await db.get(Entity, flag.target_id)
             if target_entity:
                 target_entity.is_active = False
+                await db.flush()
+                await cascade_deactivate(
+                    db, target_entity.id,
+                    performed_by=current_entity.id,
+                )
 
     await log_action(
         db,

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.auth_service import hash_password, verify_password
+from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
@@ -95,6 +96,8 @@ async def deactivate_account(
     db: AsyncSession = Depends(get_db),
 ):
     """Deactivate the current user's account."""
+    ip = request.client.host if request.client else None
+
     current_entity.is_active = False
     await db.flush()
 
@@ -104,10 +107,17 @@ async def deactivate_account(
         entity_id=current_entity.id,
         resource_type="entity",
         resource_id=current_entity.id,
-        ip_address=request.client.host if request.client else None,
+        ip_address=ip,
     )
 
-    return {"message": "Account deactivated"}
+    cascade = await cascade_deactivate(
+        db, current_entity.id, performed_by=current_entity.id, ip_address=ip,
+    )
+
+    return {
+        "message": "Account deactivated",
+        "cascade": cascade,
+    }
 
 
 @router.get("/privacy")
