@@ -383,20 +383,28 @@ async def get_social_stats(
     db: AsyncSession = Depends(get_db),
 ):
     entity = await db.get(Entity, entity_id)
-    if entity is None:
+    if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     following_count = await db.scalar(
-        select(func.count()).select_from(EntityRelationship).where(
+        select(func.count())
+        .select_from(EntityRelationship)
+        .join(Entity, EntityRelationship.target_entity_id == Entity.id)
+        .where(
             EntityRelationship.source_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     ) or 0
 
     followers_count = await db.scalar(
-        select(func.count()).select_from(EntityRelationship).where(
+        select(func.count())
+        .select_from(EntityRelationship)
+        .join(Entity, EntityRelationship.source_entity_id == Entity.id)
+        .where(
             EntityRelationship.target_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     ) or 0
 

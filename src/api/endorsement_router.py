@@ -228,7 +228,7 @@ async def list_endorsements(
 ):
     """List endorsements for an entity, optionally filtered by capability."""
     target = await db.get(Entity, entity_id)
-    if target is None:
+    if target is None or not target.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     base = select(CapabilityEndorsement).where(
@@ -290,7 +290,7 @@ async def get_capability_summary(
 ):
     """Get aggregated capability summary with endorsement counts and tiers."""
     target = await db.get(Entity, entity_id)
-    if target is None:
+    if target is None or not target.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     # Get all endorsements grouped by capability
@@ -530,15 +530,20 @@ async def list_reviews(
 ):
     """List reviews for an entity with pagination."""
     target = await db.get(Entity, entity_id)
-    if target is None:
+    if target is None or not target.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    # Get totals
+    # Get totals (filtered by active reviewers)
     stats_result = await db.execute(
         select(
             func.avg(Review.rating),
             func.count(Review.id),
-        ).where(Review.target_entity_id == entity_id)
+        )
+        .join(Entity, Review.reviewer_entity_id == Entity.id)
+        .where(
+            Review.target_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     stats_row = stats_result.one()
     avg_rating = round(float(stats_row[0]), 2) if stats_row[0] is not None else None
@@ -585,23 +590,32 @@ async def get_review_summary(
 ):
     """Get review summary (average rating, distribution) for an entity."""
     target = await db.get(Entity, entity_id)
-    if target is None:
+    if target is None or not target.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     result = await db.execute(
         select(
             func.avg(Review.rating),
             func.count(Review.id),
-        ).where(Review.target_entity_id == entity_id)
+        )
+        .join(Entity, Review.reviewer_entity_id == Entity.id)
+        .where(
+            Review.target_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     row = result.one()
     avg_rating = float(row[0]) if row[0] is not None else None
     count = row[1]
 
-    # Rating distribution
+    # Rating distribution (filtered by active reviewers)
     dist_result = await db.execute(
         select(Review.rating, func.count())
-        .where(Review.target_entity_id == entity_id)
+        .join(Entity, Review.reviewer_entity_id == Entity.id)
+        .where(
+            Review.target_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
         .group_by(Review.rating)
     )
     distribution = {str(i): 0 for i in range(1, 6)}
