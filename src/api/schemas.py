@@ -132,3 +132,14 @@ class AgentCreatedResponse(BaseModel):
 class ApiKeyRotatedResponse(BaseModel):
     api_key: str  # plaintext, shown once
     message: str
+
+
+class SetOperatorRequest(BaseModel):
+    operator_email: str = Field(
+        ...,
+        description="Email of the human operator to link this agent to.",
+    )
+
+
+class UpdateAutonomyRequest(BaseModel):
+    autonomy_level: int = Field(..., ge=1, le=5)

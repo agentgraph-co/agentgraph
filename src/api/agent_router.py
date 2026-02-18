@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.agent_service import (
@@ -14,7 +15,7 @@ from src.api.agent_service import (
 )
 from src.api.auth_service import get_entity_by_email
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_auth
+from src.api.rate_limit import rate_limit_auth, rate_limit_writes
 from src.api.schemas import (
     AgentCreatedResponse,
     AgentResponse,
@@ -22,11 +23,13 @@ from src.api.schemas import (
     CreateAgentRequest,
     MessageResponse,
     RegisterAgentRequest,
+    SetOperatorRequest,
     UpdateAgentRequest,
+    UpdateAutonomyRequest,
 )
 from src.audit import log_action
 from src.database import get_db
-from src.models import Entity, EntityType
+from src.models import Entity, EntityRelationship, EntityType, RelationshipType
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -219,3 +222,179 @@ async def deactivate_agent(
     )
     await db.flush()
     return MessageResponse(message="Agent deactivated")
+
+
+@router.get(
+    "/{agent_id}/public",
+    response_model=AgentResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def get_agent_public(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get an agent's public profile (no authentication required)."""
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return AgentResponse.model_validate(agent)
+
+
+@router.patch(
+    "/{agent_id}/set-operator",
+    response_model=AgentResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def set_operator(
+    agent_id: uuid.UUID,
+    body: SetOperatorRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link an agent to a human operator.
+
+    The agent must either have no operator (unlinked) or the current user
+    must be the existing operator (transfer).
+    """
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+
+    # Only allow if agent is unlinked or caller is current operator
+    if agent.operator_id is not None and agent.operator_id != current_entity.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agent already linked to another operator",
+        )
+
+    new_operator = await get_entity_by_email(db, body.operator_email)
+    if new_operator is None or new_operator.type != EntityType.HUMAN:
+        raise HTTPException(
+            status_code=400,
+            detail="Operator email not found or not a human account",
+        )
+
+    old_operator_id = agent.operator_id
+    agent.operator_id = new_operator.id
+
+    # Remove old operator relationship if exists
+    if old_operator_id is not None:
+        old_rel = await db.execute(
+            select(EntityRelationship).where(
+                EntityRelationship.source_entity_id == old_operator_id,
+                EntityRelationship.target_entity_id == agent.id,
+                EntityRelationship.type == RelationshipType.OPERATOR_AGENT,
+            )
+        )
+        old = old_rel.scalar_one_or_none()
+        if old:
+            await db.delete(old)
+
+    # Create new operator relationship
+    rel = EntityRelationship(
+        id=uuid.uuid4(),
+        source_entity_id=new_operator.id,
+        target_entity_id=agent.id,
+        type=RelationshipType.OPERATOR_AGENT,
+    )
+    db.add(rel)
+
+    await log_action(
+        db,
+        action="agent.set_operator",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "old_operator_id": str(old_operator_id) if old_operator_id else None,
+            "new_operator_id": str(new_operator.id),
+        },
+    )
+    await db.flush()
+    return AgentResponse.model_validate(agent)
+
+
+@router.delete(
+    "/{agent_id}/operator",
+    response_model=AgentResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def release_operator(
+    agent_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Release an agent from its operator (unlink)."""
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+    _require_owner(current_entity, agent)
+
+    if agent.operator_id is None:
+        raise HTTPException(status_code=400, detail="Agent has no operator")
+
+    # Remove operator relationship
+    from sqlalchemy import select
+
+    from src.models import EntityRelationship, RelationshipType
+
+    old_rel = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.target_entity_id == agent.id,
+            EntityRelationship.type == RelationshipType.OPERATOR_AGENT,
+        )
+    )
+    old = old_rel.scalar_one_or_none()
+    if old:
+        await db.delete(old)
+
+    agent.operator_id = None
+
+    await log_action(
+        db,
+        action="agent.release_operator",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+    )
+    await db.flush()
+    return AgentResponse.model_validate(agent)
+
+
+@router.patch(
+    "/{agent_id}/autonomy",
+    response_model=AgentResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def update_autonomy(
+    agent_id: uuid.UUID,
+    body: UpdateAutonomyRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an agent's autonomy level (operator only). Audit-logged."""
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+    _require_owner(current_entity, agent)
+
+    old_level = agent.autonomy_level
+    agent.autonomy_level = body.autonomy_level
+
+    await log_action(
+        db,
+        action="agent.autonomy_update",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "old_autonomy_level": old_level,
+            "new_autonomy_level": body.autonomy_level,
+        },
+    )
+    await db.flush()
+    return AgentResponse.model_validate(agent)
