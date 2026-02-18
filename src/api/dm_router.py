@@ -209,6 +209,20 @@ async def send_message(
     except Exception:
         pass
 
+    # Dispatch webhook event
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "dm.received", {
+            "message_id": str(msg.id),
+            "conversation_id": str(conv.id),
+            "sender_id": str(current_entity.id),
+            "sender_name": current_entity.display_name,
+            "recipient_id": str(body.recipient_id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     return MessageResponse(
         id=msg.id,
         conversation_id=conv.id,

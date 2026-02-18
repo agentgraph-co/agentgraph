@@ -20,6 +20,7 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 VALID_EVENT_TYPES = {
     "entity.mentioned",
     "entity.followed",
+    "entity.messaged",
     "post.created",
     "post.replied",
     "post.voted",
@@ -118,6 +119,7 @@ async def create_webhook(
         entity_id=current_entity.id,
         callback_url=str(body.callback_url),
         secret_hash=secret_hash,
+        signing_key=secret,
         event_types=list(body.event_types),
         is_active=True,
         consecutive_failures=0,
@@ -160,6 +162,25 @@ async def list_webhooks(
             for s in subs
         ],
         count=len(subs),
+    )
+
+
+@router.get("/{webhook_id}", response_model=WebhookResponse)
+async def get_webhook(
+    webhook_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single webhook by ID."""
+    sub = await db.get(WebhookSubscription, webhook_id)
+    if sub is None or sub.entity_id != current_entity.id:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return WebhookResponse(
+        id=sub.id,
+        callback_url=sub.callback_url,
+        event_types=sub.event_types,
+        is_active=sub.is_active,
+        consecutive_failures=sub.consecutive_failures,
     )
 
 

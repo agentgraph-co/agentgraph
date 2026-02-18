@@ -61,6 +61,11 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    current_password: str
+
+
 class MessageResponse(BaseModel):
     message: str
 

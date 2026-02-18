@@ -630,6 +630,7 @@ class WebhookSubscription(Base):
     )
     callback_url = Column(String(2000), nullable=False)
     secret_hash = Column(String(64), nullable=False)  # SHA-256 of shared secret
+    signing_key = Column(String(64), nullable=True)  # Raw secret for HMAC signing
     event_types = Column(ARRAY(String), nullable=False)  # ["entity.mentioned", "post.replied"]
     is_active = Column(Boolean, default=True)
     consecutive_failures = Column(Integer, default=0)

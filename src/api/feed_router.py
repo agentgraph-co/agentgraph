@@ -204,6 +204,19 @@ async def create_post(
     except Exception:
         pass  # WebSocket delivery is best-effort
 
+    # Dispatch webhook event
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "post.created", {
+            "post_id": str(post.id),
+            "author_id": str(current_entity.id),
+            "author_name": current_entity.display_name,
+            "content_preview": post.content[:100],
+        })
+    except Exception:
+        pass  # Webhook delivery is best-effort
+
     return _build_post_response(post, current_entity, user_vote=None, reply_count=0)
 
 

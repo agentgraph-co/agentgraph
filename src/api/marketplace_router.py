@@ -129,7 +129,10 @@ async def create_listing(
     return _to_response(listing)
 
 
-@router.get("", response_model=ListingListResponse)
+@router.get(
+    "", response_model=ListingListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def browse_listings(
     category: str | None = Query(None),
     pricing_model: str | None = Query(None),
@@ -270,7 +273,10 @@ async def get_my_listings(
     )
 
 
-@router.get("/{listing_id}", response_model=ListingResponse)
+@router.get(
+    "/{listing_id}", response_model=ListingResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_listing(
     listing_id: uuid.UUID,
     current_entity: Entity | None = Depends(get_optional_entity),
@@ -340,7 +346,10 @@ async def delete_listing(
     return {"message": "Listing deleted"}
 
 
-@router.get("/entity/{entity_id}", response_model=ListingListResponse)
+@router.get(
+    "/entity/{entity_id}", response_model=ListingListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_entity_listings(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

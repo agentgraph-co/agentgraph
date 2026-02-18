@@ -164,6 +164,19 @@ async def compute_trust_score(
         db.add(trust_score)
 
     await db.flush()
+
+    # Dispatch webhook event
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "trust.updated", {
+            "entity_id": str(entity_id),
+            "score": trust_score.score,
+            "components": components,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return trust_score
 
 

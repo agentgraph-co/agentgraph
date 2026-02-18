@@ -21,6 +21,7 @@ from src.api.auth_service import (
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_auth
 from src.api.schemas import (
+    ChangeEmailRequest,
     EntityResponse,
     ForgotPasswordRequest,
     LoginRequest,
@@ -230,6 +231,57 @@ async def reset_password(
     )
 
     return MessageResponse(message="Password reset successful. Please log in.")
+
+
+@router.post(
+    "/change-email",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+async def change_email(
+    body: ChangeEmailRequest,
+    request: Request,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change email address. Requires current password. Sends verification."""
+    # Verify current password
+    authed = await authenticate_human(
+        db, current_entity.email, body.current_password,
+    )
+    if authed is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid current password",
+        )
+
+    # Check new email not taken
+    existing = await get_entity_by_email(db, body.new_email)
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already in use",
+        )
+
+    # Update email and reset verification
+    current_entity.email = body.new_email
+    current_entity.email_verified = False
+    await db.flush()
+
+    # Create verification token for new email
+    verification_token = await create_verification_token(db, current_entity.id)
+
+    await log_action(
+        db,
+        action="auth.email_changed",
+        entity_id=current_entity.id,
+        details={"new_email": body.new_email},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return MessageResponse(
+        message=f"Email changed. Verification token: {verification_token}",
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
