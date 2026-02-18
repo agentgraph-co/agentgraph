@@ -15,10 +15,17 @@ from src.trust.score import compute_trust_score
 router = APIRouter(tags=["trust"])
 
 
+class TrustComponentDetail(BaseModel):
+    raw: float
+    weight: float
+    contribution: float
+
+
 class TrustScoreResponse(BaseModel):
     entity_id: uuid.UUID
     score: float
     components: dict
+    component_details: dict[str, TrustComponentDetail] | None = None
     computed_at: str
     methodology_url: str = "/api/v1/trust/methodology"
 
@@ -91,10 +98,34 @@ async def get_trust_score(
         # Compute on first request
         existing = await compute_trust_score(db, entity_id)
 
+    # Build detailed component breakdown with weights
+    from src.trust.score import (
+        ACTIVITY_WEIGHT,
+        AGE_WEIGHT,
+        REPUTATION_WEIGHT,
+        VERIFICATION_WEIGHT,
+    )
+
+    weights = {
+        "verification": VERIFICATION_WEIGHT,
+        "age": AGE_WEIGHT,
+        "activity": ACTIVITY_WEIGHT,
+        "reputation": REPUTATION_WEIGHT,
+    }
+    component_details = {}
+    for name, raw_value in (existing.components or {}).items():
+        w = weights.get(name, 0)
+        component_details[name] = TrustComponentDetail(
+            raw=raw_value,
+            weight=w,
+            contribution=round(raw_value * w, 4),
+        )
+
     return TrustScoreResponse(
         entity_id=existing.entity_id,
         score=existing.score,
         components=existing.components,
+        component_details=component_details,
         computed_at=existing.computed_at.isoformat(),
     )
 

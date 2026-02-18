@@ -45,6 +45,7 @@ class ProfileResponse(BaseModel):
     is_active: bool
     email_verified: bool = False
     trust_score: float | None = None
+    trust_components: dict | None = None
     badges: list[str] = []
     average_rating: float | None = None
     review_count: int = 0
@@ -197,6 +198,7 @@ async def get_profile(
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
+        trust_components=ts.components if ts else None,
         badges=_compute_badges(entity),
         average_rating=avg_rating,
         review_count=review_count,
@@ -261,6 +263,7 @@ async def update_profile(
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
+        trust_components=ts.components if ts else None,
         badges=_compute_badges(entity),
         average_rating=avg_rating,
         review_count=review_count,

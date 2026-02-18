@@ -120,6 +120,53 @@ async def test_get_trust_score(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_trust_score_component_details(client: AsyncClient):
+    """Trust score response includes detailed component breakdown."""
+    _, entity_id = await _register_and_login(client)
+
+    resp = await client.get(f"/api/v1/entities/{entity_id}/trust")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert "component_details" in data
+    details = data["component_details"]
+    assert "verification" in details
+    assert "age" in details
+    assert "activity" in details
+    assert "reputation" in details
+
+    # Each component has raw, weight, contribution
+    for component in details.values():
+        assert "raw" in component
+        assert "weight" in component
+        assert "contribution" in component
+        assert component["weight"] > 0
+
+    # Contributions should sum to approximately the total score
+    total_contribution = sum(c["contribution"] for c in details.values())
+    assert abs(total_contribution - data["score"]) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_profile_includes_trust_components(client: AsyncClient):
+    """Profile response includes trust score components."""
+    token, entity_id = await _register_and_login(client)
+
+    # Compute trust score first
+    await client.get(f"/api/v1/entities/{entity_id}/trust")
+
+    resp = await client.get(
+        f"/api/v1/profiles/{entity_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["trust_score"] is not None
+    assert data["trust_components"] is not None
+    assert "verification" in data["trust_components"]
+
+
+@pytest.mark.asyncio
 async def test_contest_trust_score(client: AsyncClient):
     token, entity_id = await _register_and_login(client)
 
