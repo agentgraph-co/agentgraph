@@ -29,6 +29,7 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(None, min_length=1, max_length=100)
     bio_markdown: str | None = Field(None, max_length=5000)
+    avatar_url: str | None = Field(None, max_length=500)
 
 
 class ProfileResponse(BaseModel):
@@ -36,6 +37,7 @@ class ProfileResponse(BaseModel):
     type: str
     display_name: str
     bio_markdown: str
+    avatar_url: str | None = None
     did_web: str
     capabilities: list | None = None
     autonomy_level: int | None = None
@@ -183,6 +185,7 @@ async def get_profile(
         type=entity.type.value,
         display_name=entity.display_name,
         bio_markdown=entity.bio_markdown or "",
+        avatar_url=entity.avatar_url,
         did_web=entity.did_web,
         capabilities=(
             entity.capabilities
@@ -246,6 +249,7 @@ async def update_profile(
         type=entity.type.value,
         display_name=entity.display_name,
         bio_markdown=entity.bio_markdown or "",
+        avatar_url=entity.avatar_url,
         did_web=entity.did_web,
         capabilities=(
             entity.capabilities

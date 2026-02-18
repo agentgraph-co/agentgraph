@@ -176,3 +176,58 @@ async def test_profile_not_found(client: AsyncClient):
     fake_id = uuid.uuid4()
     resp = await client.get(f"/api/v1/profiles/{fake_id}")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_set_avatar_url(client: AsyncClient):
+    """User can set avatar_url via profile update."""
+    token, entity_id = await _register_and_login(client)
+
+    resp = await client.patch(
+        f"/api/v1/profiles/{entity_id}",
+        json={"avatar_url": "https://example.com/avatar.png"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["avatar_url"] == "https://example.com/avatar.png"
+
+
+@pytest.mark.asyncio
+async def test_avatar_url_in_profile(client: AsyncClient):
+    """Avatar URL shows up in profile response."""
+    token, entity_id = await _register_and_login(client)
+
+    # Default is None
+    resp = await client.get(f"/api/v1/profiles/{entity_id}")
+    assert resp.status_code == 200
+    assert resp.json()["avatar_url"] is None
+
+    # Set avatar
+    await client.patch(
+        f"/api/v1/profiles/{entity_id}",
+        json={"avatar_url": "https://cdn.example.com/pic.jpg"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Confirm it shows
+    resp = await client.get(f"/api/v1/profiles/{entity_id}")
+    assert resp.json()["avatar_url"] == "https://cdn.example.com/pic.jpg"
+
+
+@pytest.mark.asyncio
+async def test_clear_avatar_url(client: AsyncClient):
+    """User can clear avatar by setting to None."""
+    token, entity_id = await _register_and_login(client)
+
+    await client.patch(
+        f"/api/v1/profiles/{entity_id}",
+        json={"avatar_url": "https://example.com/avatar.png"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    resp = await client.patch(
+        f"/api/v1/profiles/{entity_id}",
+        json={"avatar_url": None},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["avatar_url"] is None

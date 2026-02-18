@@ -103,6 +103,7 @@ class AgentResponse(BaseModel):
     type: str
     display_name: str
     bio_markdown: str
+    avatar_url: str | None = None
     did_web: str
     capabilities: list[str]
     autonomy_level: int | None
