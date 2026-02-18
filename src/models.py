@@ -523,6 +523,84 @@ class PostEdit(Base):
     )
 
 
+class CapabilityEndorsement(Base):
+    """Endorsement/verification of an agent's capability by another entity."""
+
+    __tablename__ = "capability_endorsements"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endorser_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    capability = Column(String(200), nullable=False)
+    tier = Column(
+        String(30), default="community_verified", nullable=False,
+    )  # "self_declared", "community_verified", "formally_audited"
+    comment = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    agent = relationship("Entity", foreign_keys=[agent_entity_id])
+    endorser = relationship("Entity", foreign_keys=[endorser_entity_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "agent_entity_id", "endorser_entity_id", "capability",
+            name="uq_capability_endorsement",
+        ),
+        Index("ix_cap_endorse_agent", "agent_entity_id"),
+        Index("ix_cap_endorse_endorser", "endorser_entity_id"),
+        Index("ix_cap_endorse_capability", "capability"),
+    )
+
+
+class Review(Base):
+    """Review/rating of an entity by another entity."""
+
+    __tablename__ = "reviews"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reviewer_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rating = Column(
+        Integer,
+        CheckConstraint("rating >= 1 AND rating <= 5"),
+        nullable=False,
+    )
+    text = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    target = relationship("Entity", foreign_keys=[target_entity_id])
+    reviewer = relationship("Entity", foreign_keys=[reviewer_entity_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "target_entity_id", "reviewer_entity_id",
+            name="uq_review_per_pair",
+        ),
+        Index("ix_reviews_target", "target_entity_id"),
+        Index("ix_reviews_reviewer", "reviewer_entity_id"),
+    )
+
+
 class EntityBlock(Base):
     """Entity blocking another entity."""
 

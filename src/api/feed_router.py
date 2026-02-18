@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import case, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
@@ -64,6 +64,7 @@ class PostResponse(BaseModel):
     is_edited: bool = False
     user_vote: str | None = None  # "up", "down", or None
     is_bookmarked: bool = False
+    author_trust_score: float | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -182,10 +183,16 @@ async def create_post(
 async def get_feed(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
+    sort: str = Query("newest", pattern="^(ranked|newest)$"),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get top-level posts (no parent), ordered by recency with trust boost."""
+    """Get top-level posts.
+
+    sort=ranked uses trust-weighted ranking; sort=newest uses chronological.
+    """
+    trust_score_col = func.coalesce(TrustScore.score, literal(0.0))
+
     query = (
         select(Post, Entity, TrustScore.score)
         .join(Entity, Post.author_entity_id == Entity.id)
@@ -199,8 +206,27 @@ async def get_feed(
             raise HTTPException(status_code=400, detail="Invalid cursor")
         query = query.where(Post.id < cursor_id)
 
-    # Order by id desc (monotonically increasing UUIDv4 approximates time order)
-    query = query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit + 1)
+    if sort == "ranked":
+        # Trust-weighted ranking: score = votes + (trust * 3) + recency_boost
+        # Recency bonus: posts < 1h get +2, < 6h get +1, < 24h get +0.5
+        hours_ago = func.extract(
+            "epoch",
+            func.now() - Post.created_at,
+        ) / 3600.0
+        recency_boost = case(
+            (hours_ago < 1, literal(2.0)),
+            (hours_ago < 6, literal(1.0)),
+            (hours_ago < 24, literal(0.5)),
+            else_=literal(0.0),
+        )
+        rank_expr = (
+            Post.vote_count
+            + trust_score_col * 3
+            + recency_boost
+        )
+        query = query.order_by(rank_expr.desc(), Post.created_at.desc()).limit(limit + 1)
+    else:
+        query = query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit + 1)
 
     result = await db.execute(query)
     rows = result.all()
@@ -238,6 +264,7 @@ async def get_feed(
             author,
             user_vote=user_votes.get(post.id),
             reply_count=reply_counts.get(post.id, 0),
+            author_trust_score=trust_score,
         ))
 
     next_cursor = None
@@ -510,6 +537,7 @@ async def get_trending(
             author,
             user_vote=user_votes.get(post.id),
             reply_count=reply_counts.get(post.id, 0),
+            author_trust_score=trust_score,
         ))
 
     return FeedResponse(posts=posts, next_cursor=None)
@@ -595,6 +623,7 @@ async def get_following_feed(
             author,
             user_vote=user_votes.get(post.id),
             reply_count=reply_counts.get(post.id, 0),
+            author_trust_score=trust_score,
         ))
 
     next_cursor = None
@@ -896,6 +925,7 @@ def _build_post_response(
     user_vote: str | None,
     reply_count: int,
     is_bookmarked: bool = False,
+    author_trust_score: float | None = None,
 ) -> PostResponse:
     return PostResponse(
         id=post.id,
@@ -913,6 +943,7 @@ def _build_post_response(
         is_edited=post.is_edited or False,
         user_vote=user_vote,
         is_bookmarked=is_bookmarked,
+        author_trust_score=author_trust_score,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
