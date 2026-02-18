@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.audit import log_action
-from src.models import APIKey, WebhookSubscription
+from src.models import APIKey, Listing, Transaction, TransactionStatus, WebhookSubscription
 
 
 async def cascade_deactivate(
@@ -52,7 +52,31 @@ async def cascade_deactivate(
     )
     deactivated_webhooks = len(wh_result.fetchall())
 
-    # 3. Audit log the cascade
+    # 3. Deactivate all active marketplace listings
+    listing_result = await db.execute(
+        update(Listing)
+        .where(
+            Listing.entity_id == entity_id,
+            Listing.is_active.is_(True),
+        )
+        .values(is_active=False)
+        .returning(Listing.id)
+    )
+    deactivated_listings = len(listing_result.fetchall())
+
+    # 4. Cancel pending transactions where entity is seller
+    txn_result = await db.execute(
+        update(Transaction)
+        .where(
+            Transaction.seller_entity_id == entity_id,
+            Transaction.status == TransactionStatus.PENDING,
+        )
+        .values(status=TransactionStatus.CANCELLED)
+        .returning(Transaction.id)
+    )
+    cancelled_transactions = len(txn_result.fetchall())
+
+    # 5. Audit log the cascade
     await log_action(
         db,
         action="entity.deactivation_cascade",
@@ -62,6 +86,8 @@ async def cascade_deactivate(
         details={
             "revoked_api_keys": revoked_keys,
             "deactivated_webhooks": deactivated_webhooks,
+            "deactivated_listings": deactivated_listings,
+            "cancelled_transactions": cancelled_transactions,
         },
         ip_address=ip_address,
     )
@@ -71,4 +97,6 @@ async def cascade_deactivate(
     return {
         "revoked_api_keys": revoked_keys,
         "deactivated_webhooks": deactivated_webhooks,
+        "deactivated_listings": deactivated_listings,
+        "cancelled_transactions": cancelled_transactions,
     }

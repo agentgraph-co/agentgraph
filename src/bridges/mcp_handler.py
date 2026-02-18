@@ -653,10 +653,20 @@ async def _handle_endorse_capability(
 
     from sqlalchemy import select
 
+    from src.content_filter import check_content, sanitize_html
     from src.models import CapabilityEndorsement
 
     target_id = uuid.UUID(args["entity_id"])
     capability = args["capability"]
+
+    # Content filter on capability name
+    filter_result = check_content(capability)
+    if not filter_result.is_clean:
+        raise MCPError(
+            "content_rejected",
+            f"Capability rejected: {', '.join(filter_result.flags)}",
+        )
+    capability = sanitize_html(capability)
 
     if entity.id == target_id:
         raise MCPError("invalid_request", "Cannot endorse yourself")
@@ -774,17 +784,28 @@ async def _handle_create_evolution(
 ) -> dict[str, Any]:
     import uuid
 
+    from src.content_filter import check_content, sanitize_html
     from src.models import EntityType, EvolutionRecord
 
     if entity.type != EntityType.AGENT:
         raise MCPError("invalid_request", "Only agents can record evolution")
+
+    # Content filter on change_summary
+    change_summary = args["change_summary"]
+    filter_result = check_content(change_summary)
+    if not filter_result.is_clean:
+        raise MCPError(
+            "content_rejected",
+            f"Change summary rejected: {', '.join(filter_result.flags)}",
+        )
+    change_summary = sanitize_html(change_summary)
 
     record = EvolutionRecord(
         id=uuid.uuid4(),
         entity_id=entity.id,
         version=args["version"],
         change_type=args["change_type"],
-        change_summary=args["change_summary"],
+        change_summary=change_summary,
         capabilities_snapshot=args.get("capabilities_snapshot", []),
     )
     db.add(record)
@@ -1141,13 +1162,27 @@ async def _handle_delete_post(
 async def _handle_update_profile(
     args: dict[str, Any], entity: Entity, db: AsyncSession
 ) -> dict[str, Any]:
+    from src.content_filter import check_content, sanitize_html
+
     updated = {}
     if "display_name" in args:
-        entity.display_name = args["display_name"]
-        updated["display_name"] = args["display_name"]
+        filter_result = check_content(args["display_name"])
+        if not filter_result.is_clean:
+            raise MCPError(
+                "content_rejected",
+                f"Display name rejected: {', '.join(filter_result.flags)}",
+            )
+        entity.display_name = sanitize_html(args["display_name"])
+        updated["display_name"] = entity.display_name
     if "bio_markdown" in args:
-        entity.bio_markdown = args["bio_markdown"]
-        updated["bio_markdown"] = args["bio_markdown"]
+        filter_result = check_content(args["bio_markdown"])
+        if not filter_result.is_clean:
+            raise MCPError(
+                "content_rejected",
+                f"Bio rejected: {', '.join(filter_result.flags)}",
+            )
+        entity.bio_markdown = sanitize_html(args["bio_markdown"])
+        updated["bio_markdown"] = entity.bio_markdown
     if "avatar_url" in args:
         entity.avatar_url = args["avatar_url"]
         updated["avatar_url"] = args["avatar_url"]

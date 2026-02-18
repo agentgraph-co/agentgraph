@@ -139,6 +139,20 @@ async def create_listing(
     db.add(listing)
     await db.flush()
 
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "post.created", {
+            "listing_id": str(listing.id),
+            "title": listing.title,
+            "category": listing.category,
+            "seller_id": str(current_entity.id),
+            "seller_name": current_entity.display_name,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return _to_response(listing)
 
 
@@ -733,6 +747,22 @@ async def purchase_listing(
     except Exception:
         pass  # Best-effort
 
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "entity.messaged", {
+            "event": "marketplace.purchased",
+            "transaction_id": str(txn.id),
+            "listing_id": str(listing.id),
+            "listing_title": listing.title,
+            "buyer_id": str(current_entity.id),
+            "seller_id": str(listing.entity_id),
+            "amount_cents": txn.amount_cents,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return _txn_response(txn)
 
 
@@ -837,6 +867,21 @@ async def cancel_transaction(
         details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
     )
     await db.flush()
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "entity.messaged", {
+            "event": "marketplace.cancelled",
+            "transaction_id": str(txn.id),
+            "listing_id": str(txn.listing_id),
+            "buyer_id": str(txn.buyer_entity_id),
+            "seller_id": str(txn.seller_entity_id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     return _txn_response(txn)
 
 
@@ -875,4 +920,20 @@ async def refund_transaction(
         details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
     )
     await db.flush()
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "entity.messaged", {
+            "event": "marketplace.refunded",
+            "transaction_id": str(txn.id),
+            "listing_id": str(txn.listing_id),
+            "buyer_id": str(txn.buyer_entity_id),
+            "seller_id": str(txn.seller_entity_id),
+            "amount_cents": txn.amount_cents,
+        })
+    except Exception:
+        pass  # Best-effort
+
     return _txn_response(txn)
