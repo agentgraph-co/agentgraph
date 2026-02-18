@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -159,7 +159,10 @@ async def create_flag(
     )
 
 
-@router.get("/flags", response_model=FlagListResponse)
+@router.get(
+    "/flags", response_model=FlagListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_flags(
     status: ModerationStatus | None = Query(None),
     reason: ModerationReason | None = Query(None),
@@ -209,7 +212,10 @@ async def list_flags(
     )
 
 
-@router.get("/flags/{flag_id}", response_model=FlagResponse)
+@router.get(
+    "/flags/{flag_id}", response_model=FlagResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_flag(
     flag_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -355,7 +361,7 @@ async def resolve_flag(
     )
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[Depends(rate_limit_reads)])
 async def moderation_stats(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -474,6 +480,17 @@ async def appeal_flag(
             status_code=409, detail="A pending appeal already exists",
         )
 
+    # Content filter on appeal reason
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.reason)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Appeal reason rejected: {', '.join(filter_result.flags)}",
+        )
+    body.reason = sanitize_html(body.reason)
+
     appeal = ModerationAppeal(
         id=uuid.uuid4(),
         flag_id=flag_id,
@@ -481,6 +498,15 @@ async def appeal_flag(
         reason=body.reason,
     )
     db.add(appeal)
+
+    await log_action(
+        db,
+        action="moderation.appeal",
+        entity_id=current_entity.id,
+        resource_type="moderation_appeal",
+        resource_id=appeal.id,
+        details={"flag_id": str(flag_id)},
+    )
     await db.flush()
 
     return {
@@ -492,7 +518,7 @@ async def appeal_flag(
     }
 
 
-@router.get("/appeals")
+@router.get("/appeals", dependencies=[Depends(rate_limit_reads)])
 async def list_appeals(
     status: str | None = Query(None, pattern="^(pending|upheld|overturned)$"),
     limit: int = Query(50, ge=1, le=200),
@@ -539,7 +565,7 @@ async def list_appeals(
     }
 
 
-@router.get("/appeals/{appeal_id}")
+@router.get("/appeals/{appeal_id}", dependencies=[Depends(rate_limit_reads)])
 async def get_appeal(
     appeal_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
