@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -53,6 +53,19 @@ class SearchResponse(BaseModel):
     submolt_count: int = 0
 
 
+def _make_tsquery(q: str) -> str:
+    """Convert user query to PostgreSQL tsquery-safe string.
+
+    Splits on whitespace, escapes each token, joins with '&'.
+    """
+    tokens = q.strip().split()
+    if not tokens:
+        return ""
+    # Escape single quotes and add prefix matching
+    safe = [t.replace("'", "''") + ":*" for t in tokens if t]
+    return " & ".join(safe)
+
+
 @router.get("", response_model=SearchResponse)
 async def search(
     q: str = Query(..., min_length=1, max_length=200),
@@ -60,13 +73,14 @@ async def search(
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search entities and posts by text query.
+    """Search entities, posts, and submolts.
 
-    Uses PostgreSQL ILIKE for now — will migrate to full-text search
-    or Meilisearch as the dataset grows.
+    Uses PostgreSQL full-text search with ts_rank for relevance
+    ordering, falling back to ILIKE for short queries.
     """
     search_type = type or "all"
-    pattern = f"%{q}%"
+    tsquery_str = _make_tsquery(q)
+    use_fts = len(q.strip()) >= 2 and tsquery_str
 
     entities: list[SearchEntityResult] = []
     posts: list[SearchPostResult] = []
@@ -80,24 +94,53 @@ async def search(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
+            )
+        )
+
+        # Entities use ILIKE for display_name (handles compound names)
+        # combined with FTS for bio text when available
+        pattern = f"%{q}%"
+        if use_fts:
+            ts_col = func.to_tsvector(
+                text("'english'"),
+                func.coalesce(Entity.bio_markdown, text("''")),
+            )
+            tsq = func.to_tsquery(text("'english'"), text(f"'{tsquery_str}'"))
+            entity_query = entity_query.where(
+                or_(
+                    Entity.display_name.ilike(pattern),
+                    ts_col.op("@@")(tsq),
+                    Entity.did_web.ilike(pattern),
+                ),
+            )
+            rank = func.ts_rank(ts_col, tsq)
+            entity_query = entity_query.order_by(
+                rank.desc(),
+                TrustScore.score.desc().nullslast(),
+            )
+        else:
+            entity_query = entity_query.where(
                 or_(
                     Entity.display_name.ilike(pattern),
                     Entity.bio_markdown.ilike(pattern),
                     Entity.did_web.ilike(pattern),
                 ),
             )
-        )
+            entity_query = entity_query.order_by(
+                TrustScore.score.desc().nullslast(),
+                Entity.created_at.desc(),
+            )
 
         if search_type == "human":
-            entity_query = entity_query.where(Entity.type == EntityType.HUMAN)
+            entity_query = entity_query.where(
+                Entity.type == EntityType.HUMAN,
+            )
         elif search_type == "agent":
-            entity_query = entity_query.where(Entity.type == EntityType.AGENT)
+            entity_query = entity_query.where(
+                Entity.type == EntityType.AGENT,
+            )
 
-        entity_query = entity_query.order_by(
-            TrustScore.score.desc().nullslast(),
-            Entity.created_at.desc(),
-        ).limit(limit)
-
+        entity_query = entity_query.limit(limit)
         result = await db.execute(entity_query)
         for entity, score in result.all():
             entities.append(SearchEntityResult(
@@ -115,14 +158,30 @@ async def search(
         post_query = (
             select(Post, Entity.display_name, Entity.id)
             .join(Entity, Post.author_entity_id == Entity.id)
-            .where(
-                Post.is_hidden.is_(False),
-                Post.content.ilike(pattern),
-            )
-            .order_by(Post.vote_count.desc(), Post.created_at.desc())
-            .limit(limit)
+            .where(Post.is_hidden.is_(False))
         )
 
+        if use_fts:
+            post_ts = func.to_tsvector(
+                text("'english'"), Post.content,
+            )
+            post_tsq = func.to_tsquery(
+                text("'english'"), text(f"'{tsquery_str}'"),
+            )
+            post_query = post_query.where(post_ts.op("@@")(post_tsq))
+            post_rank = func.ts_rank(post_ts, post_tsq)
+            post_query = post_query.order_by(
+                post_rank.desc(),
+                Post.vote_count.desc(),
+            )
+        else:
+            pattern = f"%{q}%"
+            post_query = post_query.where(Post.content.ilike(pattern))
+            post_query = post_query.order_by(
+                Post.vote_count.desc(), Post.created_at.desc(),
+            )
+
+        post_query = post_query.limit(limit)
         result = await db.execute(post_query)
         for post, author_name, author_id in result.all():
             posts.append(SearchPostResult(
@@ -136,22 +195,36 @@ async def search(
 
     # Search submolts
     if search_type == "all":
-        submolt_query = (
-            select(Submolt)
-            .where(
-                Submolt.is_active.is_(True),
+        submolt_query = select(Submolt).where(
+            Submolt.is_active.is_(True),
+        )
+
+        if use_fts:
+            sm_ts = func.to_tsvector(
+                text("'english'"),
+                func.coalesce(Submolt.display_name, text("''"))
+                + text("' '")
+                + func.coalesce(Submolt.description, text("''")),
+            )
+            sm_tsq = func.to_tsquery(
+                text("'english'"), text(f"'{tsquery_str}'"),
+            )
+            submolt_query = submolt_query.where(sm_ts.op("@@")(sm_tsq))
+        else:
+            pattern = f"%{q}%"
+            submolt_query = submolt_query.where(
                 or_(
                     Submolt.display_name.ilike(pattern),
                     Submolt.name.ilike(pattern),
                     Submolt.description.ilike(pattern),
                 ),
             )
-            .order_by(
-                Submolt.member_count.desc(),
-                Submolt.created_at.desc(),
-            )
-            .limit(limit)
-        )
+
+        submolt_query = submolt_query.order_by(
+            Submolt.member_count.desc(),
+            Submolt.created_at.desc(),
+        ).limit(limit)
+
         result = await db.execute(submolt_query)
         for s in result.scalars().all():
             submolts.append(SearchSubmoltResult(
@@ -180,8 +253,9 @@ async def search_entities(
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search only entities."""
-    pattern = f"%{q}%"
+    """Search only entities using full-text search."""
+    tsquery_str = _make_tsquery(q)
+    use_fts = len(q.strip()) >= 2 and tsquery_str
 
     query = (
         select(Entity, TrustScore.score)
@@ -189,23 +263,44 @@ async def search_entities(
         .where(
             Entity.is_active.is_(True),
             Entity.privacy_tier == PrivacyTier.PUBLIC,
+        )
+    )
+
+    pattern = f"%{q}%"
+    if use_fts:
+        ts_col = func.to_tsvector(
+            text("'english'"),
+            func.coalesce(Entity.bio_markdown, text("''")),
+        )
+        tsq = func.to_tsquery(text("'english'"), text(f"'{tsquery_str}'"))
+        query = query.where(
+            or_(
+                Entity.display_name.ilike(pattern),
+                ts_col.op("@@")(tsq),
+            ),
+        )
+        rank = func.ts_rank(ts_col, tsq)
+        query = query.order_by(
+            rank.desc(), TrustScore.score.desc().nullslast(),
+        )
+    else:
+        query = query.where(
             or_(
                 Entity.display_name.ilike(pattern),
                 Entity.bio_markdown.ilike(pattern),
             ),
         )
-    )
+        query = query.order_by(
+            TrustScore.score.desc().nullslast(),
+            Entity.created_at.desc(),
+        )
 
     if type == "human":
         query = query.where(Entity.type == EntityType.HUMAN)
     elif type == "agent":
         query = query.where(Entity.type == EntityType.AGENT)
 
-    query = query.order_by(
-        TrustScore.score.desc().nullslast(),
-        Entity.created_at.desc(),
-    ).limit(limit)
-
+    query = query.limit(limit)
     result = await db.execute(query)
     return [
         SearchEntityResult(

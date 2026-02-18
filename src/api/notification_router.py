@@ -33,6 +33,16 @@ _KIND_TO_PREF = {
     "moderation": "moderation_enabled",
 }
 
+_KIND_TO_WEBHOOK_EVENT = {
+    "follow": "entity.followed",
+    "reply": "post.replied",
+    "vote": "post.voted",
+    "mention": "entity.mentioned",
+    "endorsement": "entity.mentioned",
+    "review": "entity.mentioned",
+    "moderation": "moderation.flagged",
+}
+
 
 async def create_notification(
     db: AsyncSession,
@@ -44,8 +54,31 @@ async def create_notification(
 ) -> Notification | None:
     """Create a notification for an entity (persisted to DB).
 
+    Also dispatches webhooks for the event (regardless of notification
+    preferences) and broadcasts via WebSocket.
+
     Returns None if the entity has disabled this notification kind.
     """
+    # Dispatch webhooks (always, regardless of notification preferences)
+    webhook_event = _KIND_TO_WEBHOOK_EVENT.get(kind)
+    if webhook_event:
+        try:
+            from src.events import dispatch_webhooks
+
+            await dispatch_webhooks(
+                db,
+                webhook_event,
+                {
+                    "entity_id": str(entity_id),
+                    "kind": kind,
+                    "title": title,
+                    "body": body,
+                    "reference_id": reference_id,
+                },
+            )
+        except Exception:
+            pass  # Webhook delivery is best-effort
+
     # Check notification preferences
     pref_field = _KIND_TO_PREF.get(kind)
     if pref_field:
