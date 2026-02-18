@@ -190,12 +190,14 @@ async def get_feed(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     sort: str = Query("newest", pattern="^(ranked|newest)$"),
+    author_id: uuid.UUID | None = Query(None),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get top-level posts.
 
     sort=ranked uses trust-weighted ranking; sort=newest uses chronological.
+    Optionally filter by author_id.
     """
     trust_score_col = func.coalesce(TrustScore.score, literal(0.0))
 
@@ -205,6 +207,9 @@ async def get_feed(
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(Post.parent_post_id.is_(None), Post.is_hidden.is_(False))
     )
+
+    if author_id is not None:
+        query = query.where(Post.author_entity_id == author_id)
 
     if cursor:
         cursor_id = _parse_cursor(cursor)

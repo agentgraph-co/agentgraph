@@ -103,18 +103,21 @@ async def create_listing(
 async def browse_listings(
     category: str | None = Query(None),
     pricing_model: str | None = Query(None),
+    tag: str | None = Query(None),
     search: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """Browse marketplace listings."""
+    """Browse marketplace listings. Filter by category, pricing, or tag."""
     query = select(Listing).where(Listing.is_active.is_(True))
 
     if category:
         query = query.where(Listing.category == category)
     if pricing_model:
         query = query.where(Listing.pricing_model == pricing_model)
+    if tag:
+        query = query.where(Listing.tags.contains([tag]))
     if search:
         pattern = f"%{search}%"
         query = query.where(

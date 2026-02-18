@@ -255,6 +255,31 @@ async def promote_to_admin(
     return {"message": f"Entity {entity.display_name} promoted to admin"}
 
 
+@router.patch("/entities/{entity_id}/demote")
+async def demote_admin(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove admin status from an entity. Admin only."""
+    _require_admin(current_entity)
+
+    if entity_id == current_entity.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot demote yourself",
+        )
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if not entity.is_admin:
+        raise HTTPException(status_code=409, detail="Not an admin")
+
+    entity.is_admin = False
+    await db.flush()
+    return {"message": f"Entity {entity.display_name} demoted from admin"}
+
+
 @router.post("/trust/recompute")
 async def recompute_trust_scores(
     current_entity: Entity = Depends(get_current_entity),

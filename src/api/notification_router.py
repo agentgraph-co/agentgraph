@@ -236,6 +236,24 @@ async def mark_all_as_read(
     return {"message": f"Marked {count} notifications as read"}
 
 
+@router.delete("/{notification_id}")
+async def delete_notification(
+    notification_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a notification."""
+    notif = await db.get(Notification, notification_id)
+    if notif is None or notif.entity_id != current_entity.id:
+        raise HTTPException(
+            status_code=404, detail="Notification not found",
+        )
+
+    await db.delete(notif)
+    await db.flush()
+    return {"message": "Notification deleted"}
+
+
 @router.get("/unread-count")
 async def unread_count(
     current_entity: Entity = Depends(get_current_entity),

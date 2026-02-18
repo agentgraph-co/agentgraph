@@ -662,3 +662,49 @@ async def kick_member(
     )
     await db.flush()
     return {"message": "Member kicked from submolt"}
+
+
+@router.post(
+    "/{submolt_name}/transfer-owner/{entity_id}",
+    response_model=dict,
+)
+async def transfer_ownership(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Transfer submolt ownership to another member. Owner only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    owner_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not owner_mem or owner_mem.role != "owner":
+        raise HTTPException(
+            status_code=403, detail="Only the owner can transfer ownership",
+        )
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem:
+        raise HTTPException(status_code=404, detail="Entity is not a member")
+
+    # Transfer
+    owner_mem.role = "moderator"
+    target_mem.role = "owner"
+    submolt.created_by = entity_id
+    await log_action(
+        db,
+        action="submolt.ownership_transfer",
+        entity_id=current_entity.id,
+        resource_type="submolt",
+        resource_id=submolt.id,
+        details={
+            "submolt": submolt.name,
+            "new_owner": str(entity_id),
+        },
+    )
+    await db.flush()
+    return {"message": "Ownership transferred successfully"}

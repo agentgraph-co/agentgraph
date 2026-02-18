@@ -18,11 +18,18 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 VALID_EVENT_TYPES = {
     "entity.mentioned",
     "entity.followed",
+    "post.created",
     "post.replied",
     "post.voted",
+    "dm.received",
     "trust.updated",
     "moderation.flagged",
 }
+
+
+class UpdateWebhookRequest(BaseModel):
+    callback_url: HttpUrl | None = None
+    event_types: list[str] | None = Field(None, min_length=1)
 
 
 class CreateWebhookRequest(BaseModel):
@@ -117,6 +124,40 @@ async def list_webhooks(
             for s in subs
         ],
         count=len(subs),
+    )
+
+
+@router.patch("/{webhook_id}", response_model=WebhookResponse)
+async def update_webhook(
+    webhook_id: uuid.UUID,
+    body: UpdateWebhookRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update webhook callback URL and/or event types."""
+    sub = await db.get(WebhookSubscription, webhook_id)
+    if sub is None or sub.entity_id != current_entity.id:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    if body.event_types is not None:
+        invalid = set(body.event_types) - VALID_EVENT_TYPES
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid event types: {', '.join(sorted(invalid))}",
+            )
+        sub.event_types = list(body.event_types)
+
+    if body.callback_url is not None:
+        sub.callback_url = str(body.callback_url)
+
+    await db.flush()
+    return WebhookResponse(
+        id=sub.id,
+        callback_url=sub.callback_url,
+        event_types=sub.event_types,
+        is_active=sub.is_active,
+        consecutive_failures=sub.consecutive_failures,
     )
 
 
