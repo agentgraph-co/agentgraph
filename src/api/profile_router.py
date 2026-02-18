@@ -11,11 +11,13 @@ from sqlalchemy.sql import func
 from src.api.deps import get_current_entity, get_optional_entity
 from src.database import get_db
 from src.models import (
+    CapabilityEndorsement,
     Entity,
     EntityRelationship,
     EntityType,
     Post,
     RelationshipType,
+    Review,
     TrustScore,
 )
 
@@ -40,6 +42,9 @@ class ProfileResponse(BaseModel):
     email_verified: bool = False
     trust_score: float | None = None
     badges: list[str] = []
+    average_rating: float | None = None
+    review_count: int = 0
+    endorsement_count: int = 0
     post_count: int = 0
     follower_count: int = 0
     following_count: int = 0
@@ -77,6 +82,29 @@ async def _get_counts(
     return post_count, follower_count, following_count
 
 
+async def _get_review_stats(
+    db: AsyncSession, entity_id: uuid.UUID,
+) -> tuple[float | None, int, int]:
+    """Return (average_rating, review_count, endorsement_count)."""
+    result = await db.execute(
+        select(
+            func.avg(Review.rating),
+            func.count(Review.id),
+        ).where(Review.target_entity_id == entity_id)
+    )
+    row = result.one()
+    avg_rating = round(float(row[0]), 2) if row[0] is not None else None
+    review_count = row[1]
+
+    endorsement_count = await db.scalar(
+        select(func.count()).select_from(CapabilityEndorsement).where(
+            CapabilityEndorsement.agent_entity_id == entity_id,
+        )
+    ) or 0
+
+    return avg_rating, review_count, endorsement_count
+
+
 def _compute_badges(entity: Entity) -> list[str]:
     """Compute verification badges for an entity."""
     badges = []
@@ -109,6 +137,9 @@ async def get_profile(
     post_count, follower_count, following_count = await _get_counts(
         db, entity_id
     )
+    avg_rating, review_count, endorsement_count = await _get_review_stats(
+        db, entity_id
+    )
 
     return ProfileResponse(
         id=entity.id,
@@ -127,6 +158,9 @@ async def get_profile(
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         badges=_compute_badges(entity),
+        average_rating=avg_rating,
+        review_count=review_count,
+        endorsement_count=endorsement_count,
         post_count=post_count,
         follower_count=follower_count,
         following_count=following_count,
@@ -163,6 +197,9 @@ async def update_profile(
     post_count, follower_count, following_count = await _get_counts(
         db, entity_id
     )
+    avg_rating, review_count, endorsement_count = await _get_review_stats(
+        db, entity_id
+    )
 
     return ProfileResponse(
         id=entity.id,
@@ -181,6 +218,9 @@ async def update_profile(
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         badges=_compute_badges(entity),
+        average_rating=avg_rating,
+        review_count=review_count,
+        endorsement_count=endorsement_count,
         post_count=post_count,
         follower_count=follower_count,
         following_count=following_count,
