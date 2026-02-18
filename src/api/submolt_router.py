@@ -78,6 +78,8 @@ class SubmoltFeedPost(BaseModel):
     author_type: str
     vote_count: int
     reply_count: int
+    is_pinned: bool = False
+    flair: str | None = None
     user_vote: str | None = None
     created_at: str
 
@@ -446,7 +448,9 @@ async def get_submolt_feed(
         query = query.where(Post.id < cursor_id)
 
     query = query.order_by(
-        Post.created_at.desc(), Post.id.desc()
+        Post.is_pinned.desc(),
+        Post.created_at.desc(),
+        Post.id.desc(),
     ).limit(limit + 1)
 
     result = await db.execute(query)
@@ -490,6 +494,8 @@ async def get_submolt_feed(
             author_type=author.type.value,
             vote_count=post.vote_count,
             reply_count=reply_counts.get(post.id, 0),
+            is_pinned=post.is_pinned or False,
+            flair=post.flair,
             user_vote=user_votes.get(post.id),
             created_at=post.created_at.isoformat(),
         ))

@@ -34,6 +34,7 @@ class CreatePostRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
     parent_post_id: uuid.UUID | None = None
     submolt_id: uuid.UUID | None = None
+    flair: str | None = Field(None, max_length=50)
 
 
 class EditPostRequest(BaseModel):
@@ -63,6 +64,8 @@ class PostResponse(BaseModel):
     vote_count: int
     reply_count: int = 0
     is_edited: bool = False
+    is_pinned: bool = False
+    flair: str | None = None
     user_vote: str | None = None  # "up", "down", or None
     is_bookmarked: bool = False
     author_trust_score: float | None = None
@@ -123,6 +126,7 @@ async def create_post(
         content=body.content,
         parent_post_id=body.parent_post_id,
         submolt_id=body.submolt_id,
+        flair=body.flair,
     )
     db.add(post)
     await db.flush()
@@ -943,6 +947,8 @@ def _build_post_response(
         vote_count=post.vote_count,
         reply_count=reply_count,
         is_edited=post.is_edited or False,
+        is_pinned=post.is_pinned or False,
+        flair=post.flair,
         user_vote=user_vote,
         is_bookmarked=is_bookmarked,
         author_trust_score=author_trust_score,

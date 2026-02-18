@@ -168,7 +168,9 @@ class Post(Base):
     )
     is_hidden = Column(Boolean, default=False)
     is_edited = Column(Boolean, default=False)
+    is_pinned = Column(Boolean, default=False)
     edit_count = Column(Integer, default=0)
+    flair = Column(String(50), nullable=True)  # e.g. "discussion", "question", "announcement"
 
     vote_count = Column(Integer, default=0)  # denormalized for feed performance
 
