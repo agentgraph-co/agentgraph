@@ -16,7 +16,7 @@ from sqlalchemy.sql import func
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
-from src.models import Entity, Listing
+from src.models import Entity, Listing, ListingReview
 
 router = APIRouter(prefix="/marketplace", tags=["marketplace"])
 
@@ -63,6 +63,8 @@ class ListingResponse(BaseModel):
     is_active: bool
     is_featured: bool
     view_count: int
+    average_rating: float | None = None
+    review_count: int = 0
     created_at: str
     updated_at: str
 
@@ -72,6 +74,28 @@ class ListingResponse(BaseModel):
 class ListingListResponse(BaseModel):
     listings: list[ListingResponse]
     total: int
+
+
+class CreateListingReviewRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    text: str | None = Field(None, max_length=5000)
+
+
+class ListingReviewResponse(BaseModel):
+    id: uuid.UUID
+    listing_id: uuid.UUID
+    reviewer_entity_id: uuid.UUID
+    reviewer_display_name: str = ""
+    rating: int
+    text: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class ListingReviewListResponse(BaseModel):
+    reviews: list[ListingReviewResponse]
+    total: int
+    average_rating: float | None = None
 
 
 # --- Endpoints ---
@@ -162,7 +186,8 @@ async def get_listing(
         await db.flush()
         await db.refresh(listing)
 
-    return _to_response(listing)
+    avg_rating, review_count = await _get_listing_review_stats(db, listing_id)
+    return _to_response(listing, avg_rating=avg_rating, review_count=review_count)
 
 
 @router.patch(
@@ -240,7 +265,11 @@ async def get_entity_listings(
     )
 
 
-def _to_response(listing: Listing) -> ListingResponse:
+def _to_response(
+    listing: Listing,
+    avg_rating: float | None = None,
+    review_count: int = 0,
+) -> ListingResponse:
     return ListingResponse(
         id=listing.id,
         entity_id=listing.entity_id,
@@ -253,6 +282,189 @@ def _to_response(listing: Listing) -> ListingResponse:
         is_active=listing.is_active,
         is_featured=listing.is_featured or False,
         view_count=listing.view_count or 0,
+        average_rating=avg_rating,
+        review_count=review_count,
         created_at=listing.created_at.isoformat(),
         updated_at=listing.updated_at.isoformat(),
     )
+
+
+async def _get_listing_review_stats(
+    db: AsyncSession, listing_id: uuid.UUID,
+) -> tuple[float | None, int]:
+    """Return (average_rating, review_count) for a listing."""
+    result = await db.execute(
+        select(
+            func.avg(ListingReview.rating),
+            func.count(ListingReview.id),
+        ).where(ListingReview.listing_id == listing_id)
+    )
+    row = result.one()
+    avg = round(float(row[0]), 2) if row[0] is not None else None
+    return avg, row[1]
+
+
+# --- Listing Review Endpoints ---
+
+
+@router.post(
+    "/{listing_id}/reviews",
+    response_model=ListingReviewResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def create_listing_review(
+    listing_id: uuid.UUID,
+    body: CreateListingReviewRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or update a review for a marketplace listing."""
+    listing = await db.get(Listing, listing_id)
+    if listing is None or not listing.is_active:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.entity_id == current_entity.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot review your own listing",
+        )
+
+    # Content filter
+    if body.text:
+        from src.content_filter import check_content
+
+        filter_result = check_content(body.text)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Content rejected: {', '.join(filter_result.flags)}",
+            )
+
+    # Upsert: update if already reviewed
+    existing = await db.scalar(
+        select(ListingReview).where(
+            ListingReview.listing_id == listing_id,
+            ListingReview.reviewer_entity_id == current_entity.id,
+        )
+    )
+
+    if existing:
+        existing.rating = body.rating
+        existing.text = body.text
+        await db.flush()
+        await db.refresh(existing)
+        return ListingReviewResponse(
+            id=existing.id,
+            listing_id=listing_id,
+            reviewer_entity_id=current_entity.id,
+            reviewer_display_name=current_entity.display_name,
+            rating=existing.rating,
+            text=existing.text,
+            created_at=existing.created_at.isoformat(),
+            updated_at=existing.updated_at.isoformat(),
+        )
+
+    review = ListingReview(
+        id=uuid.uuid4(),
+        listing_id=listing_id,
+        reviewer_entity_id=current_entity.id,
+        rating=body.rating,
+        text=body.text,
+    )
+    db.add(review)
+    await db.flush()
+
+    # Notify listing owner
+    from src.api.notification_router import create_notification
+
+    await create_notification(
+        db,
+        entity_id=listing.entity_id,
+        kind="review",
+        title="New listing review",
+        body=(
+            f"{current_entity.display_name} rated your listing "
+            f"'{listing.title}' {body.rating}/5"
+        ),
+        reference_id=str(review.id),
+    )
+
+    return ListingReviewResponse(
+        id=review.id,
+        listing_id=listing_id,
+        reviewer_entity_id=current_entity.id,
+        reviewer_display_name=current_entity.display_name,
+        rating=review.rating,
+        text=review.text,
+        created_at=review.created_at.isoformat(),
+        updated_at=review.updated_at.isoformat(),
+    )
+
+
+@router.get(
+    "/{listing_id}/reviews",
+    response_model=ListingReviewListResponse,
+)
+async def list_listing_reviews(
+    listing_id: uuid.UUID,
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """List reviews for a marketplace listing."""
+    listing = await db.get(Listing, listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    avg_rating, total = await _get_listing_review_stats(db, listing_id)
+
+    result = await db.execute(
+        select(ListingReview, Entity.display_name)
+        .join(Entity, ListingReview.reviewer_entity_id == Entity.id)
+        .where(ListingReview.listing_id == listing_id)
+        .order_by(ListingReview.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    return ListingReviewListResponse(
+        reviews=[
+            ListingReviewResponse(
+                id=r.id,
+                listing_id=r.listing_id,
+                reviewer_entity_id=r.reviewer_entity_id,
+                reviewer_display_name=name,
+                rating=r.rating,
+                text=r.text,
+                created_at=r.created_at.isoformat(),
+                updated_at=r.updated_at.isoformat(),
+            )
+            for r, name in result.all()
+        ],
+        total=total,
+        average_rating=avg_rating,
+    )
+
+
+@router.delete(
+    "/{listing_id}/reviews",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def delete_listing_review(
+    listing_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete your review of a listing."""
+    review = await db.scalar(
+        select(ListingReview).where(
+            ListingReview.listing_id == listing_id,
+            ListingReview.reviewer_entity_id == current_entity.id,
+        )
+    )
+    if review is None:
+        raise HTTPException(
+            status_code=404, detail="Review not found",
+        )
+    await db.delete(review)
+    await db.flush()
+    return {"message": "Review deleted"}

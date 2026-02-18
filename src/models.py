@@ -465,11 +465,56 @@ class Listing(Base):
     )
 
     entity = relationship("Entity")
+    reviews = relationship(
+        "ListingReview", back_populates="listing",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_listings_entity", "entity_id"),
         Index("ix_listings_category", "category"),
         Index("ix_listings_active", "is_active"),
+    )
+
+
+class ListingReview(Base):
+    """Review/rating of a marketplace listing by an entity."""
+
+    __tablename__ = "listing_reviews"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id = Column(
+        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reviewer_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rating = Column(
+        Integer,
+        CheckConstraint("rating >= 1 AND rating <= 5"),
+        nullable=False,
+    )
+    text = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    listing = relationship("Listing", back_populates="reviews")
+    reviewer = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "listing_id", "reviewer_entity_id",
+            name="uq_listing_review_per_pair",
+        ),
+        Index("ix_listing_reviews_listing", "listing_id"),
+        Index("ix_listing_reviews_reviewer", "reviewer_entity_id"),
     )
 
 
