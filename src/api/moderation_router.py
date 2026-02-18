@@ -55,6 +55,8 @@ class ResolveFlagRequest(BaseModel):
 class FlagListResponse(BaseModel):
     flags: list[FlagResponse]
     count: int
+    total: int = 0
+    has_more: bool = False
 
 
 @router.post(
@@ -122,17 +124,30 @@ async def create_flag(
 @router.get("/flags", response_model=FlagListResponse)
 async def list_flags(
     status: ModerationStatus | None = Query(None),
+    reason: ModerationReason | None = Query(None),
+    target_type: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """List moderation flags. Only admins can see all flags."""
+    """List moderation flags with filtering and pagination. Admin only."""
     if not current_entity.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
 
-    query = select(ModerationFlag).order_by(ModerationFlag.created_at.desc())
+    query = select(ModerationFlag)
     if status is not None:
         query = query.where(ModerationFlag.status == status)
+    if reason is not None:
+        query = query.where(ModerationFlag.reason == reason)
+    if target_type is not None:
+        query = query.where(ModerationFlag.target_type == target_type)
 
+    total = await db.scalar(
+        select(func.count()).select_from(query.subquery())
+    ) or 0
+
+    query = query.order_by(ModerationFlag.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(query)
     flags = result.scalars().all()
 
@@ -151,6 +166,8 @@ async def list_flags(
             for f in flags
         ],
         count=len(flags),
+        total=total,
+        has_more=(offset + len(flags)) < total,
     )
 
 
@@ -250,8 +267,41 @@ async def moderation_stats(
 
     resolved = total - pending
 
+    # Breakdown by reason
+    reason_result = await db.execute(
+        select(
+            ModerationFlag.reason,
+            func.count().label("count"),
+        )
+        .group_by(ModerationFlag.reason)
+    )
+    by_reason = {row[0].value: row[1] for row in reason_result.all()}
+
+    # Breakdown by status
+    status_result = await db.execute(
+        select(
+            ModerationFlag.status,
+            func.count().label("count"),
+        )
+        .group_by(ModerationFlag.status)
+    )
+    by_status = {row[0].value: row[1] for row in status_result.all()}
+
+    # Breakdown by target type
+    target_result = await db.execute(
+        select(
+            ModerationFlag.target_type,
+            func.count().label("count"),
+        )
+        .group_by(ModerationFlag.target_type)
+    )
+    by_target_type = {row[0]: row[1] for row in target_result.all()}
+
     return {
         "total_flags": total,
         "pending_flags": pending,
         "resolved_flags": resolved,
+        "by_reason": by_reason,
+        "by_status": by_status,
+        "by_target_type": by_target_type,
     }
