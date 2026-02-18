@@ -142,6 +142,82 @@ def _compute_badges(entity: Entity) -> list[str]:
     return badges
 
 
+class ProfileListResponse(BaseModel):
+    profiles: list[ProfileResponse]
+    total: int
+    has_more: bool
+
+
+@router.get("", response_model=ProfileListResponse)
+async def browse_profiles(
+    q: str | None = None,
+    entity_type: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """Browse entity profiles with optional filters."""
+    from sqlalchemy import or_
+
+    query = select(Entity).where(Entity.is_active.is_(True))
+
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(
+            or_(
+                Entity.display_name.ilike(pattern),
+                Entity.bio_markdown.ilike(pattern),
+            )
+        )
+
+    if entity_type:
+        try:
+            et = EntityType(entity_type)
+        except ValueError:
+            pass
+        else:
+            query = query.where(Entity.type == et)
+
+    total = await db.scalar(
+        select(func.count()).select_from(query.subquery())
+    ) or 0
+
+    result = await db.execute(
+        query.order_by(Entity.created_at.desc())
+        .offset(offset)
+        .limit(min(limit, 100))
+    )
+    entities = result.scalars().all()
+
+    profiles = []
+    for entity in entities:
+        ts = await db.scalar(
+            select(TrustScore).where(TrustScore.entity_id == entity.id)
+        )
+        profiles.append(
+            ProfileResponse(
+                id=entity.id,
+                type=entity.type.value,
+                display_name=entity.display_name,
+                bio_markdown=entity.bio_markdown or "",
+                avatar_url=entity.avatar_url,
+                did_web=entity.did_web,
+                privacy_tier=entity.privacy_tier.value,
+                is_active=entity.is_active,
+                email_verified=entity.email_verified,
+                trust_score=ts.score if ts else None,
+                badges=_compute_badges(entity),
+                created_at=entity.created_at.isoformat(),
+            )
+        )
+
+    return ProfileListResponse(
+        profiles=profiles,
+        total=total,
+        has_more=(offset + len(entities)) < total,
+    )
+
+
 @router.get("/{entity_id}", response_model=ProfileResponse)
 async def get_profile(
     entity_id: uuid.UUID,

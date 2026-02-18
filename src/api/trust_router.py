@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, ModerationFlag, ModerationReason, ModerationStatus, TrustScore
 from src.trust.score import compute_trust_score
@@ -127,6 +128,54 @@ async def get_trust_score(
         components=existing.components,
         component_details=component_details,
         computed_at=existing.computed_at.isoformat(),
+    )
+
+
+@router.post(
+    "/entities/{entity_id}/trust/refresh",
+    response_model=TrustScoreResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def refresh_trust_score(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recompute your own trust score on demand."""
+    if current_entity.id != entity_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only refresh your own trust score",
+        )
+
+    ts = await compute_trust_score(db, entity_id)
+
+    from src.trust.score import (
+        ACTIVITY_WEIGHT,
+        AGE_WEIGHT,
+        REPUTATION_WEIGHT,
+        VERIFICATION_WEIGHT,
+    )
+
+    weights = {
+        "verification": VERIFICATION_WEIGHT,
+        "age": AGE_WEIGHT,
+        "activity": ACTIVITY_WEIGHT,
+        "reputation": REPUTATION_WEIGHT,
+    }
+    component_details = {}
+    for name, raw_value in (ts.components or {}).items():
+        w = weights.get(name, 0)
+        component_details[name] = TrustComponentDetail(
+            raw=raw_value, weight=w, contribution=round(raw_value * w, 4),
+        )
+
+    return TrustScoreResponse(
+        entity_id=ts.entity_id,
+        score=ts.score,
+        components=ts.components,
+        component_details=component_details,
+        computed_at=ts.computed_at.isoformat(),
     )
 
 

@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
@@ -381,3 +381,34 @@ async def get_conversation_messages(
         conversation_id=conversation_id,
         has_more=has_more,
     )
+
+
+@router.delete(
+    "/{conversation_id}",
+    status_code=204,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a conversation and all its messages.
+
+    Only participants can delete a conversation.
+    """
+    conv = await db.get(Conversation, conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if current_entity.id not in (conv.participant_a_id, conv.participant_b_id):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    # Delete all messages first, then the conversation
+    await db.execute(
+        delete(DirectMessage).where(
+            DirectMessage.conversation_id == conversation_id
+        )
+    )
+    await db.delete(conv)
+    await db.flush()
