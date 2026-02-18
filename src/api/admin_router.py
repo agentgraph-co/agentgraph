@@ -578,3 +578,17 @@ async def suspend_entity(
         "suspended_until": until.isoformat(),
         "cascade": cascade,
     }
+
+
+@router.post("/cleanup/token-blacklist", dependencies=[Depends(rate_limit_writes)])
+async def cleanup_token_blacklist(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove expired entries from the token blacklist. Admin only."""
+    _require_admin(current_entity)
+
+    from src.api.auth_service import cleanup_expired_blacklist
+
+    removed = await cleanup_expired_blacklist(db)
+    return {"message": f"Removed {removed} expired blacklist entries", "removed": removed}

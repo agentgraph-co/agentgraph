@@ -13,6 +13,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
     AuditLog,
@@ -36,7 +37,7 @@ from src.models import (
 router = APIRouter(prefix="/export", tags=["export"])
 
 
-@router.get("/me")
+@router.get("/me", dependencies=[Depends(rate_limit_reads)])
 async def export_my_data(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),

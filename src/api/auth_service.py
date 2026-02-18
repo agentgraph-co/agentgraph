@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -97,7 +97,20 @@ async def get_entity_by_id(db: AsyncSession, entity_id: uuid.UUID) -> Entity | N
 
 
 async def create_verification_token(db: AsyncSession, entity_id: uuid.UUID) -> str:
-    """Create an email verification token (valid for 24 hours)."""
+    """Create an email verification token (valid for 24 hours).
+
+    Invalidates any previous unused tokens for the same entity.
+    """
+    # Invalidate old unused tokens for this entity
+    await db.execute(
+        update(EmailVerification)
+        .where(
+            EmailVerification.entity_id == entity_id,
+            EmailVerification.is_used.is_(False),
+        )
+        .values(is_used=True)
+    )
+
     token = secrets.token_urlsafe(48)
     verification = EmailVerification(
         id=uuid.uuid4(),
@@ -156,7 +169,20 @@ async def authenticate_human(
 async def create_password_reset_token(
     db: AsyncSession, entity_id: uuid.UUID,
 ) -> str:
-    """Create a password reset token (valid for 1 hour)."""
+    """Create a password reset token (valid for 1 hour).
+
+    Invalidates any previous unused tokens for the same entity.
+    """
+    # Invalidate old unused tokens for this entity
+    await db.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.entity_id == entity_id,
+            PasswordResetToken.is_used.is_(False),
+        )
+        .values(is_used=True)
+    )
+
     token = secrets.token_urlsafe(48)
     reset = PasswordResetToken(
         id=uuid.uuid4(),
@@ -209,6 +235,19 @@ async def blacklist_token(
     )
     db.add(entry)
     await db.flush()
+
+
+async def cleanup_expired_blacklist(db: AsyncSession) -> int:
+    """Delete expired entries from the token blacklist. Returns count removed."""
+    from sqlalchemy import delete
+
+    result = await db.execute(
+        delete(TokenBlacklist).where(
+            TokenBlacklist.expires_at < datetime.now(timezone.utc)
+        )
+    )
+    await db.flush()
+    return result.rowcount
 
 
 async def is_token_blacklisted(db: AsyncSession, jti: str) -> bool:
