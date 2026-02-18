@@ -245,7 +245,11 @@ async def get_feed(
         select(Post, Entity, TrustScore.score)
         .join(Entity, Post.author_entity_id == Entity.id)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
-        .where(Post.parent_post_id.is_(None), Post.is_hidden.is_(False))
+        .where(
+            Post.parent_post_id.is_(None),
+            Post.is_hidden.is_(False),
+            Entity.is_active.is_(True),
+        )
     )
 
     # Privacy tier filtering: exclude posts from non-public entities
@@ -321,7 +325,10 @@ async def get_feed(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())
@@ -365,13 +372,14 @@ async def get_post(
     db: AsyncSession = Depends(get_db),
 ):
     post = await db.get(Post, post_id)
-    if post is None:
+    if post is None or post.is_hidden:
         raise HTTPException(status_code=404, detail="Post not found")
 
     author = await db.get(Entity, post.author_entity_id)
     reply_count = await db.scalar(
         select(func.count()).select_from(Post).where(
-            Post.parent_post_id == post_id
+            Post.parent_post_id == post_id,
+            Post.is_hidden.is_(False),
         )
     ) or 0
 
@@ -428,7 +436,10 @@ async def get_replies(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())
@@ -472,7 +483,7 @@ async def vote_on_post(
     db: AsyncSession = Depends(get_db),
 ):
     post = await db.get(Post, post_id)
-    if post is None:
+    if post is None or post.is_hidden:
         raise HTTPException(status_code=404, detail="Post not found")
 
     direction = VoteDirection.UP if body.direction == "up" else VoteDirection.DOWN
@@ -559,7 +570,10 @@ async def vote_on_post(
     )
 
 
-@router.delete("/posts/{post_id}", response_model=dict)
+@router.delete(
+    "/posts/{post_id}", response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def delete_post(
     post_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -606,6 +620,7 @@ async def get_trending(
             Post.parent_post_id.is_(None),
             Post.is_hidden.is_(False),
             Post.created_at >= cutoff,
+            Entity.is_active.is_(True),
         )
         .order_by(Post.vote_count.desc(), Post.created_at.desc())
         .limit(limit)
@@ -621,7 +636,10 @@ async def get_trending(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())
@@ -675,6 +693,7 @@ async def search_feed(
         .where(
             Post.is_hidden.is_(False),
             Post.content.ilike(pattern),
+            Entity.is_active.is_(True),
         )
     )
 
@@ -704,7 +723,10 @@ async def search_feed(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())
@@ -768,6 +790,7 @@ async def get_following_feed(
             Post.author_entity_id.in_(followed_ids),
             Post.parent_post_id.is_(None),
             Post.is_hidden.is_(False),
+            Entity.is_active.is_(True),
         )
     )
 
@@ -795,7 +818,10 @@ async def get_following_feed(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())
@@ -833,7 +859,10 @@ async def get_following_feed(
 # --- Post Editing ---
 
 
-@router.patch("/posts/{post_id}", response_model=PostResponse)
+@router.patch(
+    "/posts/{post_id}", response_model=PostResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def edit_post(
     post_id: uuid.UUID,
     body: EditPostRequest,
@@ -876,7 +905,8 @@ async def edit_post(
 
     reply_count = await db.scalar(
         select(func.count()).select_from(Post).where(
-            Post.parent_post_id == post_id
+            Post.parent_post_id == post_id,
+            Post.is_hidden.is_(False),
         )
     ) or 0
 
@@ -923,7 +953,10 @@ async def get_post_edits(
 # --- Bookmarks ---
 
 
-@router.post("/posts/{post_id}/bookmark")
+@router.post(
+    "/posts/{post_id}/bookmark",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def bookmark_post(
     post_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -931,7 +964,7 @@ async def bookmark_post(
 ):
     """Bookmark/unbookmark a post (toggle)."""
     post = await db.get(Post, post_id)
-    if post is None:
+    if post is None or post.is_hidden:
         raise HTTPException(status_code=404, detail="Post not found")
 
     existing = await db.scalar(
@@ -956,7 +989,10 @@ async def bookmark_post(
     return {"bookmarked": True, "message": "Post bookmarked"}
 
 
-@router.get("/bookmarks", response_model=FeedResponse)
+@router.get(
+    "/bookmarks", response_model=FeedResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_bookmarks(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -999,7 +1035,10 @@ async def get_bookmarks(
     if post_ids:
         rc_result = await db.execute(
             select(Post.parent_post_id, func.count())
-            .where(Post.parent_post_id.in_(post_ids))
+            .where(
+                Post.parent_post_id.in_(post_ids),
+                Post.is_hidden.is_(False),
+            )
             .group_by(Post.parent_post_id)
         )
         reply_counts = dict(rc_result.all())

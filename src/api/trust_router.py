@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity, ModerationFlag, ModerationReason, ModerationStatus, TrustScore
 from src.trust.score import compute_trust_score
@@ -83,6 +83,7 @@ METHODOLOGY_TEXT = """# Trust Score v2 Methodology
 @router.get(
     "/entities/{entity_id}/trust",
     response_model=TrustScoreResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_trust_score(
     entity_id: uuid.UUID,
@@ -214,6 +215,9 @@ async def contest_trust_score(
     )
 
 
-@router.get("/trust/methodology")
+@router.get(
+    "/trust/methodology",
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def trust_methodology():
     return {"methodology": METHODOLOGY_TEXT}

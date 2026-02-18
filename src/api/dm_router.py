@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     Conversation,
@@ -234,7 +234,10 @@ async def send_message(
     )
 
 
-@router.get("", response_model=ConversationListResponse)
+@router.get(
+    "", response_model=ConversationListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def list_conversations(
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
@@ -306,7 +309,10 @@ async def list_conversations(
     return ConversationListResponse(conversations=items, total=total)
 
 
-@router.get("/unread-count", response_model=dict)
+@router.get(
+    "/unread-count", response_model=dict,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def unread_message_count(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -332,7 +338,10 @@ async def unread_message_count(
     return {"unread_count": count}
 
 
-@router.get("/{conversation_id}", response_model=MessageListResponse)
+@router.get(
+    "/{conversation_id}", response_model=MessageListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
 async def get_conversation_messages(
     conversation_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=100),
