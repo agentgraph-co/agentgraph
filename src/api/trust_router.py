@@ -91,7 +91,7 @@ async def get_trust_score(
     db: AsyncSession = Depends(get_db),
 ):
     entity = await db.get(Entity, entity_id)
-    if entity is None:
+    if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     existing = await db.scalar(

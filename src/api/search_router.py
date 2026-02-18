@@ -162,7 +162,10 @@ async def search(
         post_query = (
             select(Post, Entity.display_name, Entity.id)
             .join(Entity, Post.author_entity_id == Entity.id)
-            .where(Post.is_hidden.is_(False))
+            .where(
+                Post.is_hidden.is_(False),
+                Entity.is_active.is_(True),
+            )
         )
 
         if use_fts:
