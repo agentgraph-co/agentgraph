@@ -156,19 +156,36 @@ async def endorse_capability(
     )
 
 
+class EndorsementListResponse(BaseModel):
+    endorsements: list[EndorsementResponse]
+    total: int
+
+
 @router.get(
     "/entities/{entity_id}/endorsements",
-    response_model=list[EndorsementResponse],
+    response_model=EndorsementListResponse,
 )
 async def list_endorsements(
     entity_id: uuid.UUID,
     capability: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """List endorsements for an entity, optionally filtered by capability."""
     target = await db.get(Entity, entity_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    base = select(CapabilityEndorsement).where(
+        CapabilityEndorsement.agent_entity_id == entity_id,
+    )
+    if capability:
+        base = base.where(CapabilityEndorsement.capability == capability)
+
+    total = await db.scalar(
+        select(func.count()).select_from(base.subquery())
+    ) or 0
 
     query = (
         select(CapabilityEndorsement, Entity.display_name)
@@ -182,22 +199,27 @@ async def list_endorsements(
         query = query.where(
             CapabilityEndorsement.capability == capability,
         )
-    query = query.order_by(CapabilityEndorsement.created_at.desc())
+    query = query.order_by(
+        CapabilityEndorsement.created_at.desc(),
+    ).offset(offset).limit(limit)
 
     result = await db.execute(query)
-    return [
-        EndorsementResponse(
-            id=e.id,
-            agent_entity_id=e.agent_entity_id,
-            endorser_entity_id=e.endorser_entity_id,
-            endorser_display_name=name,
-            capability=e.capability,
-            tier=e.tier,
-            comment=e.comment,
-            created_at=e.created_at,
-        )
-        for e, name in result.all()
-    ]
+    return EndorsementListResponse(
+        endorsements=[
+            EndorsementResponse(
+                id=e.id,
+                agent_entity_id=e.agent_entity_id,
+                endorser_entity_id=e.endorser_entity_id,
+                endorser_display_name=name,
+                capability=e.capability,
+                tier=e.tier,
+                comment=e.comment,
+                created_at=e.created_at,
+            )
+            for e, name in result.all()
+        ],
+        total=total,
+    )
 
 
 @router.get(
@@ -391,40 +413,63 @@ async def create_review(
     )
 
 
+class ReviewListResponse(BaseModel):
+    reviews: list[ReviewResponse]
+    total: int
+    average_rating: float | None = None
+
+
 @router.get(
     "/entities/{entity_id}/reviews",
-    response_model=list[ReviewResponse],
+    response_model=ReviewListResponse,
 )
 async def list_reviews(
     entity_id: uuid.UUID,
     limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """List reviews for an entity."""
+    """List reviews for an entity with pagination."""
     target = await db.get(Entity, entity_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Get totals
+    stats_result = await db.execute(
+        select(
+            func.avg(Review.rating),
+            func.count(Review.id),
+        ).where(Review.target_entity_id == entity_id)
+    )
+    stats_row = stats_result.one()
+    avg_rating = round(float(stats_row[0]), 2) if stats_row[0] is not None else None
+    total = stats_row[1]
 
     result = await db.execute(
         select(Review, Entity.display_name)
         .join(Entity, Review.reviewer_entity_id == Entity.id)
         .where(Review.target_entity_id == entity_id)
         .order_by(Review.created_at.desc())
+        .offset(offset)
         .limit(limit)
     )
-    return [
-        ReviewResponse(
-            id=r.id,
-            target_entity_id=r.target_entity_id,
-            reviewer_entity_id=r.reviewer_entity_id,
-            reviewer_display_name=name,
-            rating=r.rating,
-            text=r.text,
-            created_at=r.created_at,
-            updated_at=r.updated_at,
-        )
-        for r, name in result.all()
-    ]
+    return ReviewListResponse(
+        reviews=[
+            ReviewResponse(
+                id=r.id,
+                target_entity_id=r.target_entity_id,
+                reviewer_entity_id=r.reviewer_entity_id,
+                reviewer_display_name=name,
+                rating=r.rating,
+                text=r.text,
+                created_at=r.created_at,
+                updated_at=r.updated_at,
+            )
+            for r, name in result.all()
+        ],
+        total=total,
+        average_rating=avg_rating,
+    )
 
 
 @router.get(

@@ -31,6 +31,9 @@ class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(None, min_length=1, max_length=100)
     bio_markdown: str | None = Field(None, max_length=5000)
     avatar_url: str | None = Field(None, max_length=500)
+    privacy_tier: str | None = Field(
+        None, pattern="^(public|verified|private)$",
+    )
 
     @field_validator("avatar_url")
     @classmethod
@@ -339,6 +342,14 @@ async def update_profile(
         update_data["bio_markdown"] = sanitize_html(update_data["bio_markdown"])
     if "display_name" in update_data and update_data["display_name"]:
         update_data["display_name"] = sanitize_html(update_data["display_name"])
+    if "privacy_tier" in update_data:
+        tier_val = update_data["privacy_tier"]
+        if tier_val == "verified" and not entity.email_verified:
+            raise HTTPException(
+                status_code=400,
+                detail="Email must be verified to use 'verified' privacy tier",
+            )
+        update_data["privacy_tier"] = PrivacyTier(tier_val)
     for field, value in update_data.items():
         setattr(entity, field, value)
     await db.flush()

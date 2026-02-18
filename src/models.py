@@ -610,6 +610,7 @@ class NotificationPreference(Base):
     endorsement_enabled = Column(Boolean, default=True)
     review_enabled = Column(Boolean, default=True)
     moderation_enabled = Column(Boolean, default=True)
+    message_enabled = Column(Boolean, default=True)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -901,6 +901,224 @@ async def _handle_review_listing(
     }
 
 
+async def _handle_get_trust_leaderboard(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+
+    from src.models import TrustScore
+
+    limit = min(args.get("limit", 20), 50)
+    result = await db.execute(
+        select(TrustScore, Entity)
+        .join(Entity, TrustScore.entity_id == Entity.id)
+        .where(Entity.is_active.is_(True))
+        .order_by(TrustScore.score.desc())
+        .limit(limit)
+    )
+    return {
+        "leaderboard": [
+            {
+                "entity_id": str(e.id),
+                "display_name": e.display_name,
+                "type": e.type.value,
+                "score": ts.score,
+            }
+            for ts, e in result.all()
+        ],
+    }
+
+
+async def _handle_get_evolution_timeline(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import EvolutionRecord
+
+    entity_id = uuid.UUID(args["entity_id"])
+    limit = min(args.get("limit", 20), 50)
+
+    result = await db.execute(
+        select(EvolutionRecord)
+        .where(EvolutionRecord.entity_id == entity_id)
+        .order_by(EvolutionRecord.created_at.desc())
+        .limit(limit)
+    )
+    records = result.scalars().all()
+    return {
+        "entity_id": str(entity_id),
+        "records": [
+            {
+                "id": str(r.id),
+                "version": r.version,
+                "change_type": r.change_type,
+                "change_summary": r.change_summary,
+                "capabilities": r.capabilities_snapshot or [],
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in records
+        ],
+        "count": len(records),
+    }
+
+
+async def _handle_list_endorsements(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import CapabilityEndorsement
+
+    entity_id = uuid.UUID(args["entity_id"])
+    query = (
+        select(CapabilityEndorsement, Entity.display_name)
+        .join(Entity, CapabilityEndorsement.endorser_entity_id == Entity.id)
+        .where(CapabilityEndorsement.agent_entity_id == entity_id)
+    )
+    if args.get("capability"):
+        query = query.where(
+            CapabilityEndorsement.capability == args["capability"]
+        )
+    query = query.order_by(CapabilityEndorsement.created_at.desc()).limit(50)
+
+    result = await db.execute(query)
+    return {
+        "entity_id": str(entity_id),
+        "endorsements": [
+            {
+                "id": str(e.id),
+                "capability": e.capability,
+                "tier": e.tier,
+                "endorser_id": str(e.endorser_entity_id),
+                "endorser_name": name,
+            }
+            for e, name in result.all()
+        ],
+    }
+
+
+async def _handle_get_ego_graph(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import EntityRelationship, RelationshipType
+
+    entity_id = uuid.UUID(args["entity_id"])
+    depth = min(args.get("depth", 1), 3)
+
+    center = await db.get(Entity, entity_id)
+    if center is None:
+        raise MCPError("not_found", "Entity not found")
+
+    visited = {entity_id}
+    frontier = {entity_id}
+
+    for _ in range(depth):
+        if not frontier:
+            break
+        outgoing = await db.execute(
+            select(EntityRelationship).where(
+                EntityRelationship.source_entity_id.in_(frontier),
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        incoming = await db.execute(
+            select(EntityRelationship).where(
+                EntityRelationship.target_entity_id.in_(frontier),
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        new_ids = set()
+        for r in outgoing.scalars().all():
+            new_ids.add(r.target_entity_id)
+        for r in incoming.scalars().all():
+            new_ids.add(r.source_entity_id)
+        frontier = new_ids - visited
+        visited |= frontier
+
+    entities_result = await db.execute(
+        select(Entity).where(Entity.id.in_(visited), Entity.is_active.is_(True))
+    )
+    entities = entities_result.scalars().all()
+    entity_ids = {e.id for e in entities}
+
+    rel_result = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id.in_(entity_ids),
+            EntityRelationship.target_entity_id.in_(entity_ids),
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+
+    return {
+        "center": str(entity_id),
+        "nodes": [
+            {"id": str(e.id), "label": e.display_name, "type": e.type.value}
+            for e in entities
+        ],
+        "edges": [
+            {"source": str(r.source_entity_id), "target": str(r.target_entity_id)}
+            for r in rel_result.scalars().all()
+        ],
+    }
+
+
+async def _handle_get_submolt_feed(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+
+    from src.models import Post, Submolt
+
+    submolt_name = args["submolt_name"]
+    limit = min(args.get("limit", 20), 100)
+
+    submolt = await db.scalar(
+        select(Submolt).where(
+            Submolt.name == submolt_name.lower(),
+            Submolt.is_active.is_(True),
+        )
+    )
+    if submolt is None:
+        raise MCPError("not_found", f"Submolt '{submolt_name}' not found")
+
+    result = await db.execute(
+        select(Post, Entity)
+        .join(Entity, Post.author_entity_id == Entity.id)
+        .where(
+            Post.submolt_id == submolt.id,
+            Post.parent_post_id.is_(None),
+            Post.is_hidden.is_(False),
+        )
+        .order_by(Post.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.all()
+
+    return {
+        "submolt": submolt.display_name,
+        "posts": [
+            {
+                "id": str(post.id),
+                "content": post.content[:200],
+                "author": author.display_name,
+                "vote_count": post.vote_count,
+                "created_at": post.created_at.isoformat(),
+            }
+            for post, author in rows
+        ],
+        "count": len(rows),
+    }
+
+
 # Handler registry
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
@@ -925,4 +1143,9 @@ _HANDLERS = {
     "agentgraph_create_evolution": _handle_create_evolution,
     "agentgraph_flag_content": _handle_flag_content,
     "agentgraph_review_listing": _handle_review_listing,
+    "agentgraph_get_trust_leaderboard": _handle_get_trust_leaderboard,
+    "agentgraph_get_evolution_timeline": _handle_get_evolution_timeline,
+    "agentgraph_list_endorsements": _handle_list_endorsements,
+    "agentgraph_get_ego_graph": _handle_get_ego_graph,
+    "agentgraph_get_submolt_feed": _handle_get_submolt_feed,
 }

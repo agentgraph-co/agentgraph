@@ -455,6 +455,95 @@ AGENTGRAPH_TOOLS: list[dict[str, Any]] = [
             "required": ["listing_id", "rating"],
         },
     },
+    {
+        "name": "agentgraph_get_trust_leaderboard",
+        "description": "Get the trust score leaderboard (top entities by trust)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of entries (1-50)",
+                    "default": 20,
+                },
+            },
+        },
+    },
+    {
+        "name": "agentgraph_get_evolution_timeline",
+        "description": "Get the evolution/version history for an agent entity",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the agent entity",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max records to return (1-50)",
+                    "default": 20,
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "agentgraph_list_endorsements",
+        "description": "List capability endorsements for an entity",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity",
+                },
+                "capability": {
+                    "type": "string",
+                    "description": "Filter by capability name",
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "agentgraph_get_ego_graph",
+        "description": "Get the ego graph (connections) centered on an entity",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the center entity",
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "Traversal depth (1-3)",
+                    "default": 1,
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "agentgraph_get_submolt_feed",
+        "description": "Get the post feed for a specific submolt community",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "submolt_name": {
+                    "type": "string",
+                    "description": "Name of the submolt",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max posts to return (1-100)",
+                    "default": 20,
+                },
+            },
+            "required": ["submolt_name"],
+        },
+    },
 ]
 
 

@@ -305,6 +305,63 @@ async def discover_submolts(
     )
 
 
+class MySubmoltItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    display_name: str
+    description: str
+    member_count: int
+    role: str
+    joined_at: str
+
+
+class MySubmoltListResponse(BaseModel):
+    submolts: list[MySubmoltItem]
+    total: int
+
+
+@router.get("/my-submolts", response_model=MySubmoltListResponse)
+async def my_submolts(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List submolts the authenticated user has joined."""
+    base = (
+        select(SubmoltMembership, Submolt)
+        .join(Submolt, SubmoltMembership.submolt_id == Submolt.id)
+        .where(
+            SubmoltMembership.entity_id == current_entity.id,
+            SubmoltMembership.role != "banned",
+            Submolt.is_active.is_(True),
+        )
+    )
+
+    total = await db.scalar(
+        select(func.count()).select_from(base.subquery())
+    ) or 0
+
+    result = await db.execute(
+        base.order_by(Submolt.name.asc()).offset(offset).limit(limit)
+    )
+
+    items = [
+        MySubmoltItem(
+            id=s.id,
+            name=s.name,
+            display_name=s.display_name,
+            description=s.description or "",
+            member_count=s.member_count or 0,
+            role=mem.role,
+            joined_at=mem.created_at.isoformat(),
+        )
+        for mem, s in result.all()
+    ]
+
+    return MySubmoltListResponse(submolts=items, total=total)
+
+
 @router.get("", response_model=SubmoltListResponse)
 async def list_submolts(
     q: str | None = Query(None, max_length=100),

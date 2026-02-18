@@ -32,6 +32,7 @@ _KIND_TO_PREF = {
     "endorsement": "endorsement_enabled",
     "review": "review_enabled",
     "moderation": "moderation_enabled",
+    "message": "message_enabled",
 }
 
 _KIND_TO_WEBHOOK_EVENT = {
@@ -42,6 +43,7 @@ _KIND_TO_WEBHOOK_EVENT = {
     "endorsement": "entity.mentioned",
     "review": "entity.mentioned",
     "moderation": "moderation.flagged",
+    "message": "entity.messaged",
 }
 
 
@@ -282,6 +284,7 @@ class NotificationPreferencesResponse(BaseModel):
     endorsement_enabled: bool = True
     review_enabled: bool = True
     moderation_enabled: bool = True
+    message_enabled: bool = True
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -292,6 +295,7 @@ class UpdatePreferencesRequest(BaseModel):
     endorsement_enabled: bool | None = None
     review_enabled: bool | None = None
     moderation_enabled: bool | None = None
+    message_enabled: bool | None = None
 
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)
@@ -316,6 +320,7 @@ async def get_notification_preferences(
         endorsement_enabled=pref.endorsement_enabled,
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
+        message_enabled=getattr(pref, "message_enabled", True),
     )
 
 
@@ -355,4 +360,5 @@ async def update_notification_preferences(
         endorsement_enabled=pref.endorsement_enabled,
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
+        message_enabled=getattr(pref, "message_enabled", True),
     )

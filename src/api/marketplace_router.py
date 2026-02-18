@@ -135,6 +135,10 @@ async def browse_listings(
     pricing_model: str | None = Query(None),
     tag: str | None = Query(None),
     search: str | None = Query(None),
+    sort: str = Query(
+        "newest",
+        pattern="^(newest|popular|price_asc|price_desc)$",
+    ),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -158,10 +162,14 @@ async def browse_listings(
     count_query = select(func.count()).select_from(query.subquery())
     total = await db.scalar(count_query) or 0
 
-    # Fetch page
-    query = query.order_by(
-        Listing.is_featured.desc(), Listing.created_at.desc()
-    ).offset(offset).limit(limit)
+    # Fetch page — apply user-requested sort
+    sort_clauses = {
+        "newest": [Listing.is_featured.desc(), Listing.created_at.desc()],
+        "popular": [Listing.is_featured.desc(), Listing.view_count.desc()],
+        "price_asc": [Listing.price_cents.asc()],
+        "price_desc": [Listing.price_cents.desc()],
+    }
+    query = query.order_by(*sort_clauses[sort]).offset(offset).limit(limit)
     result = await db.execute(query)
     listings = result.scalars().all()
 

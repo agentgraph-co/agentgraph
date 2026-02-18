@@ -16,10 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
+    CapabilityEndorsement,
     Entity,
     EntityRelationship,
     Post,
     RelationshipType,
+    Review,
     Vote,
 )
 
@@ -27,7 +29,7 @@ router = APIRouter(prefix="/activity", tags=["activity"])
 
 
 class ActivityItem(BaseModel):
-    type: str  # "post", "reply", "vote", "follow"
+    type: str  # "post", "reply", "vote", "follow", "endorsement", "review"
     entity_id: str
     entity_name: str
     target_id: str | None = None
@@ -38,6 +40,7 @@ class ActivityItem(BaseModel):
 class ActivityResponse(BaseModel):
     activities: list[ActivityItem]
     count: int
+    next_cursor: str | None = None
 
 
 @router.get(
@@ -47,6 +50,7 @@ class ActivityResponse(BaseModel):
 async def get_activity(
     entity_id: uuid.UUID,
     limit: int = Query(30, ge=1, le=100),
+    before: str | None = Query(None, description="ISO timestamp cursor"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the public activity timeline for an entity."""
@@ -54,17 +58,25 @@ async def get_activity(
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
+    before_dt: datetime | None = None
+    if before:
+        try:
+            # Python 3.9 fromisoformat doesn't handle 'Z' suffix
+            before_dt = datetime.fromisoformat(before.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid cursor format")
+
     activities: list[ActivityItem] = []
 
     # Posts
+    posts_q = select(Post).where(
+        Post.author_entity_id == entity_id,
+        Post.is_hidden.is_(False),
+    )
+    if before_dt:
+        posts_q = posts_q.where(Post.created_at < before_dt)
     posts_result = await db.execute(
-        select(Post)
-        .where(
-            Post.author_entity_id == entity_id,
-            Post.is_hidden.is_(False),
-        )
-        .order_by(Post.created_at.desc())
-        .limit(limit)
+        posts_q.order_by(Post.created_at.desc()).limit(limit)
     )
     for post in posts_result.scalars().all():
         if post.parent_post_id:
@@ -87,11 +99,11 @@ async def get_activity(
             ))
 
     # Votes
+    votes_q = select(Vote).where(Vote.entity_id == entity_id)
+    if before_dt:
+        votes_q = votes_q.where(Vote.created_at < before_dt)
     votes_result = await db.execute(
-        select(Vote)
-        .where(Vote.entity_id == entity_id)
-        .order_by(Vote.created_at.desc())
-        .limit(limit)
+        votes_q.order_by(Vote.created_at.desc()).limit(limit)
     )
     for vote in votes_result.scalars().all():
         activities.append(ActivityItem(
@@ -104,15 +116,18 @@ async def get_activity(
         ))
 
     # Follows
-    follows_result = await db.execute(
+    follows_q = (
         select(EntityRelationship, Entity)
         .join(Entity, EntityRelationship.target_entity_id == Entity.id)
         .where(
             EntityRelationship.source_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
         )
-        .order_by(EntityRelationship.created_at.desc())
-        .limit(limit)
+    )
+    if before_dt:
+        follows_q = follows_q.where(EntityRelationship.created_at < before_dt)
+    follows_result = await db.execute(
+        follows_q.order_by(EntityRelationship.created_at.desc()).limit(limit)
     )
     for rel, target in follows_result.all():
         activities.append(ActivityItem(
@@ -124,11 +139,63 @@ async def get_activity(
             created_at=rel.created_at,
         ))
 
+    # Endorsements given
+    endorse_q = (
+        select(CapabilityEndorsement, Entity)
+        .join(Entity, CapabilityEndorsement.agent_entity_id == Entity.id)
+        .where(CapabilityEndorsement.endorser_entity_id == entity_id)
+    )
+    if before_dt:
+        endorse_q = endorse_q.where(CapabilityEndorsement.created_at < before_dt)
+    endorse_result = await db.execute(
+        endorse_q.order_by(CapabilityEndorsement.created_at.desc()).limit(limit)
+    )
+    for endorsement, agent in endorse_result.all():
+        activities.append(ActivityItem(
+            type="endorsement",
+            entity_id=str(entity_id),
+            entity_name=entity.display_name,
+            target_id=str(agent.id),
+            summary=f"Endorsed {agent.display_name}'s '{endorsement.capability}'",
+            created_at=endorsement.created_at,
+        ))
+
+    # Reviews given
+    review_q = (
+        select(Review, Entity)
+        .join(Entity, Review.target_entity_id == Entity.id)
+        .where(Review.reviewer_entity_id == entity_id)
+    )
+    if before_dt:
+        review_q = review_q.where(Review.created_at < before_dt)
+    review_result = await db.execute(
+        review_q.order_by(Review.created_at.desc()).limit(limit)
+    )
+    for review, target in review_result.all():
+        activities.append(ActivityItem(
+            type="review",
+            entity_id=str(entity_id),
+            entity_name=entity.display_name,
+            target_id=str(target.id),
+            summary=f"Reviewed {target.display_name} ({review.rating}/5)",
+            created_at=review.created_at,
+        ))
+
     # Sort all by time, take top N
     activities.sort(key=lambda a: a.created_at, reverse=True)
     activities = activities[:limit]
 
+    next_cursor = None
+    if len(activities) == limit:
+        ts = activities[-1].created_at
+        # Use Z suffix for URL-safe cursor (no + encoding issues)
+        iso = ts.isoformat()
+        if iso.endswith("+00:00"):
+            iso = iso[:-6] + "Z"
+        next_cursor = iso
+
     return ActivityResponse(
         activities=activities,
         count=len(activities),
+        next_cursor=next_cursor,
     )

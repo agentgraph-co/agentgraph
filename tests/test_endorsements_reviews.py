@@ -153,7 +153,9 @@ async def test_list_endorsements(client: AsyncClient):
         f"{ENTITIES_URL}/{agent_id}/endorsements",
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    data = resp.json()
+    assert data["total"] == 2
+    assert len(data["endorsements"]) == 2
 
 
 @pytest.mark.asyncio
@@ -212,7 +214,7 @@ async def test_remove_endorsement(client: AsyncClient):
     resp = await client.get(
         f"{ENTITIES_URL}/{agent_id}/endorsements",
     )
-    assert len(resp.json()) == 0
+    assert resp.json()["total"] == 0
 
 
 @pytest.mark.asyncio
@@ -235,7 +237,7 @@ async def test_endorsement_notification(client: AsyncClient):
     resp = await client.get(
         f"{ENTITIES_URL}/{agent_id}/endorsements",
     )
-    assert len(resp.json()) == 1
+    assert resp.json()["total"] == 1
 
 
 # --- Review Tests ---
@@ -293,7 +295,7 @@ async def test_review_upsert(client: AsyncClient):
 
     # Should still be just one review
     resp = await client.get(f"{ENTITIES_URL}/{id_a}/reviews")
-    assert len(resp.json()) == 1
+    assert resp.json()["total"] == 1
 
 
 @pytest.mark.asyncio
@@ -310,8 +312,9 @@ async def test_list_reviews(client: AsyncClient):
 
     resp = await client.get(f"{ENTITIES_URL}/{id_a}/reviews")
     assert resp.status_code == 200
-    assert len(resp.json()) == 1
-    assert resp.json()[0]["rating"] == 4
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["reviews"][0]["rating"] == 4
 
 
 @pytest.mark.asyncio
@@ -356,7 +359,7 @@ async def test_delete_review(client: AsyncClient):
     assert resp.status_code == 204
 
     resp = await client.get(f"{ENTITIES_URL}/{id_a}/reviews")
-    assert len(resp.json()) == 0
+    assert resp.json()["total"] == 0
 
 
 @pytest.mark.asyncio

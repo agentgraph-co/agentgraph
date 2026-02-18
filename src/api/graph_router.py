@@ -241,6 +241,111 @@ async def get_ego_graph(
 
 
 @router.get(
+    "/mutual/{entity_a_id}/{entity_b_id}",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_mutual_follows(
+    entity_a_id: uuid.UUID,
+    entity_b_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get entities that both A and B follow (mutual connections)."""
+    from sqlalchemy.orm import aliased
+
+    for eid in (entity_a_id, entity_b_id):
+        e = await db.get(Entity, eid)
+        if e is None:
+            raise HTTPException(status_code=404, detail=f"Entity {eid} not found")
+
+    rel_a = aliased(EntityRelationship)
+    rel_b = aliased(EntityRelationship)
+
+    query = (
+        select(Entity.id, Entity.display_name, Entity.type)
+        .join(rel_a, rel_a.target_entity_id == Entity.id)
+        .join(rel_b, rel_b.target_entity_id == Entity.id)
+        .where(
+            rel_a.source_entity_id == entity_a_id,
+            rel_a.type == RelationshipType.FOLLOW,
+            rel_b.source_entity_id == entity_b_id,
+            rel_b.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
+        )
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    mutuals = [
+        {
+            "id": str(row[0]),
+            "display_name": row[1],
+            "type": row[2].value if hasattr(row[2], "value") else row[2],
+        }
+        for row in result.all()
+    ]
+    return {
+        "entity_a": str(entity_a_id),
+        "entity_b": str(entity_b_id),
+        "mutual_follows": mutuals,
+        "count": len(mutuals),
+    }
+
+
+@router.get(
+    "/path/{source_id}/{target_id}",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_shortest_path(
+    source_id: uuid.UUID,
+    target_id: uuid.UUID,
+    max_depth: int = Query(4, ge=1, le=6),
+    db: AsyncSession = Depends(get_db),
+):
+    """Find shortest follow-path between two entities via BFS."""
+    for eid in (source_id, target_id):
+        e = await db.get(Entity, eid)
+        if e is None:
+            raise HTTPException(status_code=404, detail=f"Entity {eid} not found")
+
+    if source_id == target_id:
+        return {"path": [str(source_id)], "length": 0}
+
+    # BFS
+    visited: dict[uuid.UUID, uuid.UUID | None] = {source_id: None}
+    frontier = {source_id}
+
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        result = await db.execute(
+            select(
+                EntityRelationship.source_entity_id,
+                EntityRelationship.target_entity_id,
+            ).where(
+                EntityRelationship.source_entity_id.in_(frontier),
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        next_frontier: set[uuid.UUID] = set()
+        for src, tgt in result.all():
+            if tgt not in visited:
+                visited[tgt] = src
+                next_frontier.add(tgt)
+                if tgt == target_id:
+                    # Reconstruct path
+                    path = []
+                    current: uuid.UUID | None = target_id
+                    while current is not None:
+                        path.append(str(current))
+                        current = visited[current]
+                    path.reverse()
+                    return {"path": path, "length": len(path) - 1}
+        frontier = next_frontier
+
+    return {"path": [], "length": -1, "message": "No path found within depth limit"}
+
+
+@router.get(
     "/stats", response_model=NetworkStatsResponse,
     dependencies=[Depends(rate_limit_reads)],
 )

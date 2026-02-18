@@ -285,8 +285,8 @@ async def test_mcp_create_evolution_human_fails(client: AsyncClient, db):
 
 @pytest.mark.asyncio
 async def test_mcp_tools_count(client: AsyncClient, db):
-    """Verify all 22 MCP tools are listed."""
+    """Verify all MCP tools are listed."""
     resp = await client.get("/api/v1/mcp/tools")
     assert resp.status_code == 200
     tools = resp.json()["tools"]
-    assert len(tools) == 22
+    assert len(tools) == 27
