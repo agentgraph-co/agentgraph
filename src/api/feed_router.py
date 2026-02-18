@@ -12,9 +12,11 @@ from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import (
+    Bookmark,
     Entity,
     EntityRelationship,
     Post,
+    PostEdit,
     RelationshipType,
     Submolt,
     TrustScore,
@@ -32,6 +34,10 @@ class CreatePostRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
     parent_post_id: uuid.UUID | None = None
     submolt_id: uuid.UUID | None = None
+
+
+class EditPostRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
 
 
 class VoteRequest(BaseModel):
@@ -55,7 +61,9 @@ class PostResponse(BaseModel):
     submolt_id: uuid.UUID | None = None
     vote_count: int
     reply_count: int = 0
+    is_edited: bool = False
     user_vote: str | None = None  # "up", "down", or None
+    is_bookmarked: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -132,6 +140,37 @@ async def create_post(
                 body=(
                     f"{current_entity.display_name} replied: "
                     f"{snippet}"
+                ),
+                reference_id=str(post.id),
+            )
+
+    # Notify mentioned entities
+    mentions = _extract_mentions(body.content)
+    if mentions:
+        from sqlalchemy import or_ as sa_or
+
+        from src.api.notification_router import create_notification as cn
+
+        mentioned = await db.execute(
+            select(Entity).where(
+                sa_or(
+                    *[
+                        Entity.display_name.ilike(m)
+                        for m in mentions
+                    ]
+                ),
+                Entity.is_active.is_(True),
+                Entity.id != current_entity.id,
+            )
+        )
+        for mentionee in mentioned.scalars().all():
+            await cn(
+                db,
+                entity_id=mentionee.id,
+                kind="mention",
+                title="You were mentioned",
+                body=(
+                    f"{current_entity.display_name} mentioned you"
                 ),
                 reference_id=str(post.id),
             )
@@ -565,6 +604,282 @@ async def get_following_feed(
     return FeedResponse(posts=posts, next_cursor=next_cursor)
 
 
+# --- Post Editing ---
+
+
+@router.patch("/posts/{post_id}", response_model=PostResponse)
+async def edit_post(
+    post_id: uuid.UUID,
+    body: EditPostRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit a post's content. Records edit history."""
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.author_entity_id != current_entity.id:
+        raise HTTPException(status_code=403, detail="Not your post")
+
+    # Content filter on edit too
+    from src.content_filter import check_content
+
+    filter_result = check_content(body.content)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Content rejected: {', '.join(filter_result.flags)}",
+        )
+
+    # Record edit history
+    edit = PostEdit(
+        id=uuid.uuid4(),
+        post_id=post_id,
+        previous_content=post.content,
+        new_content=body.content,
+        edited_by=current_entity.id,
+    )
+    db.add(edit)
+
+    post.content = body.content
+    post.is_edited = True
+    post.edit_count = (post.edit_count or 0) + 1
+    await db.flush()
+    await db.refresh(post)
+
+    reply_count = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.parent_post_id == post_id
+        )
+    ) or 0
+
+    return _build_post_response(
+        post, current_entity, user_vote=None, reply_count=reply_count,
+    )
+
+
+@router.get("/posts/{post_id}/edits")
+async def get_post_edits(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get edit history for a post."""
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    result = await db.execute(
+        select(PostEdit)
+        .where(PostEdit.post_id == post_id)
+        .order_by(PostEdit.created_at.desc())
+    )
+    edits = result.scalars().all()
+
+    return {
+        "post_id": str(post_id),
+        "edit_count": len(edits),
+        "edits": [
+            {
+                "id": str(e.id),
+                "previous_content": e.previous_content,
+                "new_content": e.new_content,
+                "edited_at": e.created_at.isoformat(),
+            }
+            for e in edits
+        ],
+    }
+
+
+# --- Bookmarks ---
+
+
+@router.post("/posts/{post_id}/bookmark")
+async def bookmark_post(
+    post_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bookmark/unbookmark a post (toggle)."""
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    existing = await db.scalar(
+        select(Bookmark).where(
+            Bookmark.entity_id == current_entity.id,
+            Bookmark.post_id == post_id,
+        )
+    )
+
+    if existing:
+        await db.delete(existing)
+        await db.flush()
+        return {"bookmarked": False, "message": "Bookmark removed"}
+
+    bm = Bookmark(
+        id=uuid.uuid4(),
+        entity_id=current_entity.id,
+        post_id=post_id,
+    )
+    db.add(bm)
+    await db.flush()
+    return {"bookmarked": True, "message": "Post bookmarked"}
+
+
+@router.get("/bookmarks", response_model=FeedResponse)
+async def get_bookmarks(
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get bookmarked posts for the current user."""
+    query = (
+        select(Post, Entity, TrustScore.score)
+        .join(Bookmark, Bookmark.post_id == Post.id)
+        .join(Entity, Post.author_entity_id == Entity.id)
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .where(
+            Bookmark.entity_id == current_entity.id,
+            Post.is_hidden.is_(False),
+        )
+    )
+
+    if cursor:
+        cursor_id = _parse_cursor(cursor)
+        if cursor_id is None:
+            raise HTTPException(
+                status_code=400, detail="Invalid cursor"
+            )
+        query = query.where(Bookmark.id < cursor_id)
+
+    query = query.order_by(
+        Bookmark.created_at.desc()
+    ).limit(limit + 1)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    post_ids = [row[0].id for row in rows]
+
+    reply_counts = {}
+    if post_ids:
+        rc_result = await db.execute(
+            select(Post.parent_post_id, func.count())
+            .where(Post.parent_post_id.in_(post_ids))
+            .group_by(Post.parent_post_id)
+        )
+        reply_counts = dict(rc_result.all())
+
+    user_votes = {}
+    if post_ids:
+        vote_result = await db.execute(
+            select(Vote.post_id, Vote.direction).where(
+                Vote.entity_id == current_entity.id,
+                Vote.post_id.in_(post_ids),
+            )
+        )
+        user_votes = {
+            row[0]: row[1].value for row in vote_result.all()
+        }
+
+    posts = []
+    for post, author, trust_score in rows:
+        posts.append(_build_post_response(
+            post,
+            author,
+            user_vote=user_votes.get(post.id),
+            reply_count=reply_counts.get(post.id, 0),
+            is_bookmarked=True,
+        ))
+
+    next_cursor = None
+    if has_more and posts:
+        next_cursor = str(posts[-1].id)
+
+    return FeedResponse(posts=posts, next_cursor=next_cursor)
+
+
+# --- Mentions ---
+
+
+def _extract_mentions(content: str) -> list[str]:
+    """Extract @display_name mentions from post content."""
+    import re
+
+    return re.findall(r"@(\w+)", content)
+
+
+# --- Leaderboard ---
+
+
+@router.get("/leaderboard")
+async def get_leaderboard(
+    period: str = Query("all", pattern="^(day|week|month|all)$"),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top contributors by vote count received."""
+    from datetime import timedelta, timezone
+
+    query = (
+        select(
+            Entity.id,
+            Entity.display_name,
+            Entity.type,
+            Entity.did_web,
+            func.count(Post.id).label("post_count"),
+            func.coalesce(func.sum(Post.vote_count), 0).label(
+                "total_votes"
+            ),
+        )
+        .join(Post, Post.author_entity_id == Entity.id)
+        .where(Entity.is_active.is_(True), Post.is_hidden.is_(False))
+    )
+
+    if period != "all":
+        now = datetime.now(timezone.utc)
+        delta = {
+            "day": timedelta(days=1),
+            "week": timedelta(weeks=1),
+            "month": timedelta(days=30),
+        }[period]
+        query = query.where(Post.created_at >= now - delta)
+
+    query = (
+        query.group_by(
+            Entity.id,
+            Entity.display_name,
+            Entity.type,
+            Entity.did_web,
+        )
+        .order_by(func.coalesce(func.sum(Post.vote_count), 0).desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    return {
+        "period": period,
+        "leaders": [
+            {
+                "rank": i + 1,
+                "entity_id": str(row[0]),
+                "display_name": row[1],
+                "type": row[2].value,
+                "did_web": row[3],
+                "post_count": row[4],
+                "total_votes": row[5],
+            }
+            for i, row in enumerate(rows)
+        ],
+    }
+
+
 # --- Helpers ---
 
 
@@ -580,6 +895,7 @@ def _build_post_response(
     author: Entity,
     user_vote: str | None,
     reply_count: int,
+    is_bookmarked: bool = False,
 ) -> PostResponse:
     return PostResponse(
         id=post.id,
@@ -594,7 +910,9 @@ def _build_post_response(
         submolt_id=post.submolt_id,
         vote_count=post.vote_count,
         reply_count=reply_count,
+        is_edited=post.is_edited or False,
         user_vote=user_vote,
+        is_bookmarked=is_bookmarked,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )

@@ -167,6 +167,8 @@ class Post(Base):
         UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), nullable=True
     )
     is_hidden = Column(Boolean, default=False)
+    is_edited = Column(Boolean, default=False)
+    edit_count = Column(Integer, default=0)
 
     vote_count = Column(Integer, default=0)  # denormalized for feed performance
 
@@ -461,6 +463,64 @@ class WebhookSubscription(Base):
     entity = relationship("Entity")
 
     __table_args__ = (Index("ix_webhooks_entity", "entity_id"),)
+
+
+class Bookmark(Base):
+    """User bookmarks on posts."""
+
+    __tablename__ = "bookmarks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    post_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+    post = relationship("Post")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_id", "post_id", name="uq_bookmark"
+        ),
+        Index("ix_bookmarks_entity", "entity_id"),
+        Index("ix_bookmarks_post", "post_id"),
+    )
+
+
+class PostEdit(Base):
+    """Edit history for posts."""
+
+    __tablename__ = "post_edits"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    post_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    previous_content = Column(Text, nullable=False)
+    new_content = Column(Text, nullable=False)
+    edited_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    post = relationship("Post")
+    editor = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_post_edits_post", "post_id"),
+    )
 
 
 class EntityBlock(Base):
