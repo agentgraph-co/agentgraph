@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import (
     CapabilityEndorsement,
@@ -81,6 +82,7 @@ TIER_RANK = {
     "/entities/{entity_id}/endorsements",
     response_model=EndorsementResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def endorse_capability(
     entity_id: uuid.UUID,
@@ -269,6 +271,7 @@ async def get_capability_summary(
 @router.delete(
     "/entities/{entity_id}/endorsements/{capability}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def remove_endorsement(
     entity_id: uuid.UUID,
@@ -299,6 +302,7 @@ async def remove_endorsement(
     "/entities/{entity_id}/reviews",
     response_model=ReviewResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def create_review(
     entity_id: uuid.UUID,
@@ -466,6 +470,7 @@ async def get_review_summary(
 @router.delete(
     "/entities/{entity_id}/reviews",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def delete_review(
     entity_id: uuid.UUID,

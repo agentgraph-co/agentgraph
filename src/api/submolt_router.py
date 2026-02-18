@@ -259,7 +259,10 @@ async def get_submolt(
     return _submolt_response(submolt, is_member=is_member)
 
 
-@router.patch("/{submolt_name}", response_model=SubmoltResponse)
+@router.patch(
+    "/{submolt_name}", response_model=SubmoltResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_submolt(
     submolt_name: str,
     body: UpdateSubmoltRequest,
@@ -330,7 +333,10 @@ async def join_submolt(
     return {"message": f"Joined submolt '{submolt.display_name}'"}
 
 
-@router.post("/{submolt_name}/leave", response_model=dict)
+@router.post(
+    "/{submolt_name}/leave", response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def leave_submolt(
     submolt_name: str,
     current_entity: Entity = Depends(get_current_entity),
@@ -518,6 +524,7 @@ async def get_submolt_feed(
 @router.delete(
     "/{submolt_name}/posts/{post_id}",
     response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def remove_post_from_submolt(
     submolt_name: str,
@@ -558,6 +565,7 @@ async def remove_post_from_submolt(
 @router.post(
     "/{submolt_name}/moderators/{entity_id}",
     response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def promote_to_moderator(
     submolt_name: str,
@@ -590,6 +598,7 @@ async def promote_to_moderator(
 @router.delete(
     "/{submolt_name}/moderators/{entity_id}",
     response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def demote_moderator(
     submolt_name: str,
@@ -620,6 +629,7 @@ async def demote_moderator(
 @router.delete(
     "/{submolt_name}/members/{entity_id}",
     response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def kick_member(
     submolt_name: str,
@@ -667,6 +677,7 @@ async def kick_member(
 @router.post(
     "/{submolt_name}/transfer-owner/{entity_id}",
     response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def transfer_ownership(
     submolt_name: str,

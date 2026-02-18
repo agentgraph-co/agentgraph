@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -55,7 +56,10 @@ class FlagListResponse(BaseModel):
     count: int
 
 
-@router.post("/flag", response_model=FlagResponse, status_code=201)
+@router.post(
+    "/flag", response_model=FlagResponse, status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_flag(
     body: CreateFlagRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -149,7 +153,10 @@ async def list_flags(
     )
 
 
-@router.patch("/flags/{flag_id}/resolve", response_model=FlagResponse)
+@router.patch(
+    "/flags/{flag_id}/resolve", response_model=FlagResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def resolve_flag(
     flag_id: uuid.UUID,
     body: ResolveFlagRequest,

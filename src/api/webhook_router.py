@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, WebhookSubscription
 
@@ -61,7 +62,10 @@ class WebhookListResponse(BaseModel):
     count: int
 
 
-@router.post("", response_model=WebhookCreatedResponse, status_code=201)
+@router.post(
+    "", response_model=WebhookCreatedResponse, status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_webhook(
     body: CreateWebhookRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -127,7 +131,10 @@ async def list_webhooks(
     )
 
 
-@router.patch("/{webhook_id}", response_model=WebhookResponse)
+@router.patch(
+    "/{webhook_id}", response_model=WebhookResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_webhook(
     webhook_id: uuid.UUID,
     body: UpdateWebhookRequest,
@@ -161,7 +168,10 @@ async def update_webhook(
     )
 
 
-@router.delete("/{webhook_id}", status_code=204)
+@router.delete(
+    "/{webhook_id}", status_code=204,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def delete_webhook(
     webhook_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -175,7 +185,10 @@ async def delete_webhook(
     await db.flush()
 
 
-@router.patch("/{webhook_id}/activate", response_model=WebhookResponse)
+@router.patch(
+    "/{webhook_id}/activate", response_model=WebhookResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def activate_webhook(
     webhook_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -197,7 +210,10 @@ async def activate_webhook(
     )
 
 
-@router.patch("/{webhook_id}/deactivate", response_model=WebhookResponse)
+@router.patch(
+    "/{webhook_id}/deactivate", response_model=WebhookResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def deactivate_webhook(
     webhook_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),

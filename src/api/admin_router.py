@@ -9,6 +9,7 @@ from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -197,7 +198,10 @@ async def list_entities(
     )
 
 
-@router.patch("/entities/{entity_id}/deactivate")
+@router.patch(
+    "/entities/{entity_id}/deactivate",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def deactivate_entity(
     entity_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -217,7 +221,10 @@ async def deactivate_entity(
     return {"message": f"Entity {entity.display_name} deactivated"}
 
 
-@router.patch("/entities/{entity_id}/reactivate")
+@router.patch(
+    "/entities/{entity_id}/reactivate",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def reactivate_entity(
     entity_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -235,7 +242,10 @@ async def reactivate_entity(
     return {"message": f"Entity {entity.display_name} reactivated"}
 
 
-@router.patch("/entities/{entity_id}/promote")
+@router.patch(
+    "/entities/{entity_id}/promote",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def promote_to_admin(
     entity_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -255,7 +265,10 @@ async def promote_to_admin(
     return {"message": f"Entity {entity.display_name} promoted to admin"}
 
 
-@router.patch("/entities/{entity_id}/demote")
+@router.patch(
+    "/entities/{entity_id}/demote",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def demote_admin(
     entity_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -280,7 +293,7 @@ async def demote_admin(
     return {"message": f"Entity {entity.display_name} demoted from admin"}
 
 
-@router.post("/trust/recompute")
+@router.post("/trust/recompute", dependencies=[Depends(rate_limit_writes)])
 async def recompute_trust_scores(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -481,7 +494,10 @@ async def get_top_entities(
         }
 
 
-@router.patch("/listings/{listing_id}/feature")
+@router.patch(
+    "/listings/{listing_id}/feature",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def toggle_featured_listing(
     listing_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -510,7 +526,10 @@ async def toggle_featured_listing(
     }
 
 
-@router.patch("/entities/{entity_id}/suspend")
+@router.patch(
+    "/entities/{entity_id}/suspend",
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def suspend_entity(
     entity_id: uuid.UUID,
     days: int = Query(..., ge=1, le=365),

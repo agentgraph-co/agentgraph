@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import (
     CapabilityEndorsement,
@@ -205,7 +206,10 @@ async def get_profile(
     )
 
 
-@router.patch("/{entity_id}", response_model=ProfileResponse)
+@router.patch(
+    "/{entity_id}", response_model=ProfileResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_profile(
     entity_id: uuid.UUID,
     body: UpdateProfileRequest,

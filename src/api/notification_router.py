@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Notification, NotificationPreference
 
@@ -199,7 +200,7 @@ async def get_notifications(
     )
 
 
-@router.post("/{notification_id}/read")
+@router.post("/{notification_id}/read", dependencies=[Depends(rate_limit_writes)])
 async def mark_as_read(
     notification_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -217,7 +218,7 @@ async def mark_as_read(
     return {"message": "Marked as read"}
 
 
-@router.post("/read-all")
+@router.post("/read-all", dependencies=[Depends(rate_limit_writes)])
 async def mark_all_as_read(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -236,7 +237,7 @@ async def mark_all_as_read(
     return {"message": f"Marked {count} notifications as read"}
 
 
-@router.delete("/{notification_id}")
+@router.delete("/{notification_id}", dependencies=[Depends(rate_limit_writes)])
 async def delete_notification(
     notification_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -317,7 +318,10 @@ async def get_notification_preferences(
     )
 
 
-@router.patch("/preferences", response_model=NotificationPreferencesResponse)
+@router.patch(
+    "/preferences", response_model=NotificationPreferencesResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_notification_preferences(
     body: UpdatePreferencesRequest,
     current_entity: Entity = Depends(get_current_entity),

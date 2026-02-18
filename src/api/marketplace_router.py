@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
+from src.api.rate_limit import rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Listing
 
@@ -76,7 +77,10 @@ class ListingListResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("", response_model=ListingResponse, status_code=201)
+@router.post(
+    "", response_model=ListingResponse, status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_listing(
     body: CreateListingRequest,
     current_entity: Entity = Depends(get_current_entity),
@@ -161,7 +165,10 @@ async def get_listing(
     return _to_response(listing)
 
 
-@router.patch("/{listing_id}", response_model=ListingResponse)
+@router.patch(
+    "/{listing_id}", response_model=ListingResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_listing(
     listing_id: uuid.UUID,
     body: UpdateListingRequest,
@@ -186,7 +193,7 @@ async def update_listing(
     return _to_response(listing)
 
 
-@router.delete("/{listing_id}")
+@router.delete("/{listing_id}", dependencies=[Depends(rate_limit_writes)])
 async def delete_listing(
     listing_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
