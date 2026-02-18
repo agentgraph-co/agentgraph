@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     CapabilityEndorsement,
@@ -164,6 +164,7 @@ class EndorsementListResponse(BaseModel):
 @router.get(
     "/entities/{entity_id}/endorsements",
     response_model=EndorsementListResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def list_endorsements(
     entity_id: uuid.UUID,
@@ -225,6 +226,7 @@ async def list_endorsements(
 @router.get(
     "/entities/{entity_id}/capabilities",
     response_model=list[CapabilitySummary],
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_capability_summary(
     entity_id: uuid.UUID,
@@ -422,6 +424,7 @@ class ReviewListResponse(BaseModel):
 @router.get(
     "/entities/{entity_id}/reviews",
     response_model=ReviewListResponse,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def list_reviews(
     entity_id: uuid.UUID,
@@ -475,6 +478,7 @@ async def list_reviews(
 @router.get(
     "/entities/{entity_id}/reviews/summary",
     response_model=ReviewSummary,
+    dependencies=[Depends(rate_limit_reads)],
 )
 async def get_review_summary(
     entity_id: uuid.UUID,

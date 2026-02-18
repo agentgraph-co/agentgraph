@@ -217,6 +217,19 @@ async def create_evolution_record(
         if body.capabilities_snapshot:
             target.capabilities = body.capabilities_snapshot
 
+    await log_action(
+        db,
+        action="evolution.create",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=record.id,
+        details={
+            "agent_id": str(body.entity_id),
+            "version": body.version,
+            "change_type": body.change_type,
+            "risk_tier": risk_tier,
+        },
+    )
     await db.flush()
 
     return _to_response(record)

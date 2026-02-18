@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, WebhookSubscription
 
@@ -138,6 +139,14 @@ async def create_webhook(
         consecutive_failures=0,
     )
     db.add(sub)
+    await log_action(
+        db,
+        action="webhook.create",
+        entity_id=current_entity.id,
+        resource_type="webhook",
+        resource_id=sub.id,
+        details={"event_types": sub.event_types},
+    )
     await db.flush()
 
     return WebhookCreatedResponse(
@@ -232,6 +241,13 @@ async def update_webhook(
     if body.callback_url is not None:
         sub.callback_url = str(body.callback_url)
 
+    await log_action(
+        db,
+        action="webhook.update",
+        entity_id=current_entity.id,
+        resource_type="webhook",
+        resource_id=sub.id,
+    )
     await db.flush()
     return WebhookResponse(
         id=sub.id,
@@ -255,6 +271,13 @@ async def delete_webhook(
     if sub is None or sub.entity_id != current_entity.id:
         raise HTTPException(status_code=404, detail="Webhook not found")
 
+    await log_action(
+        db,
+        action="webhook.delete",
+        entity_id=current_entity.id,
+        resource_type="webhook",
+        resource_id=sub.id,
+    )
     await db.delete(sub)
     await db.flush()
 

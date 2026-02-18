@@ -604,6 +604,8 @@ async def list_members(
 @router.get("/{submolt_name}/banned", response_model=dict)
 async def list_banned_members(
     submolt_name: str,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -618,13 +620,25 @@ async def list_banned_members(
     if not mod_mem or mod_mem.role not in ("owner", "moderator"):
         raise HTTPException(status_code=403, detail="Only owners/moderators can view bans")
 
-    result = await db.execute(
+    base = (
         select(SubmoltMembership, Entity)
         .join(Entity, Entity.id == SubmoltMembership.entity_id)
         .where(
             SubmoltMembership.submolt_id == submolt.id,
             SubmoltMembership.role == "banned",
         )
+    )
+
+    total = await db.scalar(
+        select(func.count()).select_from(SubmoltMembership).where(
+            SubmoltMembership.submolt_id == submolt.id,
+            SubmoltMembership.role == "banned",
+        )
+    ) or 0
+
+    result = await db.execute(
+        base.order_by(SubmoltMembership.created_at.desc())
+        .offset(offset).limit(limit)
     )
     rows = result.all()
 
@@ -637,7 +651,7 @@ async def list_banned_members(
         for mem, entity in rows
     ]
 
-    return {"submolt": submolt.name, "banned": banned, "total": len(banned)}
+    return {"submolt": submolt.name, "banned": banned, "total": total}
 
 
 @router.get("/{submolt_name}/feed", response_model=SubmoltFeedResponse)
@@ -661,6 +675,10 @@ async def get_submolt_feed(
     is_member = False
     if current_entity:
         mem = await _check_membership(db, submolt.id, current_entity.id)
+        if mem and mem.role == "banned":
+            raise HTTPException(
+                status_code=403, detail="You are banned from this submolt",
+            )
         is_member = mem is not None
 
     query = (

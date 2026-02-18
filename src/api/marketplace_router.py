@@ -775,6 +775,17 @@ async def cancel_transaction(
         )
 
     txn.status = TransactionStatus.CANCELLED
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="transaction.cancel",
+        entity_id=current_entity.id,
+        resource_type="transaction",
+        resource_id=txn.id,
+        details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
+    )
     await db.flush()
     return _txn_response(txn)
 
@@ -802,5 +813,16 @@ async def refund_transaction(
         )
 
     txn.status = TransactionStatus.REFUNDED
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="transaction.refund",
+        entity_id=current_entity.id,
+        resource_type="transaction",
+        resource_id=txn.id,
+        details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
+    )
     await db.flush()
     return _txn_response(txn)
