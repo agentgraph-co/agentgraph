@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import warnings
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -69,6 +72,17 @@ app = FastAPI(
     openapi_tags=_TAG_METADATA,
 )
 
+# --- Startup safety checks ---
+if settings.jwt_secret == "CHANGE-ME-IN-PRODUCTION":
+    _msg = (
+        "JWT_SECRET is set to the default value. "
+        "Set a strong, random JWT_SECRET in .env before deploying to production."
+    )
+    if not settings.debug:
+        warnings.warn(_msg, stacklevel=1)
+    logging.getLogger(__name__).warning(_msg)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -76,6 +90,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next) -> Response:
+    """Add standard security headers to all responses."""
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+    return response
+
 
 @app.middleware("http")
 async def rate_limit_headers_middleware(request: Request, call_next) -> Response:
