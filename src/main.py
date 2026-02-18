@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.account_router import router as account_router
@@ -76,6 +76,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def rate_limit_headers_middleware(request: Request, call_next) -> Response:
+    """Add rate limit headers to responses when available."""
+    response: Response = await call_next(request)
+    if hasattr(request.state, "rate_limit_limit"):
+        response.headers["X-RateLimit-Limit"] = str(request.state.rate_limit_limit)
+        response.headers["X-RateLimit-Remaining"] = str(
+            request.state.rate_limit_remaining
+        )
+        response.headers["X-RateLimit-Reset"] = str(request.state.rate_limit_reset)
+    return response
+
 
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
