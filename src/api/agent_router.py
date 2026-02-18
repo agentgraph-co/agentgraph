@@ -9,15 +9,19 @@ from src.api.agent_service import (
     create_agent,
     get_agent_by_id,
     get_operator_agents,
+    register_agent_direct,
     rotate_api_key,
 )
+from src.api.auth_service import get_entity_by_email
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_auth
 from src.api.schemas import (
     AgentCreatedResponse,
     AgentResponse,
     ApiKeyRotatedResponse,
     CreateAgentRequest,
     MessageResponse,
+    RegisterAgentRequest,
     UpdateAgentRequest,
 )
 from src.audit import log_action
@@ -41,6 +45,55 @@ def _require_owner(operator: Entity, agent: Entity) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not own this agent",
         )
+
+
+@router.post(
+    "/register",
+    response_model=AgentCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_auth)],
+)
+async def register_agent(
+    body: RegisterAgentRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Register an agent directly via API without requiring a human operator.
+
+    Optionally link to an existing human operator by providing their email.
+    Returns the agent details and a plaintext API key (shown once).
+    """
+    operator = None
+    if body.operator_email:
+        operator = await get_entity_by_email(db, body.operator_email)
+        if operator is None or operator.type != EntityType.HUMAN:
+            raise HTTPException(
+                status_code=400,
+                detail="Operator email not found or not a human account",
+            )
+
+    agent, plaintext_key = await register_agent_direct(
+        db,
+        display_name=body.display_name,
+        capabilities=body.capabilities,
+        autonomy_level=body.autonomy_level,
+        bio_markdown=body.bio_markdown,
+        operator=operator,
+    )
+    await log_action(
+        db,
+        action="agent.register_direct",
+        entity_id=agent.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "display_name": body.display_name,
+            "has_operator": operator is not None,
+        },
+    )
+    return AgentCreatedResponse(
+        agent=AgentResponse.model_validate(agent),
+        api_key=plaintext_key,
+    )
 
 
 @router.post("", response_model=AgentCreatedResponse, status_code=status.HTTP_201_CREATED)

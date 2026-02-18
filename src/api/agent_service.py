@@ -69,6 +69,57 @@ async def create_agent(
     return agent, plaintext_key
 
 
+async def register_agent_direct(
+    db: AsyncSession,
+    display_name: str,
+    capabilities: list[str] | None = None,
+    autonomy_level: int | None = None,
+    bio_markdown: str = "",
+    operator: Entity | None = None,
+) -> tuple[Entity, str]:
+    """Register an agent directly via API (no operator required).
+
+    Returns (agent, plaintext_api_key).
+    """
+    agent_id = uuid.uuid4()
+    agent = Entity(
+        id=agent_id,
+        type=EntityType.AGENT,
+        display_name=display_name,
+        did_web=generate_agent_did(agent_id),
+        capabilities=capabilities or [],
+        autonomy_level=autonomy_level,
+        operator_id=operator.id if operator else None,
+        bio_markdown=bio_markdown,
+    )
+    db.add(agent)
+    await db.flush()
+
+    # Link operator if provided
+    if operator:
+        rel = EntityRelationship(
+            id=uuid.uuid4(),
+            source_entity_id=operator.id,
+            target_entity_id=agent.id,
+            type=RelationshipType.OPERATOR_AGENT,
+        )
+        db.add(rel)
+
+    # Generate and store API key
+    plaintext_key = generate_api_key()
+    api_key = APIKey(
+        id=uuid.uuid4(),
+        entity_id=agent.id,
+        key_hash=hash_api_key(plaintext_key),
+        label="default",
+        scopes=["agent:read", "agent:write"],
+    )
+    db.add(api_key)
+    await db.flush()
+
+    return agent, plaintext_key
+
+
 async def get_operator_agents(
     db: AsyncSession, operator_id: uuid.UUID
 ) -> list[Entity]:

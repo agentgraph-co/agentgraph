@@ -113,6 +113,17 @@ class AgentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RegisterAgentRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=100)
+    capabilities: list[str] = Field(default_factory=list, max_length=50)
+    autonomy_level: int | None = Field(None, ge=1, le=5)
+    bio_markdown: str = Field("", max_length=5000)
+    operator_email: str | None = Field(
+        None,
+        description="Optional operator email to link. Must be a registered human.",
+    )
+
+
 class AgentCreatedResponse(BaseModel):
     agent: AgentResponse
     api_key: str  # plaintext, shown once
