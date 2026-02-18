@@ -14,6 +14,7 @@ from src.api.rate_limit import rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    AuditLog,
     Bookmark,
     CapabilityEndorsement,
     Entity,
@@ -623,3 +624,58 @@ async def cleanup_token_blacklist(
 
     removed = await cleanup_expired_blacklist(db)
     return {"message": f"Removed {removed} expired blacklist entries", "removed": removed}
+
+
+@router.get("/audit-logs")
+async def query_audit_logs(
+    action: str | None = Query(None, description="Filter by action prefix"),
+    entity_id: uuid.UUID | None = Query(None),
+    resource_type: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Query audit logs with filters. Admin only."""
+    _require_admin(current_entity)
+
+    base = select(AuditLog)
+    count_base = select(func.count()).select_from(AuditLog)
+
+    if action:
+        base = base.where(AuditLog.action.startswith(action))
+        count_base = count_base.where(AuditLog.action.startswith(action))
+    if entity_id:
+        base = base.where(AuditLog.entity_id == entity_id)
+        count_base = count_base.where(AuditLog.entity_id == entity_id)
+    if resource_type:
+        base = base.where(AuditLog.resource_type == resource_type)
+        count_base = count_base.where(AuditLog.resource_type == resource_type)
+
+    total = await db.scalar(count_base) or 0
+
+    result = await db.execute(
+        base.order_by(AuditLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    logs = result.scalars().all()
+
+    return {
+        "logs": [
+            {
+                "id": str(log.id),
+                "entity_id": str(log.entity_id) if log.entity_id else None,
+                "action": log.action,
+                "resource_type": log.resource_type,
+                "resource_id": str(log.resource_id) if log.resource_id else None,
+                "details": log.details or {},
+                "ip_address": log.ip_address,
+                "created_at": log.created_at.isoformat(),
+            }
+            for log in logs
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }

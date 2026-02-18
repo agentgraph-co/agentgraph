@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -32,6 +32,7 @@ from src.api.schemas import (
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    APIKey,
     CapabilityEndorsement,
     Entity,
     EntityRelationship,
@@ -272,6 +273,114 @@ async def get_fleet_summary(
             "endorsements": total_endorsements,
         },
     }
+
+
+@router.get(
+    "/{agent_id}/api-keys",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_api_keys(
+    agent_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List API keys for an agent. Operator only. Hashes are never exposed."""
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+    _require_owner(current_entity, agent)
+
+    result = await db.execute(
+        select(APIKey)
+        .where(APIKey.entity_id == agent_id)
+        .order_by(APIKey.created_at.desc())
+    )
+    keys = result.scalars().all()
+
+    return {
+        "agent_id": str(agent_id),
+        "keys": [
+            {
+                "id": str(k.id),
+                "label": k.label,
+                "scopes": k.scopes or [],
+                "is_active": k.is_active,
+                "created_at": k.created_at.isoformat(),
+                "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
+                "key_prefix": k.key_hash[:8],
+            }
+            for k in keys
+        ],
+        "total": len(keys),
+    }
+
+
+@router.patch(
+    "/{agent_id}/api-keys/{key_id}",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def update_api_key(
+    agent_id: uuid.UUID,
+    key_id: uuid.UUID,
+    label: str = Query(..., min_length=1, max_length=100),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update label on an API key. Operator only."""
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+    _require_owner(current_entity, agent)
+
+    api_key = await db.get(APIKey, key_id)
+    if api_key is None or api_key.entity_id != agent_id:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    api_key.label = label
+    await db.flush()
+    return {"message": f"Key label updated to '{label}'", "key_id": str(key_id)}
+
+
+@router.delete(
+    "/{agent_id}/api-keys/{key_id}",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def revoke_api_key(
+    agent_id: uuid.UUID,
+    key_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke a specific API key. Operator only."""
+    from datetime import datetime, timezone
+
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    _require_human(current_entity)
+    _require_owner(current_entity, agent)
+
+    api_key = await db.get(APIKey, key_id)
+    if api_key is None or api_key.entity_id != agent_id:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    if not api_key.is_active:
+        raise HTTPException(status_code=409, detail="Key already revoked")
+
+    api_key.is_active = False
+    api_key.revoked_at = datetime.now(timezone.utc)
+    await log_action(
+        db,
+        action="agent.key_revoke",
+        entity_id=current_entity.id,
+        resource_type="api_key",
+        resource_id=key_id,
+        details={"agent_id": str(agent_id)},
+    )
+    await db.flush()
+    return {"message": "API key revoked", "key_id": str(key_id)}
 
 
 @router.get("/{agent_id}", response_model=AgentResponse)

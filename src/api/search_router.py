@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
-from src.models import Entity, EntityType, Post, PrivacyTier, Submolt, TrustScore
+from src.models import Entity, EntityType, Listing, Post, PrivacyTier, Submolt, TrustScore
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -320,4 +320,138 @@ async def search_entities(
             created_at=entity.created_at,
         )
         for entity, score in result.all()
+    ]
+
+
+class SearchListingResult(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str
+    category: str
+    pricing_model: str
+    price_cents: int
+    seller_name: str
+    seller_id: uuid.UUID
+    view_count: int
+    created_at: datetime
+
+
+@router.get(
+    "/listings",
+    response_model=list[SearchListingResult],
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def search_listings(
+    q: str = Query(..., min_length=1, max_length=200),
+    category: str | None = Query(None),
+    pricing: str | None = Query(
+        None, pattern="^(free|one_time|subscription)$",
+    ),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search marketplace listings by title and description."""
+    query = (
+        select(Listing, Entity.display_name, Entity.id)
+        .join(Entity, Listing.entity_id == Entity.id)
+        .where(Listing.is_active.is_(True))
+    )
+
+    if category:
+        query = query.where(Listing.category == category)
+    if pricing:
+        query = query.where(Listing.pricing_model == pricing)
+
+    pattern = f"%{q}%"
+    query = query.where(
+        or_(
+            Listing.title.ilike(pattern),
+            Listing.description.ilike(pattern),
+        ),
+    )
+    query = query.order_by(
+        Listing.view_count.desc(), Listing.created_at.desc(),
+    )
+
+    query = query.limit(limit)
+    result = await db.execute(query)
+
+    return [
+        SearchListingResult(
+            id=listing.id,
+            title=listing.title,
+            description=listing.description,
+            category=listing.category,
+            pricing_model=listing.pricing_model,
+            price_cents=listing.price_cents or 0,
+            seller_name=seller_name,
+            seller_id=seller_id,
+            view_count=listing.view_count or 0,
+            created_at=listing.created_at,
+        )
+        for listing, seller_name, seller_id in result.all()
+    ]
+
+
+@router.get(
+    "/submolts",
+    response_model=list[SearchSubmoltResult],
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def search_submolts(
+    q: str = Query(..., min_length=1, max_length=200),
+    tag: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search submolts with optional tag filter."""
+    from sqlalchemy import type_coerce
+    from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
+    tsquery_str = _make_tsquery(q)
+    use_fts = len(q.strip()) >= 2 and tsquery_str
+
+    query = select(Submolt).where(Submolt.is_active.is_(True))
+
+    if tag:
+        query = query.where(
+            Submolt.tags.op("@>")(type_coerce([tag], PG_JSONB))
+        )
+
+    if use_fts:
+        sm_ts = func.to_tsvector(
+            text("'english'"),
+            func.coalesce(Submolt.display_name, text("''"))
+            + text("' '")
+            + func.coalesce(Submolt.description, text("''")),
+        )
+        sm_tsq = func.to_tsquery(
+            text("'english'"), text(f"'{tsquery_str}'"),
+        )
+        query = query.where(sm_ts.op("@@")(sm_tsq))
+    else:
+        pattern = f"%{q}%"
+        query = query.where(
+            or_(
+                Submolt.display_name.ilike(pattern),
+                Submolt.name.ilike(pattern),
+                Submolt.description.ilike(pattern),
+            ),
+        )
+
+    query = query.order_by(
+        Submolt.member_count.desc(), Submolt.created_at.desc(),
+    ).limit(limit)
+
+    result = await db.execute(query)
+    return [
+        SearchSubmoltResult(
+            id=s.id,
+            name=s.name,
+            display_name=s.display_name,
+            description=s.description or "",
+            member_count=s.member_count or 0,
+            created_at=s.created_at,
+        )
+        for s in result.scalars().all()
     ]

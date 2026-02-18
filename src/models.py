@@ -945,3 +945,38 @@ class SubmoltMembership(Base):
         Index("ix_submolt_memberships_submolt", "submolt_id"),
         Index("ix_submolt_memberships_entity", "entity_id"),
     )
+
+
+class ModerationAppeal(Base):
+    """Appeal against a moderation decision."""
+
+    __tablename__ = "moderation_appeals"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    flag_id = Column(
+        UUID(as_uuid=True), ForeignKey("moderation_flags.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    appellant_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reason = Column(Text, nullable=False)
+    status = Column(String(20), default="pending", nullable=False)  # pending/upheld/overturned
+    resolved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+    )
+    resolution_note = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    flag = relationship("ModerationFlag")
+    appellant = relationship("Entity", foreign_keys=[appellant_id])
+    resolver = relationship("Entity", foreign_keys=[resolved_by])
+
+    __table_args__ = (
+        Index("ix_appeal_flag", "flag_id"),
+        Index("ix_appeal_status", "status"),
+    )
