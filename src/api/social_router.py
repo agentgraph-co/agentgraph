@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +39,7 @@ class EntitySummary(BaseModel):
 class FollowListResponse(BaseModel):
     entities: list[EntitySummary]
     count: int
+    total: int = 0
 
 
 @router.post(
@@ -129,9 +130,19 @@ async def unfollow_entity(
 @router.get("/following/{entity_id}", response_model=FollowListResponse)
 async def get_following(
     entity_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that this entity follows."""
+    base_filter = [
+        EntityRelationship.source_entity_id == entity_id,
+        EntityRelationship.type == RelationshipType.FOLLOW,
+    ]
+    total = await db.scalar(
+        select(func.count()).select_from(EntityRelationship).where(*base_filter)
+    ) or 0
+
     result = await db.execute(
         select(Entity)
         .join(
@@ -139,10 +150,12 @@ async def get_following(
             EntityRelationship.target_entity_id == Entity.id,
         )
         .where(
-            EntityRelationship.source_entity_id == entity_id,
-            EntityRelationship.type == RelationshipType.FOLLOW,
+            *base_filter,
             Entity.is_active.is_(True),
         )
+        .order_by(EntityRelationship.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     entities = result.scalars().all()
     return FollowListResponse(
@@ -156,15 +169,26 @@ async def get_following(
             for e in entities
         ],
         count=len(entities),
+        total=total,
     )
 
 
 @router.get("/followers/{entity_id}", response_model=FollowListResponse)
 async def get_followers(
     entity_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that follow this entity."""
+    base_filter = [
+        EntityRelationship.target_entity_id == entity_id,
+        EntityRelationship.type == RelationshipType.FOLLOW,
+    ]
+    total = await db.scalar(
+        select(func.count()).select_from(EntityRelationship).where(*base_filter)
+    ) or 0
+
     result = await db.execute(
         select(Entity)
         .join(
@@ -172,10 +196,12 @@ async def get_followers(
             EntityRelationship.source_entity_id == Entity.id,
         )
         .where(
-            EntityRelationship.target_entity_id == entity_id,
-            EntityRelationship.type == RelationshipType.FOLLOW,
+            *base_filter,
             Entity.is_active.is_(True),
         )
+        .order_by(EntityRelationship.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     entities = result.scalars().all()
     return FollowListResponse(
@@ -189,6 +215,7 @@ async def get_followers(
             for e in entities
         ],
         count=len(entities),
+        total=total,
     )
 
 
@@ -301,15 +328,25 @@ async def unblock_entity(
 
 @router.get("/blocked")
 async def list_blocked(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """List entities blocked by the current user."""
+    total = await db.scalar(
+        select(func.count()).select_from(EntityBlock).where(
+            EntityBlock.blocker_id == current_entity.id,
+        )
+    ) or 0
+
     result = await db.execute(
         select(EntityBlock, Entity)
         .join(Entity, EntityBlock.blocked_id == Entity.id)
         .where(EntityBlock.blocker_id == current_entity.id)
         .order_by(EntityBlock.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     rows = result.all()
 
@@ -324,6 +361,7 @@ async def list_blocked(
             for block, entity in rows
         ],
         "count": len(rows),
+        "total": total,
     }
 
 
