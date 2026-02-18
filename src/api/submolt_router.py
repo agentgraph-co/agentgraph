@@ -316,6 +316,10 @@ async def join_submolt(
         db, submolt.id, current_entity.id
     )
     if existing:
+        if existing.role == "banned":
+            raise HTTPException(
+                status_code=403, detail="You are banned from this submolt"
+            )
         raise HTTPException(
             status_code=409, detail="Already a member"
         )
@@ -719,3 +723,108 @@ async def transfer_ownership(
     )
     await db.flush()
     return {"message": "Ownership transferred successfully"}
+
+
+@router.post(
+    "/{submolt_name}/ban/{entity_id}",
+    response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def ban_member(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ban a member from a submolt. Owner/moderator only.
+
+    Banned members cannot rejoin. Their role is set to 'banned'.
+    """
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    mod_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not mod_mem or mod_mem.role not in ("owner", "moderator"):
+        raise HTTPException(
+            status_code=403, detail="Only owners/moderators can ban",
+        )
+
+    if entity_id == current_entity.id:
+        raise HTTPException(status_code=400, detail="Cannot ban yourself")
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem:
+        # Create a banned record so they can't join
+        target_mem = SubmoltMembership(
+            id=uuid.uuid4(),
+            submolt_id=submolt.id,
+            entity_id=entity_id,
+            role="banned",
+        )
+        db.add(target_mem)
+    else:
+        if target_mem.role == "owner":
+            raise HTTPException(status_code=400, detail="Cannot ban the owner")
+        if target_mem.role == "moderator" and mod_mem.role != "owner":
+            raise HTTPException(
+                status_code=403, detail="Only owners can ban moderators",
+            )
+        if target_mem.role == "banned":
+            raise HTTPException(status_code=409, detail="Already banned")
+        target_mem.role = "banned"
+        submolt.member_count = max(0, (submolt.member_count or 1) - 1)
+
+    await log_action(
+        db,
+        action="submolt.member_ban",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={"submolt": submolt.name},
+    )
+    await db.flush()
+    return {"message": "Member banned from submolt"}
+
+
+@router.delete(
+    "/{submolt_name}/ban/{entity_id}",
+    response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def unban_member(
+    submolt_name: str,
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unban a member from a submolt. Owner/moderator only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    mod_mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not mod_mem or mod_mem.role not in ("owner", "moderator"):
+        raise HTTPException(
+            status_code=403, detail="Only owners/moderators can unban",
+        )
+
+    target_mem = await _check_membership(db, submolt.id, entity_id)
+    if not target_mem or target_mem.role != "banned":
+        raise HTTPException(status_code=404, detail="Entity is not banned")
+
+    await db.delete(target_mem)
+    await log_action(
+        db,
+        action="submolt.member_unban",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={"submolt": submolt.name},
+    )
+    await db.flush()
+    return {"message": "Member unbanned from submolt"}
