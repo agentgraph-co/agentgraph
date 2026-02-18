@@ -879,3 +879,48 @@ async def unban_member(
     )
     await db.flush()
     return {"message": "Member unbanned from submolt"}
+
+
+@router.post(
+    "/{submolt_name}/posts/{post_id}/pin",
+    response_model=dict,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def pin_post(
+    submolt_name: str,
+    post_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pin or unpin a post in a submolt. Owner/moderator only."""
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name.lower())
+    )
+    if not submolt:
+        raise HTTPException(status_code=404, detail="Submolt not found")
+
+    mem = await _check_membership(db, submolt.id, current_entity.id)
+    if not mem or mem.role not in ("owner", "moderator"):
+        raise HTTPException(
+            status_code=403, detail="Only owners/moderators can pin posts",
+        )
+
+    post = await db.get(Post, post_id)
+    if post is None or post.submolt_id != submolt.id:
+        raise HTTPException(
+            status_code=404, detail="Post not found in submolt",
+        )
+
+    post.is_pinned = not post.is_pinned
+    await log_action(
+        db,
+        action="submolt.post_pin" if post.is_pinned else "submolt.post_unpin",
+        entity_id=current_entity.id,
+        resource_type="post",
+        resource_id=post.id,
+        details={"submolt": submolt.name},
+    )
+    await db.flush()
+
+    action = "pinned" if post.is_pinned else "unpinned"
+    return {"message": f"Post {action}", "is_pinned": post.is_pinned}

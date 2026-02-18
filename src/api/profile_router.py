@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
-from src.api.rate_limit import rate_limit_writes
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     CapabilityEndorsement,
@@ -21,6 +21,7 @@ from src.models import (
     RelationshipType,
     Review,
     TrustScore,
+    Vote,
 )
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -374,3 +375,164 @@ async def update_profile(
         created_at=entity.created_at.isoformat(),
         is_own_profile=True,
     )
+
+
+# --- Activity Summary ---
+
+
+@router.get(
+    "/{entity_id}/activity",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_activity_summary(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get entity activity summary with streak tracking and daily heatmap."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import Date, cast, union_all
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None or not entity.is_active:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    now = datetime.now(timezone.utc)
+    seven_ago = now - timedelta(days=7)
+    thirty_ago = now - timedelta(days=30)
+    ninety_ago = now - timedelta(days=90)
+
+    # --- Counts for 7d and 30d ---
+    posts_7d = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.is_(None),
+            Post.created_at >= seven_ago,
+        )
+    ) or 0
+
+    posts_30d = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.is_(None),
+            Post.created_at >= thirty_ago,
+        )
+    ) or 0
+
+    replies_7d = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.isnot(None),
+            Post.created_at >= seven_ago,
+        )
+    ) or 0
+
+    replies_30d = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.isnot(None),
+            Post.created_at >= thirty_ago,
+        )
+    ) or 0
+
+    votes_7d = await db.scalar(
+        select(func.count()).select_from(Vote).where(
+            Vote.entity_id == entity_id,
+            Vote.created_at >= seven_ago,
+        )
+    ) or 0
+
+    votes_30d = await db.scalar(
+        select(func.count()).select_from(Vote).where(
+            Vote.entity_id == entity_id,
+            Vote.created_at >= thirty_ago,
+        )
+    ) or 0
+
+    # --- Daily activity for heatmap (last 90 days) ---
+    post_dates = (
+        select(cast(Post.created_at, Date).label("day"))
+        .where(
+            Post.author_entity_id == entity_id,
+            Post.is_hidden.is_(False),
+            Post.created_at >= ninety_ago,
+        )
+    )
+    vote_dates = (
+        select(cast(Vote.created_at, Date).label("day"))
+        .where(
+            Vote.entity_id == entity_id,
+            Vote.created_at >= ninety_ago,
+        )
+    )
+    combined = union_all(post_dates, vote_dates).subquery()
+    daily_result = await db.execute(
+        select(combined.c.day, func.count().label("actions"))
+        .group_by(combined.c.day)
+        .order_by(combined.c.day.desc())
+    )
+    daily_rows = daily_result.all()
+
+    heatmap = {str(row[0]): row[1] for row in daily_rows}
+
+    # --- Streak calculation ---
+    active_dates = sorted(
+        {row[0] for row in daily_rows}, reverse=True,
+    )
+
+    current_streak = 0
+    longest_streak = 0
+
+    if active_dates:
+        today = now.date()
+        # Current streak: consecutive days ending today or yesterday
+        streak_start = today
+        if active_dates[0] < today - timedelta(days=1):
+            # No recent activity, streak is 0
+            current_streak = 0
+        else:
+            if active_dates[0] == today:
+                streak_start = today
+            else:
+                streak_start = today - timedelta(days=1)
+
+            for d in active_dates:
+                if d == streak_start:
+                    current_streak += 1
+                    streak_start -= timedelta(days=1)
+                elif d < streak_start:
+                    break
+
+        # Longest streak: find max consecutive run
+        run = 1
+        sorted_asc = sorted(active_dates)
+        for i in range(1, len(sorted_asc)):
+            if sorted_asc[i] - sorted_asc[i - 1] == timedelta(days=1):
+                run += 1
+            else:
+                if run > longest_streak:
+                    longest_streak = run
+                run = 1
+        if run > longest_streak:
+            longest_streak = run
+
+    return {
+        "entity_id": str(entity_id),
+        "counts": {
+            "posts_7d": posts_7d,
+            "posts_30d": posts_30d,
+            "replies_7d": replies_7d,
+            "replies_30d": replies_30d,
+            "votes_7d": votes_7d,
+            "votes_30d": votes_30d,
+        },
+        "streaks": {
+            "current": current_streak,
+            "longest": longest_streak,
+        },
+        "heatmap": heatmap,
+    }
