@@ -192,3 +192,125 @@ async def test_promote_already_admin(client: AsyncClient, db):
         headers=_auth(admin_token),
     )
     assert resp.status_code == 409
+
+
+# --- Extended Stats ---
+
+
+@pytest.mark.asyncio
+async def test_platform_stats_extended(client: AsyncClient, db):
+    """Stats include all new counters."""
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    resp = await client.get(
+        f"{ADMIN_URL}/stats", headers=_auth(admin_token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    for field in (
+        "total_votes", "total_follows", "total_submolts",
+        "total_listings", "total_reviews", "total_endorsements",
+        "total_bookmarks", "total_evolution_records",
+    ):
+        assert field in data
+
+
+# --- Rate Limit Dashboard ---
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_dashboard(client: AsyncClient, db):
+    """Rate limit dashboard returns current state."""
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    resp = await client.get(
+        f"{ADMIN_URL}/rate-limits", headers=_auth(admin_token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "total_tracked_keys" in data
+    assert "active_keys" in data
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_dashboard_non_admin(client: AsyncClient):
+    """Non-admin cannot access rate limit dashboard."""
+    token, _ = await _setup_user(client, USER)
+    resp = await client.get(
+        f"{ADMIN_URL}/rate-limits", headers=_auth(token)
+    )
+    assert resp.status_code == 403
+
+
+# --- Growth Metrics ---
+
+
+@pytest.mark.asyncio
+async def test_growth_metrics(client: AsyncClient, db):
+    """Growth metrics returns daily counts."""
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    resp = await client.get(
+        f"{ADMIN_URL}/growth",
+        params={"days": 7},
+        headers=_auth(admin_token),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["period_days"] == 7
+    assert "signups_per_day" in data
+    assert "posts_per_day" in data
+    assert "notifications_per_day" in data
+    # Should have at least today's signup
+    assert len(data["signups_per_day"]) >= 1
+
+
+# --- Top Entities ---
+
+
+@pytest.mark.asyncio
+async def test_top_entities_by_trust(client: AsyncClient, db):
+    """Top entities by trust score."""
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    # Compute a trust score first
+    from src.trust.score import compute_trust_score
+
+    await compute_trust_score(db, uuid.UUID(admin_id))
+
+    resp = await client.get(
+        f"{ADMIN_URL}/top-entities",
+        params={"metric": "trust"},
+        headers=_auth(admin_token),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["metric"] == "trust"
+    assert len(data["entities"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_top_entities_by_posts(client: AsyncClient, db):
+    """Top entities by post count."""
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    # Create a post
+    await client.post(
+        "/api/v1/feed/posts",
+        json={"content": "Admin post"},
+        headers=_auth(admin_token),
+    )
+
+    resp = await client.get(
+        f"{ADMIN_URL}/top-entities",
+        params={"metric": "posts"},
+        headers=_auth(admin_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["metric"] == "posts"
+    assert len(resp.json()["entities"]) >= 1

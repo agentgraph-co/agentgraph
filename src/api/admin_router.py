@@ -5,17 +5,26 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
 from src.database import get_db
 from src.models import (
+    Bookmark,
+    CapabilityEndorsement,
     Entity,
+    EntityRelationship,
     EntityType,
+    EvolutionRecord,
+    Listing,
     ModerationFlag,
     ModerationStatus,
+    Notification,
     Post,
+    Review,
+    Submolt,
+    Vote,
     WebhookSubscription,
 )
 
@@ -32,6 +41,14 @@ class PlatformStats(BaseModel):
     total_humans: int
     total_agents: int
     total_posts: int
+    total_votes: int
+    total_follows: int
+    total_submolts: int
+    total_listings: int
+    total_reviews: int
+    total_endorsements: int
+    total_bookmarks: int
+    total_evolution_records: int
     pending_moderation_flags: int
     active_webhooks: int
 
@@ -78,6 +95,30 @@ async def platform_stats(
     total_posts = await db.scalar(
         select(func.count()).select_from(Post)
     ) or 0
+    total_votes = await db.scalar(
+        select(func.count()).select_from(Vote)
+    ) or 0
+    total_follows = await db.scalar(
+        select(func.count()).select_from(EntityRelationship)
+    ) or 0
+    total_submolts = await db.scalar(
+        select(func.count()).select_from(Submolt)
+    ) or 0
+    total_listings = await db.scalar(
+        select(func.count()).select_from(Listing)
+    ) or 0
+    total_reviews = await db.scalar(
+        select(func.count()).select_from(Review)
+    ) or 0
+    total_endorsements = await db.scalar(
+        select(func.count()).select_from(CapabilityEndorsement)
+    ) or 0
+    total_bookmarks = await db.scalar(
+        select(func.count()).select_from(Bookmark)
+    ) or 0
+    total_evolution = await db.scalar(
+        select(func.count()).select_from(EvolutionRecord)
+    ) or 0
     pending_flags = await db.scalar(
         select(func.count()).select_from(ModerationFlag).where(
             ModerationFlag.status == ModerationStatus.PENDING
@@ -94,6 +135,14 @@ async def platform_stats(
         total_humans=total_humans,
         total_agents=total_agents,
         total_posts=total_posts,
+        total_votes=total_votes,
+        total_follows=total_follows,
+        total_submolts=total_submolts,
+        total_listings=total_listings,
+        total_reviews=total_reviews,
+        total_endorsements=total_endorsements,
+        total_bookmarks=total_bookmarks,
+        total_evolution_records=total_evolution,
         pending_moderation_flags=pending_flags,
         active_webhooks=active_webhooks,
     )
@@ -217,3 +266,190 @@ async def recompute_trust_scores(
 
     count = await batch_recompute(db)
     return {"message": f"Recomputed trust scores for {count} entities"}
+
+
+@router.get("/rate-limits")
+async def get_rate_limit_status(
+    current_entity: Entity = Depends(get_current_entity),
+):
+    """Get current rate limiter state. Admin only."""
+    _require_admin(current_entity)
+
+    import time as _time
+
+    from src.api.rate_limit import _limiter
+
+    now = _time.time()
+    active_keys: list[dict] = []
+    for key, timestamps in _limiter._windows.items():
+        recent = [t for t in timestamps if now - t < 60]
+        if recent:
+            active_keys.append({
+                "key": key,
+                "requests_last_60s": len(recent),
+                "oldest_request_age_s": round(now - min(recent), 1),
+            })
+
+    active_keys.sort(
+        key=lambda x: x["requests_last_60s"], reverse=True,
+    )
+
+    return {
+        "total_tracked_keys": len(_limiter._windows),
+        "active_keys": active_keys[:50],
+    }
+
+
+@router.get("/growth")
+async def get_growth_metrics(
+    days: int = Query(7, ge=1, le=90),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get daily growth metrics for the past N days. Admin only."""
+    _require_admin(current_entity)
+
+    from datetime import timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+
+    _day = literal_column("'day'")
+
+    # Daily signups
+    signup_day = func.date_trunc(_day, Entity.created_at)
+    signup_result = await db.execute(
+        select(signup_day.label("day"), func.count().label("count"))
+        .where(Entity.created_at >= cutoff)
+        .group_by(signup_day)
+        .order_by(signup_day)
+    )
+    signups = [
+        {"date": row[0].isoformat()[:10], "count": row[1]}
+        for row in signup_result.all()
+    ]
+
+    # Daily posts
+    post_day = func.date_trunc(_day, Post.created_at)
+    post_result = await db.execute(
+        select(post_day.label("day"), func.count().label("count"))
+        .where(Post.created_at >= cutoff)
+        .group_by(post_day)
+        .order_by(post_day)
+    )
+    posts = [
+        {"date": row[0].isoformat()[:10], "count": row[1]}
+        for row in post_result.all()
+    ]
+
+    # Daily notifications (engagement proxy)
+    notif_day = func.date_trunc(_day, Notification.created_at)
+    notif_result = await db.execute(
+        select(notif_day.label("day"), func.count().label("count"))
+        .where(Notification.created_at >= cutoff)
+        .group_by(notif_day)
+        .order_by(notif_day)
+    )
+    notifications = [
+        {"date": row[0].isoformat()[:10], "count": row[1]}
+        for row in notif_result.all()
+    ]
+
+    return {
+        "period_days": days,
+        "signups_per_day": signups,
+        "posts_per_day": posts,
+        "notifications_per_day": notifications,
+    }
+
+
+@router.get("/top-entities")
+async def get_top_entities(
+    metric: str = Query(
+        "trust", pattern="^(trust|posts|followers)$"
+    ),
+    limit: int = Query(10, ge=1, le=50),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top entities by various metrics. Admin only."""
+    _require_admin(current_entity)
+
+    from src.models import RelationshipType, TrustScore
+
+    if metric == "trust":
+        result = await db.execute(
+            select(Entity, TrustScore.score)
+            .join(TrustScore, TrustScore.entity_id == Entity.id)
+            .where(Entity.is_active.is_(True))
+            .order_by(TrustScore.score.desc())
+            .limit(limit)
+        )
+        return {
+            "metric": "trust",
+            "entities": [
+                {
+                    "id": str(e.id),
+                    "display_name": e.display_name,
+                    "type": e.type.value,
+                    "score": s,
+                }
+                for e, s in result.all()
+            ],
+        }
+
+    elif metric == "posts":
+        result = await db.execute(
+            select(
+                Entity,
+                func.count(Post.id).label("cnt"),
+            )
+            .join(Post, Post.author_entity_id == Entity.id)
+            .where(Entity.is_active.is_(True))
+            .group_by(Entity.id)
+            .order_by(func.count(Post.id).desc())
+            .limit(limit)
+        )
+        return {
+            "metric": "posts",
+            "entities": [
+                {
+                    "id": str(e.id),
+                    "display_name": e.display_name,
+                    "type": e.type.value,
+                    "count": cnt,
+                }
+                for e, cnt in result.all()
+            ],
+        }
+
+    else:  # followers
+        result = await db.execute(
+            select(
+                Entity,
+                func.count(EntityRelationship.id).label("cnt"),
+            )
+            .join(
+                EntityRelationship,
+                EntityRelationship.target_entity_id == Entity.id,
+            )
+            .where(
+                Entity.is_active.is_(True),
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+            .group_by(Entity.id)
+            .order_by(func.count(EntityRelationship.id).desc())
+            .limit(limit)
+        )
+        return {
+            "metric": "followers",
+            "entities": [
+                {
+                    "id": str(e.id),
+                    "display_name": e.display_name,
+                    "type": e.type.value,
+                    "count": cnt,
+                }
+                for e, cnt in result.all()
+            ],
+        }
