@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -30,6 +30,24 @@ class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(None, min_length=1, max_length=100)
     bio_markdown: str | None = Field(None, max_length=5000)
     avatar_url: str | None = Field(None, max_length=500)
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v.startswith(("https://", "http://")):
+            raise ValueError("avatar_url must be a valid HTTP(S) URL")
+        # Block internal/private IPs to prevent SSRF
+        from urllib.parse import urlparse
+
+        parsed = urlparse(v)
+        hostname = parsed.hostname or ""
+        blocked = ("localhost", "127.0.0.1", "0.0.0.0", "169.254", "10.", "192.168.")
+        for b in blocked:
+            if hostname.startswith(b):
+                raise ValueError("avatar_url cannot point to internal addresses")
+        return v
 
 
 class ProfileResponse(BaseModel):
