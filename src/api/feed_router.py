@@ -183,6 +183,26 @@ async def create_post(
                 reference_id=str(post.id),
             )
 
+    # Broadcast new post via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.broadcast_to_channel("feed", {
+            "type": "new_post",
+            "post": {
+                "id": str(post.id),
+                "content": post.content,
+                "author_id": str(current_entity.id),
+                "author_display_name": current_entity.display_name,
+                "vote_count": 0,
+                "created_at": post.created_at.isoformat()
+                if post.created_at
+                else None,
+            },
+        })
+    except Exception:
+        pass  # WebSocket delivery is best-effort
+
     return _build_post_response(post, current_entity, user_vote=None, reply_count=0)
 
 
@@ -442,17 +462,14 @@ async def vote_on_post(
         )
     )
 
+    result_direction: str
+
     if existing:
         if existing.direction == direction:
             # Remove vote (toggle off)
             await db.delete(existing)
             post.vote_count += -1 if direction == VoteDirection.UP else 1
-            await db.flush()
-            return VoteResponse(
-                post_id=post_id,
-                direction="none",
-                new_vote_count=post.vote_count,
-            )
+            result_direction = "none"
         else:
             # Change vote direction
             old_direction = existing.direction
@@ -462,12 +479,7 @@ async def vote_on_post(
                 post.vote_count -= 2  # remove +1, add -1
             else:
                 post.vote_count += 2  # remove -1, add +1
-            await db.flush()
-            return VoteResponse(
-                post_id=post_id,
-                direction=direction.value,
-                new_vote_count=post.vote_count,
-            )
+            result_direction = direction.value
     else:
         # New vote
         vote = Vote(
@@ -478,7 +490,7 @@ async def vote_on_post(
         )
         db.add(vote)
         post.vote_count += 1 if direction == VoteDirection.UP else -1
-        await db.flush()
+        result_direction = direction.value
 
         # Notify post author on upvote
         if (
@@ -498,11 +510,25 @@ async def vote_on_post(
                 reference_id=str(post_id),
             )
 
-        return VoteResponse(
-            post_id=post_id,
-            direction=direction.value,
-            new_vote_count=post.vote_count,
-        )
+    await db.flush()
+
+    # Broadcast vote update via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.broadcast_to_channel("feed", {
+            "type": "vote_update",
+            "post_id": str(post_id),
+            "vote_count": post.vote_count,
+        })
+    except Exception:
+        pass  # best-effort
+
+    return VoteResponse(
+        post_id=post_id,
+        direction=result_direction,
+        new_vote_count=post.vote_count,
+    )
 
 
 @router.delete("/posts/{post_id}", response_model=dict)
