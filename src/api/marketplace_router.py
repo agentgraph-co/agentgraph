@@ -169,6 +169,25 @@ async def browse_listings(
     )
 
 
+@router.get("/my-listings", response_model=ListingListResponse)
+async def get_my_listings(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the authenticated user's own listings (including inactive)."""
+    result = await db.execute(
+        select(Listing)
+        .where(Listing.entity_id == current_entity.id)
+        .order_by(Listing.created_at.desc())
+    )
+    listings = result.scalars().all()
+
+    return ListingListResponse(
+        listings=[_to_response(item) for item in listings],
+        total=len(listings),
+    )
+
+
 @router.get("/{listing_id}", response_model=ListingResponse)
 async def get_listing(
     listing_id: uuid.UUID,

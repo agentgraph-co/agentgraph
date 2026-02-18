@@ -154,6 +154,7 @@ class NotificationListResponse(BaseModel):
 async def get_notifications(
     unread_only: bool = Query(False),
     limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -164,7 +165,7 @@ async def get_notifications(
     if unread_only:
         query = query.where(Notification.is_read.is_(False))
 
-    query = query.order_by(Notification.created_at.desc()).limit(limit)
+    query = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(query)
     notifications = result.scalars().all()
 

@@ -251,6 +251,37 @@ async def reactivate_entity(
     return {"message": f"Entity {entity.display_name} reactivated"}
 
 
+@router.post(
+    "/entities/{entity_id}/verify-email",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def admin_verify_email(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Force-verify an entity's email. Admin only (for support cases)."""
+    _require_admin(current_entity)
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    if entity.email_verified:
+        return {"message": f"Entity {entity.display_name} is already email-verified"}
+
+    entity.email_verified = True
+    await log_action(
+        db,
+        action="admin.entity.verify_email",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+    )
+    await db.flush()
+    return {"message": f"Entity {entity.display_name} email verified"}
+
+
 @router.patch(
     "/entities/{entity_id}/promote",
     dependencies=[Depends(rate_limit_writes)],
