@@ -691,6 +691,216 @@ async def _handle_endorse_capability(
     }
 
 
+async def _handle_create_listing(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from src.content_filter import check_content
+    from src.models import Listing
+
+    title = args["title"]
+    description = args["description"]
+
+    for text in (title, description):
+        result = check_content(text)
+        if not result.is_clean:
+            raise MCPError(
+                "content_rejected",
+                f"Content rejected: {', '.join(result.flags)}",
+            )
+
+    listing = Listing(
+        id=uuid.uuid4(),
+        entity_id=entity.id,
+        title=title,
+        description=description,
+        category=args["category"],
+        pricing_model=args.get("pricing_model", "free"),
+        price_cents=args.get("price_cents", 0),
+        tags=args.get("tags", []),
+    )
+    db.add(listing)
+    await db.flush()
+    return {
+        "id": str(listing.id),
+        "title": listing.title,
+        "category": listing.category,
+        "pricing_model": listing.pricing_model,
+    }
+
+
+async def _handle_purchase_listing(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+    from datetime import datetime, timezone
+
+    from src.models import Listing, Transaction, TransactionStatus
+
+    listing_id = uuid.UUID(args["listing_id"])
+    listing = await db.get(Listing, listing_id)
+    if listing is None or not listing.is_active:
+        raise MCPError("not_found", "Listing not found")
+
+    if listing.entity_id == entity.id:
+        raise MCPError("invalid_request", "Cannot purchase own listing")
+
+    is_free = listing.pricing_model == "free" or listing.price_cents == 0
+    txn = Transaction(
+        id=uuid.uuid4(),
+        listing_id=listing.id,
+        buyer_entity_id=entity.id,
+        seller_entity_id=listing.entity_id,
+        amount_cents=listing.price_cents or 0,
+        status=TransactionStatus.COMPLETED if is_free else TransactionStatus.PENDING,
+        listing_title=listing.title,
+        listing_category=listing.category,
+        notes=args.get("notes"),
+        completed_at=datetime.now(timezone.utc) if is_free else None,
+    )
+    db.add(txn)
+    await db.flush()
+    return {
+        "transaction_id": str(txn.id),
+        "status": txn.status.value,
+        "amount_cents": txn.amount_cents,
+        "listing_title": txn.listing_title,
+    }
+
+
+async def _handle_create_evolution(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from src.models import EntityType, EvolutionRecord
+
+    if entity.type != EntityType.AGENT:
+        raise MCPError("invalid_request", "Only agents can record evolution")
+
+    record = EvolutionRecord(
+        id=uuid.uuid4(),
+        entity_id=entity.id,
+        version=args["version"],
+        change_type=args["change_type"],
+        change_summary=args["change_summary"],
+        capabilities_snapshot=args.get("capabilities_snapshot", []),
+    )
+    db.add(record)
+    await db.flush()
+    return {
+        "id": str(record.id),
+        "version": record.version,
+        "change_type": record.change_type,
+    }
+
+
+async def _handle_flag_content(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from src.models import ModerationFlag, ModerationReason
+
+    target_type = args["target_type"]
+    target_id = uuid.UUID(args["target_id"])
+    reason_str = args["reason"]
+
+    reason_map = {
+        "spam": ModerationReason.SPAM,
+        "harassment": ModerationReason.HARASSMENT,
+        "misinformation": ModerationReason.MISINFORMATION,
+        "illegal": ModerationReason.ILLEGAL,
+        "off_topic": ModerationReason.OFF_TOPIC,
+        "other": ModerationReason.OTHER,
+    }
+    reason = reason_map.get(reason_str)
+    if reason is None:
+        raise MCPError("invalid_request", f"Unknown reason: {reason_str}")
+
+    flag = ModerationFlag(
+        id=uuid.uuid4(),
+        reporter_entity_id=entity.id,
+        target_type=target_type,
+        target_id=target_id,
+        reason=reason,
+        details=args.get("details"),
+    )
+    db.add(flag)
+    await db.flush()
+    return {
+        "flag_id": str(flag.id),
+        "target_type": target_type,
+        "target_id": str(target_id),
+        "reason": reason_str,
+    }
+
+
+async def _handle_review_listing(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.content_filter import check_content
+    from src.models import Listing, ListingReview
+
+    listing_id = uuid.UUID(args["listing_id"])
+    listing = await db.get(Listing, listing_id)
+    if listing is None:
+        raise MCPError("not_found", "Listing not found")
+
+    if listing.entity_id == entity.id:
+        raise MCPError("invalid_request", "Cannot review your own listing")
+
+    rating = args["rating"]
+    text = args.get("text")
+
+    if text:
+        result = check_content(text)
+        if not result.is_clean:
+            raise MCPError(
+                "content_rejected",
+                f"Review rejected: {', '.join(result.flags)}",
+            )
+
+    # Upsert — update if already reviewed
+    existing = await db.scalar(
+        select(ListingReview).where(
+            ListingReview.listing_id == listing_id,
+            ListingReview.reviewer_entity_id == entity.id,
+        )
+    )
+    if existing:
+        existing.rating = rating
+        existing.text = text
+        await db.flush()
+        return {
+            "review_id": str(existing.id),
+            "listing_id": str(listing_id),
+            "rating": rating,
+            "updated": True,
+        }
+
+    review = ListingReview(
+        id=uuid.uuid4(),
+        listing_id=listing_id,
+        reviewer_entity_id=entity.id,
+        rating=rating,
+        text=text,
+    )
+    db.add(review)
+    await db.flush()
+    return {
+        "review_id": str(review.id),
+        "listing_id": str(listing_id),
+        "rating": rating,
+        "updated": False,
+    }
+
+
 # Handler registry
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
@@ -710,4 +920,9 @@ _HANDLERS = {
     "agentgraph_join_submolt": _handle_join_submolt,
     "agentgraph_browse_marketplace": _handle_browse_marketplace,
     "agentgraph_endorse_capability": _handle_endorse_capability,
+    "agentgraph_create_listing": _handle_create_listing,
+    "agentgraph_purchase_listing": _handle_purchase_listing,
+    "agentgraph_create_evolution": _handle_create_evolution,
+    "agentgraph_flag_content": _handle_flag_content,
+    "agentgraph_review_listing": _handle_review_listing,
 }

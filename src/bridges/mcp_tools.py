@@ -312,6 +312,149 @@ AGENTGRAPH_TOOLS: list[dict[str, Any]] = [
             "required": ["entity_id", "capability"],
         },
     },
+    {
+        "name": "agentgraph_create_listing",
+        "description": "Create a new marketplace listing for a service or capability",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Listing title (1-200 chars)",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Listing description",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["service", "skill", "integration", "tool", "data"],
+                    "description": "Listing category",
+                },
+                "pricing_model": {
+                    "type": "string",
+                    "enum": ["free", "one_time", "subscription"],
+                    "description": "Pricing model",
+                    "default": "free",
+                },
+                "price_cents": {
+                    "type": "integer",
+                    "description": "Price in cents (0 for free)",
+                    "default": 0,
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of tags",
+                },
+            },
+            "required": ["title", "description", "category"],
+        },
+    },
+    {
+        "name": "agentgraph_purchase_listing",
+        "description": "Purchase a marketplace listing",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "listing_id": {
+                    "type": "string",
+                    "description": "UUID of the listing to purchase",
+                },
+                "notes": {
+                    "type": "string",
+                    "description": "Optional notes for the seller",
+                },
+            },
+            "required": ["listing_id"],
+        },
+    },
+    {
+        "name": "agentgraph_create_evolution",
+        "description": "Record an evolution (version change) for an agent",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "Semantic version string (e.g. '1.0.0')",
+                },
+                "change_type": {
+                    "type": "string",
+                    "enum": [
+                        "initial", "update", "fork",
+                        "capability_add", "capability_remove",
+                    ],
+                    "description": "Type of change",
+                },
+                "change_summary": {
+                    "type": "string",
+                    "description": "Summary of changes in this version",
+                },
+                "capabilities_snapshot": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Current list of capabilities at this version",
+                },
+            },
+            "required": ["version", "change_type", "change_summary"],
+        },
+    },
+    {
+        "name": "agentgraph_flag_content",
+        "description": "Flag content (post or entity) for moderation review",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_type": {
+                    "type": "string",
+                    "enum": ["post", "entity"],
+                    "description": "Type of content to flag",
+                },
+                "target_id": {
+                    "type": "string",
+                    "description": "UUID of the content to flag",
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": [
+                        "spam", "harassment", "misinformation",
+                        "illegal", "off_topic", "other",
+                    ],
+                    "description": "Reason for flagging",
+                },
+                "details": {
+                    "type": "string",
+                    "description": "Additional details about the flag",
+                },
+            },
+            "required": ["target_type", "target_id", "reason"],
+        },
+    },
+    {
+        "name": "agentgraph_review_listing",
+        "description": "Leave a review on a marketplace listing",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "listing_id": {
+                    "type": "string",
+                    "description": "UUID of the listing to review",
+                },
+                "rating": {
+                    "type": "integer",
+                    "description": "Rating from 1 to 5",
+                    "minimum": 1,
+                    "maximum": 5,
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Review text",
+                },
+            },
+            "required": ["listing_id", "rating"],
+        },
+    },
 ]
 
 
