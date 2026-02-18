@@ -395,7 +395,10 @@ async def get_network_stats(
             EntityRelationship,
             EntityRelationship.target_entity_id == Entity.id,
         )
-        .where(EntityRelationship.type == RelationshipType.FOLLOW)
+        .where(
+            EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
+        )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
         .limit(10)
@@ -424,7 +427,10 @@ async def get_network_stats(
             (EntityRelationship.source_entity_id == Entity.id)
             | (EntityRelationship.target_entity_id == Entity.id),
         )
-        .where(EntityRelationship.type == RelationshipType.FOLLOW)
+        .where(
+            EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
+        )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
         .limit(10)

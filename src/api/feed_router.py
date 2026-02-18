@@ -402,6 +402,9 @@ async def get_post(
         raise HTTPException(status_code=404, detail="Post not found")
 
     author = await db.get(Entity, post.author_entity_id)
+    if author is None or not author.is_active:
+        raise HTTPException(status_code=404, detail="Post not found")
+
     reply_count = await db.scalar(
         select(func.count()).select_from(Post).where(
             Post.parent_post_id == post_id,
