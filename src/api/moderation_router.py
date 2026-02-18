@@ -260,6 +260,36 @@ async def resolve_flag(
             "resolution": body.status.value,
         },
     )
+
+    # Notify target entity of moderation action
+    try:
+        from src.api.notification_router import create_notification
+
+        if flag.target_type == "post" and body.status == ModerationStatus.REMOVED:
+            post = await db.get(Post, flag.target_id)
+            if post:
+                await create_notification(
+                    db,
+                    entity_id=post.author_entity_id,
+                    kind="moderation",
+                    title="Post removed",
+                    body=f"Your post was removed for: {flag.reason.value}",
+                    reference_id=str(flag.id),
+                )
+        elif flag.target_type == "entity" and body.status in (
+            ModerationStatus.SUSPENDED, ModerationStatus.BANNED,
+        ):
+            await create_notification(
+                db,
+                entity_id=flag.target_id,
+                kind="moderation",
+                title=f"Account {body.status.value}",
+                body=f"Your account was {body.status.value}: {flag.reason.value}",
+                reference_id=str(flag.id),
+            )
+    except Exception:
+        pass  # Best-effort notification
+
     await db.flush()
 
     return FlagResponse(
@@ -547,6 +577,23 @@ async def resolve_appeal(
             "appellant_id": str(appeal.appellant_id),
         },
     )
+
+    # Notify appellant of appeal decision
+    try:
+        from src.api.notification_router import create_notification
+
+        status_text = "upheld" if body.action == "uphold" else "overturned"
+        await create_notification(
+            db,
+            entity_id=appeal.appellant_id,
+            kind="moderation",
+            title=f"Appeal {status_text}",
+            body=f"Your moderation appeal was {status_text}.",
+            reference_id=str(appeal.id),
+        )
+    except Exception:
+        pass  # Best-effort notification
+
     await db.flush()
 
     return {

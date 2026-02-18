@@ -111,7 +111,20 @@ async def create_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new marketplace listing."""
-    from src.content_filter import sanitize_html
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.title)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Title rejected: {', '.join(filter_result.flags)}",
+        )
+    filter_result = check_content(body.description)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Description rejected: {', '.join(filter_result.flags)}",
+        )
 
     listing = Listing(
         id=uuid.uuid4(),

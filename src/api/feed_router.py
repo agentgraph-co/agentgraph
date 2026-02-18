@@ -415,7 +415,11 @@ async def get_replies(
     query = (
         select(Post, Entity)
         .join(Entity, Post.author_entity_id == Entity.id)
-        .where(Post.parent_post_id == post_id, Post.is_hidden.is_(False))
+        .where(
+            Post.parent_post_id == post_id,
+            Post.is_hidden.is_(False),
+            Entity.is_active.is_(True),
+        )
     )
 
     if cursor:

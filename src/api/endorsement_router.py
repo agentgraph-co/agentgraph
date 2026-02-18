@@ -118,13 +118,26 @@ async def endorse_capability(
             detail="Already endorsed this capability",
         )
 
+    # Content filter on comment
+    filtered_comment = body.comment
+    if body.comment:
+        from src.content_filter import check_content, sanitize_html
+
+        filter_result = check_content(body.comment)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Comment rejected: {', '.join(filter_result.flags)}",
+            )
+        filtered_comment = sanitize_html(body.comment)
+
     endorsement = CapabilityEndorsement(
         id=uuid.uuid4(),
         agent_entity_id=entity_id,
         endorser_entity_id=current_entity.id,
         capability=body.capability,
         tier="community_verified",
-        comment=body.comment,
+        comment=filtered_comment,
     )
     db.add(endorsement)
     await db.flush()
@@ -343,9 +356,9 @@ async def create_review(
             status_code=400, detail="Cannot review yourself",
         )
 
-    # Content filter on review text
+    # Content filter + sanitization on review text
     if body.text:
-        from src.content_filter import check_content
+        from src.content_filter import check_content, sanitize_html
 
         filter_result = check_content(body.text)
         if not filter_result.is_clean:
@@ -353,6 +366,7 @@ async def create_review(
                 status_code=400,
                 detail=f"Content rejected: {', '.join(filter_result.flags)}",
             )
+        body.text = sanitize_html(body.text)
 
     # Upsert: update if already reviewed
     existing = await db.scalar(
