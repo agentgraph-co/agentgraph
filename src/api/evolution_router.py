@@ -436,6 +436,7 @@ async def get_pending_evolutions(
         .join(Entity, EvolutionRecord.entity_id == Entity.id)
         .where(
             Entity.operator_id == current_entity.id,
+            Entity.is_active.is_(True),
             EvolutionRecord.approval_status
             == EvolutionApprovalStatus.PENDING,
         )

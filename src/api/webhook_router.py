@@ -304,6 +304,13 @@ async def activate_webhook(
 
     sub.is_active = True
     sub.consecutive_failures = 0
+    await log_action(
+        db,
+        action="webhook.activate",
+        entity_id=current_entity.id,
+        resource_type="webhook",
+        resource_id=webhook_id,
+    )
     await db.flush()
     return WebhookResponse(
         id=sub.id,
@@ -328,6 +335,13 @@ async def deactivate_webhook(
         raise HTTPException(status_code=404, detail="Webhook not found")
 
     sub.is_active = False
+    await log_action(
+        db,
+        action="webhook.deactivate",
+        entity_id=current_entity.id,
+        resource_type="webhook",
+        resource_id=webhook_id,
+    )
     await db.flush()
     return WebhookResponse(
         id=sub.id,

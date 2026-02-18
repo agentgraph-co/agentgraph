@@ -241,6 +241,17 @@ async def contest_trust_score(
         status=ModerationStatus.PENDING,
     )
     db.add(flag)
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="trust.contest",
+        entity_id=current_entity.id,
+        resource_type="trust_score",
+        resource_id=entity_id,
+        details={"flag_id": str(flag.id)},
+    )
     await db.flush()
 
     return ContestResponse(

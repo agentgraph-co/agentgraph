@@ -501,11 +501,23 @@ async def update_submolt(
             )
         body.rules = sanitize_html(body.rules)
 
+    update_fields = []
     for field in ("display_name", "description", "rules", "tags"):
         val = getattr(body, field)
         if val is not None:
             setattr(submolt, field, val)
+            update_fields.append(field)
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="submolt.update",
+        entity_id=current_entity.id,
+        resource_type="submolt",
+        resource_id=submolt.id,
+        details={"fields": update_fields, "name": submolt.name},
+    )
     await db.flush()
     await db.refresh(submolt)
     return _submolt_response(submolt, is_member=True)
@@ -554,6 +566,17 @@ async def join_submolt(
         update(Submolt).where(Submolt.id == submolt.id)
         .values(member_count=func.coalesce(Submolt.member_count, 0) + 1)
     )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="submolt.join",
+        entity_id=current_entity.id,
+        resource_type="submolt",
+        resource_id=submolt.id,
+        details={"name": submolt.name},
+    )
     await db.flush()
 
     return {"message": f"Joined submolt '{submolt.display_name}'"}
@@ -589,6 +612,17 @@ async def leave_submolt(
     await db.execute(
         update(Submolt).where(Submolt.id == submolt.id)
         .values(member_count=func.greatest(func.coalesce(Submolt.member_count, 1) - 1, 0))
+    )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="submolt.leave",
+        entity_id=current_entity.id,
+        resource_type="submolt",
+        resource_id=submolt.id,
+        details={"name": submolt.name},
     )
     await db.flush()
 

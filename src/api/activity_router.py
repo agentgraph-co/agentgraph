@@ -122,6 +122,7 @@ async def get_activity(
         .where(
             EntityRelationship.source_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     )
     if before_dt:
@@ -143,7 +144,10 @@ async def get_activity(
     endorse_q = (
         select(CapabilityEndorsement, Entity)
         .join(Entity, CapabilityEndorsement.agent_entity_id == Entity.id)
-        .where(CapabilityEndorsement.endorser_entity_id == entity_id)
+        .where(
+            CapabilityEndorsement.endorser_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     if before_dt:
         endorse_q = endorse_q.where(CapabilityEndorsement.created_at < before_dt)
@@ -164,7 +168,10 @@ async def get_activity(
     review_q = (
         select(Review, Entity)
         .join(Entity, Review.target_entity_id == Entity.id)
-        .where(Review.reviewer_entity_id == entity_id)
+        .where(
+            Review.reviewer_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     if before_dt:
         review_q = review_q.where(Review.created_at < before_dt)
