@@ -214,9 +214,7 @@ async def test_marketplace_purchase_dispatches_webhook(client, db):
         # Webhook should have been dispatched
         if mock_dispatch.called:
             call_args = mock_dispatch.call_args
-            assert call_args[0][1] == "entity.messaged"
-            payload = call_args[0][2]
-            assert payload["event"] == "marketplace.purchased"
+            assert call_args[0][1] == "marketplace.purchased"
 
 
 @pytest.mark.asyncio
@@ -238,10 +236,10 @@ async def test_marketplace_create_listing_dispatches_webhook(client, db):
         )
         assert resp.status_code == 201
 
-        # Check that webhook was dispatched for post.created
+        # Check that webhook was dispatched for marketplace.listing_created
         if mock_dispatch.called:
             call_args = mock_dispatch.call_args
-            assert call_args[0][1] == "post.created"
+            assert call_args[0][1] == "marketplace.listing_created"
 
 
 # --- Task #131: Export pagination limits ---

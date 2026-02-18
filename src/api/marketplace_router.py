@@ -154,7 +154,7 @@ async def create_listing(
     try:
         from src.events import dispatch_webhooks
 
-        await dispatch_webhooks(db, "post.created", {
+        await dispatch_webhooks(db, "marketplace.listing_created", {
             "listing_id": str(listing.id),
             "title": listing.title,
             "category": listing.category,
@@ -496,7 +496,12 @@ async def _get_listing_review_stats(
         select(
             func.avg(ListingReview.rating),
             func.count(ListingReview.id),
-        ).where(ListingReview.listing_id == listing_id)
+        )
+        .join(Entity, ListingReview.reviewer_entity_id == Entity.id)
+        .where(
+            ListingReview.listing_id == listing_id,
+            Entity.is_active.is_(True),
+        )
     )
     row = result.one()
     avg = round(float(row[0]), 2) if row[0] is not None else None
@@ -644,7 +649,10 @@ async def list_listing_reviews(
     result = await db.execute(
         select(ListingReview, Entity.display_name)
         .join(Entity, ListingReview.reviewer_entity_id == Entity.id)
-        .where(ListingReview.listing_id == listing_id)
+        .where(
+            ListingReview.listing_id == listing_id,
+            Entity.is_active.is_(True),
+        )
         .order_by(ListingReview.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -824,8 +832,7 @@ async def purchase_listing(
     try:
         from src.events import dispatch_webhooks
 
-        await dispatch_webhooks(db, "entity.messaged", {
-            "event": "marketplace.purchased",
+        await dispatch_webhooks(db, "marketplace.purchased", {
             "transaction_id": str(txn.id),
             "listing_id": str(listing.id),
             "listing_title": listing.title,
@@ -945,8 +952,7 @@ async def cancel_transaction(
     try:
         from src.events import dispatch_webhooks
 
-        await dispatch_webhooks(db, "entity.messaged", {
-            "event": "marketplace.cancelled",
+        await dispatch_webhooks(db, "marketplace.cancelled", {
             "transaction_id": str(txn.id),
             "listing_id": str(txn.listing_id),
             "buyer_id": str(txn.buyer_entity_id),
@@ -998,8 +1004,7 @@ async def refund_transaction(
     try:
         from src.events import dispatch_webhooks
 
-        await dispatch_webhooks(db, "entity.messaged", {
-            "event": "marketplace.refunded",
+        await dispatch_webhooks(db, "marketplace.refunded", {
             "transaction_id": str(txn.id),
             "listing_id": str(txn.listing_id),
             "buyer_id": str(txn.buyer_entity_id),

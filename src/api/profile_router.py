@@ -99,16 +99,24 @@ async def _get_counts(
     ) or 0
 
     follower_count = await db.scalar(
-        select(func.count()).select_from(EntityRelationship).where(
+        select(func.count())
+        .select_from(EntityRelationship)
+        .join(Entity, EntityRelationship.source_entity_id == Entity.id)
+        .where(
             EntityRelationship.target_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     ) or 0
 
     following_count = await db.scalar(
-        select(func.count()).select_from(EntityRelationship).where(
+        select(func.count())
+        .select_from(EntityRelationship)
+        .join(Entity, EntityRelationship.target_entity_id == Entity.id)
+        .where(
             EntityRelationship.source_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
         )
     ) or 0
 
@@ -123,15 +131,24 @@ async def _get_review_stats(
         select(
             func.avg(Review.rating),
             func.count(Review.id),
-        ).where(Review.target_entity_id == entity_id)
+        )
+        .join(Entity, Review.reviewer_entity_id == Entity.id)
+        .where(
+            Review.target_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
     )
     row = result.one()
     avg_rating = round(float(row[0]), 2) if row[0] is not None else None
     review_count = row[1]
 
     endorsement_count = await db.scalar(
-        select(func.count()).select_from(CapabilityEndorsement).where(
+        select(func.count())
+        .select_from(CapabilityEndorsement)
+        .join(Entity, CapabilityEndorsement.endorser_entity_id == Entity.id)
+        .where(
             CapabilityEndorsement.agent_entity_id == entity_id,
+            Entity.is_active.is_(True),
         )
     ) or 0
 

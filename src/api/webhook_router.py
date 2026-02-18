@@ -31,6 +31,10 @@ VALID_EVENT_TYPES = {
     "endorsement.created",
     "endorsement.removed",
     "evolution.created",
+    "marketplace.listing_created",
+    "marketplace.purchased",
+    "marketplace.cancelled",
+    "marketplace.refunded",
 }
 
 

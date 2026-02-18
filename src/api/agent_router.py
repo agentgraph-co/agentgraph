@@ -86,6 +86,11 @@ async def register_agent(
                 status_code=400,
                 detail="Operator email not found or not a human account",
             )
+        if not operator.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Operator account is deactivated",
+            )
 
     from src.content_filter import check_content, sanitize_html
 
