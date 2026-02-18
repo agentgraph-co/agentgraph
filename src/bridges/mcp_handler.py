@@ -374,6 +374,323 @@ async def _handle_get_following(
     }
 
 
+async def _handle_send_message(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import or_, select
+
+    from src.content_filter import check_content
+    from src.models import Conversation, DirectMessage, EntityBlock
+
+    recipient_id = uuid.UUID(args["recipient_id"])
+    content = args["content"]
+
+    if entity.id == recipient_id:
+        raise MCPError("invalid_request", "Cannot message yourself")
+
+    recipient = await db.get(Entity, recipient_id)
+    if recipient is None or not recipient.is_active:
+        raise MCPError("not_found", "Recipient not found")
+
+    # Check blocks
+    block = await db.scalar(
+        select(EntityBlock).where(
+            or_(
+                (EntityBlock.blocker_id == entity.id)
+                & (EntityBlock.blocked_id == recipient_id),
+                (EntityBlock.blocker_id == recipient_id)
+                & (EntityBlock.blocked_id == entity.id),
+            )
+        )
+    )
+    if block:
+        raise MCPError("forbidden", "Cannot message this entity")
+
+    filter_result = check_content(content)
+    if not filter_result.is_clean:
+        raise MCPError(
+            "content_rejected",
+            f"Message rejected: {', '.join(filter_result.flags)}",
+        )
+
+    # Get or create conversation with canonical UUID ordering
+    a_id, b_id = sorted([entity.id, recipient_id])
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.participant_a_id == a_id,
+            Conversation.participant_b_id == b_id,
+        )
+    )
+    if conv is None:
+        conv = Conversation(
+            id=uuid.uuid4(),
+            participant_a_id=a_id,
+            participant_b_id=b_id,
+        )
+        db.add(conv)
+        await db.flush()
+
+    msg = DirectMessage(
+        id=uuid.uuid4(),
+        conversation_id=conv.id,
+        sender_id=entity.id,
+        content=content,
+    )
+    db.add(msg)
+    await db.flush()
+
+    return {
+        "message_id": str(msg.id),
+        "conversation_id": str(conv.id),
+        "content": content,
+    }
+
+
+async def _handle_get_notifications(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+    from sqlalchemy.sql import func
+
+    from src.models import Notification
+
+    unread_only = args.get("unread_only", False)
+    limit = min(args.get("limit", 50), 100)
+
+    query = select(Notification).where(
+        Notification.entity_id == entity.id,
+    )
+    if unread_only:
+        query = query.where(Notification.is_read.is_(False))
+
+    query = query.order_by(Notification.created_at.desc()).limit(limit)
+    result = await db.execute(query)
+    notifications = result.scalars().all()
+
+    unread_count = await db.scalar(
+        select(func.count()).select_from(Notification).where(
+            Notification.entity_id == entity.id,
+            Notification.is_read.is_(False),
+        )
+    ) or 0
+
+    return {
+        "notifications": [
+            {
+                "id": str(n.id),
+                "kind": n.kind,
+                "title": n.title,
+                "body": n.body,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat(),
+            }
+            for n in notifications
+        ],
+        "unread_count": unread_count,
+    }
+
+
+async def _handle_bookmark_post(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import Bookmark, Post
+
+    post_id = uuid.UUID(args["post_id"])
+    post = await db.get(Post, post_id)
+    if post is None:
+        raise MCPError("not_found", "Post not found")
+
+    existing = await db.scalar(
+        select(Bookmark).where(
+            Bookmark.entity_id == entity.id,
+            Bookmark.post_id == post_id,
+        )
+    )
+
+    if existing:
+        await db.delete(existing)
+        await db.flush()
+        return {"post_id": str(post_id), "bookmarked": False}
+
+    bookmark = Bookmark(
+        id=uuid.uuid4(),
+        entity_id=entity.id,
+        post_id=post_id,
+    )
+    db.add(bookmark)
+    await db.flush()
+    return {"post_id": str(post_id), "bookmarked": True}
+
+
+async def _handle_list_submolts(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+
+    from src.models import Submolt
+
+    limit = min(args.get("limit", 20), 100)
+    query = select(Submolt).order_by(Submolt.member_count.desc())
+
+    search = args.get("search")
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            Submolt.display_name.ilike(pattern)
+            | Submolt.description.ilike(pattern)
+        )
+
+    query = query.limit(limit)
+    result = await db.execute(query)
+    submolts = result.scalars().all()
+
+    return {
+        "submolts": [
+            {
+                "name": s.name,
+                "display_name": s.display_name,
+                "description": s.description,
+                "member_count": s.member_count,
+            }
+            for s in submolts
+        ],
+        "count": len(submolts),
+    }
+
+
+async def _handle_join_submolt(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import Submolt, SubmoltMembership
+
+    submolt_name = args["submolt_name"]
+    submolt = await db.scalar(
+        select(Submolt).where(Submolt.name == submolt_name)
+    )
+    if submolt is None:
+        raise MCPError("not_found", f"Submolt '{submolt_name}' not found")
+
+    existing = await db.scalar(
+        select(SubmoltMembership).where(
+            SubmoltMembership.submolt_id == submolt.id,
+            SubmoltMembership.entity_id == entity.id,
+        )
+    )
+    if existing:
+        raise MCPError("conflict", "Already a member")
+
+    membership = SubmoltMembership(
+        id=uuid.uuid4(),
+        submolt_id=submolt.id,
+        entity_id=entity.id,
+        role="member",
+    )
+    db.add(membership)
+    submolt.member_count = (submolt.member_count or 0) + 1
+    await db.flush()
+
+    return {"message": f"Joined submolt '{submolt.display_name}'"}
+
+
+async def _handle_browse_marketplace(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+
+    from src.models import Listing
+
+    limit = min(args.get("limit", 20), 100)
+    query = select(Listing).where(Listing.is_active.is_(True))
+
+    if args.get("category"):
+        query = query.where(Listing.category == args["category"])
+    if args.get("tag"):
+        query = query.where(Listing.tags.contains([args["tag"]]))
+    if args.get("search"):
+        pattern = f"%{args['search']}%"
+        query = query.where(
+            Listing.title.ilike(pattern)
+            | Listing.description.ilike(pattern)
+        )
+
+    query = query.order_by(
+        Listing.is_featured.desc(), Listing.created_at.desc()
+    ).limit(limit)
+    result = await db.execute(query)
+    listings = result.scalars().all()
+
+    return {
+        "listings": [
+            {
+                "id": str(li.id),
+                "title": li.title,
+                "description": li.description,
+                "category": li.category,
+                "tags": li.tags or [],
+                "pricing_model": li.pricing_model,
+                "is_featured": li.is_featured or False,
+            }
+            for li in listings
+        ],
+        "count": len(listings),
+    }
+
+
+async def _handle_endorse_capability(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import CapabilityEndorsement
+
+    target_id = uuid.UUID(args["entity_id"])
+    capability = args["capability"]
+
+    if entity.id == target_id:
+        raise MCPError("invalid_request", "Cannot endorse yourself")
+
+    target = await db.get(Entity, target_id)
+    if target is None or not target.is_active:
+        raise MCPError("not_found", "Entity not found")
+
+    existing = await db.scalar(
+        select(CapabilityEndorsement).where(
+            CapabilityEndorsement.endorser_entity_id == entity.id,
+            CapabilityEndorsement.agent_entity_id == target_id,
+            CapabilityEndorsement.capability == capability,
+        )
+    )
+    if existing:
+        raise MCPError("conflict", "Already endorsed this capability")
+
+    endorsement = CapabilityEndorsement(
+        id=uuid.uuid4(),
+        endorser_entity_id=entity.id,
+        agent_entity_id=target_id,
+        capability=capability,
+    )
+    db.add(endorsement)
+    await db.flush()
+
+    return {
+        "entity_id": str(target_id),
+        "capability": capability,
+        "endorser_id": str(entity.id),
+    }
+
+
 # Handler registry
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
@@ -386,4 +703,11 @@ _HANDLERS = {
     "agentgraph_get_trust_score": _handle_get_trust_score,
     "agentgraph_get_followers": _handle_get_followers,
     "agentgraph_get_following": _handle_get_following,
+    "agentgraph_send_message": _handle_send_message,
+    "agentgraph_get_notifications": _handle_get_notifications,
+    "agentgraph_bookmark_post": _handle_bookmark_post,
+    "agentgraph_list_submolts": _handle_list_submolts,
+    "agentgraph_join_submolt": _handle_join_submolt,
+    "agentgraph_browse_marketplace": _handle_browse_marketplace,
+    "agentgraph_endorse_capability": _handle_endorse_capability,
 }
