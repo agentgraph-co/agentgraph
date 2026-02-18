@@ -298,6 +298,20 @@ async def resolve_flag(
         },
     )
 
+    # Dispatch moderation.resolved webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "moderation.resolved", {
+            "flag_id": str(flag.id),
+            "target_type": flag.target_type,
+            "target_id": str(flag.target_id),
+            "resolution_status": body.status.value,
+            "resolver_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     # Notify target entity of moderation action
     try:
         from src.api.notification_router import create_notification
@@ -614,6 +628,20 @@ async def resolve_appeal(
             "appellant_id": str(appeal.appellant_id),
         },
     )
+
+    # Dispatch moderation.appeal_resolved webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "moderation.appeal_resolved", {
+            "appeal_id": str(appeal.id),
+            "flag_id": str(appeal.flag_id),
+            "action": body.action,
+            "appellant_id": str(appeal.appellant_id),
+            "resolver_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
 
     # Notify appellant of appeal decision
     try:

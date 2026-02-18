@@ -149,8 +149,16 @@ async def create_submolt(
             ),
         )
 
-    # Content filter on description and rules
+    # Content filter on text fields
     from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.display_name)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+        )
+    body.display_name = sanitize_html(body.display_name)
 
     if body.description:
         filter_result = check_content(body.description)
@@ -484,6 +492,14 @@ async def update_submolt(
     # Content filter on text fields
     from src.content_filter import check_content, sanitize_html
 
+    if body.display_name is not None:
+        filter_result = check_content(body.display_name)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+            )
+        body.display_name = sanitize_html(body.display_name)
     if body.description is not None:
         filter_result = check_content(body.description)
         if not filter_result.is_clean:

@@ -697,6 +697,18 @@ async def delete_listing_review(
         raise HTTPException(
             status_code=404, detail="Review not found",
         )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.review_delete",
+        entity_id=current_entity.id,
+        resource_type="listing_review",
+        resource_id=review.id,
+        details={"listing_id": str(listing_id)},
+    )
+
     await db.delete(review)
     await db.flush()
     return {"message": "Review deleted"}

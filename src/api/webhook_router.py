@@ -35,6 +35,8 @@ VALID_EVENT_TYPES = {
     "marketplace.purchased",
     "marketplace.cancelled",
     "marketplace.refunded",
+    "moderation.resolved",
+    "moderation.appeal_resolved",
 }
 
 
