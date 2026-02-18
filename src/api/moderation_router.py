@@ -124,6 +124,18 @@ async def create_flag(
     except Exception:
         pass  # Best-effort
 
+    await log_action(
+        db,
+        action="moderation.flag_created",
+        entity_id=current_entity.id,
+        resource_type=body.target_type,
+        resource_id=body.target_id,
+        details={
+            "flag_id": str(flag.id),
+            "reason": body.reason.value,
+        },
+    )
+
     return FlagResponse(
         id=flag.id,
         reporter_entity_id=flag.reporter_entity_id,

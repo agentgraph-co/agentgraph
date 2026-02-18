@@ -139,6 +139,17 @@ async def create_listing(
     db.add(listing)
     await db.flush()
 
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.listing_create",
+        entity_id=current_entity.id,
+        resource_type="listing",
+        resource_id=listing.id,
+        details={"title": listing.title, "category": listing.category},
+    )
+
     # Dispatch webhook
     try:
         from src.events import dispatch_webhooks
@@ -376,6 +387,18 @@ async def update_listing(
 
     await db.flush()
     await db.refresh(listing)
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.listing_update",
+        entity_id=current_entity.id,
+        resource_type="listing",
+        resource_id=listing_id,
+        details={"fields": list(updates.keys())},
+    )
+
     return _to_response(listing)
 
 
@@ -397,6 +420,18 @@ async def delete_listing(
 
     await db.delete(listing)
     await db.flush()
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.listing_delete",
+        entity_id=current_entity.id,
+        resource_type="listing",
+        resource_id=listing_id,
+        details={"title": listing.title},
+    )
+
     return {"message": "Listing deleted"}
 
 
@@ -518,6 +553,18 @@ async def create_listing_review(
         existing.text = body.text
         await db.flush()
         await db.refresh(existing)
+
+        from src.audit import log_action
+
+        await log_action(
+            db,
+            action="marketplace.review_update",
+            entity_id=current_entity.id,
+            resource_type="listing_review",
+            resource_id=existing.id,
+            details={"listing_id": str(listing_id), "rating": body.rating},
+        )
+
         return ListingReviewResponse(
             id=existing.id,
             listing_id=listing_id,
@@ -538,6 +585,17 @@ async def create_listing_review(
     )
     db.add(review)
     await db.flush()
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.review_create",
+        entity_id=current_entity.id,
+        resource_type="listing_review",
+        resource_id=review.id,
+        details={"listing_id": str(listing_id), "rating": body.rating},
+    )
 
     # Notify listing owner
     from src.api.notification_router import create_notification
@@ -717,6 +775,21 @@ async def purchase_listing(
     )
     db.add(txn)
     await db.flush()
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.purchase",
+        entity_id=current_entity.id,
+        resource_type="transaction",
+        resource_id=txn.id,
+        details={
+            "listing_id": str(listing.id),
+            "amount_cents": txn.amount_cents,
+            "seller_id": str(listing.entity_id),
+        },
+    )
 
     # Notify the seller
     from src.api.notification_router import create_notification

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, ModerationFlag, ModerationReason, ModerationStatus, TrustScore
 from src.trust.score import compute_trust_score
@@ -194,6 +195,15 @@ async def refresh_trust_score(
         })
     except Exception:
         pass  # Best-effort
+
+    await log_action(
+        db,
+        action="trust.refresh",
+        entity_id=current_entity.id,
+        resource_type="trust_score",
+        resource_id=entity_id,
+        details={"score": ts.score},
+    )
 
     return TrustScoreResponse(
         entity_id=ts.entity_id,

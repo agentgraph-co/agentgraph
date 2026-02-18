@@ -615,7 +615,10 @@ async def list_members(
     query = (
         select(SubmoltMembership, Entity)
         .join(Entity, SubmoltMembership.entity_id == Entity.id)
-        .where(SubmoltMembership.submolt_id == submolt.id)
+        .where(
+            SubmoltMembership.submolt_id == submolt.id,
+            Entity.is_active.is_(True),
+        )
         .order_by(SubmoltMembership.created_at.asc())
         .offset(offset)
         .limit(limit)
@@ -666,6 +669,7 @@ async def list_banned_members(
         .where(
             SubmoltMembership.submolt_id == submolt.id,
             SubmoltMembership.role == "banned",
+            Entity.is_active.is_(True),
         )
     )
 

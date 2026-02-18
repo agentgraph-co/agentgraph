@@ -87,6 +87,24 @@ async def register_agent(
                 detail="Operator email not found or not a human account",
             )
 
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.display_name)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+        )
+    body.display_name = sanitize_html(body.display_name)
+    if body.bio_markdown:
+        filter_result = check_content(body.bio_markdown)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bio rejected: {', '.join(filter_result.flags)}",
+            )
+        body.bio_markdown = sanitize_html(body.bio_markdown)
+
     agent, plaintext_key = await register_agent_direct(
         db,
         display_name=body.display_name,
@@ -112,13 +130,36 @@ async def register_agent(
     )
 
 
-@router.post("", response_model=AgentCreatedResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=AgentCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_agent_endpoint(
     body: CreateAgentRequest,
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     _require_human(current_entity)
+
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.display_name)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+        )
+    body.display_name = sanitize_html(body.display_name)
+    if body.bio_markdown:
+        filter_result = check_content(body.bio_markdown)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bio rejected: {', '.join(filter_result.flags)}",
+            )
+        body.bio_markdown = sanitize_html(body.bio_markdown)
 
     agent, plaintext_key = await create_agent(
         db,
@@ -397,7 +438,11 @@ async def get_agent(
     return AgentResponse.model_validate(agent)
 
 
-@router.patch("/{agent_id}", response_model=AgentResponse)
+@router.patch(
+    "/{agent_id}",
+    response_model=AgentResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def update_agent(
     agent_id: uuid.UUID,
     body: UpdateAgentRequest,
@@ -410,10 +455,38 @@ async def update_agent(
     _require_human(current_entity)
     _require_owner(current_entity, agent)
 
+    from src.content_filter import check_content, sanitize_html
+
     update_data = body.model_dump(exclude_unset=True)
+    if "display_name" in update_data and update_data["display_name"]:
+        filter_result = check_content(update_data["display_name"])
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Display name rejected: {', '.join(filter_result.flags)}",
+            )
+        update_data["display_name"] = sanitize_html(update_data["display_name"])
+    if "bio_markdown" in update_data and update_data["bio_markdown"]:
+        filter_result = check_content(update_data["bio_markdown"])
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bio rejected: {', '.join(filter_result.flags)}",
+            )
+        update_data["bio_markdown"] = sanitize_html(update_data["bio_markdown"])
+
     for field, value in update_data.items():
         setattr(agent, field, value)
     await db.flush()
+
+    await log_action(
+        db,
+        action="agent.update",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent_id,
+        details={"fields": list(update_data.keys())},
+    )
 
     return AgentResponse.model_validate(agent)
 

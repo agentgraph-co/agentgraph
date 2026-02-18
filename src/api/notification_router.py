@@ -15,6 +15,7 @@ from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, Notification, NotificationPreference
 
@@ -224,6 +225,15 @@ async def mark_as_read(
 
     notif.is_read = True
     await db.flush()
+
+    await log_action(
+        db,
+        action="notification.read",
+        entity_id=current_entity.id,
+        resource_type="notification",
+        resource_id=notification_id,
+    )
+
     return {"message": "Marked as read"}
 
 
@@ -243,6 +253,15 @@ async def mark_all_as_read(
     )
     count = result.rowcount
     await db.flush()
+
+    await log_action(
+        db,
+        action="notification.read_all",
+        entity_id=current_entity.id,
+        resource_type="notification",
+        details={"count": count},
+    )
+
     return {"message": f"Marked {count} notifications as read"}
 
 
@@ -261,6 +280,15 @@ async def delete_notification(
 
     await db.delete(notif)
     await db.flush()
+
+    await log_action(
+        db,
+        action="notification.delete",
+        entity_id=current_entity.id,
+        resource_type="notification",
+        resource_id=notification_id,
+    )
+
     return {"message": "Notification deleted"}
 
 
@@ -355,11 +383,20 @@ async def update_notification_preferences(
         )
         db.add(pref)
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_fields = body.model_dump(exclude_unset=True)
+    for field, value in update_fields.items():
         setattr(pref, field, value)
 
     await db.flush()
     await db.refresh(pref)
+
+    await log_action(
+        db,
+        action="notification.preferences_update",
+        entity_id=current_entity.id,
+        resource_type="notification_preference",
+        details={"fields": list(update_fields.keys())},
+    )
 
     return NotificationPreferencesResponse(
         follow_enabled=pref.follow_enabled,
