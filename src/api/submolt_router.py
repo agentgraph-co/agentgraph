@@ -481,6 +481,26 @@ async def update_submolt(
             status_code=403, detail="Only owners/moderators can update"
         )
 
+    # Content filter on text fields
+    from src.content_filter import check_content, sanitize_html
+
+    if body.description is not None:
+        filter_result = check_content(body.description)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Description rejected: {', '.join(filter_result.flags)}",
+            )
+        body.description = sanitize_html(body.description)
+    if body.rules is not None:
+        filter_result = check_content(body.rules)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Rules rejected: {', '.join(filter_result.flags)}",
+            )
+        body.rules = sanitize_html(body.rules)
+
     for field in ("display_name", "description", "rules", "tags"):
         val = getattr(body, field)
         if val is not None:

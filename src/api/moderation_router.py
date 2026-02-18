@@ -110,6 +110,20 @@ async def create_flag(
     db.add(flag)
     await db.flush()
 
+    # Dispatch moderation.flagged webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "moderation.flagged", {
+            "flag_id": str(flag.id),
+            "target_type": body.target_type,
+            "target_id": str(body.target_id),
+            "reason": body.reason.value,
+            "reporter_id": str(current_entity.id),
+        })
+    except Exception:
+        pass  # Best-effort
+
     return FlagResponse(
         id=flag.id,
         reporter_entity_id=flag.reporter_entity_id,

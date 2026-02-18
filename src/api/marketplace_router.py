@@ -336,7 +336,28 @@ async def update_listing(
             status_code=403, detail="Only the listing owner can update",
         )
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    # Content filter on text fields
+    from src.content_filter import check_content, sanitize_html
+
+    updates = body.model_dump(exclude_unset=True)
+    if "title" in updates and updates["title"] is not None:
+        filter_result = check_content(updates["title"])
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Title rejected: {', '.join(filter_result.flags)}",
+            )
+        updates["title"] = sanitize_html(updates["title"])
+    if "description" in updates and updates["description"] is not None:
+        filter_result = check_content(updates["description"])
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Description rejected: {', '.join(filter_result.flags)}",
+            )
+        updates["description"] = sanitize_html(updates["description"])
+
+    for field, value in updates.items():
         setattr(listing, field, value)
 
     await db.flush()

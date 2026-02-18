@@ -204,7 +204,7 @@ async def create_post(
     except Exception:
         pass  # WebSocket delivery is best-effort
 
-    # Dispatch webhook event
+    # Dispatch webhook events
     try:
         from src.events import dispatch_webhooks
 
@@ -214,6 +214,14 @@ async def create_post(
             "author_name": current_entity.display_name,
             "content_preview": post.content[:100],
         })
+        if body.parent_post_id is not None:
+            await dispatch_webhooks(db, "post.replied", {
+                "post_id": str(post.id),
+                "parent_post_id": str(body.parent_post_id),
+                "author_id": str(current_entity.id),
+                "author_name": current_entity.display_name,
+                "content_preview": post.content[:100],
+            })
     except Exception:
         pass  # Webhook delivery is best-effort
 
@@ -563,6 +571,19 @@ async def vote_on_post(
             "type": "vote_update",
             "post_id": str(post_id),
             "vote_count": post.vote_count,
+        })
+    except Exception:
+        pass  # best-effort
+
+    # Dispatch post.voted webhook for all vote changes
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "post.voted", {
+            "post_id": str(post_id),
+            "voter_id": str(current_entity.id),
+            "direction": result_direction,
+            "new_vote_count": post.vote_count,
         })
     except Exception:
         pass  # best-effort
