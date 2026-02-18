@@ -102,6 +102,7 @@ async def test_compute_trust_score_new_entity(db: AsyncSession):
     assert "verification" in ts.components
     assert "age" in ts.components
     assert "activity" in ts.components
+    assert "reputation" in ts.components
 
 
 @pytest.mark.asyncio

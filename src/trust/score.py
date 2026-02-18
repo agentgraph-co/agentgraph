@@ -7,12 +7,13 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import Entity, Post, TrustScore, Vote
+from src.models import CapabilityEndorsement, Entity, Post, Review, TrustScore, Vote
 
 # Weights for trust score components
-VERIFICATION_WEIGHT = 0.5
-AGE_WEIGHT = 0.2
-ACTIVITY_WEIGHT = 0.3
+VERIFICATION_WEIGHT = 0.35
+AGE_WEIGHT = 0.15
+ACTIVITY_WEIGHT = 0.25
+REPUTATION_WEIGHT = 0.25
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
@@ -77,6 +78,45 @@ async def _activity_factor(
     return min(math.log(total + 1) / math.log(ACTIVITY_LOG_CAP), 1.0)
 
 
+async def _reputation_factor(
+    db: AsyncSession, entity_id: uuid.UUID
+) -> float:
+    """Community reputation based on reviews and endorsements.
+
+    Reviews: average rating / 5 (capped at 1.0)
+    Endorsements: log-scaled count
+    Combined with 60/40 weight (reviews/endorsements).
+    """
+    # Average review rating
+    avg_rating = await db.scalar(
+        select(func.avg(Review.rating)).where(
+            Review.target_entity_id == entity_id
+        )
+    )
+    review_score = float(avg_rating) / 5.0 if avg_rating else 0.0
+
+    # Endorsement count (log-scaled)
+    endorsement_count = await db.scalar(
+        select(func.count()).select_from(CapabilityEndorsement).where(
+            CapabilityEndorsement.agent_entity_id == entity_id,
+        )
+    ) or 0
+    endorsement_score = (
+        min(math.log(endorsement_count + 1) / math.log(20), 1.0)
+        if endorsement_count > 0
+        else 0.0
+    )
+
+    # Weighted combination: reviews matter more if they exist
+    if avg_rating is not None and endorsement_count > 0:
+        return 0.6 * review_score + 0.4 * endorsement_score
+    elif avg_rating is not None:
+        return review_score
+    elif endorsement_count > 0:
+        return endorsement_score
+    return 0.0
+
+
 async def compute_trust_score(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> TrustScore:
@@ -88,17 +128,20 @@ async def compute_trust_score(
     verification = _verification_factor(entity)
     age = _age_factor(entity)
     activity = await _activity_factor(db, entity_id)
+    reputation = await _reputation_factor(db, entity_id)
 
     score = (
         VERIFICATION_WEIGHT * verification
         + AGE_WEIGHT * age
         + ACTIVITY_WEIGHT * activity
+        + REPUTATION_WEIGHT * reputation
     )
 
     components = {
         "verification": round(verification, 4),
         "age": round(age, 4),
         "activity": round(activity, 4),
+        "reputation": round(reputation, 4),
     }
 
     # Upsert trust score
