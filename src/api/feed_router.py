@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import case, func, literal, select
+from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
@@ -471,17 +471,14 @@ async def vote_on_post(
         if existing.direction == direction:
             # Remove vote (toggle off)
             await db.delete(existing)
-            post.vote_count += -1 if direction == VoteDirection.UP else 1
+            delta = -1 if direction == VoteDirection.UP else 1
             result_direction = "none"
         else:
             # Change vote direction
             old_direction = existing.direction
             existing.direction = direction
             # Swing by 2: remove old vote effect, add new
-            if old_direction == VoteDirection.UP:
-                post.vote_count -= 2  # remove +1, add -1
-            else:
-                post.vote_count += 2  # remove -1, add +1
+            delta = -2 if old_direction == VoteDirection.UP else 2
             result_direction = direction.value
     else:
         # New vote
@@ -492,26 +489,34 @@ async def vote_on_post(
             direction=direction,
         )
         db.add(vote)
-        post.vote_count += 1 if direction == VoteDirection.UP else -1
+        delta = 1 if direction == VoteDirection.UP else -1
         result_direction = direction.value
 
-        # Notify post author on upvote
-        if (
-            direction == VoteDirection.UP
-            and post.author_entity_id != current_entity.id
-        ):
-            from src.api.notification_router import create_notification
+    # Atomic DB-level increment to prevent race conditions
+    await db.execute(
+        update(Post)
+        .where(Post.id == post_id)
+        .values(vote_count=Post.vote_count + delta)
+    )
+    await db.refresh(post, ["vote_count"])
 
-            await create_notification(
-                db,
-                entity_id=post.author_entity_id,
-                kind="vote",
-                title="Post upvoted",
-                body=(
-                    f"{current_entity.display_name} upvoted your post"
-                ),
-                reference_id=str(post_id),
-            )
+    # Notify post author on new upvote
+    if (
+        result_direction == VoteDirection.UP.value
+        and post.author_entity_id != current_entity.id
+    ):
+        from src.api.notification_router import create_notification
+
+        await create_notification(
+            db,
+            entity_id=post.author_entity_id,
+            kind="vote",
+            title="Post upvoted",
+            body=(
+                f"{current_entity.display_name} upvoted your post"
+            ),
+            reference_id=str(post_id),
+        )
 
     await db.flush()
 

@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
@@ -331,7 +331,10 @@ async def join_submolt(
         role="member",
     )
     db.add(membership)
-    submolt.member_count = (submolt.member_count or 0) + 1
+    await db.execute(
+        update(Submolt).where(Submolt.id == submolt.id)
+        .values(member_count=func.coalesce(Submolt.member_count, 0) + 1)
+    )
     await db.flush()
 
     return {"message": f"Joined submolt '{submolt.display_name}'"}
@@ -364,7 +367,10 @@ async def leave_submolt(
         )
 
     await db.delete(mem)
-    submolt.member_count = max(0, (submolt.member_count or 1) - 1)
+    await db.execute(
+        update(Submolt).where(Submolt.id == submolt.id)
+        .values(member_count=func.greatest(func.coalesce(Submolt.member_count, 1) - 1, 0))
+    )
     await db.flush()
 
     return {"message": f"Left submolt '{submolt.display_name}'"}
@@ -665,7 +671,10 @@ async def kick_member(
         )
 
     await db.delete(target_mem)
-    submolt.member_count = max(0, (submolt.member_count or 1) - 1)
+    await db.execute(
+        update(Submolt).where(Submolt.id == submolt.id)
+        .values(member_count=func.greatest(func.coalesce(Submolt.member_count, 1) - 1, 0))
+    )
     await log_action(
         db,
         action="submolt.member_kick",
@@ -775,7 +784,10 @@ async def ban_member(
         if target_mem.role == "banned":
             raise HTTPException(status_code=409, detail="Already banned")
         target_mem.role = "banned"
-        submolt.member_count = max(0, (submolt.member_count or 1) - 1)
+        await db.execute(
+            update(Submolt).where(Submolt.id == submolt.id)
+            .values(member_count=func.greatest(func.coalesce(Submolt.member_count, 1) - 1, 0))
+        )
 
     await log_action(
         db,
