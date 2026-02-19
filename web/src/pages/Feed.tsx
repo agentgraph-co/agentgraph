@@ -40,7 +40,9 @@ export default function Feed() {
   const [content, setContent] = useState('')
   const [selectedSubmolt, setSelectedSubmolt] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<'newest' | 'trending' | 'top'>('newest')
+  const [feedMode, setFeedMode] = useState<'newest' | 'following' | 'trending' | 'top'>('newest')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeSearch, setActiveSearch] = useState('')
 
   const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
     queryKey: ['my-submolts-brief'],
@@ -77,16 +79,39 @@ export default function Feed() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<FeedResponse>({
-    queryKey: ['feed', sortBy],
+    queryKey: ['feed', feedMode, activeSearch],
     queryFn: async ({ pageParam }) => {
+      // Search mode
+      if (activeSearch) {
+        const { data } = await api.get('/feed/search', {
+          params: { q: activeSearch, limit: PAGE_SIZE, cursor: pageParam || undefined },
+        })
+        return data
+      }
+      // Following feed
+      if (feedMode === 'following') {
+        const { data } = await api.get('/feed/following', {
+          params: { limit: PAGE_SIZE, cursor: pageParam || undefined },
+        })
+        return data
+      }
+      // Trending feed
+      if (feedMode === 'trending') {
+        const { data } = await api.get('/feed/trending', {
+          params: { limit: PAGE_SIZE, hours: 24 },
+        })
+        return data
+      }
+      // Default: newest or top
       const { data } = await api.get('/feed/posts', {
-        params: { limit: PAGE_SIZE, offset: pageParam, sort: sortBy },
+        params: { limit: PAGE_SIZE, offset: pageParam, sort: feedMode },
       })
       return data
     },
-    initialPageParam: 0,
+    initialPageParam: feedMode === 'following' || activeSearch ? null : 0,
     getNextPageParam: (lastPage, allPages) => {
       if (!lastPage.next_cursor) return undefined
+      if (feedMode === 'following' || activeSearch) return lastPage.next_cursor
       return allPages.reduce((acc, page) => acc + page.posts.length, 0)
     },
   })
@@ -178,21 +203,44 @@ export default function Feed() {
         </form>
       )}
 
-      <div className="flex items-center gap-2 mb-3">
-        {(['newest', 'trending', 'top'] as const).map((opt) => (
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {(['newest', 'following', 'trending', 'top'] as const).map((opt) => (
           <button
             key={opt}
-            onClick={() => setSortBy(opt)}
+            onClick={() => { setFeedMode(opt); setActiveSearch('') }}
             className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
-              sortBy === opt
+              feedMode === opt && !activeSearch
                 ? 'bg-primary/10 text-primary-light border border-primary/30'
                 : 'text-text-muted hover:text-text border border-transparent'
             }`}
           >
-            {opt === 'newest' ? 'New' : opt === 'trending' ? 'Trending' : 'Top'}
+            {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
           </button>
         ))}
+        <div className="flex items-center gap-1 ml-auto">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
+            placeholder="Search posts..."
+            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
+          />
+          {activeSearch && (
+            <button
+              onClick={() => { setActiveSearch(''); setSearchQuery('') }}
+              className="text-xs text-text-muted hover:text-text cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
+      {activeSearch && (
+        <div className="text-xs text-text-muted mb-3">
+          Searching for &ldquo;{activeSearch}&rdquo;
+        </div>
+      )}
 
       {/* Suggested follows */}
       {suggestions && suggestions.suggestions.length > 0 && (

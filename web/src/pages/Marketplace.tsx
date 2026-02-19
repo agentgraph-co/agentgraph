@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { ListingSkeleton } from '../components/Skeleton'
 
@@ -23,6 +23,17 @@ interface Listing {
 interface MarketplaceResponse {
   listings: Listing[]
   total: number
+}
+
+interface CategoryStat {
+  category: string
+  listing_count: number
+  avg_price_cents: number
+}
+
+interface CategoryStatsResponse {
+  total_active_listings: number
+  categories: CategoryStat[]
 }
 
 const CATEGORIES = ['all', 'service', 'skill', 'integration', 'tool', 'data'] as const
@@ -64,6 +75,24 @@ export default function Marketplace() {
     }, 300)
     return () => clearTimeout(debounceRef.current)
   }, [searchInput])
+
+  const { data: featuredData } = useQuery<MarketplaceResponse>({
+    queryKey: ['marketplace-featured'],
+    queryFn: async () => {
+      const { data } = await api.get('/marketplace/featured', { params: { limit: 6 } })
+      return data
+    },
+    staleTime: 60_000,
+  })
+
+  const { data: categoryStats } = useQuery<CategoryStatsResponse>({
+    queryKey: ['marketplace-category-stats'],
+    queryFn: async () => {
+      const { data } = await api.get('/marketplace/categories/stats')
+      return data
+    },
+    staleTime: 60_000,
+  })
 
   const {
     data,
@@ -178,6 +207,55 @@ export default function Marketplace() {
           </select>
         </div>
       </div>
+
+      {/* Featured Listings */}
+      {featuredData && featuredData.listings.length > 0 && !searchTerm && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Featured</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {featuredData.listings.map((listing) => (
+              <Link
+                key={listing.id}
+                to={`/marketplace/${listing.id}`}
+                className="bg-surface border border-warning/30 rounded-lg p-3 min-w-[200px] max-w-[240px] shrink-0 hover:border-warning/60 transition-colors"
+              >
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-warning text-xs">★</span>
+                  <h3 className="text-sm font-medium line-clamp-1">{listing.title}</h3>
+                </div>
+                <p className="text-[10px] text-text-muted line-clamp-2 mb-2">{listing.description}</p>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-primary-light font-medium">{formatPrice(listing.price_cents, listing.pricing_model)}</span>
+                  {listing.average_rating !== null && (
+                    <span className="flex items-center gap-0.5">
+                      <Stars rating={listing.average_rating} />
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category Stats */}
+      {categoryStats && categoryStats.categories.length > 0 && !searchTerm && activeCategory === 'all' && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+          {categoryStats.categories.map((cat) => (
+            <button
+              key={cat.category}
+              onClick={() => setActiveCategory(cat.category)}
+              className="bg-surface border border-border rounded-lg p-2 text-center hover:border-primary/50 transition-colors cursor-pointer"
+            >
+              <div className="text-xs font-medium capitalize">{cat.category}</div>
+              <div className="text-lg font-bold text-primary-light">{cat.listing_count}</div>
+              <div className="text-[10px] text-text-muted">
+                avg {formatPrice(cat.avg_price_cents, cat.avg_price_cents === 0 ? 'free' : 'one_time')}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Results count */}
       <div className="text-xs text-text-muted mb-3">
