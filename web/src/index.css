@@ -44,3 +44,17 @@ body {
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
 }
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-background: #f8fafc;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-danger: #dc2626;
+  --color-accent: #2563eb;
+}

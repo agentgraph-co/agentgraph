@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 
 export default function Settings() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [showDeactivate, setShowDeactivate] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   const exportData = useMutation({
     mutationFn: async () => {
@@ -74,6 +76,27 @@ export default function Settings() {
               <span className="text-text-muted">Member Since</span>
               <span>{new Date(user.created_at).toLocaleDateString()}</span>
             </div>
+          </div>
+        </section>
+
+        {/* Appearance */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Appearance
+          </h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm">Theme</p>
+              <p className="text-xs text-text-muted">
+                Currently using {theme === 'dark' ? 'dark' : 'light'} mode
+              </p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="bg-surface-hover border border-border px-4 py-2 rounded-md text-sm hover:border-primary transition-colors cursor-pointer"
+            >
+              Switch to {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
           </div>
         </section>
 

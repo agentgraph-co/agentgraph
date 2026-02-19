@@ -23,6 +23,7 @@ import { ToastProvider } from './components/Toasts'
 import { LiveUpdates } from './components/LiveUpdates'
 import ErrorBoundary from './components/ErrorBoundary'
 import NotFound from './pages/NotFound'
+import { ThemeProvider } from './hooks/useTheme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,17 +70,19 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <LiveUpdates />
-              <AppRoutes />
-            </ErrorBoundary>
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                <LiveUpdates />
+                <AppRoutes />
+              </ErrorBoundary>
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
