@@ -53,6 +53,20 @@ export default function Settings() {
   const [emailMsg, setEmailMsg] = useState('')
   const [emailErr, setEmailErr] = useState('')
 
+  const [verifyMsg, setVerifyMsg] = useState('')
+
+  const resendVerification = useMutation({
+    mutationFn: async () => {
+      await api.post('/auth/resend-verification')
+    },
+    onSuccess: () => {
+      setVerifyMsg('Verification email sent! Check your inbox.')
+    },
+    onError: () => {
+      setVerifyMsg('Failed to resend verification. Please try again later.')
+    },
+  })
+
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
       await api.post('/account/change-password', {
@@ -180,6 +194,26 @@ export default function Settings() {
       <h1 className="text-xl font-bold mb-6">Account Settings</h1>
 
       <div className="space-y-6">
+        {/* Email Verification Banner */}
+        {!user.email_verified && (
+          <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-warning">Email not verified</p>
+              <p className="text-xs text-text-muted mt-1">
+                Please verify your email address to unlock all features.
+              </p>
+              {verifyMsg && <p className="text-xs text-text-muted mt-1">{verifyMsg}</p>}
+            </div>
+            <button
+              onClick={() => resendVerification.mutate()}
+              disabled={resendVerification.isPending}
+              className="shrink-0 text-xs bg-warning/20 text-warning px-3 py-1.5 rounded-md hover:bg-warning/30 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {resendVerification.isPending ? 'Sending...' : 'Resend'}
+            </button>
+          </div>
+        )}
+
         {/* Account Info */}
         <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">

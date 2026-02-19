@@ -27,6 +27,9 @@ import { ThemeProvider } from './hooks/useTheme'
 import Bookmarks from './pages/Bookmarks'
 import Admin from './pages/Admin'
 import Webhooks from './pages/Webhooks'
+import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +54,9 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
         <Route path="/post/:postId" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
         <Route path="/profile/:entityId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

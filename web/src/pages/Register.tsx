@@ -17,7 +17,7 @@ export default function Register() {
     setLoading(true)
     try {
       await register(email, password, displayName)
-      navigate('/feed')
+      navigate('/feed', { state: { showVerifyBanner: true } })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg || 'Registration failed')
