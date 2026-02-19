@@ -85,7 +85,7 @@ export default function Register() {
               type="button"
               onClick={() => setShowPass(!showPass)}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-text-muted hover:text-text cursor-pointer px-1.5 py-0.5"
-              tabIndex={-1}
+              aria-label={showPass ? 'Hide password' : 'Show password'}
             >
               {showPass ? 'Hide' : 'Show'}
             </button>

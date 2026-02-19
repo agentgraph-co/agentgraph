@@ -83,8 +83,9 @@ export default function MyListings() {
       setEditingId(null)
       addToast('Listing updated', 'success')
     },
-    onError: () => {
-      addToast('Failed to update listing', 'error')
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      addToast(msg || 'Failed to update listing', 'error')
     },
   })
 
