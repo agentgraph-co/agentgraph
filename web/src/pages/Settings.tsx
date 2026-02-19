@@ -333,16 +333,21 @@ export default function Settings() {
                 required
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
-              <input
-                type="password"
-                value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
-                placeholder="New password (min 8 chars)"
-                required
-                minLength={8}
-                maxLength={128}
-                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-              />
+              <div>
+                <input
+                  type="password"
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  placeholder="New password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                />
+                {newPass && newPass.length < 8 && (
+                  <span className="text-[10px] text-danger">Must be at least 8 characters</span>
+                )}
+              </div>
               <button
                 type="submit"
                 disabled={changePasswordMutation.isPending || !currentPass || newPass.length < 8}

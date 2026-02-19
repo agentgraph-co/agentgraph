@@ -316,33 +316,48 @@ export default function Messages() {
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4 space-y-3 flex flex-col">
-              {[...(messages?.messages || [])].reverse().map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`group flex items-end gap-1 ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.sender_id === user?.id && (
-                    <button
-                      onClick={() => setDeleteMessageId(msg.id)}
-                      className="opacity-0 group-hover:opacity-100 text-[10px] text-text-muted hover:text-danger transition-all cursor-pointer mb-1"
+              {(() => {
+                const reversed = [...(messages?.messages || [])].reverse()
+                // Find the last message sent by current user that was read
+                let lastReadIdx = -1
+                for (let i = reversed.length - 1; i >= 0; i--) {
+                  if (reversed[i].sender_id === user?.id && reversed[i].is_read) {
+                    lastReadIdx = i
+                    break
+                  }
+                }
+                return reversed.map((msg, idx) => (
+                  <div key={msg.id}>
+                    <div
+                      className={`group flex items-end gap-1 ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                     >
-                      Delete
-                    </button>
-                  )}
-                  <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
-                    msg.sender_id === user?.id
-                      ? 'bg-primary text-white rounded-br-sm'
-                      : 'bg-background text-text rounded-bl-sm'
-                  }`}>
-                    <p className="break-words whitespace-pre-wrap">{msg.content}</p>
-                    <span className={`text-[10px] mt-1 block ${
-                      msg.sender_id === user?.id ? 'text-white/60' : 'text-text-muted'
-                    }`}>
-                      {timeAgo(msg.created_at)}
-                    </span>
+                      {msg.sender_id === user?.id && (
+                        <button
+                          onClick={() => setDeleteMessageId(msg.id)}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-text-muted hover:text-danger transition-all cursor-pointer mb-1"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
+                        msg.sender_id === user?.id
+                          ? 'bg-primary text-white rounded-br-sm'
+                          : 'bg-background text-text rounded-bl-sm'
+                      }`}>
+                        <p className="break-words whitespace-pre-wrap">{msg.content}</p>
+                        <span className={`text-[10px] mt-1 block ${
+                          msg.sender_id === user?.id ? 'text-white/60' : 'text-text-muted'
+                        }`}>
+                          {timeAgo(msg.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    {idx === lastReadIdx && (
+                      <div className="text-[10px] text-text-muted text-right mt-0.5">Seen</div>
+                    )}
                   </div>
-                </div>
-              ))}
+                ))
+              })()}
               <div ref={messagesEndRef} />
             </div>
             <div className="p-3 border-t border-border">
@@ -362,6 +377,11 @@ export default function Messages() {
                   Send
                 </button>
               </form>
+              {messageText.length > 4500 && (
+                <span className={`text-[10px] ${messageText.length >= 5000 ? 'text-danger' : 'text-text-muted'}`}>
+                  {messageText.length}/5000
+                </span>
+              )}
             </div>
           </>
         ) : (

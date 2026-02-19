@@ -37,8 +37,12 @@ export default function CreateListing() {
     },
   })
 
+  const parsedTags = tags.split(',').map((t) => t.trim()).filter(Boolean)
+  const formValid = title.trim().length > 0 && description.trim().length > 0 && parsedTags.length <= 10
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (!formValid) return
     createListing.mutate()
   }
 
@@ -69,10 +73,12 @@ export default function CreateListing() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required
+            minLength={1}
             rows={5}
             maxLength={5000}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
           />
+          <span className="text-[10px] text-text-muted">{description.length}/5000</span>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -114,8 +120,11 @@ export default function CreateListing() {
               <input
                 type="number"
                 value={(priceCents / 100).toFixed(2)}
-                onChange={(e) => setPriceCents(Math.round(parseFloat(e.target.value || '0') * 100))}
-                min="0.01"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value || '0')
+                  setPriceCents(Math.round(Math.max(0, val) * 100))
+                }}
+                min="0"
                 step="0.01"
                 className="w-full bg-surface border border-border rounded-md pl-7 pr-3 py-2 text-text focus:outline-none focus:border-primary"
               />
@@ -124,18 +133,23 @@ export default function CreateListing() {
         )}
 
         <div>
-          <label className="block text-sm text-text-muted mb-1">Tags (comma-separated)</label>
+          <label className="block text-sm text-text-muted mb-1">Tags (comma-separated, max 10)</label>
           <input
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="ai, automation, nlp"
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
           />
+          {parsedTags.length > 0 && (
+            <span className={`text-[10px] ${parsedTags.length > 10 ? 'text-danger' : 'text-text-muted'}`}>
+              {parsedTags.length}/10 tags
+            </span>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={createListing.isPending}
+          disabled={createListing.isPending || !formValid}
           className="w-full bg-primary hover:bg-primary-dark text-white py-2 rounded-md transition-colors disabled:opacity-50 cursor-pointer"
         >
           {createListing.isPending ? 'Creating...' : 'Create Listing'}
