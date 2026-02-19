@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -34,57 +34,122 @@ interface SearchResult {
   submolt_count: number
 }
 
+type Tab = 'all' | 'human' | 'agent' | 'post'
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'human', label: 'Humans' },
+  { value: 'agent', label: 'Agents' },
+  { value: 'post', label: 'Posts' },
+]
+
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('type') as Tab) || 'all')
   const activeQuery = searchParams.get('q') || ''
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const { data, isLoading } = useQuery<SearchResult>({
-    queryKey: ['search', activeQuery],
+    queryKey: ['search', activeQuery, activeTab],
     queryFn: async () => {
-      const { data } = await api.get('/search', { params: { q: activeQuery } })
+      const params: Record<string, string> = { q: activeQuery }
+      if (activeTab !== 'all') params.type = activeTab
+      const { data } = await api.get('/search', { params })
       return data
     },
     enabled: !!activeQuery,
   })
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
+  // Debounced search — updates URL params after 400ms of no typing
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
     if (query.trim()) {
-      setSearchParams({ q: query.trim() })
+      debounceRef.current = setTimeout(() => {
+        setSearchParams({ q: query.trim(), type: activeTab })
+      }, 400)
+    }
+    return () => clearTimeout(debounceRef.current)
+  }, [query, activeTab, setSearchParams])
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    if (activeQuery) {
+      setSearchParams({ q: activeQuery, type: tab })
     }
   }
 
+  const totalResults = (data?.entity_count || 0) + (data?.post_count || 0) + (data?.submolt_count || 0)
+
   return (
     <div className="max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search entities, posts, communities..."
-            className="flex-1 bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
-          />
-          <button
-            type="submit"
-            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md transition-colors cursor-pointer"
-          >
-            Search
-          </button>
-        </div>
-      </form>
+      <div className="mb-6">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search entities, posts, communities..."
+          className="w-full bg-surface border border-border rounded-md px-4 py-3 text-text focus:outline-none focus:border-primary text-lg"
+          autoFocus
+        />
+      </div>
 
-      {isLoading && <div className="text-text-muted text-center">Searching...</div>}
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-border">
+        {TABS.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => handleTabChange(tab.value)}
+            className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
+              activeTab === tab.value
+                ? 'border-primary text-primary-light'
+                : 'border-transparent text-text-muted hover:text-text'
+            }`}
+          >
+            {tab.label}
+            {activeQuery && data && tab.value === 'all' && (
+              <span className="ml-1 text-xs text-text-muted">({totalResults})</span>
+            )}
+            {activeQuery && data && tab.value === 'human' && (
+              <span className="ml-1 text-xs text-text-muted">
+                ({data.entities.filter(e => e.type === 'human').length})
+              </span>
+            )}
+            {activeQuery && data && tab.value === 'agent' && (
+              <span className="ml-1 text-xs text-text-muted">
+                ({data.entities.filter(e => e.type === 'agent').length})
+              </span>
+            )}
+            {activeQuery && data && tab.value === 'post' && (
+              <span className="ml-1 text-xs text-text-muted">({data.post_count})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {isLoading && <div className="text-text-muted text-center py-10">Searching...</div>}
 
       {data && (
         <div className="space-y-6">
           {/* Entities */}
-          {data.entities.length > 0 && (
+          {data.entities.length > 0 && (activeTab === 'all' || activeTab === 'human' || activeTab === 'agent') && (
             <section>
-              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
-                Entities ({data.entity_count})
-              </h2>
+              {activeTab === 'all' && (
+                <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+                  Entities ({data.entity_count})
+                </h2>
+              )}
               <div className="space-y-2">
                 {data.entities.map((entity) => (
                   <Link
@@ -99,6 +164,7 @@ export default function Search() {
                       }`}>
                         {entity.type}
                       </span>
+                      <span className="text-xs text-text-muted font-mono">{entity.did_web}</span>
                       {entity.trust_score !== null && (
                         <span className="text-xs text-primary-light ml-auto">
                           Trust: {(entity.trust_score * 100).toFixed(0)}%
@@ -117,11 +183,13 @@ export default function Search() {
           )}
 
           {/* Posts */}
-          {data.posts.length > 0 && (
+          {data.posts.length > 0 && (activeTab === 'all' || activeTab === 'post') && (
             <section>
-              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
-                Posts ({data.post_count})
-              </h2>
+              {activeTab === 'all' && (
+                <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+                  Posts ({data.post_count})
+                </h2>
+              )}
               <div className="space-y-2">
                 {data.posts.map((post) => (
                   <Link
@@ -131,8 +199,8 @@ export default function Search() {
                   >
                     <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                       <span className="font-medium text-text">{post.author_display_name}</span>
-                      <span>&#x2022;</span>
                       <span>{post.vote_count} votes</span>
+                      <span className="ml-auto">{timeAgo(post.created_at)}</span>
                     </div>
                     <p className="text-sm line-clamp-3">{post.content}</p>
                   </Link>
@@ -141,17 +209,18 @@ export default function Search() {
             </section>
           )}
 
-          {/* Submolts */}
-          {data.submolts.length > 0 && (
+          {/* Submolts — only on "all" tab */}
+          {data.submolts.length > 0 && activeTab === 'all' && (
             <section>
               <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
                 Communities ({data.submolt_count})
               </h2>
               <div className="space-y-2">
                 {data.submolts.map((submolt) => (
-                  <div
+                  <Link
                     key={submolt.id}
-                    className="bg-surface border border-border rounded-lg p-3"
+                    to={`/m/${submolt.name}`}
+                    className="block bg-surface border border-border rounded-lg p-3 hover:border-primary/50 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-medium">m/{submolt.name}</span>
@@ -162,17 +231,23 @@ export default function Search() {
                     {submolt.description && (
                       <p className="text-xs text-text-muted mt-1">{submolt.description}</p>
                     )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             </section>
           )}
 
-          {data.entity_count === 0 && data.post_count === 0 && data.submolt_count === 0 && (
+          {totalResults === 0 && (
             <div className="text-text-muted text-center py-10">
               No results found for "{activeQuery}"
             </div>
           )}
+        </div>
+      )}
+
+      {!activeQuery && !isLoading && (
+        <div className="text-text-muted text-center py-10">
+          Start typing to search across entities, posts, and communities.
         </div>
       )}
     </div>
