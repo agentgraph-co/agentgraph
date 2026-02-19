@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
@@ -24,6 +24,13 @@ interface Message {
   created_at: string
 }
 
+interface SearchEntity {
+  id: string
+  type: string
+  display_name: string
+  did_web: string
+}
+
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
   if (seconds < 60) return 'just now'
@@ -40,6 +47,10 @@ export default function Messages() {
   const queryClient = useQueryClient()
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
+  const [showCompose, setShowCompose] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showConvList, setShowConvList] = useState(true)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { data: conversations } = useQuery<{ conversations: Conversation[]; total: number }>({
     queryKey: ['conversations'],
@@ -47,6 +58,7 @@ export default function Messages() {
       const { data } = await api.get('/messages', { params: { limit: 50 } })
       return data
     },
+    refetchInterval: 10_000,
   })
 
   const { data: messages } = useQuery<{ messages: Message[] }>({
@@ -56,47 +68,119 @@ export default function Messages() {
       return data
     },
     enabled: !!selectedConvId,
+    refetchInterval: 5_000,
+  })
+
+  const { data: searchResults } = useQuery<{ entities: SearchEntity[] }>({
+    queryKey: ['dm-search', searchQuery],
+    queryFn: async () => {
+      const { data } = await api.get('/search', { params: { q: searchQuery, type: 'all' } })
+      return data
+    },
+    enabled: searchQuery.length >= 2,
   })
 
   const sendMessage = useMutation({
     mutationFn: async ({ recipientId, content }: { recipientId: string; content: string }) => {
-      await api.post('/messages', { recipient_id: recipientId, content })
+      const { data } = await api.post('/messages', { recipient_id: recipientId, content })
+      return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedConvId] })
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConvId || data.conversation_id] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       setMessageText('')
+      if (!selectedConvId && data.conversation_id) {
+        setSelectedConvId(data.conversation_id)
+        setShowCompose(false)
+        setSearchQuery('')
+      }
     },
   })
 
   const selectedConv = conversations?.conversations.find((c) => c.id === selectedConvId)
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages?.messages.length])
+
+  const selectConversation = (convId: string) => {
+    setSelectedConvId(convId)
+    setShowCompose(false)
+    setShowConvList(false)
+  }
+
+  const startCompose = () => {
+    setShowCompose(true)
+    setSelectedConvId(null)
+    setSearchQuery('')
+    setShowConvList(false)
+  }
+
+  const sendToUser = (recipientId: string) => {
+    if (messageText.trim()) {
+      sendMessage.mutate({ recipientId, content: messageText })
+    }
+  }
+
+  const handleSend = (e: FormEvent) => {
+    e.preventDefault()
+    if (!messageText.trim()) return
+    if (selectedConv) {
+      sendMessage.mutate({ recipientId: selectedConv.other_entity_id, content: messageText })
+    }
+  }
+
+  const totalUnread = conversations?.conversations.reduce((sum, c) => sum + c.unread_count, 0) || 0
+
   return (
-    <div className="flex h-[calc(100vh-5rem)] gap-4">
-      {/* Conversation list */}
-      <div className="w-72 shrink-0 bg-surface border border-border rounded-lg overflow-auto">
-        <div className="p-3 border-b border-border">
-          <h2 className="text-sm font-semibold">Messages</h2>
+    <div className="flex h-[calc(100vh-5rem)] gap-0 md:gap-4">
+      {/* Conversation list — hidden on mobile when viewing a thread */}
+      <div className={`${!showConvList && (selectedConvId || showCompose) ? 'hidden md:block' : ''} w-full md:w-72 shrink-0 bg-surface border border-border rounded-lg overflow-auto`}>
+        <div className="p-3 border-b border-border flex items-center justify-between">
+          <h2 className="text-sm font-semibold">
+            Messages
+            {totalUnread > 0 && (
+              <span className="ml-1.5 text-[10px] bg-primary text-white px-1.5 py-0.5 rounded-full">
+                {totalUnread}
+              </span>
+            )}
+          </h2>
+          <button
+            onClick={startCompose}
+            className="text-xs bg-primary hover:bg-primary-dark text-white px-2.5 py-1 rounded transition-colors cursor-pointer"
+          >
+            New
+          </button>
         </div>
         <div className="divide-y divide-border">
           {conversations?.conversations.map((conv) => (
             <button
               key={conv.id}
-              onClick={() => setSelectedConvId(conv.id)}
+              onClick={() => selectConversation(conv.id)}
               className={`w-full text-left p-3 hover:bg-surface-hover transition-colors cursor-pointer ${
                 selectedConvId === conv.id ? 'bg-surface-hover' : ''
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium truncate">{conv.other_entity_name}</span>
-                <span className="text-[10px] text-text-muted">{timeAgo(conv.last_message_at)}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`text-sm truncate ${conv.unread_count > 0 ? 'font-semibold text-text' : 'font-medium'}`}>
+                    {conv.other_entity_name}
+                  </span>
+                  <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                    conv.other_entity_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  }`}>
+                    {conv.other_entity_type}
+                  </span>
+                </div>
+                <span className="text-[10px] text-text-muted shrink-0 ml-2">{timeAgo(conv.last_message_at)}</span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span className="text-xs text-text-muted truncate">
                   {conv.last_message_preview || 'No messages'}
                 </span>
                 {conv.unread_count > 0 && (
-                  <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                  <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 shrink-0">
                     {conv.unread_count}
                   </span>
                 )}
@@ -105,17 +189,86 @@ export default function Messages() {
           ))}
           {(!conversations || conversations.conversations.length === 0) && (
             <div className="p-4 text-xs text-text-muted text-center">
-              No conversations yet.
+              No conversations yet. Start one!
             </div>
           )}
         </div>
       </div>
 
-      {/* Message thread */}
-      <div className="flex-1 bg-surface border border-border rounded-lg flex flex-col">
-        {selectedConv ? (
+      {/* Message thread / Compose */}
+      <div className={`${showConvList && !selectedConvId && !showCompose ? 'hidden md:flex' : 'flex'} flex-1 bg-surface border border-border rounded-lg flex-col min-w-0`}>
+        {showCompose ? (
+          <>
+            <div className="p-3 border-b border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => { setShowCompose(false); setShowConvList(true) }}
+                  className="md:hidden text-xs text-text-muted hover:text-text cursor-pointer"
+                >
+                  &larr; Back
+                </button>
+                <span className="text-sm font-semibold">New Message</span>
+              </div>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search for a user or agent..."
+                autoFocus
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              />
+            </div>
+            {searchQuery.length >= 2 && searchResults?.entities && (
+              <div className="border-b border-border max-h-60 overflow-auto">
+                {searchResults.entities
+                  .filter((e) => e.id !== user?.id)
+                  .map((entity) => (
+                    <div
+                      key={entity.id}
+                      className="p-3 hover:bg-surface-hover transition-colors flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">{entity.display_name}</span>
+                        <span className={`px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                          entity.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                        }`}>
+                          {entity.type}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => sendToUser(entity.id)}
+                        disabled={!messageText.trim() || sendMessage.isPending}
+                        className="text-xs bg-primary hover:bg-primary-dark text-white px-2.5 py-1 rounded transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  ))}
+                {searchResults.entities.filter((e) => e.id !== user?.id).length === 0 && (
+                  <div className="p-3 text-xs text-text-muted text-center">No users found</div>
+                )}
+              </div>
+            )}
+            <div className="flex-1" />
+            <div className="p-3 border-t border-border">
+              <textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="Write your message first, then pick a recipient above..."
+                rows={3}
+                maxLength={5000}
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+              />
+            </div>
+          </>
+        ) : selectedConv ? (
           <>
             <div className="p-3 border-b border-border flex items-center gap-2">
+              <button
+                onClick={() => { setSelectedConvId(null); setShowConvList(true) }}
+                className="md:hidden text-xs text-text-muted hover:text-text cursor-pointer"
+              >
+                &larr; Back
+              </button>
               <Link
                 to={`/profile/${selectedConv.other_entity_id}`}
                 className="text-sm font-medium hover:text-primary-light transition-colors"
@@ -128,18 +281,18 @@ export default function Messages() {
                 {selectedConv.other_entity_type}
               </span>
             </div>
-            <div className="flex-1 overflow-auto p-4 space-y-3 flex flex-col-reverse">
-              {messages?.messages.map((msg) => (
+            <div className="flex-1 overflow-auto p-4 space-y-3 flex flex-col">
+              {[...(messages?.messages || [])].reverse().map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[70%] px-3 py-2 rounded-lg text-sm ${
+                  <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
                     msg.sender_id === user?.id
-                      ? 'bg-primary text-white'
-                      : 'bg-background text-text'
+                      ? 'bg-primary text-white rounded-br-sm'
+                      : 'bg-background text-text rounded-bl-sm'
                   }`}>
-                    <p className="break-words">{msg.content}</p>
+                    <p className="break-words whitespace-pre-wrap">{msg.content}</p>
                     <span className={`text-[10px] mt-1 block ${
                       msg.sender_id === user?.id ? 'text-white/60' : 'text-text-muted'
                     }`}>
@@ -148,24 +301,15 @@ export default function Messages() {
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </div>
             <div className="p-3 border-t border-border">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (messageText.trim()) {
-                    sendMessage.mutate({
-                      recipientId: selectedConv.other_entity_id,
-                      content: messageText,
-                    })
-                  }
-                }}
-                className="flex gap-2"
-              >
+              <form onSubmit={handleSend} className="flex gap-2">
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   placeholder="Type a message..."
+                  maxLength={5000}
                   className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                 />
                 <button
@@ -179,8 +323,8 @@ export default function Messages() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-text-muted">
-            Select a conversation to start messaging
+          <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+            Select a conversation or start a new one
           </div>
         )}
       </div>
