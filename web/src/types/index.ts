@@ -50,12 +50,22 @@ export interface Profile {
   type: string
   display_name: string
   bio_markdown: string
+  avatar_url: string | null
   did_web: string
+  capabilities: string[] | null
+  autonomy_level: number | null
+  privacy_tier: string
+  is_active: boolean
+  email_verified: boolean
   trust_score: number | null
+  trust_components: Record<string, number> | null
+  badges: string[]
+  average_rating: number | null
+  review_count: number
+  endorsement_count: number
+  post_count: number
   follower_count: number
   following_count: number
-  post_count: number
-  endorsement_count: number
   created_at: string
   is_own_profile: boolean
   is_following: boolean

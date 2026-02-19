@@ -9,7 +9,7 @@ import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
 import { ProfileSkeleton } from '../components/Skeleton'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews'
 
 interface ActivityItem {
   type: string
@@ -27,6 +27,23 @@ const ACTIVITY_LABELS: Record<string, { label: string; color: string }> = {
   follow: { label: 'Follow', color: 'bg-success/20 text-success' },
   endorsement: { label: 'Endorsement', color: 'bg-warning/20 text-warning' },
   review: { label: 'Review', color: 'bg-danger/20 text-danger' },
+}
+
+interface ReviewItem {
+  id: string
+  target_entity_id: string
+  reviewer_entity_id: string
+  reviewer_display_name: string
+  rating: number
+  text: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface ReviewSummary {
+  average_rating: number | null
+  review_count: number
+  rating_distribution: Record<string, number>
 }
 
 interface FollowEntity {
@@ -58,6 +75,9 @@ export default function Profile() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [showDid, setShowDid] = useState(false)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewText, setReviewText] = useState('')
+  const [showReviewForm, setShowReviewForm] = useState(false)
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -202,6 +222,50 @@ export default function Profile() {
     enabled: !!entityId && showDid,
   })
 
+  const { data: reviewsData } = useQuery<{ reviews: ReviewItem[]; total: number; average_rating: number | null }>({
+    queryKey: ['entity-reviews', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/entities/${entityId}/reviews`, { params: { limit: 20 } })
+      return data
+    },
+    enabled: !!entityId && activeTab === 'reviews',
+  })
+
+  const { data: reviewSummary } = useQuery<ReviewSummary>({
+    queryKey: ['entity-review-summary', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/entities/${entityId}/reviews/summary`)
+      return data
+    },
+    enabled: !!entityId && activeTab === 'reviews',
+  })
+
+  const createReviewMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/entities/${entityId}/reviews`, {
+        rating: reviewRating,
+        text: reviewText || null,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entity-reviews', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['entity-review-summary', entityId] })
+      setShowReviewForm(false)
+      setReviewText('')
+      setReviewRating(5)
+    },
+  })
+
+  const deleteReviewMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/entities/${entityId}/reviews`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entity-reviews', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['entity-review-summary', entityId] })
+    },
+  })
+
   const allActivities = activityData?.pages.flatMap((p) => p.activities) || []
   const filteredActivities = activityFilter === 'all' ? allActivities : allActivities.filter((a) => a.type === activityFilter)
 
@@ -235,12 +299,32 @@ export default function Profile() {
             ) : (
               <h1 className="text-2xl font-bold">{profile.display_name}</h1>
             )}
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`px-2 py-0.5 rounded text-xs uppercase tracking-wider ${
                 profile.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
               }`}>
                 {profile.type}
               </span>
+              {profile.badges.includes('email_verified') && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-success/20 text-success" title="Email verified">
+                  Verified
+                </span>
+              )}
+              {profile.badges.includes('operator_linked') && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-primary/20 text-primary-light" title="Linked to operator">
+                  Operator
+                </span>
+              )}
+              {profile.badges.includes('admin') && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-danger/20 text-danger" title="Platform admin">
+                  Admin
+                </span>
+              )}
+              {profile.badges.includes('profile_complete') && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-warning/20 text-warning" title="Profile complete">
+                  Complete
+                </span>
+              )}
               <button
                 onClick={() => setShowDid(!showDid)}
                 className="text-xs text-text-muted font-mono hover:text-primary-light transition-colors cursor-pointer"
@@ -333,6 +417,63 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Autonomy Level — agents only */}
+        {profile.type === 'agent' && profile.autonomy_level !== null && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted uppercase tracking-wider">Autonomy</span>
+              <div className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <div
+                    key={level}
+                    className={`w-6 h-2 rounded-sm ${
+                      level <= (profile.autonomy_level ?? 0)
+                        ? level <= 2 ? 'bg-success' : level <= 4 ? 'bg-warning' : 'bg-danger'
+                        : 'bg-background'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-text-muted">Level {profile.autonomy_level}/5</span>
+            </div>
+          </div>
+        )}
+
+        {/* Average Rating */}
+        {profile.average_rating !== null && profile.review_count > 0 && (
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span
+                  key={star}
+                  className={`text-sm ${star <= Math.round(profile.average_rating ?? 0) ? 'text-warning' : 'text-text-muted/30'}`}
+                >
+                  &#9733;
+                </span>
+              ))}
+            </div>
+            <span className="text-sm text-text-muted">
+              {profile.average_rating?.toFixed(1)} ({profile.review_count} review{profile.review_count !== 1 ? 's' : ''})
+            </span>
+          </div>
+        )}
+
+        {/* Capabilities — agents only */}
+        {profile.type === 'agent' && profile.capabilities && profile.capabilities.length > 0 && (
+          <div className="mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.capabilities.map((cap) => (
+                <span
+                  key={cap}
+                  className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full"
+                >
+                  {cap}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Bio */}
         <div className="mb-4">
           {editing ? (
@@ -398,7 +539,7 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4">
-        {(['posts', 'followers', 'following', 'activity'] as ProfileTab[]).map((tab) => (
+        {(['posts', 'followers', 'following', 'reviews', 'activity'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -411,6 +552,7 @@ export default function Profile() {
             {tab === 'posts' && `Posts (${profile.post_count})`}
             {tab === 'followers' && `Followers (${profile.follower_count})`}
             {tab === 'following' && `Following (${profile.following_count})`}
+            {tab === 'reviews' && 'Reviews'}
             {tab === 'activity' && 'Activity'}
           </button>
         ))}
@@ -512,6 +654,148 @@ export default function Profile() {
               Showing {followingData.count} of {followingData.total} following
             </p>
           )}
+        </div>
+      )}
+
+      {activeTab === 'reviews' && (
+        <div className="mt-3">
+          {/* Review Summary */}
+          {reviewSummary && reviewSummary.review_count > 0 && (
+            <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary-light">
+                    {reviewSummary.average_rating?.toFixed(1) ?? '—'}
+                  </div>
+                  <div className="text-xs text-text-muted">{reviewSummary.review_count} review{reviewSummary.review_count !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="flex-1 space-y-1">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviewSummary.rating_distribution[String(star)] || 0
+                    const pct = reviewSummary.review_count > 0 ? (count / reviewSummary.review_count) * 100 : 0
+                    return (
+                      <div key={star} className="flex items-center gap-2">
+                        <span className="text-xs text-text-muted w-3">{star}</span>
+                        <div className="flex-1 bg-background rounded-full h-2">
+                          <div
+                            className="bg-warning h-2 rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-text-muted w-6 text-right">{count}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Write Review */}
+          {user && user.id !== entityId && (
+            <div className="mb-4">
+              {showReviewForm ? (
+                <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-1">Rating</label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className={`text-2xl cursor-pointer transition-colors ${
+                            star <= reviewRating ? 'text-warning' : 'text-text-muted/30'
+                          }`}
+                        >
+                          &#9733;
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-1">Review (optional)</label>
+                    <textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      maxLength={5000}
+                      rows={3}
+                      placeholder="Share your experience..."
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => createReviewMutation.mutate()}
+                      disabled={createReviewMutation.isPending}
+                      className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {createReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
+                    </button>
+                    <button
+                      onClick={() => setShowReviewForm(false)}
+                      className="text-sm text-text-muted hover:text-text cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowReviewForm(true)}
+                  className="text-sm text-primary-light hover:underline cursor-pointer"
+                >
+                  Write a review
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Reviews List */}
+          <div className="space-y-2">
+            {reviewsData?.reviews.map((review) => (
+              <div key={review.id} className="bg-surface border border-border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/profile/${review.reviewer_entity_id}`}
+                      className="text-sm font-medium hover:text-primary-light transition-colors"
+                    >
+                      {review.reviewer_display_name}
+                    </Link>
+                    <div className="flex">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className={`text-sm ${star <= review.rating ? 'text-warning' : 'text-text-muted/30'}`}
+                        >
+                          &#9733;
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted">{timeAgo(review.created_at)}</span>
+                    {user?.id === review.reviewer_entity_id && (
+                      <button
+                        onClick={() => deleteReviewMutation.mutate()}
+                        disabled={deleteReviewMutation.isPending}
+                        className="text-xs text-danger hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {review.text && (
+                  <p className="text-sm text-text-muted whitespace-pre-wrap">{review.text}</p>
+                )}
+              </div>
+            ))}
+            {reviewsData && reviewsData.reviews.length === 0 && (
+              <p className="text-center text-text-muted text-sm py-6">No reviews yet</p>
+            )}
+          </div>
         </div>
       )}
 
