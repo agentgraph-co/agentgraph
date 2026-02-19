@@ -30,10 +30,10 @@ const ACTIVITY_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 interface FollowEntity {
-  entity_id: string
+  id: string
   display_name: string
   type: string
-  trust_score: number | null
+  did_web: string
 }
 
 function timeAgo(dateStr: string): string {
@@ -158,19 +158,19 @@ export default function Profile() {
     enabled: !!entityId && activeTab === 'posts',
   })
 
-  const { data: followersData } = useQuery<{ followers: FollowEntity[]; total: number }>({
+  const { data: followersData } = useQuery<{ entities: FollowEntity[]; count: number; total: number }>({
     queryKey: ['profile-followers', entityId],
     queryFn: async () => {
-      const { data } = await api.get(`/social/${entityId}/followers`, { params: { limit: 50 } })
+      const { data } = await api.get(`/social/followers/${entityId}`, { params: { limit: 50 } })
       return data
     },
     enabled: !!entityId && activeTab === 'followers',
   })
 
-  const { data: followingData } = useQuery<{ following: FollowEntity[]; total: number }>({
+  const { data: followingData } = useQuery<{ entities: FollowEntity[]; count: number; total: number }>({
     queryKey: ['profile-following', entityId],
     queryFn: async () => {
-      const { data } = await api.get(`/social/${entityId}/following`, { params: { limit: 50 } })
+      const { data } = await api.get(`/social/following/${entityId}`, { params: { limit: 50 } })
       return data
     },
     enabled: !!entityId && activeTab === 'following',
@@ -413,10 +413,10 @@ export default function Profile() {
 
       {activeTab === 'followers' && (
         <div className="mt-3 space-y-2">
-          {followersData?.followers.map((f) => (
+          {followersData?.entities.map((f) => (
             <Link
-              key={f.entity_id}
-              to={`/profile/${f.entity_id}`}
+              key={f.id}
+              to={`/profile/${f.id}`}
               className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-primary/30 transition-colors"
             >
               <div className="flex items-center gap-2">
@@ -427,25 +427,28 @@ export default function Profile() {
                   {f.type}
                 </span>
               </div>
-              {f.trust_score !== null && (
-                <span className="text-xs text-text-muted">
-                  Trust: {(f.trust_score * 100).toFixed(0)}%
-                </span>
-              )}
+              <span className="text-xs text-text-muted font-mono truncate max-w-[200px]">
+                {f.did_web}
+              </span>
             </Link>
           ))}
-          {followersData && followersData.followers.length === 0 && (
+          {followersData && followersData.entities.length === 0 && (
             <p className="text-center text-text-muted text-sm py-6">No followers yet</p>
+          )}
+          {followersData && followersData.total > 50 && (
+            <p className="text-center text-xs text-text-muted py-2">
+              Showing {followersData.count} of {followersData.total} followers
+            </p>
           )}
         </div>
       )}
 
       {activeTab === 'following' && (
         <div className="mt-3 space-y-2">
-          {followingData?.following.map((f) => (
+          {followingData?.entities.map((f) => (
             <Link
-              key={f.entity_id}
-              to={`/profile/${f.entity_id}`}
+              key={f.id}
+              to={`/profile/${f.id}`}
               className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-primary/30 transition-colors"
             >
               <div className="flex items-center gap-2">
@@ -456,15 +459,18 @@ export default function Profile() {
                   {f.type}
                 </span>
               </div>
-              {f.trust_score !== null && (
-                <span className="text-xs text-text-muted">
-                  Trust: {(f.trust_score * 100).toFixed(0)}%
-                </span>
-              )}
+              <span className="text-xs text-text-muted font-mono truncate max-w-[200px]">
+                {f.did_web}
+              </span>
             </Link>
           ))}
-          {followingData && followingData.following.length === 0 && (
+          {followingData && followingData.entities.length === 0 && (
             <p className="text-center text-text-muted text-sm py-6">Not following anyone yet</p>
+          )}
+          {followingData && followingData.total > 50 && (
+            <p className="text-center text-xs text-text-muted py-2">
+              Showing {followingData.count} of {followingData.total} following
+            </p>
           )}
         </div>
       )}

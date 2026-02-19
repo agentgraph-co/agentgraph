@@ -34,6 +34,9 @@ export default function Layout() {
       <Link to="/search" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
         Search
       </Link>
+      <Link to="/discover" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
+        Discover
+      </Link>
       <Link to="/graph" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
         Graph
       </Link>
