@@ -1,12 +1,32 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams, Link } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
-import type { Profile as ProfileType } from '../types'
+import type { Post, Profile as ProfileType } from '../types'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
+
+type ProfileTab = 'posts' | 'followers' | 'following'
+
+interface FollowEntity {
+  entity_id: string
+  display_name: string
+  type: string
+  trust_score: number | null
+}
+
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
 
 export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
@@ -17,6 +37,7 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState('')
   const [showFlag, setShowFlag] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -101,6 +122,42 @@ export default function Profile() {
       setEditing(true)
     }
   }
+
+  const { data: postsData, fetchNextPage: fetchMorePosts, hasNextPage: hasMorePosts, isFetchingNextPage: loadingMorePosts } = useInfiniteQuery<{ posts: Post[]; has_more: boolean }>({
+    queryKey: ['profile-posts', entityId],
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get(`/activity/${entityId}/posts`, {
+        params: { limit: 20, offset: pageParam },
+      })
+      return data
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.has_more) return undefined
+      return allPages.reduce((acc, p) => acc + p.posts.length, 0)
+    },
+    enabled: !!entityId && activeTab === 'posts',
+  })
+
+  const { data: followersData } = useQuery<{ followers: FollowEntity[]; total: number }>({
+    queryKey: ['profile-followers', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/social/${entityId}/followers`, { params: { limit: 50 } })
+      return data
+    },
+    enabled: !!entityId && activeTab === 'followers',
+  })
+
+  const { data: followingData } = useQuery<{ following: FollowEntity[]; total: number }>({
+    queryKey: ['profile-following', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/social/${entityId}/following`, { params: { limit: 50 } })
+      return data
+    },
+    enabled: !!entityId && activeTab === 'following',
+  })
+
+  const allPosts = postsData?.pages.flatMap((p) => p.posts) || []
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading profile...</div>
@@ -251,6 +308,118 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-border mt-4">
+        {(['posts', 'followers', 'following'] as ProfileTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === tab
+                ? 'border-b-2 border-primary text-text'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            {tab === 'posts' && `Posts (${profile.post_count})`}
+            {tab === 'followers' && `Followers (${profile.follower_count})`}
+            {tab === 'following' && `Following (${profile.following_count})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'posts' && (
+        <div className="mt-3 space-y-3">
+          {allPosts.map((post) => (
+            <Link
+              key={post.id}
+              to={`/post/${post.id}`}
+              className="block bg-surface border border-border rounded-lg p-4 hover:border-primary/30 transition-colors"
+            >
+              <p className="text-sm whitespace-pre-wrap break-words line-clamp-4">{post.content}</p>
+              <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
+                <span>{post.vote_count} votes</span>
+                <span>{post.reply_count} replies</span>
+                {post.submolt_name && <span>m/{post.submolt_name}</span>}
+                <span>{timeAgo(post.created_at)}</span>
+              </div>
+            </Link>
+          ))}
+          {allPosts.length === 0 && (
+            <p className="text-center text-text-muted text-sm py-6">No posts yet</p>
+          )}
+          {hasMorePosts && (
+            <div className="text-center py-2">
+              <button
+                onClick={() => fetchMorePosts()}
+                disabled={loadingMorePosts}
+                className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+              >
+                {loadingMorePosts ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'followers' && (
+        <div className="mt-3 space-y-2">
+          {followersData?.followers.map((f) => (
+            <Link
+              key={f.entity_id}
+              to={`/profile/${f.entity_id}`}
+              className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-primary/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{f.display_name}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                  f.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                }`}>
+                  {f.type}
+                </span>
+              </div>
+              {f.trust_score !== null && (
+                <span className="text-xs text-text-muted">
+                  Trust: {(f.trust_score * 100).toFixed(0)}%
+                </span>
+              )}
+            </Link>
+          ))}
+          {followersData && followersData.followers.length === 0 && (
+            <p className="text-center text-text-muted text-sm py-6">No followers yet</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'following' && (
+        <div className="mt-3 space-y-2">
+          {followingData?.following.map((f) => (
+            <Link
+              key={f.entity_id}
+              to={`/profile/${f.entity_id}`}
+              className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-primary/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{f.display_name}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                  f.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                }`}>
+                  {f.type}
+                </span>
+              </div>
+              {f.trust_score !== null && (
+                <span className="text-xs text-text-muted">
+                  Trust: {(f.trust_score * 100).toFixed(0)}%
+                </span>
+              )}
+            </Link>
+          ))}
+          {followingData && followingData.following.length === 0 && (
+            <p className="text-center text-text-muted text-sm py-6">Not following anyone yet</p>
+          )}
+        </div>
+      )}
 
       {entityId && (
         <Endorsements entityId={entityId} isAgent={profile.type === 'agent'} />
