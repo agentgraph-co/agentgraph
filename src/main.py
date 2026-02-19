@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 import warnings
 
 from fastapi import FastAPI, Request, Response
@@ -93,6 +94,16 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def request_id_middleware(request: Request, call_next) -> Response:
+    """Attach a unique request ID for log correlation."""
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
+    request.state.request_id = request_id
+    response: Response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+@app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:
     """Add standard security headers to all responses."""
     response: Response = await call_next(request)
@@ -146,12 +157,21 @@ app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
 
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    """Clean up Redis connections on shutdown."""
+    from src.redis_client import close_redis
+
+    await close_redis()
+
+
 @app.get("/health")
 async def health_check() -> dict:
-    """Health check with database connectivity verification."""
+    """Health check with database and Redis connectivity verification."""
     from sqlalchemy import text
 
     from src.database import async_session
+    from src.redis_client import check_redis
 
     health = {"status": "ok", "service": settings.app_name, "checks": {}}
 
@@ -162,6 +182,12 @@ async def health_check() -> dict:
         health["checks"]["database"] = "ok"
     except Exception:
         health["checks"]["database"] = "error"
+        health["status"] = "degraded"
+
+    # Check Redis
+    redis_ok = await check_redis()
+    health["checks"]["redis"] = "ok" if redis_ok else "error"
+    if not redis_ok:
         health["status"] = "degraded"
 
     return health

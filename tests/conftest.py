@@ -16,12 +16,12 @@ def _reset_rate_limiter():
     from src.api.rate_limit import _limiter
     from src.config import settings
 
-    _limiter._windows.clear()
+    _limiter.clear()
     original = settings.rate_limit_auth_per_minute
     settings.rate_limit_auth_per_minute = 100
     yield
     settings.rate_limit_auth_per_minute = original
-    _limiter._windows.clear()
+    _limiter.clear()
 
 
 @pytest_asyncio.fixture

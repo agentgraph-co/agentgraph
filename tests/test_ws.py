@@ -38,11 +38,12 @@ async def test_connect_and_disconnect():
 
 @pytest.mark.asyncio
 async def test_send_to_entity():
+    """Test local delivery to a specific entity on a channel."""
     mgr = ConnectionManager()
     ws = FakeWebSocket()
 
     await mgr.connect(ws, "entity-1", ["notifications"])
-    sent = await mgr.send_to_entity(
+    sent = await mgr._local_send_to_entity(
         "entity-1", "notifications", {"type": "test"},
     )
     assert sent == 1
@@ -56,7 +57,7 @@ async def test_send_to_different_channel_no_delivery():
     ws = FakeWebSocket()
 
     await mgr.connect(ws, "entity-1", ["feed"])
-    sent = await mgr.send_to_entity(
+    sent = await mgr._local_send_to_entity(
         "entity-1", "notifications", {"type": "test"},
     )
     assert sent == 0
@@ -74,7 +75,7 @@ async def test_broadcast_to_channel():
     await mgr.connect(ws2, "entity-2", ["feed"])
     await mgr.connect(ws3, "entity-3", ["notifications"])
 
-    sent = await mgr.broadcast_to_channel(
+    sent = await mgr._local_broadcast_to_channel(
         "feed", {"type": "new_post"},
     )
     assert sent == 2
@@ -92,7 +93,7 @@ async def test_broadcast_all():
     await mgr.connect(ws1, "entity-1", ["feed"])
     await mgr.connect(ws2, "entity-2", ["notifications"])
 
-    sent = await mgr.broadcast({"type": "system_alert"})
+    sent = await mgr._local_broadcast({"type": "system_alert"})
     assert sent == 2
 
 
@@ -104,7 +105,7 @@ async def test_dead_connection_cleaned_up():
     await mgr.connect(ws, "entity-1", ["feed"])
     ws.closed = True  # Simulate disconnection
 
-    sent = await mgr.send_to_entity(
+    sent = await mgr._local_send_to_entity(
         "entity-1", "feed", {"type": "test"},
     )
     assert sent == 0
@@ -118,10 +119,10 @@ async def test_multiple_channels():
 
     await mgr.connect(ws, "entity-1", ["feed", "notifications"])
 
-    sent_feed = await mgr.send_to_entity(
+    sent_feed = await mgr._local_send_to_entity(
         "entity-1", "feed", {"type": "feed_update"},
     )
-    sent_notif = await mgr.send_to_entity(
+    sent_notif = await mgr._local_send_to_entity(
         "entity-1", "notifications", {"type": "notification"},
     )
     assert sent_feed == 1

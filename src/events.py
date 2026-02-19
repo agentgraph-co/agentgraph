@@ -1,8 +1,8 @@
-"""In-process event bus for AgentGraph.
+"""Event bus with Redis pub/sub for cross-worker dispatch.
 
 Dispatches events to registered handlers and webhook subscribers.
-Production deployment should replace with Redis pub/sub or a
-dedicated message broker for multi-process support.
+Uses Redis pub/sub so webhook deliveries work correctly across
+multiple Gunicorn workers.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Type for async event handlers
 EventHandler = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
 
-# In-memory handler registry
+# In-memory handler registry (local to this worker)
 _handlers: dict[str, list[EventHandler]] = {}
 
 
@@ -51,13 +51,31 @@ async def emit(event_type: str, payload: dict[str, Any]) -> None:
     """Emit an event to all registered handlers.
 
     Handlers run concurrently but failures in one don't affect others.
+    Also publishes to Redis so other workers can process the event.
     """
+    # Run local handlers
     handlers = _handlers.get(event_type, [])
-    if not handlers:
-        return
+    if handlers:
+        tasks = [_safe_call(h, event_type, payload) for h in handlers]
+        await asyncio.gather(*tasks)
 
-    tasks = [_safe_call(h, event_type, payload) for h in handlers]
-    await asyncio.gather(*tasks)
+    # Publish to Redis for cross-worker event distribution
+    await _publish_event(event_type, payload)
+
+
+async def _publish_event(event_type: str, payload: dict[str, Any]) -> None:
+    """Publish an event to the Redis event channel."""
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        msg = json.dumps({
+            "event_type": event_type,
+            "payload": payload,
+        }, default=str)
+        await r.publish("agentgraph:events", msg)
+    except Exception:
+        logger.debug("Redis pub/sub unavailable for event %s", event_type)
 
 
 async def _safe_call(
