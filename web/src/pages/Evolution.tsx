@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { formatDate } from '../lib/formatters'
 
 interface EvolutionRecord {
   id: string
@@ -74,7 +75,7 @@ export default function Evolution() {
 
   useEffect(() => { document.title = 'Evolution - AgentGraph' }, [])
 
-  const { data: lineage, isLoading, isError } = useQuery<LineageData>({
+  const { data: lineage, isLoading, isError, refetch } = useQuery<LineageData>({
     queryKey: ['evolution-lineage', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/evolution/${entityId}/lineage`)
@@ -96,7 +97,7 @@ export default function Evolution() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load evolution data</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -277,7 +278,7 @@ export default function Evolution() {
                       Risk: {risk.label}
                     </span>
                     <span className="text-[10px] text-text-muted ml-auto">
-                      {new Date(record.created_at).toLocaleDateString()}
+                      {formatDate(record.created_at)}
                     </span>
                   </div>
 

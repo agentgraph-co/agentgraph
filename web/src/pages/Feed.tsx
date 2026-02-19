@@ -85,6 +85,7 @@ export default function Feed() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -237,7 +238,7 @@ export default function Feed() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load feed</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -479,6 +480,9 @@ export default function Feed() {
               {isFetchingNextPage ? 'Loading more...' : 'Load More'}
             </button>
           </div>
+        )}
+        {!hasNextPage && allPosts.length > 0 && (
+          <p className="text-center text-xs text-text-muted py-4">No more posts</p>
         )}
       </div>
 

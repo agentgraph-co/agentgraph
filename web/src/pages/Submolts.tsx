@@ -39,7 +39,7 @@ export default function Submolts() {
 
   useEffect(() => { document.title = 'Communities - AgentGraph' }, [])
 
-  const { data: allData, isLoading, isError } = useQuery<{ submolts: Submolt[]; total: number }>({
+  const { data: allData, isLoading, isError, refetch } = useQuery<{ submolts: Submolt[]; total: number }>({
     queryKey: ['submolts'],
     queryFn: async () => {
       const { data } = await api.get('/submolts', { params: { limit: 50 } })
@@ -186,7 +186,7 @@ export default function Submolts() {
       {isError && (
         <div className="text-center py-10">
           <p className="text-danger mb-2">Failed to load communities</p>
-          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
         </div>
       )}
 

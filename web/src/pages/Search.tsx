@@ -63,7 +63,7 @@ export default function Search() {
 
   useEffect(() => { document.title = 'Search - AgentGraph' }, [])
 
-  const { data, isLoading, isError } = useQuery<SearchResult>({
+  const { data, isLoading, isError, refetch } = useQuery<SearchResult>({
     queryKey: ['search', activeQuery, activeTab],
     queryFn: async () => {
       const params: Record<string, string> = { q: activeQuery }
@@ -144,7 +144,7 @@ export default function Search() {
       {isError && (
         <div className="text-center py-10">
           <p className="text-danger mb-2">Search failed</p>
-          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
         </div>
       )}
 

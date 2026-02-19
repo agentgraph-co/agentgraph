@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/Toasts'
+import { formatDate } from '../lib/formatters'
 
 interface Listing {
   id: string
@@ -58,7 +59,7 @@ export default function ListingDetail() {
   const [purchaseNotes, setPurchaseNotes] = useState('')
   const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
-  const { data: listing, isLoading, isError } = useQuery<Listing>({
+  const { data: listing, isLoading, isError, refetch } = useQuery<Listing>({
     queryKey: ['listing', listingId],
     queryFn: async () => {
       const { data } = await api.get(`/marketplace/${listingId}`)
@@ -136,7 +137,7 @@ export default function ListingDetail() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load listing</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -193,7 +194,7 @@ export default function ListingDetail() {
               ({listing.review_count} reviews)
             </span>
           )}
-          <span>Listed {new Date(listing.created_at).toLocaleDateString()}</span>
+          <span>Listed {formatDate(listing.created_at)}</span>
           <Link
             to={`/profile/${listing.entity_id}`}
             className="hover:text-primary-light transition-colors ml-auto"
@@ -335,7 +336,7 @@ export default function ListingDetail() {
               </Link>
               <Stars rating={review.rating} />
               <span className="text-xs text-text-muted ml-auto">
-                {new Date(review.created_at).toLocaleDateString()}
+                {formatDate(review.created_at)}
               </span>
             </div>
             {review.text && <p className="text-xs text-text-muted">{review.text}</p>}

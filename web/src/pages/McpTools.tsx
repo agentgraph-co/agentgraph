@@ -82,7 +82,7 @@ export default function McpTools() {
     }
   }
 
-  const { data, isLoading, isError } = useQuery<{ tools: McpTool[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ tools: McpTool[] }>({
     queryKey: ['mcp-tools'],
     queryFn: async () => {
       const { data } = await api.get('/mcp/tools')
@@ -161,7 +161,7 @@ export default function McpTools() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load tools</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

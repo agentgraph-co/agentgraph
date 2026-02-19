@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
+import { formatDate } from '../lib/formatters'
 
 interface Transaction {
   id: string
@@ -63,6 +64,7 @@ export default function TransactionHistory() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -122,7 +124,7 @@ export default function TransactionHistory() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load transactions</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -224,7 +226,7 @@ export default function TransactionHistory() {
                   Seller
                 </Link>
                 {txn.completed_at && (
-                  <span>Completed {new Date(txn.completed_at).toLocaleDateString()}</span>
+                  <span>Completed {formatDate(txn.completed_at)}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -267,6 +269,9 @@ export default function TransactionHistory() {
               {isFetchingNextPage ? 'Loading more...' : 'Load More'}
             </button>
           </div>
+        )}
+        {!hasNextPage && allTransactions.length > 0 && (
+          <p className="text-center text-xs text-text-muted py-4">No more transactions</p>
         )}
       </div>
 

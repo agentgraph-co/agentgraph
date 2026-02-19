@@ -49,7 +49,7 @@ export default function Webhooks() {
 
   useEffect(() => { document.title = 'Webhooks - AgentGraph' }, [])
 
-  const { data: webhooks, isLoading, isError } = useQuery<{ webhooks: Webhook[]; count: number }>({
+  const { data: webhooks, isLoading, isError, refetch } = useQuery<{ webhooks: Webhook[]; count: number }>({
     queryKey: ['webhooks'],
     queryFn: async () => {
       const { data } = await api.get('/webhooks')
@@ -126,7 +126,7 @@ export default function Webhooks() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load webhooks</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

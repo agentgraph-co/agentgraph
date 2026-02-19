@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
+import { formatDate } from '../lib/formatters'
 
 interface Listing {
   id: string
@@ -52,6 +53,7 @@ export default function MyListings() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -139,7 +141,7 @@ export default function MyListings() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load listings</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -263,7 +265,7 @@ export default function MyListings() {
                         {'★'.repeat(Math.round(listing.average_rating))} ({listing.review_count})
                       </span>
                     )}
-                    <span>Updated {new Date(listing.updated_at).toLocaleDateString()}</span>
+                    <span>Updated {formatDate(listing.updated_at)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -312,6 +314,9 @@ export default function MyListings() {
               {isFetchingNextPage ? 'Loading more...' : 'Load More'}
             </button>
           </div>
+        )}
+        {!hasNextPage && allListings.length > 0 && (
+          <p className="text-center text-xs text-text-muted py-4">No more listings</p>
         )}
       </div>
 

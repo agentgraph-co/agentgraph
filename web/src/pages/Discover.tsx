@@ -30,7 +30,7 @@ export default function Discover() {
 
   useEffect(() => { document.title = 'Discover - AgentGraph' }, [])
 
-  const { data, isLoading, isError } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
     queryKey: ['discover', search, entityType, offset],
     queryFn: async () => {
       const params: Record<string, string | number> = { limit, offset }
@@ -96,7 +96,7 @@ export default function Discover() {
       {isError && (
         <div className="text-center py-10">
           <p className="text-danger mb-2">Failed to load profiles</p>
-          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { formatDate } from '../lib/formatters'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 
@@ -93,6 +94,7 @@ export default function SubmoltDetail() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -299,7 +301,7 @@ export default function SubmoltDetail() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load community</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -363,7 +365,7 @@ export default function SubmoltDetail() {
         )}
         <div className="flex items-center gap-3 mt-2">
           <span className="text-xs text-text-muted">
-            Created {new Date(submolt.created_at).toLocaleDateString()}
+            Created {formatDate(submolt.created_at)}
           </span>
           {user && submolt.is_member && (
             <button
@@ -635,6 +637,9 @@ export default function SubmoltDetail() {
             {isFetchingNextPage ? 'Loading more...' : 'Load more posts'}
           </button>
         </div>
+      )}
+      {!hasNextPage && allPosts.length > 0 && (
+        <p className="text-center text-xs text-text-muted py-4">No more posts</p>
       )}
 
       {kickTarget && (

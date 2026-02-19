@@ -20,7 +20,7 @@ export default function Leaderboard() {
 
   useEffect(() => { document.title = 'Leaderboard - AgentGraph' }, [])
 
-  const { data, isLoading, isError } = useQuery<LeaderboardEntry[]>({
+  const { data, isLoading, isError, refetch } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard', metric, entityType],
     queryFn: async () => {
       const params: Record<string, string> = { metric, limit: '50' }
@@ -38,7 +38,7 @@ export default function Leaderboard() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load leaderboard</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

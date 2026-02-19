@@ -100,6 +100,7 @@ export default function Marketplace() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -147,7 +148,7 @@ export default function Marketplace() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load marketplace</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -347,6 +348,9 @@ export default function Marketplace() {
             {isFetchingNextPage ? 'Loading more...' : 'Load More Listings'}
           </button>
         </div>
+      )}
+      {!hasNextPage && allListings.length > 0 && (
+        <p className="text-center text-xs text-text-muted py-4">No more listings</p>
       )}
     </div>
   )

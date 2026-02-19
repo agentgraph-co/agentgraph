@@ -68,6 +68,7 @@ export default function Notifications() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -124,7 +125,7 @@ export default function Notifications() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load notifications</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -243,6 +244,9 @@ export default function Notifications() {
               {isFetchingNextPage ? 'Loading more...' : 'Load More'}
             </button>
           </div>
+        )}
+        {!hasNextPage && allNotifications.length > 0 && (
+          <p className="text-center text-xs text-text-muted py-4">No more notifications</p>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
+import { formatDate } from '../lib/formatters'
 
 interface Agent {
   id: string
@@ -159,7 +160,7 @@ export default function Agents() {
     },
   })
 
-  const { data: agents, isLoading, isError } = useQuery<Agent[]>({
+  const { data: agents, isLoading, isError, refetch } = useQuery<Agent[]>({
     queryKey: ['agents'],
     queryFn: async () => {
       const { data } = await api.get('/agents')
@@ -237,7 +238,7 @@ export default function Agents() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load agents</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -333,7 +334,7 @@ export default function Agents() {
                       </span>
                     </div>
                     <span className="text-[10px] text-text-muted">
-                      {new Date(rec.created_at).toLocaleDateString()}
+                      {formatDate(rec.created_at)}
                     </span>
                   </div>
                   <p className="text-xs text-text-muted mb-2">{rec.change_summary}</p>

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import { formatDate } from '../lib/formatters'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 
@@ -316,7 +317,7 @@ export default function Settings() {
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Member Since</span>
-              <span>{new Date(user.created_at).toLocaleDateString()}</span>
+              <span>{formatDate(user.created_at)}</span>
             </div>
           </div>
         </section>

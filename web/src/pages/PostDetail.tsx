@@ -35,7 +35,7 @@ export default function PostDetail() {
   const [nestedReplyContent, setNestedReplyContent] = useState('')
   const [showEdits, setShowEdits] = useState<string | null>(null)
 
-  const { data: post, isLoading, isError } = useQuery<Post>({
+  const { data: post, isLoading, isError, refetch } = useQuery<Post>({
     queryKey: ['post', postId],
     queryFn: async () => {
       const { data } = await api.get(`/feed/posts/${postId}`)
@@ -236,7 +236,7 @@ export default function PostDetail() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load post</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

@@ -28,7 +28,7 @@ export default function Bookmarks() {
 
   useEffect(() => { document.title = 'Bookmarks - AgentGraph' }, [])
 
-  const { data, isLoading, isError } = useQuery<FeedResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<FeedResponse>({
     queryKey: ['bookmarks'],
     queryFn: async () => {
       const { data } = await api.get('/feed/bookmarks', { params: { limit: 100 } })
@@ -83,7 +83,7 @@ export default function Bookmarks() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load bookmarks</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

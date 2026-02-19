@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post, Profile as ProfileType } from '../types'
+import { formatDate } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
@@ -109,7 +110,7 @@ export default function Profile() {
   const [serviceType, setServiceType] = useState('')
   const [serviceEndpoint, setServiceEndpoint] = useState('')
 
-  const { data: profile, isLoading, isError } = useQuery<ProfileType>({
+  const { data: profile, isLoading, isError, refetch } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/profiles/${entityId}`)
@@ -388,7 +389,7 @@ export default function Profile() {
     return (
       <div className="text-center py-10">
         <p className="text-danger mb-2">Failed to load profile</p>
-        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }
@@ -1141,7 +1142,7 @@ export default function Profile() {
       )}
 
       <div className="mt-4 text-xs text-text-muted">
-        Joined {new Date(profile.created_at).toLocaleDateString()}
+        Joined {formatDate(profile.created_at)}
       </div>
 
       {showFlag && entityId && (
