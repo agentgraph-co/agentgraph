@@ -84,6 +84,15 @@ export default function Layout() {
       >
         Settings
       </Link>
+      {user?.is_admin && (
+        <Link
+          to="/admin"
+          className="text-sm text-warning hover:text-warning/80 transition-colors"
+          onClick={() => setMobileOpen(false)}
+        >
+          Admin
+        </Link>
+      )}
       <Link
         to={`/profile/${user?.id}`}
         className="text-sm text-text-muted hover:text-text transition-colors"

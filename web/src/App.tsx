@@ -25,6 +25,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import NotFound from './pages/NotFound'
 import { ThemeProvider } from './hooks/useTheme'
 import Bookmarks from './pages/Bookmarks'
+import Admin from './pages/Admin'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,7 @@ function AppRoutes() {
         <Route path="/m/:name" element={<ProtectedRoute><SubmoltDetail /></ProtectedRoute>} />
         <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
         <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
