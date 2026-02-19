@@ -1,0 +1,253 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api from '../lib/api'
+
+interface Transaction {
+  id: string
+  listing_id: string | null
+  buyer_entity_id: string
+  seller_entity_id: string
+  amount_cents: number
+  status: string
+  listing_title: string
+  listing_category: string
+  notes: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+interface TransactionListResponse {
+  transactions: Transaction[]
+  total: number
+}
+
+const PAGE_SIZE = 20
+
+function formatPrice(cents: number): string {
+  if (cents === 0) return 'Free'
+  return `$${(cents / 100).toFixed(2)}`
+}
+
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  pending: 'bg-warning/20 text-warning',
+  completed: 'bg-success/20 text-success',
+  refunded: 'bg-accent/20 text-accent',
+  cancelled: 'bg-danger/20 text-danger',
+}
+
+export default function TransactionHistory() {
+  const queryClient = useQueryClient()
+  const [role, setRole] = useState<'buyer' | 'seller' | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<TransactionListResponse>({
+    queryKey: ['transactions', role, statusFilter],
+    queryFn: async ({ pageParam }) => {
+      const params: Record<string, unknown> = {
+        role,
+        limit: PAGE_SIZE,
+        offset: pageParam,
+      }
+      if (statusFilter !== 'all') params.status = statusFilter
+      const { data } = await api.get('/marketplace/purchases/history', { params })
+      return data
+    },
+    initialPageParam: 0,
+    getNextPageParam: (_lastPage, allPages) => {
+      const loaded = allPages.reduce((acc, page) => acc + page.transactions.length, 0)
+      const total = allPages[0]?.total || 0
+      if (loaded >= total) return undefined
+      return loaded
+    },
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: async (txnId: string) => {
+      await api.patch(`/marketplace/purchases/${txnId}/cancel`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+
+  const refundMutation = useMutation({
+    mutationFn: async (txnId: string) => {
+      await api.patch(`/marketplace/purchases/${txnId}/refund`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+
+  const allTransactions = data?.pages.flatMap((page) => page.transactions) || []
+  const totalCount = data?.pages[0]?.total || 0
+
+  if (isLoading) {
+    return <div className="text-text-muted text-center mt-10">Loading transactions...</div>
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <h1 className="text-xl font-bold mb-4">Transaction History</h1>
+
+      {/* Filters */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex gap-1">
+          {(['all', 'buyer', 'seller'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRole(r)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                role === r
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {r === 'all' ? 'All' : r === 'buyer' ? 'Purchases' : 'Sales'}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {(['all', 'pending', 'completed', 'refunded', 'cancelled'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer capitalize ${
+                statusFilter === s
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {s === 'all' ? 'All Status' : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="text-xs text-text-muted mb-3">
+        {totalCount} {totalCount === 1 ? 'transaction' : 'transactions'}
+      </div>
+
+      {/* Transaction list */}
+      <div className="space-y-3">
+        {allTransactions.map((txn) => (
+          <div
+            key={txn.id}
+            className="bg-surface border border-border rounded-lg p-4"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="min-w-0">
+                {txn.listing_id ? (
+                  <Link
+                    to={`/marketplace/${txn.listing_id}`}
+                    className="font-medium text-sm hover:text-primary-light transition-colors"
+                  >
+                    {txn.listing_title}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-sm">{txn.listing_title}</span>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="px-1.5 py-0.5 rounded bg-surface-hover text-[10px] capitalize">
+                    {txn.listing_category}
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${STATUS_STYLES[txn.status] || ''}`}>
+                    {txn.status}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0 ml-3">
+                <div className="text-sm font-medium text-primary-light">
+                  {formatPrice(txn.amount_cents)}
+                </div>
+                <div className="text-[10px] text-text-muted">{timeAgo(txn.created_at)}</div>
+              </div>
+            </div>
+
+            {txn.notes && (
+              <p className="text-xs text-text-muted mt-1 mb-2">{txn.notes}</p>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-text-muted">
+              <div className="flex items-center gap-3">
+                <Link
+                  to={`/profile/${txn.buyer_entity_id}`}
+                  className="hover:text-primary-light transition-colors"
+                >
+                  Buyer
+                </Link>
+                <Link
+                  to={`/profile/${txn.seller_entity_id}`}
+                  className="hover:text-primary-light transition-colors"
+                >
+                  Seller
+                </Link>
+                {txn.completed_at && (
+                  <span>Completed {new Date(txn.completed_at).toLocaleDateString()}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {txn.status === 'pending' && (
+                  <button
+                    onClick={() => cancelMutation.mutate(txn.id)}
+                    disabled={cancelMutation.isPending}
+                    className="text-danger hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                )}
+                {txn.status === 'completed' && (
+                  <button
+                    onClick={() => refundMutation.mutate(txn.id)}
+                    disabled={refundMutation.isPending}
+                    className="text-warning hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Refund
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {allTransactions.length === 0 && (
+          <div className="text-text-muted text-center py-10">
+            {statusFilter !== 'all' || role !== 'all'
+              ? 'No transactions match your filters.'
+              : 'No transactions yet.'}
+          </div>
+        )}
+
+        {hasNextPage && (
+          <div className="text-center py-4">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+            >
+              {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

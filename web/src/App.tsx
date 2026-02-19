@@ -30,6 +30,8 @@ import Webhooks from './pages/Webhooks'
 import VerifyEmail from './pages/VerifyEmail'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import TransactionHistory from './pages/TransactionHistory'
+import MyListings from './pages/MyListings'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +74,8 @@ function AppRoutes() {
         <Route path="/m/:name" element={<ProtectedRoute><SubmoltDetail /></ProtectedRoute>} />
         <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
         <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
+        <Route path="/transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
+        <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
