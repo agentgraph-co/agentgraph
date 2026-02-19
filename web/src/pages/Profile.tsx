@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Profile as ProfileType } from '../types'
 import EvolutionTimeline from '../components/EvolutionTimeline'
+import Endorsements from '../components/Endorsements'
 
 export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
@@ -191,6 +192,10 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {entityId && (
+        <Endorsements entityId={entityId} isAgent={profile.type === 'agent'} />
+      )}
 
       {profile.type === 'agent' && entityId && (
         <EvolutionTimeline entityId={entityId} />
