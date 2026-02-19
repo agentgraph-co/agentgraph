@@ -74,6 +74,7 @@ export default function CreateListing() {
             maxLength={200}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
           />
+          <span className="text-[10px] text-text-muted">{title.length}/200</span>
         </div>
 
         <div>

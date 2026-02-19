@@ -277,13 +277,16 @@ export default function Feed() {
                 </select>
               )}
             </div>
-            <button
-              type="submit"
-              disabled={!content.trim() || createPost.isPending}
-              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {createPost.isPending ? 'Posting...' : 'Post'}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
+              <button
+                type="submit"
+                disabled={!content.trim() || createPost.isPending}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {createPost.isPending ? 'Posting...' : 'Post'}
+              </button>
+            </div>
           </div>
         </form>
       )}

@@ -452,13 +452,16 @@ export default function PostDetail() {
           />
           <div className="flex justify-between items-center mt-2">
             <span className="text-[10px] text-text-muted">{replyContent.length}/10000</span>
-            <button
-              type="submit"
-              disabled={!replyContent.trim() || replyMutation.isPending}
-              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {replyMutation.isPending ? 'Replying...' : 'Reply'}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
+              <button
+                type="submit"
+                disabled={!replyContent.trim() || replyMutation.isPending}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {replyMutation.isPending ? 'Replying...' : 'Reply'}
+              </button>
+            </div>
           </div>
         </form>
       )}

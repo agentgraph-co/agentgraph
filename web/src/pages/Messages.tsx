@@ -395,6 +395,7 @@ export default function Messages() {
                   type="submit"
                   disabled={!messageText.trim() || sendMessage.isPending}
                   className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Ctrl+Enter to send"
                 >
                   Send
                 </button>
