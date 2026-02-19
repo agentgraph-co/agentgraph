@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface BlockedUser {
   entity_id: string
@@ -85,6 +86,7 @@ export default function Settings() {
   const [emailErr, setEmailErr] = useState('')
 
   const [verifyMsg, setVerifyMsg] = useState('')
+  const [privacyUpdating, setPrivacyUpdating] = useState(false)
 
   const resendVerification = useMutation({
     mutationFn: async () => {
@@ -174,6 +176,28 @@ export default function Settings() {
       updatePrefMutation.mutate({ [key]: !notifPrefs[key] })
     }
   }
+
+  const { data: privacyData } = useQuery<{ tier: string; options: string[] }>({
+    queryKey: ['privacy-tier'],
+    queryFn: async () => {
+      const { data } = await api.get('/account/privacy')
+      return data
+    },
+  })
+
+  const updatePrivacyMutation = useMutation({
+    mutationFn: async (tier: string) => {
+      setPrivacyUpdating(true)
+      await api.put('/account/privacy', { tier })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['privacy-tier'] })
+      setPrivacyUpdating(false)
+    },
+    onError: () => {
+      setPrivacyUpdating(false)
+    },
+  })
 
   const { data: auditData } = useQuery<{ entries: AuditEntry[]; total: number }>({
     queryKey: ['audit-log', auditOffset],
@@ -383,6 +407,50 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Privacy */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Privacy
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            Control who can view your profile and content.
+          </p>
+          {privacyData ? (
+            <div className="space-y-2">
+              {[
+                { value: 'public', label: 'Public', desc: 'Anyone can view your profile and posts' },
+                { value: 'verified', label: 'Verified Only', desc: 'Only verified users can view your profile' },
+                { value: 'private', label: 'Private', desc: 'Only your followers can view your profile' },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                    privacyData.tier === opt.value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/30'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="privacy-tier"
+                    value={opt.value}
+                    checked={privacyData.tier === opt.value}
+                    onChange={() => updatePrivacyMutation.mutate(opt.value)}
+                    disabled={privacyUpdating}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <div>
+                    <div className="text-sm font-medium">{opt.label}</div>
+                    <div className="text-xs text-text-muted">{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">Loading privacy settings...</p>
+          )}
+        </section>
+
         {/* Notification Preferences */}
         <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
@@ -580,37 +648,25 @@ export default function Settings() {
           <h2 className="text-sm font-semibold text-danger uppercase tracking-wider mb-3">
             Danger Zone
           </h2>
-          {!showDeactivate ? (
-            <button
-              onClick={() => setShowDeactivate(true)}
-              className="border border-danger text-danger px-4 py-2 rounded-md text-sm hover:bg-danger/10 transition-colors cursor-pointer"
-            >
-              Deactivate Account
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-danger">
-                This will deactivate your account. Your data will be retained but your
-                profile and posts will be hidden. This action can be reversed by contacting support.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => deactivate.mutate()}
-                  disabled={deactivate.isPending}
-                  className="bg-danger text-white px-4 py-2 rounded-md text-sm hover:bg-danger/80 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {deactivate.isPending ? 'Deactivating...' : 'Confirm Deactivation'}
-                </button>
-                <button
-                  onClick={() => setShowDeactivate(false)}
-                  className="border border-border text-text px-4 py-2 rounded-md text-sm hover:bg-surface-hover transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            onClick={() => setShowDeactivate(true)}
+            className="border border-danger text-danger px-4 py-2 rounded-md text-sm hover:bg-danger/10 transition-colors cursor-pointer"
+          >
+            Deactivate Account
+          </button>
         </section>
+
+        {showDeactivate && (
+          <ConfirmDialog
+            title="Deactivate Account"
+            message="This will deactivate your account, revoke all API keys, disable webhooks, and hide your profile and posts. Your data will be retained. Contact support to reactivate."
+            confirmLabel="Deactivate"
+            variant="danger"
+            isPending={deactivate.isPending}
+            onConfirm={() => deactivate.mutate()}
+            onCancel={() => setShowDeactivate(false)}
+          />
+        )}
       </div>
     </div>
   )

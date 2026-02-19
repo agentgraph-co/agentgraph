@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -9,7 +9,7 @@ import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
 import { ProfileSkeleton } from '../components/Skeleton'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings'
 
 interface ActivityItem {
   type: string
@@ -53,6 +53,26 @@ interface FollowEntity {
   did_web: string
 }
 
+interface ProfileListing {
+  id: string
+  title: string
+  description: string
+  category: string
+  pricing_model: string
+  price_cents: number
+  average_rating: number | null
+  review_count: number
+  view_count: number
+  is_featured: boolean
+  created_at: string
+}
+
+function formatPrice(cents: number, model: string): string {
+  if (model === 'free') return 'Free'
+  const dollars = (cents / 100).toFixed(2)
+  return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
+}
+
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
   if (seconds < 60) return 'just now'
@@ -68,6 +88,7 @@ export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [bio, setBio] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -78,6 +99,10 @@ export default function Profile() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const [showAddService, setShowAddService] = useState(false)
+  const [serviceId, setServiceId] = useState('')
+  const [serviceType, setServiceType] = useState('')
+  const [serviceEndpoint, setServiceEndpoint] = useState('')
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -179,22 +204,46 @@ export default function Profile() {
     enabled: !!entityId && activeTab === 'posts',
   })
 
-  const { data: followersData } = useQuery<{ entities: FollowEntity[]; count: number; total: number }>({
+  const { data: followersData, fetchNextPage: fetchMoreFollowers, hasNextPage: hasMoreFollowers, isFetchingNextPage: loadingMoreFollowers } = useInfiniteQuery<{ entities: FollowEntity[]; count: number; total: number }>({
     queryKey: ['profile-followers', entityId],
-    queryFn: async () => {
-      const { data } = await api.get(`/social/followers/${entityId}`, { params: { limit: 50 } })
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get(`/social/followers/${entityId}`, { params: { limit: 50, offset: pageParam } })
       return data
+    },
+    initialPageParam: 0,
+    getNextPageParam: (_lastPage, allPages) => {
+      const loaded = allPages.reduce((acc, p) => acc + p.entities.length, 0)
+      const total = allPages[0]?.total || 0
+      if (loaded >= total) return undefined
+      return loaded
     },
     enabled: !!entityId && activeTab === 'followers',
   })
 
-  const { data: followingData } = useQuery<{ entities: FollowEntity[]; count: number; total: number }>({
+  const { data: followingDataPages, fetchNextPage: fetchMoreFollowing, hasNextPage: hasMoreFollowing, isFetchingNextPage: loadingMoreFollowing } = useInfiniteQuery<{ entities: FollowEntity[]; count: number; total: number }>({
     queryKey: ['profile-following', entityId],
-    queryFn: async () => {
-      const { data } = await api.get(`/social/following/${entityId}`, { params: { limit: 50 } })
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get(`/social/following/${entityId}`, { params: { limit: 50, offset: pageParam } })
       return data
     },
+    initialPageParam: 0,
+    getNextPageParam: (_lastPage, allPages) => {
+      const loaded = allPages.reduce((acc, p) => acc + p.entities.length, 0)
+      const total = allPages[0]?.total || 0
+      if (loaded >= total) return undefined
+      return loaded
+    },
     enabled: !!entityId && activeTab === 'following',
+  })
+
+  const { data: listingsData } = useQuery<{ listings: ProfileListing[]; total: number }>({
+    queryKey: ['profile-listings', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/marketplace/entity/${entityId}`)
+      if (Array.isArray(data)) return { listings: data, total: data.length }
+      return { listings: data.listings || [], total: data.total || 0 }
+    },
+    enabled: !!entityId && activeTab === 'listings',
   })
 
   const [activityFilter, setActivityFilter] = useState<string>('all')
@@ -263,6 +312,25 @@ export default function Profile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entity-reviews', entityId] })
       queryClient.invalidateQueries({ queryKey: ['entity-review-summary', entityId] })
+    },
+  })
+
+  const addServiceMutation = useMutation({
+    mutationFn: async (service: { id: string; type: string; serviceEndpoint: string }) => {
+      // Get existing services from current DID doc, append new one
+      const existing = didDoc?.service?.filter(
+        (s: { id: string }) => !s.id.endsWith('#agentgraph')
+      ) || []
+      await api.patch(`/did/entity/${entityId}`, {
+        service: [...existing, service],
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['did-doc', entityId] })
+      setShowAddService(false)
+      setServiceId('')
+      setServiceType('')
+      setServiceEndpoint('')
     },
   })
 
@@ -369,6 +437,12 @@ export default function Profile() {
                   }`}
                 >
                   {profile.is_following ? 'Unfollow' : 'Follow'}
+                </button>
+                <button
+                  onClick={() => navigate(`/messages?to=${entityId}`)}
+                  className="px-3 py-1.5 rounded-md text-sm text-text-muted border border-border hover:border-primary hover:text-primary-light transition-colors cursor-pointer"
+                >
+                  Message
                 </button>
                 <button
                   onClick={() => isBlocked ? unblockMutation.mutate() : blockMutation.mutate()}
@@ -528,9 +602,64 @@ export default function Profile() {
             </button>
           </div>
           {didDoc ? (
-            <pre className="text-xs text-text-muted bg-background rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
-              {JSON.stringify(didDoc, null, 2)}
-            </pre>
+            <>
+              <pre className="text-xs text-text-muted bg-background rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+                {JSON.stringify(didDoc, null, 2)}
+              </pre>
+              {isOwn && (
+                <div className="mt-3">
+                  {showAddService ? (
+                    <div className="space-y-2 bg-background rounded-md p-3">
+                      <p className="text-xs font-medium">Add Service Endpoint</p>
+                      <input
+                        value={serviceId}
+                        onChange={(e) => setServiceId(e.target.value)}
+                        placeholder="Service ID (e.g. mcp-server)"
+                        className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
+                      />
+                      <input
+                        value={serviceType}
+                        onChange={(e) => setServiceType(e.target.value)}
+                        placeholder="Type (e.g. MCPServer, AgentAPI)"
+                        className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
+                      />
+                      <input
+                        value={serviceEndpoint}
+                        onChange={(e) => setServiceEndpoint(e.target.value)}
+                        placeholder="https://your-service-url.com"
+                        className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => addServiceMutation.mutate({
+                            id: `${profile.did_web}#${serviceId}`,
+                            type: serviceType,
+                            serviceEndpoint,
+                          })}
+                          disabled={!serviceId || !serviceType || !serviceEndpoint.startsWith('https://') || addServiceMutation.isPending}
+                          className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {addServiceMutation.isPending ? 'Adding...' : 'Add'}
+                        </button>
+                        <button
+                          onClick={() => setShowAddService(false)}
+                          className="text-xs text-text-muted hover:text-text cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowAddService(true)}
+                      className="text-xs text-primary-light hover:underline cursor-pointer"
+                    >
+                      + Add Service Endpoint
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-xs text-text-muted">Loading DID document...</p>
           )}
@@ -538,12 +667,12 @@ export default function Profile() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-border mt-4">
-        {(['posts', 'followers', 'following', 'reviews', 'activity'] as ProfileTab[]).map((tab) => (
+      <div className="flex border-b border-border mt-4 overflow-x-auto">
+        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === tab
                 ? 'border-b-2 border-primary text-text'
                 : 'text-text-muted hover:text-text'
@@ -553,6 +682,7 @@ export default function Profile() {
             {tab === 'followers' && `Followers (${profile.follower_count})`}
             {tab === 'following' && `Following (${profile.following_count})`}
             {tab === 'reviews' && 'Reviews'}
+            {tab === 'listings' && 'Listings'}
             {tab === 'activity' && 'Activity'}
           </button>
         ))}
@@ -595,7 +725,7 @@ export default function Profile() {
 
       {activeTab === 'followers' && (
         <div className="mt-3 space-y-2">
-          {followersData?.entities.map((f) => (
+          {followersData?.pages.flatMap((p) => p.entities).map((f) => (
             <Link
               key={f.id}
               to={`/profile/${f.id}`}
@@ -614,20 +744,26 @@ export default function Profile() {
               </span>
             </Link>
           ))}
-          {followersData && followersData.entities.length === 0 && (
+          {followersData && followersData.pages[0]?.entities.length === 0 && (
             <p className="text-center text-text-muted text-sm py-6">No followers yet</p>
           )}
-          {followersData && followersData.total > 50 && (
-            <p className="text-center text-xs text-text-muted py-2">
-              Showing {followersData.count} of {followersData.total} followers
-            </p>
+          {hasMoreFollowers && (
+            <div className="text-center py-2">
+              <button
+                onClick={() => fetchMoreFollowers()}
+                disabled={loadingMoreFollowers}
+                className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+              >
+                {loadingMoreFollowers ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
           )}
         </div>
       )}
 
       {activeTab === 'following' && (
         <div className="mt-3 space-y-2">
-          {followingData?.entities.map((f) => (
+          {followingDataPages?.pages.flatMap((p) => p.entities).map((f) => (
             <Link
               key={f.id}
               to={`/profile/${f.id}`}
@@ -646,13 +782,19 @@ export default function Profile() {
               </span>
             </Link>
           ))}
-          {followingData && followingData.entities.length === 0 && (
+          {followingDataPages && followingDataPages.pages[0]?.entities.length === 0 && (
             <p className="text-center text-text-muted text-sm py-6">Not following anyone yet</p>
           )}
-          {followingData && followingData.total > 50 && (
-            <p className="text-center text-xs text-text-muted py-2">
-              Showing {followingData.count} of {followingData.total} following
-            </p>
+          {hasMoreFollowing && (
+            <div className="text-center py-2">
+              <button
+                onClick={() => fetchMoreFollowing()}
+                disabled={loadingMoreFollowing}
+                className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+              >
+                {loadingMoreFollowing ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -796,6 +938,48 @@ export default function Profile() {
               <p className="text-center text-text-muted text-sm py-6">No reviews yet</p>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'listings' && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {listingsData?.listings.map((listing) => (
+            <Link
+              key={listing.id}
+              to={`/marketplace/${listing.id}`}
+              className="bg-surface border border-border rounded-lg p-4 hover:border-primary/30 transition-colors block"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {listing.is_featured && (
+                    <span className="text-warning text-xs shrink-0" title="Featured">&#9733;</span>
+                  )}
+                  <h3 className="font-medium line-clamp-1">{listing.title}</h3>
+                </div>
+                <span className="text-sm font-medium text-primary-light whitespace-nowrap ml-2">
+                  {formatPrice(listing.price_cents, listing.pricing_model)}
+                </span>
+              </div>
+              <p className="text-xs text-text-muted line-clamp-2 mb-2">{listing.description}</p>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded bg-surface-hover capitalize">{listing.category}</span>
+                  {listing.average_rating !== null && (
+                    <span className="flex items-center gap-0.5">
+                      <span className="text-warning text-[10px]">
+                        {'★'.repeat(Math.round(listing.average_rating))}{'☆'.repeat(5 - Math.round(listing.average_rating))}
+                      </span>
+                      <span>({listing.review_count})</span>
+                    </span>
+                  )}
+                </div>
+                <span>{listing.view_count} views</span>
+              </div>
+            </Link>
+          ))}
+          {listingsData && listingsData.listings.length === 0 && (
+            <p className="text-center text-text-muted text-sm py-6">No marketplace listings</p>
+          )}
         </div>
       )}
 

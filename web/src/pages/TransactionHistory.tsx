@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Transaction {
   id: string
@@ -51,6 +52,8 @@ export default function TransactionHistory() {
   const queryClient = useQueryClient()
   const [role, setRole] = useState<'buyer' | 'seller' | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [confirmCancel, setConfirmCancel] = useState<string | null>(null)
+  const [confirmRefund, setConfirmRefund] = useState<string | null>(null)
 
   const {
     data,
@@ -207,18 +210,16 @@ export default function TransactionHistory() {
               <div className="flex items-center gap-2">
                 {txn.status === 'pending' && (
                   <button
-                    onClick={() => cancelMutation.mutate(txn.id)}
-                    disabled={cancelMutation.isPending}
-                    className="text-danger hover:underline cursor-pointer disabled:opacity-50"
+                    onClick={() => setConfirmCancel(txn.id)}
+                    className="text-danger hover:underline cursor-pointer"
                   >
                     Cancel
                   </button>
                 )}
                 {txn.status === 'completed' && (
                   <button
-                    onClick={() => refundMutation.mutate(txn.id)}
-                    disabled={refundMutation.isPending}
-                    className="text-warning hover:underline cursor-pointer disabled:opacity-50"
+                    onClick={() => setConfirmRefund(txn.id)}
+                    className="text-warning hover:underline cursor-pointer"
                   >
                     Refund
                   </button>
@@ -248,6 +249,38 @@ export default function TransactionHistory() {
           </div>
         )}
       </div>
+
+      {confirmCancel && (
+        <ConfirmDialog
+          title="Cancel Transaction"
+          message="This will cancel the pending purchase. The transaction will be voided and cannot be undone."
+          confirmLabel="Cancel Transaction"
+          variant="warning"
+          isPending={cancelMutation.isPending}
+          onConfirm={() => {
+            cancelMutation.mutate(confirmCancel, {
+              onSettled: () => setConfirmCancel(null),
+            })
+          }}
+          onCancel={() => setConfirmCancel(null)}
+        />
+      )}
+
+      {confirmRefund && (
+        <ConfirmDialog
+          title="Refund Transaction"
+          message="This will refund the completed transaction. The buyer will be credited and this action cannot be undone."
+          confirmLabel="Issue Refund"
+          variant="danger"
+          isPending={refundMutation.isPending}
+          onConfirm={() => {
+            refundMutation.mutate(confirmRefund, {
+              onSettled: () => setConfirmRefund(null),
+            })
+          }}
+          onCancel={() => setConfirmRefund(null)}
+        />
+      )}
     </div>
   )
 }

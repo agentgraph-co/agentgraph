@@ -143,14 +143,14 @@ export default function SubmoltDetail() {
     },
   })
 
-  // Members query — used to determine current user's role
+  // Members query — always load to determine current user's role
   const { data: membersData } = useQuery<{ members: SubmoltMember[]; total: number }>({
     queryKey: ['submolt-members', name],
     queryFn: async () => {
       const { data } = await api.get(`/submolts/${name}/members`, { params: { limit: 100 } })
       return data
     },
-    enabled: !!name && showMembers,
+    enabled: !!name && !!user,
   })
 
   const { data: bannedData } = useQuery<{ banned: BannedMember[]; total: number }>({
@@ -218,6 +218,15 @@ export default function SubmoltDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
       setDemoteTarget(null)
+    },
+  })
+
+  const pinMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      await api.post(`/social/pin/${postId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
     },
   })
 
@@ -514,6 +523,17 @@ export default function SubmoltDetail() {
                   <Link to={`/post/${post.id}`} className="hover:text-text transition-colors">
                     {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
                   </Link>
+                  {isOwnerOrMod && (
+                    <button
+                      onClick={() => pinMutation.mutate(post.id)}
+                      disabled={pinMutation.isPending}
+                      className={`transition-colors cursor-pointer disabled:opacity-50 ${
+                        post.is_pinned ? 'text-warning hover:text-text-muted' : 'hover:text-warning'
+                      }`}
+                    >
+                      {post.is_pinned ? 'Unpin' : 'Pin'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
