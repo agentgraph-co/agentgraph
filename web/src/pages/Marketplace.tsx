@@ -1,28 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 
 interface Listing {
   id: string
+  entity_id: string
   title: string
   description: string
   category: string
+  tags: string[]
   pricing_model: string
   price_cents: number
-  seller_name: string
-  seller_id: string
+  is_featured: boolean
   view_count: number
+  average_rating: number | null
+  review_count: number
   created_at: string
 }
 
 interface MarketplaceResponse {
   listings: Listing[]
   total: number
-  has_more: boolean
 }
 
 const CATEGORIES = ['all', 'service', 'skill', 'integration', 'tool', 'data'] as const
+const PRICING_MODELS = ['all', 'free', 'one_time', 'subscription'] as const
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'popular', label: 'Popular' },
+  { value: 'price_asc', label: 'Price: Low to High' },
+  { value: 'price_desc', label: 'Price: High to Low' },
+] as const
 const PAGE_SIZE = 18
 
 function formatPrice(cents: number, model: string): string {
@@ -31,8 +40,29 @@ function formatPrice(cents: number, model: string): string {
   return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
 }
 
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span className="text-warning text-[10px]">
+      {'★'.repeat(Math.round(rating))}{'☆'.repeat(5 - Math.round(rating))}
+    </span>
+  )
+}
+
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [pricingFilter, setPricingFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('newest')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Debounce search input
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => {
+      setSearchTerm(searchInput.trim())
+    }, 300)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchInput])
 
   const {
     data,
@@ -41,31 +71,36 @@ export default function Marketplace() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<MarketplaceResponse>({
-    queryKey: ['marketplace', activeCategory],
+    queryKey: ['marketplace', activeCategory, pricingFilter, sortBy, searchTerm],
     queryFn: async ({ pageParam }) => {
-      const params: Record<string, unknown> = { limit: PAGE_SIZE, offset: pageParam }
-      if (activeCategory !== 'all') {
-        params.category = activeCategory
+      const params: Record<string, unknown> = {
+        limit: PAGE_SIZE,
+        offset: pageParam,
+        sort: sortBy,
       }
+      if (activeCategory !== 'all') params.category = activeCategory
+      if (pricingFilter !== 'all') params.pricing_model = pricingFilter
+      if (searchTerm) params.search = searchTerm
       const { data } = await api.get('/marketplace', { params })
-      // Handle both response shapes
       if (Array.isArray(data)) {
-        return { listings: data, total: data.length, has_more: false }
+        return { listings: data, total: data.length }
       }
       return {
         listings: data.listings || [],
         total: data.total || 0,
-        has_more: data.has_more ?? (data.listings?.length === PAGE_SIZE),
       }
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.has_more) return undefined
-      return allPages.reduce((acc, page) => acc + page.listings.length, 0)
+    getNextPageParam: (_lastPage, allPages) => {
+      const loaded = allPages.reduce((acc, page) => acc + page.listings.length, 0)
+      const total = allPages[0]?.total || 0
+      if (loaded >= total) return undefined
+      return loaded
     },
   })
 
   const allListings = data?.pages.flatMap((page) => page.listings) || []
+  const totalCount = data?.pages[0]?.total || 0
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading marketplace...</div>
@@ -73,7 +108,8 @@ export default function Marketplace() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Agent Marketplace</h1>
           <Link
@@ -83,12 +119,24 @@ export default function Marketplace() {
             + New Listing
           </Link>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search listings..."
+          className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-56"
+        />
+      </div>
+
+      {/* Filters row */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        {/* Category pills */}
+        <div className="flex gap-1.5 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
+              className={`px-2.5 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
                 activeCategory === cat
                   ? 'border-primary text-primary bg-primary/10'
                   : 'border-border text-text-muted hover:border-primary hover:text-primary'
@@ -98,8 +146,42 @@ export default function Marketplace() {
             </button>
           ))}
         </div>
+
+        <div className="flex items-center gap-3">
+          {/* Pricing filter */}
+          <select
+            value={pricingFilter}
+            onChange={(e) => setPricingFilter(e.target.value)}
+            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+          >
+            {PRICING_MODELS.map((pm) => (
+              <option key={pm} value={pm}>
+                {pm === 'all' ? 'Any Price' : pm === 'one_time' ? 'One-Time' : pm === 'free' ? 'Free' : 'Subscription'}
+              </option>
+            ))}
+          </select>
+
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
+      {/* Results count */}
+      <div className="text-xs text-text-muted mb-3">
+        {totalCount} {totalCount === 1 ? 'listing' : 'listings'}
+        {searchTerm && <> matching &ldquo;{searchTerm}&rdquo;</>}
+        {activeCategory !== 'all' && <> in {activeCategory}</>}
+      </div>
+
+      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {allListings.map((listing) => (
           <Link
@@ -108,7 +190,12 @@ export default function Marketplace() {
             className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors block"
           >
             <div className="flex items-start justify-between mb-2">
-              <h3 className="font-medium line-clamp-1">{listing.title}</h3>
+              <div className="flex items-center gap-1.5 min-w-0">
+                {listing.is_featured && (
+                  <span className="text-warning text-xs shrink-0" title="Featured">★</span>
+                )}
+                <h3 className="font-medium line-clamp-1">{listing.title}</h3>
+              </div>
               <span className="text-sm font-medium text-primary-light whitespace-nowrap ml-2">
                 {formatPrice(listing.price_cents, listing.pricing_model)}
               </span>
@@ -116,14 +203,29 @@ export default function Marketplace() {
             <p className="text-xs text-text-muted line-clamp-2 mb-3">
               {listing.description}
             </p>
+            {listing.tags && listing.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {listing.tags.slice(0, 3).map((tag) => (
+                  <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary-light rounded">
+                    {tag}
+                  </span>
+                ))}
+                {listing.tags.length > 3 && (
+                  <span className="text-[10px] text-text-muted">+{listing.tags.length - 3}</span>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between text-xs text-text-muted">
               <div className="flex items-center gap-2">
                 <span className="px-1.5 py-0.5 rounded bg-surface-hover capitalize">
                   {listing.category}
                 </span>
-                <span className="hover:text-primary-light transition-colors">
-                  {listing.seller_name}
-                </span>
+                {listing.average_rating !== null && (
+                  <span className="flex items-center gap-0.5">
+                    <Stars rating={listing.average_rating} />
+                    <span>({listing.review_count})</span>
+                  </span>
+                )}
               </div>
               <span>{listing.view_count} views</span>
             </div>
@@ -133,7 +235,9 @@ export default function Marketplace() {
 
       {allListings.length === 0 && (
         <div className="text-text-muted text-center py-10">
-          No listings yet. Be the first to list a service!
+          {searchTerm || activeCategory !== 'all' || pricingFilter !== 'all'
+            ? 'No listings match your filters.'
+            : 'No listings yet. Be the first to list a service!'}
         </div>
       )}
 

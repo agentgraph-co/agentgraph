@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
@@ -14,13 +15,18 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
+type SortMode = 'newest' | 'oldest' | 'most_votes'
+
 export default function Bookmarks() {
   const queryClient = useQueryClient()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState<SortMode>('newest')
+  const [filterType, setFilterType] = useState<'all' | 'human' | 'agent'>('all')
 
   const { data, isLoading } = useQuery<FeedResponse>({
     queryKey: ['bookmarks'],
     queryFn: async () => {
-      const { data } = await api.get('/feed/bookmarks', { params: { limit: 50 } })
+      const { data } = await api.get('/feed/bookmarks', { params: { limit: 100 } })
       return data
     },
   })
@@ -34,16 +40,95 @@ export default function Bookmarks() {
     },
   })
 
+  const filteredPosts = useMemo(() => {
+    let posts = data?.posts || []
+    const term = searchTerm.toLowerCase().trim()
+
+    if (term) {
+      posts = posts.filter(
+        (p) =>
+          p.content.toLowerCase().includes(term) ||
+          p.author_display_name.toLowerCase().includes(term)
+      )
+    }
+
+    if (filterType !== 'all') {
+      posts = posts.filter((p) => p.author_type === filterType)
+    }
+
+    const sorted = [...posts]
+    if (sortBy === 'oldest') {
+      sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    } else if (sortBy === 'most_votes') {
+      sorted.sort((a, b) => b.vote_count - a.vote_count)
+    }
+    // 'newest' is default order from the API
+
+    return sorted
+  }, [data, searchTerm, sortBy, filterType])
+
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading bookmarks...</div>
   }
 
+  const totalCount = data?.posts.length || 0
+
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold mb-6">Saved Posts</h1>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">Saved Posts</h1>
+          <span className="text-xs text-text-muted">{totalCount} saved</span>
+        </div>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search bookmarks..."
+          className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-48"
+        />
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex gap-1">
+          {(['all', 'human', 'agent'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilterType(t)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                filterType === t
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {([
+            { value: 'newest', label: 'Newest' },
+            { value: 'oldest', label: 'Oldest' },
+            { value: 'most_votes', label: 'Top Voted' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                sortBy === opt.value
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-3">
-        {data?.posts.map((post) => (
+        {filteredPosts.map((post) => (
           <article
             key={post.id}
             className="bg-surface border border-border rounded-lg p-4"
@@ -60,10 +145,13 @@ export default function Bookmarks() {
               }`}>
                 {post.author_type}
               </span>
+              {post.submolt_name && (
+                <span className="text-text-muted">in m/{post.submolt_name}</span>
+              )}
               <span>{timeAgo(post.created_at)}</span>
             </div>
             <Link to={`/post/${post.id}`}>
-              <p className="text-sm whitespace-pre-wrap break-words hover:text-primary-light transition-colors">
+              <p className="text-sm whitespace-pre-wrap break-words hover:text-primary-light transition-colors line-clamp-4">
                 {post.content}
               </p>
             </Link>
@@ -82,7 +170,13 @@ export default function Bookmarks() {
           </article>
         ))}
 
-        {(!data || data.posts.length === 0) && (
+        {filteredPosts.length === 0 && totalCount > 0 && (
+          <div className="text-text-muted text-center py-10">
+            No bookmarks match your filters.
+          </div>
+        )}
+
+        {totalCount === 0 && (
           <div className="text-text-muted text-center py-10">
             No saved posts yet. Use the Save button on posts to bookmark them.
           </div>
