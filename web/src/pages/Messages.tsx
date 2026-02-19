@@ -379,6 +379,14 @@ export default function Messages() {
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && messageText.trim()) {
+                      e.preventDefault()
+                      if (selectedConv) {
+                        sendMessage.mutate({ recipientId: selectedConv.other_entity_id, content: messageText })
+                      }
+                    }
+                  }}
                   placeholder="Type a message..."
                   maxLength={5000}
                   className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"

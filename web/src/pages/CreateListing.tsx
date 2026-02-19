@@ -65,7 +65,7 @@ export default function CreateListing() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Title</label>
+          <label className="block text-sm text-text-muted mb-1">Title <span className="text-danger">*</span></label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -77,7 +77,7 @@ export default function CreateListing() {
         </div>
 
         <div>
-          <label className="block text-sm text-text-muted mb-1">Description</label>
+          <label className="block text-sm text-text-muted mb-1">Description <span className="text-danger">*</span></label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

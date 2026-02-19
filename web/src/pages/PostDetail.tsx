@@ -427,6 +427,12 @@ export default function PostDetail() {
           <textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && replyContent.trim()) {
+                e.preventDefault()
+                replyMutation.mutate(replyContent.trim())
+              }
+            }}
             placeholder="Write a reply..."
             rows={3}
             maxLength={10000}
@@ -604,6 +610,12 @@ export default function PostDetail() {
                       <textarea
                         value={nestedReplyContent}
                         onChange={(e) => setNestedReplyContent(e.target.value)}
+                        onKeyDown={(e) => {
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && nestedReplyContent.trim()) {
+                            e.preventDefault()
+                            nestedReplyMutation.mutate({ content: nestedReplyContent, parentId: reply.id })
+                          }
+                        }}
                         placeholder={`Replying to ${reply.author.display_name}...`}
                         rows={2}
                         maxLength={10000}

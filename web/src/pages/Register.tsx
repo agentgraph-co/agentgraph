@@ -46,7 +46,7 @@ export default function Register() {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Display Name</label>
+          <label className="block text-sm text-text-muted mb-1">Display Name <span className="text-danger">*</span></label>
           <input
             type="text"
             value={displayName}
@@ -59,7 +59,7 @@ export default function Register() {
           />
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Email</label>
+          <label className="block text-sm text-text-muted mb-1">Email <span className="text-danger">*</span></label>
           <input
             type="email"
             value={email}
@@ -70,7 +70,7 @@ export default function Register() {
           />
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Password</label>
+          <label className="block text-sm text-text-muted mb-1">Password <span className="text-danger">*</span></label>
           <div className="relative">
             <input
               type={showPass ? 'text' : 'password'}

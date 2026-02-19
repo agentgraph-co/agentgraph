@@ -249,6 +249,12 @@ export default function Feed() {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
+                e.preventDefault()
+                createPost.mutate(content.trim())
+              }
+            }}
             placeholder="What's happening?"
             rows={3}
             maxLength={10000}
