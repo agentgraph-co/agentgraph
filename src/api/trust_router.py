@@ -90,6 +90,14 @@ async def get_trust_score(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
+    from src import cache
+
+    # Try cache first
+    cache_key = f"trust:{entity_id}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     entity = await db.get(Entity, entity_id)
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
@@ -124,13 +132,18 @@ async def get_trust_score(
             contribution=round(raw_value * w, 4),
         )
 
-    return TrustScoreResponse(
+    response = TrustScoreResponse(
         entity_id=existing.entity_id,
         score=existing.score,
         components=existing.components,
         component_details=component_details,
         computed_at=existing.computed_at.isoformat(),
     )
+
+    # Cache for 5 minutes
+    await cache.set(cache_key, response.model_dump(), ttl=cache.TTL_MEDIUM)
+
+    return response
 
 
 @router.post(
@@ -151,6 +164,11 @@ async def refresh_trust_score(
         )
 
     ts = await compute_trust_score(db, entity_id)
+
+    # Invalidate cached trust score
+    from src import cache
+
+    await cache.invalidate(f"trust:{entity_id}")
 
     from src.trust.score import (
         ACTIVITY_WEIGHT,

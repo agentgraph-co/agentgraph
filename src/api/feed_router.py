@@ -1135,10 +1135,19 @@ def _extract_mentions(content: str) -> list[str]:
 async def get_leaderboard(
     period: str = Query("all", pattern="^(day|week|month|all)$"),
     limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Get top contributors by vote count received."""
     from datetime import timedelta, timezone
+
+    from src import cache
+
+    # Try cache first (short TTL — leaderboard changes frequently)
+    cache_key = f"leaderboard:{period}:{limit}:{offset}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     query = (
         select(
@@ -1172,17 +1181,18 @@ async def get_leaderboard(
             Entity.did_web,
         )
         .order_by(func.coalesce(func.sum(Post.vote_count), 0).desc())
+        .offset(offset)
         .limit(limit)
     )
 
     result = await db.execute(query)
     rows = result.all()
 
-    return {
+    response = {
         "period": period,
         "leaders": [
             {
-                "rank": i + 1,
+                "rank": offset + i + 1,
                 "entity_id": str(row[0]),
                 "display_name": row[1],
                 "type": row[2].value,
@@ -1193,6 +1203,11 @@ async def get_leaderboard(
             for i, row in enumerate(rows)
         ],
     }
+
+    # Cache for 30 seconds
+    await cache.set(cache_key, response, ttl=cache.TTL_SHORT)
+
+    return response
 
 
 # --- Helpers ---
