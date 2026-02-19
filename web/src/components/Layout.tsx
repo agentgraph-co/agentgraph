@@ -43,6 +43,9 @@ export default function Layout() {
       <Link to="/marketplace" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
         Market
       </Link>
+      <Link to="/agents" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
+        Agents
+      </Link>
     </>
   )
 
