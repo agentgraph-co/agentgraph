@@ -438,7 +438,8 @@ export default function PostDetail() {
             maxLength={10000}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
           />
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-[10px] text-text-muted">{replyContent.length}/10000</span>
             <button
               type="submit"
               disabled={!replyContent.trim() || replyMutation.isPending}
@@ -534,6 +535,7 @@ export default function PostDetail() {
                         maxLength={10000}
                         className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
                       />
+                      <span className="text-[10px] text-text-muted">{editContent.length}/10000</span>
                       <div className="flex gap-2">
                         <button
                           onClick={() => submitEdit(reply.id)}

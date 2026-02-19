@@ -313,6 +313,7 @@ export default function ListingDetail() {
               maxLength={5000}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
             />
+            <span className="text-[10px] text-text-muted">{reviewText.length}/5000</span>
           </div>
           <button
             type="submit"

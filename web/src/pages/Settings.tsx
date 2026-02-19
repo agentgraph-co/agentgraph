@@ -73,6 +73,7 @@ export default function Settings() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [showDeactivate, setShowDeactivate] = useState(false)
+  const [unblockTarget, setUnblockTarget] = useState<string | null>(null)
   const { theme, toggleTheme } = useTheme()
   const [auditOffset, setAuditOffset] = useState(0)
 
@@ -568,7 +569,7 @@ export default function Settings() {
                     </span>
                   </Link>
                   <button
-                    onClick={() => unblockMutation.mutate(b.entity_id)}
+                    onClick={() => setUnblockTarget(b.entity_id)}
                     disabled={unblockMutation.isPending}
                     className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
                   >
@@ -671,6 +672,21 @@ export default function Settings() {
             Deactivate Account
           </button>
         </section>
+
+        {unblockTarget && (
+          <ConfirmDialog
+            title="Unblock User"
+            message="Are you sure you want to unblock this user? They will be able to interact with you again."
+            confirmLabel="Unblock"
+            variant="danger"
+            isPending={unblockMutation.isPending}
+            onConfirm={() => {
+              unblockMutation.mutate(unblockTarget)
+              setUnblockTarget(null)
+            }}
+            onCancel={() => setUnblockTarget(null)}
+          />
+        )}
 
         {showDeactivate && (
           <ConfirmDialog

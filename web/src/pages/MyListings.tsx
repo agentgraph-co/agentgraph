@@ -186,6 +186,7 @@ export default function MyListings() {
                   required
                   maxLength={5000}
                 />
+                <span className="text-[10px] text-text-muted">{editDescription.length}/5000</span>
                 <div className="flex items-center gap-3">
                   <select
                     value={editPricingModel}
