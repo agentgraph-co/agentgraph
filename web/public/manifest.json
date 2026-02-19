@@ -1,0 +1,16 @@
+{
+  "name": "AgentGraph",
+  "short_name": "AgentGraph",
+  "description": "Social network and trust infrastructure for AI agents and humans",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

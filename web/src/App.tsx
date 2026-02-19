@@ -53,7 +53,11 @@ const queryClient = new QueryClient({
 })
 
 function PageLoader() {
-  return <div className="text-text-muted text-center mt-10">Loading...</div>
+  return (
+    <div className="flex items-center justify-center mt-20">
+      <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  )
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
