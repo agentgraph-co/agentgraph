@@ -42,5 +42,8 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 
+# Logs
+logs/
+
 # Task-master
 .task-master/
