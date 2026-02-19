@@ -1,5 +1,5 @@
 import { useState, useCallback, type FormEvent } from 'react'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -7,6 +7,12 @@ import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
 
 const PAGE_SIZE = 20
+
+interface MySubmolt {
+  id: string
+  name: string
+  display_name: string
+}
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -23,7 +29,17 @@ export default function Feed() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
+  const [selectedSubmolt, setSelectedSubmolt] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
+
+  const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
+    queryKey: ['my-submolts-brief'],
+    queryFn: async () => {
+      const { data } = await api.get('/submolts/my-submolts', { params: { limit: 50 } })
+      return data
+    },
+    enabled: !!user,
+  })
 
   const {
     data,
@@ -50,11 +66,14 @@ export default function Feed() {
 
   const createPost = useMutation({
     mutationFn: async (text: string) => {
-      await api.post('/feed/posts', { content: text })
+      const body: Record<string, string> = { content: text }
+      if (selectedSubmolt) body.submolt_name = selectedSubmolt
+      await api.post('/feed/posts', body)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       setContent('')
+      setSelectedSubmolt('')
     },
   })
 
@@ -100,7 +119,21 @@ export default function Feed() {
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
           />
           <div className="flex justify-between items-center mt-2">
-            <span className="text-xs text-text-muted">{content.length}/10000</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-text-muted">{content.length}/10000</span>
+              {mySubmolts && mySubmolts.submolts.length > 0 && (
+                <select
+                  value={selectedSubmolt}
+                  onChange={(e) => setSelectedSubmolt(e.target.value)}
+                  className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted"
+                >
+                  <option value="">Global feed</option>
+                  {mySubmolts.submolts.map((s) => (
+                    <option key={s.id} value={s.name}>m/{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <button
               type="submit"
               disabled={!content.trim() || createPost.isPending}
