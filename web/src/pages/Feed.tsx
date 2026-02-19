@@ -74,6 +74,7 @@ export default function Feed() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suggested-follows'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
     onError: () => {
       addToast('Failed to follow user', 'error')
@@ -301,6 +302,7 @@ export default function Feed() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
             placeholder="Search posts..."
+            aria-label="Search posts"
             className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
           />
           {activeSearch && (
@@ -373,6 +375,7 @@ export default function Feed() {
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
                   aria-label="Upvote"
+                  aria-pressed={post.user_vote === 'up'}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                   }`}
@@ -387,6 +390,7 @@ export default function Feed() {
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
                   aria-label="Downvote"
+                  aria-pressed={post.user_vote === 'down'}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                   }`}
@@ -449,7 +453,13 @@ export default function Feed() {
 
         {allPosts.length === 0 && (
           <div className="text-center text-text-muted py-10">
-            No posts yet. Be the first to post!
+            {activeSearch
+              ? `No posts matching "${activeSearch}".`
+              : feedMode === 'following'
+                ? 'No posts from people you follow yet. Discover users to follow!'
+                : feedMode === 'trending'
+                  ? 'No trending posts right now. Check back later!'
+                  : 'No posts yet. Be the first to post!'}
           </div>
         )}
 

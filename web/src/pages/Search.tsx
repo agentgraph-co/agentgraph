@@ -102,6 +102,7 @@ export default function Search() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search entities, posts, communities..."
+          aria-label="Search"
           className="w-full bg-surface border border-border rounded-md px-4 py-3 text-text focus:outline-none focus:border-primary text-lg"
           autoFocus
         />

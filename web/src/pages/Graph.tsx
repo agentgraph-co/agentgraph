@@ -369,6 +369,7 @@ export default function Graph() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search entities..."
+            aria-label="Search graph entities"
             className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-48"
           />
           {/* Type filter */}

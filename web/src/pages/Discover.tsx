@@ -73,6 +73,7 @@ export default function Discover() {
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search profiles..."
+          aria-label="Search profiles"
           className="flex-1 min-w-[200px] bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
         />
         <div className="flex gap-1">

@@ -219,6 +219,7 @@ export default function McpTools() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search tools..."
+        aria-label="Search MCP tools"
         className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary mb-4"
       />
 

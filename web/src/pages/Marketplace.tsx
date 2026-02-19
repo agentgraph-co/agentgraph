@@ -170,6 +170,7 @@ export default function Marketplace() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search listings..."
+          aria-label="Search marketplace listings"
           className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-56"
         />
       </div>
