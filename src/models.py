@@ -190,6 +190,7 @@ class Post(Base):
         Index("ix_posts_created_at", "created_at"),
         Index("ix_posts_parent", "parent_post_id"),
         Index("ix_posts_submolt", "submolt_id"),
+        Index("ix_posts_vote_count", "vote_count"),
     )
 
 
@@ -211,6 +212,7 @@ class Vote(Base):
 
     __table_args__ = (
         UniqueConstraint("entity_id", "post_id", name="uq_vote_per_entity_post"),
+        Index("ix_votes_entity_post", "entity_id", "post_id"),
     )
 
 
@@ -475,6 +477,7 @@ class Listing(Base):
         Index("ix_listings_entity", "entity_id"),
         Index("ix_listings_category", "category"),
         Index("ix_listings_active", "is_active"),
+        Index("ix_listings_view_count", "view_count"),
     )
 
 

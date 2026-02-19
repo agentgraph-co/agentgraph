@@ -222,11 +222,18 @@ async def browse_profiles(
     )
     entities = result.scalars().all()
 
+    # Batch-fetch trust scores for all entities in one query (avoids N+1)
+    entity_ids = [e.id for e in entities]
+    trust_map: dict = {}
+    if entity_ids:
+        ts_result = await db.execute(
+            select(TrustScore).where(TrustScore.entity_id.in_(entity_ids))
+        )
+        for ts in ts_result.scalars().all():
+            trust_map[ts.entity_id] = ts.score
+
     profiles = []
     for entity in entities:
-        ts = await db.scalar(
-            select(TrustScore).where(TrustScore.entity_id == entity.id)
-        )
         profiles.append(
             ProfileResponse(
                 id=entity.id,
@@ -238,7 +245,7 @@ async def browse_profiles(
                 privacy_tier=entity.privacy_tier.value,
                 is_active=entity.is_active,
                 email_verified=entity.email_verified,
-                trust_score=ts.score if ts else None,
+                trust_score=trust_map.get(entity.id),
                 badges=_compute_badges(entity),
                 created_at=entity.created_at.isoformat(),
             )
