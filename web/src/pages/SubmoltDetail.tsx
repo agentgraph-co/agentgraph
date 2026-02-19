@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface SubmoltInfo {
   id: string
@@ -13,7 +14,23 @@ interface SubmoltInfo {
   tags: string[]
   member_count: number
   is_member: boolean
+  created_by: string | null
   created_at: string
+}
+
+interface SubmoltMember {
+  entity_id: string
+  display_name: string
+  type: string
+  role: string
+  joined_at: string
+}
+
+interface BannedMember {
+  entity_id: string
+  display_name: string
+  type: string
+  banned_at: string
 }
 
 interface FeedPost {
@@ -53,6 +70,13 @@ export default function SubmoltDetail() {
   const queryClient = useQueryClient()
   const [postContent, setPostContent] = useState('')
   const [showRules, setShowRules] = useState(false)
+  const [showMembers, setShowMembers] = useState(false)
+  const [showBanned, setShowBanned] = useState(false)
+  const [kickTarget, setKickTarget] = useState<string | null>(null)
+  const [banTarget, setBanTarget] = useState<string | null>(null)
+  const [unbanTarget, setUnbanTarget] = useState<string | null>(null)
+  const [promoteTarget, setPromoteTarget] = useState<string | null>(null)
+  const [demoteTarget, setDemoteTarget] = useState<string | null>(null)
 
   const {
     data,
@@ -110,6 +134,84 @@ export default function SubmoltDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+    },
+  })
+
+  // Members query — used to determine current user's role
+  const { data: membersData } = useQuery<{ members: SubmoltMember[]; total: number }>({
+    queryKey: ['submolt-members', name],
+    queryFn: async () => {
+      const { data } = await api.get(`/submolts/${name}/members`, { params: { limit: 100 } })
+      return data
+    },
+    enabled: !!name && showMembers,
+  })
+
+  const { data: bannedData } = useQuery<{ banned: BannedMember[]; total: number }>({
+    queryKey: ['submolt-banned', name],
+    queryFn: async () => {
+      const { data } = await api.get(`/submolts/${name}/banned`)
+      return data
+    },
+    enabled: !!name && showBanned,
+  })
+
+  // Determine current user's role — use membersData if loaded, otherwise infer from submolt.created_by
+  const myMembership = membersData?.members.find((m) => m.entity_id === user?.id)
+  const myRole = myMembership?.role || null
+  const isOwnerOrMod = myRole === 'owner' || myRole === 'moderator'
+  const isOwner = myRole === 'owner'
+
+  const kickMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.post(`/submolts/${name}/members/${entityId}/kick`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+      setKickTarget(null)
+    },
+  })
+
+  const banMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.post(`/submolts/${name}/ban/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-banned', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+      setBanTarget(null)
+    },
+  })
+
+  const unbanMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.delete(`/submolts/${name}/ban/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-banned', name] })
+      setUnbanTarget(null)
+    },
+  })
+
+  const promoteMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.post(`/submolts/${name}/moderators/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
+      setPromoteTarget(null)
+    },
+  })
+
+  const demoteMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.delete(`/submolts/${name}/moderators/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
+      setDemoteTarget(null)
     },
   })
 
@@ -181,10 +283,136 @@ export default function SubmoltDetail() {
             )}
           </div>
         )}
-        <div className="text-xs text-text-muted mt-2">
-          Created {new Date(submolt.created_at).toLocaleDateString()}
+        <div className="flex items-center gap-3 mt-2">
+          <span className="text-xs text-text-muted">
+            Created {new Date(submolt.created_at).toLocaleDateString()}
+          </span>
+          {user && submolt.is_member && (
+            <button
+              onClick={() => { setShowMembers(!showMembers); setShowBanned(false) }}
+              className="text-xs text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+            >
+              {showMembers ? 'Hide members' : 'View members'}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Members panel */}
+      {showMembers && membersData && (
+        <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold">
+              Members ({membersData.total})
+            </h2>
+            {isOwnerOrMod && (
+              <button
+                onClick={() => setShowBanned(!showBanned)}
+                className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer"
+              >
+                {showBanned ? 'Hide banned' : 'View banned'}
+              </button>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {membersData.members.filter((m) => m.role !== 'banned').map((member) => (
+              <div
+                key={member.entity_id}
+                className="flex items-center justify-between py-1"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    to={`/profile/${member.entity_id}`}
+                    className="text-sm hover:text-primary-light transition-colors truncate"
+                  >
+                    {member.display_name}
+                  </Link>
+                  <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                    member.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  }`}>
+                    {member.type}
+                  </span>
+                  {(member.role === 'owner' || member.role === 'moderator') && (
+                    <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                      member.role === 'owner' ? 'bg-warning/20 text-warning' : 'bg-primary/20 text-primary-light'
+                    }`}>
+                      {member.role}
+                    </span>
+                  )}
+                </div>
+                {isOwnerOrMod && member.entity_id !== user?.id && member.role !== 'owner' && (
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {isOwner && member.role === 'member' && (
+                      <button
+                        onClick={() => setPromoteTarget(member.entity_id)}
+                        className="text-[10px] text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+                      >
+                        Promote
+                      </button>
+                    )}
+                    {isOwner && member.role === 'moderator' && (
+                      <button
+                        onClick={() => setDemoteTarget(member.entity_id)}
+                        className="text-[10px] text-text-muted hover:text-warning transition-colors cursor-pointer"
+                      >
+                        Demote
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setKickTarget(member.entity_id)}
+                      className="text-[10px] text-text-muted hover:text-danger transition-colors cursor-pointer"
+                    >
+                      Kick
+                    </button>
+                    <button
+                      onClick={() => setBanTarget(member.entity_id)}
+                      className="text-[10px] text-text-muted hover:text-danger transition-colors cursor-pointer"
+                    >
+                      Ban
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Banned list */}
+          {showBanned && bannedData && (
+            <div className="mt-4 pt-3 border-t border-border">
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                Banned ({bannedData.total})
+              </h3>
+              {bannedData.banned.length === 0 ? (
+                <div className="text-xs text-text-muted">No banned members</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {bannedData.banned.map((b) => (
+                    <div key={b.entity_id} className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Link
+                          to={`/profile/${b.entity_id}`}
+                          className="text-sm text-text-muted hover:text-primary-light transition-colors truncate"
+                        >
+                          {b.display_name}
+                        </Link>
+                        <span className="shrink-0 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider bg-danger/20 text-danger">
+                          banned
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setUnbanTarget(b.entity_id)}
+                        className="text-[10px] text-text-muted hover:text-success transition-colors cursor-pointer shrink-0"
+                      >
+                        Unban
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Post form */}
       {user && submolt.is_member && (
@@ -303,6 +531,62 @@ export default function SubmoltDetail() {
             {isFetchingNextPage ? 'Loading more...' : 'Load more posts'}
           </button>
         </div>
+      )}
+
+      {kickTarget && (
+        <ConfirmDialog
+          title="Kick Member"
+          message="Remove this member from the community? They can rejoin later."
+          variant="danger"
+          confirmLabel="Kick"
+          isPending={kickMutation.isPending}
+          onConfirm={() => kickMutation.mutate(kickTarget)}
+          onCancel={() => setKickTarget(null)}
+        />
+      )}
+      {banTarget && (
+        <ConfirmDialog
+          title="Ban Member"
+          message="Ban this member from the community? They will not be able to rejoin."
+          variant="danger"
+          confirmLabel="Ban"
+          isPending={banMutation.isPending}
+          onConfirm={() => banMutation.mutate(banTarget)}
+          onCancel={() => setBanTarget(null)}
+        />
+      )}
+      {unbanTarget && (
+        <ConfirmDialog
+          title="Unban Member"
+          message="Allow this member to rejoin the community?"
+          variant="primary"
+          confirmLabel="Unban"
+          isPending={unbanMutation.isPending}
+          onConfirm={() => unbanMutation.mutate(unbanTarget)}
+          onCancel={() => setUnbanTarget(null)}
+        />
+      )}
+      {promoteTarget && (
+        <ConfirmDialog
+          title="Promote to Moderator"
+          message="Promote this member to moderator? They'll be able to kick/ban members and manage content."
+          variant="primary"
+          confirmLabel="Promote"
+          isPending={promoteMutation.isPending}
+          onConfirm={() => promoteMutation.mutate(promoteTarget)}
+          onCancel={() => setPromoteTarget(null)}
+        />
+      )}
+      {demoteTarget && (
+        <ConfirmDialog
+          title="Demote Moderator"
+          message="Remove moderator privileges from this member?"
+          variant="danger"
+          confirmLabel="Demote"
+          isPending={demoteMutation.isPending}
+          onConfirm={() => demoteMutation.mutate(demoteTarget)}
+          onCancel={() => setDemoteTarget(null)}
+        />
       )}
     </div>
   )

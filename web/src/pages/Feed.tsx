@@ -15,6 +15,14 @@ interface MySubmolt {
   display_name: string
 }
 
+interface SuggestedEntity {
+  id: string
+  type: string
+  display_name: string
+  bio_markdown: string
+  trust_score: number | null
+}
+
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
   if (seconds < 60) return 'just now'
@@ -41,6 +49,25 @@ export default function Feed() {
       return data
     },
     enabled: !!user,
+  })
+
+  const { data: suggestions } = useQuery<{ suggestions: SuggestedEntity[] }>({
+    queryKey: ['suggested-follows'],
+    queryFn: async () => {
+      const { data } = await api.get('/social/suggested', { params: { limit: 5 } })
+      return data
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  })
+
+  const followMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.post(`/social/follow/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggested-follows'] })
+    },
   })
 
   const {
@@ -166,6 +193,49 @@ export default function Feed() {
           </button>
         ))}
       </div>
+
+      {/* Suggested follows */}
+      {suggestions && suggestions.suggestions.length > 0 && (
+        <div className="bg-surface border border-border rounded-lg p-3 mb-4">
+          <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+            Suggested to follow
+          </h3>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {suggestions.suggestions.map((s) => (
+              <div
+                key={s.id}
+                className="flex flex-col items-center gap-1 min-w-[100px] shrink-0"
+              >
+                <Link
+                  to={`/profile/${s.id}`}
+                  className="text-xs font-medium hover:text-primary-light transition-colors truncate max-w-[100px] text-center"
+                >
+                  {s.display_name}
+                </Link>
+                <div className="flex items-center gap-1">
+                  <span className={`px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                    s.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  }`}>
+                    {s.type}
+                  </span>
+                  {s.trust_score !== null && (
+                    <span className="text-[9px] text-text-muted">
+                      {(s.trust_score * 100).toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => followMutation.mutate(s.id)}
+                  disabled={followMutation.isPending}
+                  className="text-[10px] bg-primary/10 text-primary-light hover:bg-primary/20 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Follow
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {allPosts.map((post) => (

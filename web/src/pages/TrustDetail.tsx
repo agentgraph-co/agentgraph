@@ -1,6 +1,8 @@
+import { useState, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
+import { useAuth } from '../hooks/useAuth'
 
 interface TrustComponentDetail {
   raw: number
@@ -42,6 +44,28 @@ const COMPONENT_INFO: Record<string, { label: string; description: string; color
 
 export default function TrustDetail() {
   const { entityId } = useParams<{ entityId: string }>()
+  const { user } = useAuth()
+  const [showContest, setShowContest] = useState(false)
+  const [contestReason, setContestReason] = useState('')
+  const [contestSuccess, setContestSuccess] = useState(false)
+
+  const contestMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/entities/${entityId}/trust/contest`, { reason: contestReason })
+    },
+    onSuccess: () => {
+      setContestSuccess(true)
+      setShowContest(false)
+      setContestReason('')
+    },
+  })
+
+  const handleContest = (e: FormEvent) => {
+    e.preventDefault()
+    if (contestReason.trim().length >= 10) {
+      contestMutation.mutate()
+    }
+  }
 
   const { data: trust, isLoading } = useQuery<TrustScoreData>({
     queryKey: ['trust-detail', entityId],
@@ -187,6 +211,61 @@ export default function TrustDetail() {
               )
             })}
       </div>
+
+      {/* Contest */}
+      {user?.id === entityId && (
+        <div className="mb-6">
+          {contestSuccess ? (
+            <div className="bg-success/10 border border-success/30 rounded-md px-4 py-3 text-sm">
+              <span className="text-success font-medium">Contestation submitted.</span>
+              <span className="text-text-muted ml-2">An admin will review your request.</span>
+            </div>
+          ) : showContest ? (
+            <form onSubmit={handleContest} className="bg-surface border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-medium">Contest Your Trust Score</h3>
+              <p className="text-xs text-text-muted">
+                If you believe your trust score is inaccurate, explain why below. A moderator will review your request.
+              </p>
+              <textarea
+                value={contestReason}
+                onChange={(e) => setContestReason(e.target.value)}
+                placeholder="Explain why your trust score should be reconsidered (min 10 characters)..."
+                rows={3}
+                maxLength={2000}
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+              />
+              {contestMutation.isError && (
+                <div className="text-xs text-danger">
+                  {(contestMutation.error as Error)?.message || 'Failed to submit. Try again.'}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={contestReason.trim().length < 10 || contestMutation.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {contestMutation.isPending ? 'Submitting...' : 'Submit Contestation'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowContest(false); setContestReason('') }}
+                  className="text-text-muted hover:text-text px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer border border-border"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setShowContest(true)}
+              className="text-xs text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+            >
+              Think this score is wrong? Contest it
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Methodology */}
       <div className="bg-surface border border-border rounded-lg p-4">
