@@ -76,6 +76,8 @@ export default function Agents() {
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null)
   const [rotateAgentId, setRotateAgentId] = useState<string | null>(null)
   const [rotatedKey, setRotatedKey] = useState<string | null>(null)
+  const [showPending, setShowPending] = useState(false)
+  const [approveNote, setApproveNote] = useState('')
 
   const { data: fleet } = useQuery<FleetData>({
     queryKey: ['agent-fleet'],
@@ -93,6 +95,41 @@ export default function Agents() {
       return data
     },
     enabled: !!keysAgentId,
+  })
+
+  const { data: pendingEvolutions } = useQuery<{
+    records: {
+      id: string
+      entity_id: string
+      entity_name: string
+      version: string
+      change_type: string
+      change_summary: string
+      risk_tier: number
+      approval_status: string
+      created_at: string
+    }[]
+    count: number
+  }>({
+    queryKey: ['pending-evolutions'],
+    queryFn: async () => {
+      const { data } = await api.get('/evolution/pending/all')
+      return data
+    },
+    enabled: showPending,
+  })
+
+  const approveEvolutionMutation = useMutation({
+    mutationFn: async ({ recordId, action }: { recordId: string; action: 'approve' | 'reject' }) => {
+      await api.post(`/evolution/records/${recordId}/approve`, {
+        action,
+        note: approveNote || null,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-evolutions'] })
+      setApproveNote('')
+    },
   })
 
   const revokeKeyMutation = useMutation({
@@ -225,7 +262,15 @@ export default function Agents() {
         <h1 className="text-xl font-bold">My Agents</h1>
         <div className="flex gap-2">
           <button
-            onClick={() => setShowFleet(!showFleet)}
+            onClick={() => { setShowPending(!showPending); if (!showPending) setShowFleet(false) }}
+            className={`px-3 py-1.5 rounded-md text-sm border transition-colors cursor-pointer ${
+              showPending ? 'border-warning text-warning bg-warning/10' : 'border-border text-text-muted hover:text-text'
+            }`}
+          >
+            Pending Approvals
+          </button>
+          <button
+            onClick={() => { setShowFleet(!showFleet); if (!showFleet) setShowPending(false) }}
             className={`px-3 py-1.5 rounded-md text-sm border transition-colors cursor-pointer ${
               showFleet ? 'border-primary text-primary-light bg-primary/10' : 'border-border text-text-muted hover:text-text'
             }`}
@@ -240,6 +285,76 @@ export default function Agents() {
           </button>
         </div>
       </div>
+
+      {/* Pending Evolution Approvals */}
+      {showPending && (
+        <div className="bg-surface border border-warning/30 rounded-lg p-4 mb-4">
+          <h2 className="text-sm font-semibold text-warning uppercase tracking-wider mb-3">
+            Pending Evolution Approvals
+          </h2>
+          {pendingEvolutions && pendingEvolutions.records.length > 0 ? (
+            <div className="space-y-3">
+              {pendingEvolutions.records.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="bg-background rounded-lg p-3 border border-border"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/profile/${rec.entity_id}`}
+                        className="text-sm font-medium hover:text-primary-light transition-colors"
+                      >
+                        {rec.entity_name || 'Agent'}
+                      </Link>
+                      <code className="text-xs text-text-muted">v{rec.version}</code>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-hover text-text-muted capitalize">
+                        {rec.change_type}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        rec.risk_tier >= 3 ? 'bg-danger/20 text-danger' : rec.risk_tier === 2 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
+                      }`}>
+                        Risk {rec.risk_tier}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-text-muted">
+                      {new Date(rec.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted mb-2">{rec.change_summary}</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Note (optional)"
+                      value={approveNote}
+                      onChange={(e) => setApproveNote(e.target.value)}
+                      className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs text-text focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={() => approveEvolutionMutation.mutate({ recordId: rec.id, action: 'approve' })}
+                      disabled={approveEvolutionMutation.isPending}
+                      className="text-xs bg-success/10 text-success hover:bg-success/20 px-2.5 py-1 rounded transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => approveEvolutionMutation.mutate({ recordId: rec.id, action: 'reject' })}
+                      disabled={approveEvolutionMutation.isPending}
+                      className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-2.5 py-1 rounded transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pendingEvolutions ? (
+            <p className="text-xs text-text-muted">No pending evolution records</p>
+          ) : (
+            <p className="text-xs text-text-muted">Loading...</p>
+          )}
+        </div>
+      )}
 
       {/* Fleet Dashboard */}
       {showFleet && fleet && (

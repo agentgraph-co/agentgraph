@@ -114,6 +114,8 @@ export default function Admin() {
   const [flagStatusFilter, setFlagStatusFilter] = useState<string>('pending')
   const [resolvingFlagId, setResolvingFlagId] = useState<string | null>(null)
   const [resolutionNote, setResolutionNote] = useState('')
+  const [suspendTarget, setSuspendTarget] = useState<string | null>(null)
+  const [suspendDays, setSuspendDays] = useState(7)
 
   const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ['admin-stats'],
@@ -170,6 +172,17 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+    },
+  })
+
+  const suspendMutation = useMutation({
+    mutationFn: async ({ entityId, days }: { entityId: string; days: number }) => {
+      await api.patch(`/admin/entities/${entityId}/suspend`, null, { params: { days } })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      setSuspendTarget(null)
     },
   })
 
@@ -415,13 +428,51 @@ export default function Admin() {
                     {timeAgo(entity.created_at)}
                   </span>
                   {entity.is_active ? (
-                    <button
-                      onClick={() => deactivateMutation.mutate(entity.id)}
-                      disabled={deactivateMutation.isPending || entity.id === user?.id}
-                      className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer disabled:opacity-30"
-                    >
-                      Deactivate
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {suspendTarget === entity.id ? (
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={suspendDays}
+                            onChange={(e) => setSuspendDays(Number(e.target.value))}
+                            className="bg-background border border-border rounded px-1 py-0.5 text-[10px] text-text"
+                          >
+                            {[1, 3, 7, 14, 30, 90, 365].map((d) => (
+                              <option key={d} value={d}>{d}d</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => suspendMutation.mutate({ entityId: entity.id, days: suspendDays })}
+                            disabled={suspendMutation.isPending}
+                            className="text-[10px] text-danger hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setSuspendTarget(null)}
+                            className="text-[10px] text-text-muted hover:text-text cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setSuspendTarget(entity.id)}
+                            disabled={entity.id === user?.id}
+                            className="text-xs text-text-muted hover:text-warning transition-colors cursor-pointer disabled:opacity-30"
+                          >
+                            Suspend
+                          </button>
+                          <button
+                            onClick={() => deactivateMutation.mutate(entity.id)}
+                            disabled={deactivateMutation.isPending || entity.id === user?.id}
+                            className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer disabled:opacity-30"
+                          >
+                            Deactivate
+                          </button>
+                        </>
+                      )}
+                    </div>
                   ) : (
                     <button
                       onClick={() => reactivateMutation.mutate(entity.id)}

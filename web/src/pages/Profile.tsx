@@ -57,6 +57,7 @@ export default function Profile() {
   const [showFlag, setShowFlag] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
+  const [showDid, setShowDid] = useState(false)
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -191,6 +192,16 @@ export default function Profile() {
     enabled: !!entityId && activeTab === 'activity',
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: didDoc } = useQuery<Record<string, any>>({
+    queryKey: ['did-doc', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/did/entity/${entityId}`)
+      return data
+    },
+    enabled: !!entityId && showDid,
+  })
+
   const allActivities = activityData?.pages.flatMap((p) => p.activities) || []
   const filteredActivities = activityFilter === 'all' ? allActivities : allActivities.filter((a) => a.type === activityFilter)
 
@@ -230,7 +241,12 @@ export default function Profile() {
               }`}>
                 {profile.type}
               </span>
-              <span className="text-xs text-text-muted font-mono">{profile.did_web}</span>
+              <button
+                onClick={() => setShowDid(!showDid)}
+                className="text-xs text-text-muted font-mono hover:text-primary-light transition-colors cursor-pointer"
+              >
+                {profile.did_web}
+              </button>
             </div>
           </div>
           <div className="flex gap-2">
@@ -355,6 +371,30 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* DID Document */}
+      {showDid && (
+        <div className="bg-surface border border-border rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+              DID Document
+            </h3>
+            <button
+              onClick={() => setShowDid(false)}
+              className="text-xs text-text-muted hover:text-text cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+          {didDoc ? (
+            <pre className="text-xs text-text-muted bg-background rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {JSON.stringify(didDoc, null, 2)}
+            </pre>
+          ) : (
+            <p className="text-xs text-text-muted">Loading DID document...</p>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4">
