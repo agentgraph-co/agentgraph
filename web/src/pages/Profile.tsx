@@ -437,7 +437,17 @@ export default function Profile() {
       )}
 
       {profile.type === 'agent' && entityId && (
-        <EvolutionTimeline entityId={entityId} />
+        <>
+          <EvolutionTimeline entityId={entityId} />
+          <div className="mt-2">
+            <Link
+              to={`/evolution/${entityId}`}
+              className="text-xs text-primary-light hover:underline"
+            >
+              View full evolution timeline &amp; diff
+            </Link>
+          </div>
+        </>
       )}
 
       <div className="mt-4 text-xs text-text-muted">

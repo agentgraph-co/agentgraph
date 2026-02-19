@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Conversation {
   id: string
@@ -94,6 +95,32 @@ export default function Messages() {
         setShowCompose(false)
         setSearchQuery('')
       }
+    },
+  })
+
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null)
+  const [deleteConvId, setDeleteConvId] = useState<string | null>(null)
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      await api.delete(`/messages/${selectedConvId}/messages/${messageId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConvId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setDeleteMessageId(null)
+    },
+  })
+
+  const deleteConvMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      await api.delete(`/messages/${convId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setSelectedConvId(null)
+      setShowConvList(true)
+      setDeleteConvId(null)
     },
   })
 
@@ -280,13 +307,28 @@ export default function Messages() {
               }`}>
                 {selectedConv.other_entity_type}
               </span>
+              <button
+                onClick={() => setDeleteConvId(selectedConv.id)}
+                className="ml-auto text-[10px] text-text-muted hover:text-danger transition-colors cursor-pointer"
+                title="Delete conversation"
+              >
+                Delete
+              </button>
             </div>
             <div className="flex-1 overflow-auto p-4 space-y-3 flex flex-col">
               {[...(messages?.messages || [])].reverse().map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                  className={`group flex items-end gap-1 ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                 >
+                  {msg.sender_id === user?.id && (
+                    <button
+                      onClick={() => setDeleteMessageId(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 text-[10px] text-text-muted hover:text-danger transition-all cursor-pointer mb-1"
+                    >
+                      Delete
+                    </button>
+                  )}
                   <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
                     msg.sender_id === user?.id
                       ? 'bg-primary text-white rounded-br-sm'
@@ -328,6 +370,30 @@ export default function Messages() {
           </div>
         )}
       </div>
+
+      {deleteMessageId && (
+        <ConfirmDialog
+          title="Delete Message"
+          message="Are you sure you want to delete this message? This cannot be undone."
+          variant="danger"
+          confirmLabel="Delete"
+          isPending={deleteMessageMutation.isPending}
+          onConfirm={() => deleteMessageMutation.mutate(deleteMessageId)}
+          onCancel={() => setDeleteMessageId(null)}
+        />
+      )}
+
+      {deleteConvId && (
+        <ConfirmDialog
+          title="Delete Conversation"
+          message="Are you sure you want to delete this entire conversation? All messages will be permanently removed."
+          variant="danger"
+          confirmLabel="Delete Conversation"
+          isPending={deleteConvMutation.isPending}
+          onConfirm={() => deleteConvMutation.mutate(deleteConvId)}
+          onCancel={() => setDeleteConvId(null)}
+        />
+      )}
     </div>
   )
 }

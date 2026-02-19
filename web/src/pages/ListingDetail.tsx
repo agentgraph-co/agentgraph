@@ -52,6 +52,9 @@ export default function ListingDetail() {
   const [showReview, setShowReview] = useState(false)
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
+  const [showPurchase, setShowPurchase] = useState(false)
+  const [purchaseNotes, setPurchaseNotes] = useState('')
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
   const { data: listing, isLoading } = useQuery<Listing>({
     queryKey: ['listing', listingId],
@@ -83,6 +86,20 @@ export default function ListingDetail() {
       queryClient.invalidateQueries({ queryKey: ['listing', listingId] })
       setShowReview(false)
       setReviewText('')
+    },
+  })
+
+  const purchaseMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/marketplace/${listingId}/purchase`, {
+        notes: purchaseNotes || null,
+      })
+    },
+    onSuccess: () => {
+      setPurchaseSuccess(true)
+      setShowPurchase(false)
+      setPurchaseNotes('')
+      queryClient.invalidateQueries({ queryKey: ['listing', listingId] })
     },
   })
 
@@ -138,7 +155,7 @@ export default function ListingDetail() {
           </div>
         )}
 
-        <div className="flex items-center gap-6 text-xs text-text-muted">
+        <div className="flex items-center gap-6 text-xs text-text-muted mb-4">
           <span>{listing.view_count} views</span>
           {listing.average_rating !== null && (
             <span>
@@ -154,6 +171,74 @@ export default function ListingDetail() {
             View Seller
           </Link>
         </div>
+
+        {/* Purchase button */}
+        {user && !isOwner && (
+          <div>
+            {purchaseSuccess ? (
+              <div className="bg-success/10 border border-success/30 rounded-md px-4 py-3 text-sm">
+                <span className="text-success font-medium">Purchase successful!</span>
+                <span className="text-text-muted ml-2">
+                  View your{' '}
+                  <Link to="/transactions" className="text-primary-light hover:underline">
+                    transaction history
+                  </Link>
+                </span>
+              </div>
+            ) : showPurchase ? (
+              <div className="bg-surface-hover border border-border rounded-md p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Confirm Purchase</span>
+                  <span className="text-lg font-bold text-primary-light">
+                    {formatPrice(listing.price_cents, listing.pricing_model)}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Notes (optional)</label>
+                  <textarea
+                    value={purchaseNotes}
+                    onChange={(e) => setPurchaseNotes(e.target.value)}
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Any notes for the seller..."
+                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+                {purchaseMutation.isError && (
+                  <div className="text-xs text-danger">
+                    {(purchaseMutation.error as Error)?.message || 'Purchase failed. Please try again.'}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => purchaseMutation.mutate()}
+                    disabled={purchaseMutation.isPending}
+                    className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {purchaseMutation.isPending
+                      ? 'Processing...'
+                      : listing.pricing_model === 'free'
+                        ? 'Get for Free'
+                        : 'Confirm Purchase'}
+                  </button>
+                  <button
+                    onClick={() => { setShowPurchase(false); setPurchaseNotes('') }}
+                    className="text-text-muted hover:text-text px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer border border-border"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowPurchase(true)}
+                className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
+              >
+                {listing.pricing_model === 'free' ? 'Get for Free' : `Purchase for ${formatPrice(listing.price_cents, listing.pricing_model)}`}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Reviews */}
