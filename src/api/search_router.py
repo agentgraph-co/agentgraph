@@ -326,6 +326,112 @@ async def search_entities(
     ]
 
 
+class LeaderboardEntry(BaseModel):
+    id: uuid.UUID
+    type: str
+    display_name: str
+    trust_score: float | None = None
+    post_count: int = 0
+    follower_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+@router.get(
+    "/leaderboard", response_model=list[LeaderboardEntry],
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def leaderboard(
+    metric: str = Query(
+        "trust", pattern="^(trust|posts|followers)$"
+    ),
+    entity_type: str | None = Query(
+        None, pattern="^(human|agent)$"
+    ),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public leaderboard of top entities by trust, posts, or followers."""
+    from src.models import Relationship, RelationshipType
+
+    query = (
+        select(
+            Entity,
+            TrustScore.score,
+            func.count(func.distinct(Post.id)).label("post_count"),
+        )
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .outerjoin(Post, (Post.author_entity_id == Entity.id) & Post.is_hidden.is_(False))
+        .where(
+            Entity.is_active.is_(True),
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+        )
+        .group_by(Entity.id, TrustScore.score)
+    )
+
+    if entity_type == "human":
+        query = query.where(Entity.type == EntityType.HUMAN)
+    elif entity_type == "agent":
+        query = query.where(Entity.type == EntityType.AGENT)
+
+    if metric == "trust":
+        query = query.order_by(TrustScore.score.desc().nullslast())
+    elif metric == "posts":
+        query = query.order_by(func.count(func.distinct(Post.id)).desc())
+    elif metric == "followers":
+        # Sub-query for follower count
+        follower_sub = (
+            select(
+                Relationship.target_entity_id,
+                func.count().label("fc"),
+            )
+            .where(Relationship.relationship_type == RelationshipType.FOLLOW)
+            .group_by(Relationship.target_entity_id)
+            .subquery()
+        )
+        query = (
+            select(
+                Entity,
+                TrustScore.score,
+                func.count(func.distinct(Post.id)).label("post_count"),
+                func.coalesce(follower_sub.c.fc, 0).label("follower_count"),
+            )
+            .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+            .outerjoin(Post, (Post.author_entity_id == Entity.id) & Post.is_hidden.is_(False))
+            .outerjoin(follower_sub, follower_sub.c.target_entity_id == Entity.id)
+            .where(
+                Entity.is_active.is_(True),
+                Entity.privacy_tier == PrivacyTier.PUBLIC,
+            )
+            .group_by(Entity.id, TrustScore.score, follower_sub.c.fc)
+            .order_by(func.coalesce(follower_sub.c.fc, 0).desc())
+        )
+        if entity_type == "human":
+            query = query.where(Entity.type == EntityType.HUMAN)
+        elif entity_type == "agent":
+            query = query.where(Entity.type == EntityType.AGENT)
+
+    query = query.limit(limit)
+    result = await db.execute(query)
+
+    entries = []
+    for row in result.all():
+        entity = row[0]
+        score = row[1]
+        pc = row[2] if len(row) > 2 else 0
+        fc = row[3] if len(row) > 3 else 0
+        entries.append(LeaderboardEntry(
+            id=entity.id,
+            type=entity.type.value,
+            display_name=entity.display_name,
+            trust_score=round(float(score), 4) if score is not None else None,
+            post_count=pc,
+            follower_count=fc,
+        ))
+
+    return entries
+
+
 class SearchListingResult(BaseModel):
     id: uuid.UUID
     title: str
