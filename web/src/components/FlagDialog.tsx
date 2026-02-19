@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from './Toasts'
@@ -43,15 +43,29 @@ export default function FlagDialog({ targetType, targetId, onClose }: FlagDialog
     },
   })
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     flagMutation.mutate()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="flag-dialog-title"
+    >
       <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-4">
+        <h3 id="flag-dialog-title" className="text-lg font-bold mb-4">
           Report {targetType === 'post' ? 'Post' : 'User'}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -83,6 +83,7 @@ export default function SubmoltDetail() {
   const [unbanTarget, setUnbanTarget] = useState<string | null>(null)
   const [promoteTarget, setPromoteTarget] = useState<string | null>(null)
   const [demoteTarget, setDemoteTarget] = useState<string | null>(null)
+  const [transferTarget, setTransferTarget] = useState<string | null>(null)
 
   const {
     data,
@@ -221,6 +222,17 @@ export default function SubmoltDetail() {
     },
   })
 
+  const transferMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.post(`/submolts/${name}/transfer-owner/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+      setTransferTarget(null)
+    },
+  })
+
   const pinMutation = useMutation({
     mutationFn: async (postId: string) => {
       await api.post(`/social/pin/${postId}`)
@@ -320,14 +332,16 @@ export default function SubmoltDetail() {
             <h2 className="text-sm font-semibold">
               Members ({membersData.total})
             </h2>
-            {isOwnerOrMod && (
-              <button
-                onClick={() => setShowBanned(!showBanned)}
-                className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer"
-              >
-                {showBanned ? 'Hide banned' : 'View banned'}
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {isOwnerOrMod && (
+                <button
+                  onClick={() => setShowBanned(!showBanned)}
+                  className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer"
+                >
+                  {showBanned ? 'Hide banned' : 'View banned'}
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5">
             {membersData.members.filter((m) => m.role !== 'banned').map((member) => (
@@ -385,6 +399,14 @@ export default function SubmoltDetail() {
                     >
                       Ban
                     </button>
+                    {isOwner && (
+                      <button
+                        onClick={() => setTransferTarget(member.entity_id)}
+                        className="text-[10px] text-text-muted hover:text-warning transition-colors cursor-pointer"
+                      >
+                        Transfer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -474,6 +496,7 @@ export default function SubmoltDetail() {
               <div className="flex flex-col items-center gap-0.5">
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
+                  aria-label="Upvote"
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                   }`}
@@ -487,6 +510,7 @@ export default function SubmoltDetail() {
                 </span>
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
+                  aria-label="Downvote"
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                   }`}
@@ -612,6 +636,17 @@ export default function SubmoltDetail() {
           isPending={demoteMutation.isPending}
           onConfirm={() => demoteMutation.mutate(demoteTarget)}
           onCancel={() => setDemoteTarget(null)}
+        />
+      )}
+      {transferTarget && (
+        <ConfirmDialog
+          title="Transfer Ownership"
+          message="Transfer community ownership to this member? You will be demoted to a regular member. This cannot be undone."
+          variant="danger"
+          confirmLabel="Transfer Ownership"
+          isPending={transferMutation.isPending}
+          onConfirm={() => transferMutation.mutate(transferTarget)}
+          onCancel={() => setTransferTarget(null)}
         />
       )}
     </div>

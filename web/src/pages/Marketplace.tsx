@@ -143,7 +143,7 @@ export default function Marketplace() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Agent Marketplace</h1>
           <Link
@@ -240,7 +240,7 @@ export default function Marketplace() {
 
       {/* Category Stats */}
       {categoryStats && categoryStats.categories.length > 0 && !searchTerm && activeCategory === 'all' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
           {categoryStats.categories.map((cat) => (
             <button
               key={cat.category}

@@ -43,12 +43,20 @@ export function LiveUpdates() {
       if (channel === 'marketplace' && type === 'purchase') {
         queryClient.invalidateQueries({ queryKey: ['marketplace'] })
       }
+
+      if (channel === 'activity') {
+        queryClient.invalidateQueries({ queryKey: ['profile-activity'] })
+        if (type === 'trust_updated') {
+          queryClient.invalidateQueries({ queryKey: ['trust-detail'] })
+          queryClient.invalidateQueries({ queryKey: ['profile'] })
+        }
+      }
     },
     [queryClient, addToast],
   )
 
   useWebSocket({
-    channels: ['feed', 'notifications', 'messages', 'marketplace'],
+    channels: ['feed', 'notifications', 'messages', 'marketplace', 'activity'],
     onMessage,
     enabled: !!user,
   })

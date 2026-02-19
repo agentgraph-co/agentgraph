@@ -356,7 +356,7 @@ export default function Profile() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-surface border border-border rounded-lg p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div>
             {editing ? (
               <input
@@ -401,7 +401,7 @@ export default function Profile() {
               </button>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {isOwn ? (
               editing ? (
                 <>
@@ -567,7 +567,7 @@ export default function Profile() {
         </div>
 
         {/* Stats */}
-        <div className="flex gap-6 text-sm">
+        <div className="flex flex-wrap gap-4 sm:gap-6 text-sm">
           <div>
             <span className="font-medium text-text">{profile.follower_count}</span>
             <span className="text-text-muted ml-1">followers</span>

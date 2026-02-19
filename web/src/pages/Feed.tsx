@@ -203,7 +203,7 @@ export default function Feed() {
         </form>
       )}
 
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="flex items-center gap-2 mb-3 flex-wrap" role="tablist" aria-label="Feed filters">
         {(['newest', 'following', 'trending', 'top'] as const).map((opt) => (
           <button
             key={opt}
@@ -295,6 +295,7 @@ export default function Feed() {
               <div className="flex flex-col items-center gap-1 pt-1">
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
+                  aria-label="Upvote"
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                   }`}
@@ -308,6 +309,7 @@ export default function Feed() {
                 </span>
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
+                  aria-label="Downvote"
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                   }`}

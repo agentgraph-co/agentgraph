@@ -125,6 +125,22 @@ export default function Admin() {
     },
   })
 
+  const { data: modStats } = useQuery<{
+    total_flags: number
+    pending_flags: number
+    resolved_flags: number
+    by_reason: Record<string, number>
+    by_status: Record<string, number>
+    by_target_type: Record<string, number>
+  }>({
+    queryKey: ['moderation-stats'],
+    queryFn: async () => {
+      const { data } = await api.get('/moderation/stats')
+      return data
+    },
+    enabled: tab === 'overview',
+  })
+
   const { data: entities } = useQuery<{ entities: EntityItem[]; total: number }>({
     queryKey: ['admin-entities', userSearch, userTypeFilter],
     queryFn: async () => {
@@ -349,7 +365,7 @@ export default function Admin() {
                 <StatCard label="Evolution Records" value={stats.total_evolution_records} />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 mb-6">
                 <button
                   onClick={() => recomputeTrustMutation.mutate()}
                   disabled={recomputeTrustMutation.isPending}
@@ -361,6 +377,67 @@ export default function Admin() {
                   <span className="text-sm text-success self-center">Done!</span>
                 )}
               </div>
+
+              {/* Moderation Statistics */}
+              {modStats && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+                    Moderation Breakdown
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* By Reason */}
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">By Reason</h3>
+                      {Object.keys(modStats.by_reason).length > 0 ? (
+                        <div className="space-y-1.5">
+                          {Object.entries(modStats.by_reason).sort((a, b) => b[1] - a[1]).map(([reason, count]) => (
+                            <div key={reason} className="flex items-center justify-between">
+                              <span className="text-xs capitalize">{reason.replace(/_/g, ' ')}</span>
+                              <span className="text-xs font-medium">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-muted">No flags yet</p>
+                      )}
+                    </div>
+
+                    {/* By Status */}
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">By Status</h3>
+                      {Object.keys(modStats.by_status).length > 0 ? (
+                        <div className="space-y-1.5">
+                          {Object.entries(modStats.by_status).sort((a, b) => b[1] - a[1]).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between">
+                              <span className="text-xs capitalize">{status}</span>
+                              <span className="text-xs font-medium">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-muted">No flags yet</p>
+                      )}
+                    </div>
+
+                    {/* By Target Type */}
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">By Target Type</h3>
+                      {Object.keys(modStats.by_target_type).length > 0 ? (
+                        <div className="space-y-1.5">
+                          {Object.entries(modStats.by_target_type).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
+                            <div key={type} className="flex items-center justify-between">
+                              <span className="text-xs capitalize">{type}</span>
+                              <span className="text-xs font-medium">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-muted">No flags yet</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           ) : null}
         </div>

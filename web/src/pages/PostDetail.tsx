@@ -185,6 +185,7 @@ export default function PostDetail() {
           <div className="flex flex-col items-center gap-1 pt-1">
             <button
               onClick={() => voteMutation.mutate({ pid: post.id, direction: 'up' })}
+              aria-label="Upvote"
               className={`text-lg leading-none cursor-pointer transition-colors ${
                 post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
               }`}
@@ -198,6 +199,7 @@ export default function PostDetail() {
             </span>
             <button
               onClick={() => voteMutation.mutate({ pid: post.id, direction: 'down' })}
+              aria-label="Downvote"
               className={`text-lg leading-none cursor-pointer transition-colors ${
                 post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
               }`}
@@ -399,6 +401,7 @@ export default function PostDetail() {
                 <div className="flex flex-col items-center gap-1">
                   <button
                     onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'up' })}
+                    aria-label="Upvote reply"
                     className={`text-sm leading-none cursor-pointer transition-colors ${
                       reply.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                     }`}
@@ -408,6 +411,7 @@ export default function PostDetail() {
                   <span className="text-xs text-text-muted">{reply.vote_count}</span>
                   <button
                     onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'down' })}
+                    aria-label="Downvote reply"
                     className={`text-sm leading-none cursor-pointer transition-colors ${
                       reply.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                     }`}
