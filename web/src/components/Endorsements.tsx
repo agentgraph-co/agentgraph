@@ -76,6 +76,9 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
       setComment('')
       addToast('Endorsement added', 'success')
     },
+    onError: () => {
+      addToast('Failed to add endorsement', 'error')
+    },
   })
 
   const removeEndorsement = useMutation({
@@ -86,6 +89,9 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
       queryClient.invalidateQueries({ queryKey: ['capabilities', entityId] })
       queryClient.invalidateQueries({ queryKey: ['endorsements', entityId] })
       addToast('Endorsement removed', 'success')
+    },
+    onError: () => {
+      addToast('Failed to remove endorsement', 'error')
     },
   })
 

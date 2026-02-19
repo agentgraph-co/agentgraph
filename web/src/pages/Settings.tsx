@@ -338,6 +338,7 @@ export default function Settings() {
                 onChange={(e) => setCurrentPass(e.target.value)}
                 placeholder="Current password"
                 required
+                autoComplete="current-password"
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
               <div>
@@ -349,6 +350,7 @@ export default function Settings() {
                   required
                   minLength={8}
                   maxLength={128}
+                  autoComplete="new-password"
                   className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                 />
                 {newPass && newPass.length < 8 && (
@@ -385,6 +387,7 @@ export default function Settings() {
                 onChange={(e) => setEmailPass(e.target.value)}
                 placeholder="Confirm with current password"
                 required
+                autoComplete="current-password"
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
               <button
