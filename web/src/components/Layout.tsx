@@ -39,10 +39,22 @@ export default function Layout() {
             {user ? (
               <>
                 <Link
+                  to="/messages"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  DMs
+                </Link>
+                <Link
                   to="/notifications"
                   className="text-sm text-text-muted hover:text-text transition-colors"
                 >
                   Alerts
+                </Link>
+                <Link
+                  to="/settings"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  Settings
                 </Link>
                 <Link
                   to={`/profile/${user.id}`}
