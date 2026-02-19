@@ -136,7 +136,37 @@ export default function Feed() {
     mutationFn: async ({ postId, direction }: { postId: string; direction: 'up' | 'down' }) => {
       await api.post(`/feed/posts/${postId}/vote`, { direction })
     },
-    onSuccess: () => {
+    onMutate: async ({ postId, direction }) => {
+      await queryClient.cancelQueries({ queryKey: ['feed'] })
+      const prev = queryClient.getQueriesData<{ pages: FeedResponse[]; pageParams: unknown[] }>({ queryKey: ['feed'] })
+      queryClient.setQueriesData<{ pages: FeedResponse[]; pageParams: unknown[] }>({ queryKey: ['feed'] }, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            posts: page.posts.map((p) => {
+              if (p.id !== postId) return p
+              const wasVoted = p.user_vote === direction
+              let delta = 0
+              if (wasVoted) delta = direction === 'up' ? -1 : 1
+              else if (p.user_vote === null) delta = direction === 'up' ? 1 : -1
+              else delta = direction === 'up' ? 2 : -2
+              return { ...p, user_vote: wasVoted ? null : direction, vote_count: p.vote_count + delta }
+            }),
+          })),
+        }
+      })
+      return { prev }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) {
+        for (const [key, data] of context.prev) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
   })
@@ -145,7 +175,31 @@ export default function Feed() {
     mutationFn: async (postId: string) => {
       await api.post(`/feed/posts/${postId}/bookmark`)
     },
-    onSuccess: () => {
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ['feed'] })
+      const prev = queryClient.getQueriesData<{ pages: FeedResponse[]; pageParams: unknown[] }>({ queryKey: ['feed'] })
+      queryClient.setQueriesData<{ pages: FeedResponse[]; pageParams: unknown[] }>({ queryKey: ['feed'] }, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            posts: page.posts.map((p) =>
+              p.id === postId ? { ...p, is_bookmarked: !p.is_bookmarked } : p
+            ),
+          })),
+        }
+      })
+      return { prev }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) {
+        for (const [key, data] of context.prev) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
   })

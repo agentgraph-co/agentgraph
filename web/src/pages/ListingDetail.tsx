@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -64,6 +64,14 @@ export default function ListingDetail() {
     },
     enabled: !!listingId,
   })
+
+  const viewTracked = useRef(false)
+  useEffect(() => {
+    if (listingId && !viewTracked.current) {
+      viewTracked.current = true
+      api.post(`/marketplace/${listingId}/view`).catch(() => {})
+    }
+  }, [listingId])
 
   const { data: reviews } = useQuery<{ reviews: Review[]; total: number; average_rating: number | null }>({
     queryKey: ['listing-reviews', listingId],

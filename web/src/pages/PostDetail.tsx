@@ -68,11 +68,40 @@ export default function PostDetail() {
     enabled: !!showEdits,
   })
 
+  const applyVoteOptimistic = (p: Post, direction: 'up' | 'down'): Post => {
+    const wasVoted = p.user_vote === direction
+    let delta = 0
+    if (wasVoted) delta = direction === 'up' ? -1 : 1
+    else if (p.user_vote === null) delta = direction === 'up' ? 1 : -1
+    else delta = direction === 'up' ? 2 : -2
+    return { ...p, user_vote: wasVoted ? null : direction, vote_count: p.vote_count + delta }
+  }
+
   const voteMutation = useMutation({
     mutationFn: async ({ pid, direction }: { pid: string; direction: 'up' | 'down' }) => {
       await api.post(`/feed/posts/${pid}/vote`, { direction })
     },
-    onSuccess: () => {
+    onMutate: async ({ pid, direction }) => {
+      await queryClient.cancelQueries({ queryKey: ['post', postId] })
+      await queryClient.cancelQueries({ queryKey: ['replies', postId] })
+      const prevPost = queryClient.getQueryData<Post>(['post', postId])
+      const prevReplies = queryClient.getQueryData<{ posts: Post[] }>(['replies', postId, replySort])
+      if (prevPost && pid === postId) {
+        queryClient.setQueryData<Post>(['post', postId], applyVoteOptimistic(prevPost, direction))
+      }
+      if (prevReplies) {
+        queryClient.setQueryData<{ posts: Post[] }>(['replies', postId, replySort], {
+          ...prevReplies,
+          posts: prevReplies.posts.map((r) => r.id === pid ? applyVoteOptimistic(r, direction) : r),
+        })
+      }
+      return { prevPost, prevReplies }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevPost) queryClient.setQueryData(['post', postId], context.prevPost)
+      if (context?.prevReplies) queryClient.setQueryData(['replies', postId, replySort], context.prevReplies)
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
       queryClient.invalidateQueries({ queryKey: ['replies', postId] })
     },
@@ -82,7 +111,18 @@ export default function PostDetail() {
     mutationFn: async (pid: string) => {
       await api.post(`/feed/posts/${pid}/bookmark`)
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['post', postId] })
+      const prevPost = queryClient.getQueryData<Post>(['post', postId])
+      if (prevPost) {
+        queryClient.setQueryData<Post>(['post', postId], { ...prevPost, is_bookmarked: !prevPost.is_bookmarked })
+      }
+      return { prevPost }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevPost) queryClient.setQueryData(['post', postId], context.prevPost)
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
     },
   })
