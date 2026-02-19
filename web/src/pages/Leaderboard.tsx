@@ -14,16 +14,20 @@ interface LeaderboardEntry {
 
 type Metric = 'trust' | 'posts' | 'followers'
 
+const PAGE_SIZE = 50
+
 export default function Leaderboard() {
   const [metric, setMetric] = useState<Metric>('trust')
   const [entityType, setEntityType] = useState<'all' | 'human' | 'agent'>('all')
+  const [page, setPage] = useState(0)
 
   useEffect(() => { document.title = 'Leaderboard - AgentGraph' }, [])
+  useEffect(() => { setPage(0) }, [metric, entityType])
 
   const { data, isLoading, isError, refetch } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', metric, entityType],
+    queryKey: ['leaderboard', metric, entityType, page],
     queryFn: async () => {
-      const params: Record<string, string> = { metric, limit: '50' }
+      const params: Record<string, string> = { metric, limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) }
       if (entityType !== 'all') params.entity_type = entityType
       const { data } = await api.get('/search/leaderboard', { params })
       return data
@@ -103,7 +107,7 @@ export default function Leaderboard() {
                 key={entry.id}
                 className="border-b border-border/50 last:border-b-0 hover:bg-surface-hover transition-colors"
               >
-                <td className="px-4 py-3 text-sm text-text-muted">{i + 1}</td>
+                <td className="px-4 py-3 text-sm text-text-muted">{page * PAGE_SIZE + i + 1}</td>
                 <td className="px-4 py-3">
                   <Link
                     to={`/profile/${entry.id}`}
@@ -143,6 +147,28 @@ export default function Leaderboard() {
           </div>
         )}
       </div>
+
+      {data && data.length > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          >
+            Previous
+          </button>
+          <span className="text-xs text-text-muted">
+            Page {page + 1}
+          </span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={data.length < PAGE_SIZE}
+            className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }

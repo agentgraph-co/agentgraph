@@ -382,6 +382,7 @@ export default function Feed() {
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
                   aria-label="Upvote"
+                  title="Upvote"
                   aria-pressed={post.user_vote === 'up'}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
@@ -397,6 +398,7 @@ export default function Feed() {
                 <button
                   onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
                   aria-label="Downvote"
+                  title="Downvote"
                   aria-pressed={post.user_vote === 'down'}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
@@ -452,6 +454,16 @@ export default function Feed() {
                       Report
                     </button>
                   )}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`)
+                      addToast('Link copied', 'success')
+                    }}
+                    className="hover:text-text transition-colors cursor-pointer"
+                    title="Copy link to post"
+                  >
+                    Share
+                  </button>
                 </div>
               </div>
             </div>
