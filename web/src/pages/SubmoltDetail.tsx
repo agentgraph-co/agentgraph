@@ -1,29 +1,39 @@
+import { useState, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { useAuth } from '../hooks/useAuth'
 
-interface SubmoltFeed {
-  submolt: {
-    id: string
-    name: string
-    display_name: string
-    description: string
-    rules: string
-    tags: string[]
-    member_count: number
-    is_member: boolean
-    created_at: string
-  }
-  posts: Array<{
-    id: string
-    content: string
-    author_id: string
-    author_display_name: string
-    author_type: string
-    vote_count: number
-    reply_count: number
-    created_at: string
-  }>
+interface SubmoltInfo {
+  id: string
+  name: string
+  display_name: string
+  description: string
+  rules: string
+  tags: string[]
+  member_count: number
+  is_member: boolean
+  created_at: string
+}
+
+interface FeedPost {
+  id: string
+  content: string
+  author_id: string
+  author_name: string
+  author_type: string
+  vote_count: number
+  reply_count: number
+  is_pinned: boolean
+  flair: string | null
+  user_vote: string | null
+  created_at: string
+}
+
+interface FeedPage {
+  submolt: SubmoltInfo
+  posts: FeedPost[]
+  next_cursor: string | null
 }
 
 function timeAgo(dateStr: string): string {
@@ -39,49 +49,89 @@ function timeAgo(dateStr: string): string {
 
 export default function SubmoltDetail() {
   const { name } = useParams<{ name: string }>()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [postContent, setPostContent] = useState('')
+  const [showRules, setShowRules] = useState(false)
 
-  const { data, isLoading } = useQuery<SubmoltFeed>({
-    queryKey: ['submolt', name],
-    queryFn: async () => {
-      const { data } = await api.get(`/submolts/s/${name}/feed`)
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<FeedPage>({
+    queryKey: ['submolt-feed', name],
+    queryFn: async ({ pageParam }) => {
+      const params: Record<string, string> = { limit: '20' }
+      if (pageParam) params.cursor = pageParam as string
+      const { data } = await api.get(`/submolts/${name}/feed`, { params })
       return data
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
     enabled: !!name,
   })
 
+  const submolt = data?.pages[0]?.submolt
+  const allPosts = data?.pages.flatMap((p) => p.posts) || []
+
   const joinMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/submolts/s/${name}/join`)
+      await api.post(`/submolts/${name}/join`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['submolt', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
     },
   })
 
   const leaveMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/submolts/s/${name}/leave`)
+      await api.post(`/submolts/${name}/leave`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['submolt', name] })
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
     },
   })
+
+  const postMutation = useMutation({
+    mutationFn: async (content: string) => {
+      await api.post('/feed/posts', { content, submolt_name: name })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+      setPostContent('')
+    },
+  })
+
+  const voteMutation = useMutation({
+    mutationFn: async ({ postId, direction }: { postId: string; direction: number }) => {
+      await api.post(`/feed/posts/${postId}/vote`, { direction })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+    },
+  })
+
+  const handlePost = (e: FormEvent) => {
+    e.preventDefault()
+    if (postContent.trim()) {
+      postMutation.mutate(postContent)
+    }
+  }
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading community...</div>
   }
 
-  if (!data) {
+  if (!submolt) {
     return <div className="text-danger text-center mt-10">Community not found</div>
   }
-
-  const { submolt, posts } = data
 
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="bg-surface border border-border rounded-lg p-5 mb-6">
+      <div className="bg-surface border border-border rounded-lg p-5 mb-4">
         <div className="flex items-start justify-between mb-3">
           <div>
             <h1 className="text-xl font-bold">m/{submolt.name}</h1>
@@ -89,23 +139,26 @@ export default function SubmoltDetail() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-text-muted">{submolt.member_count} members</span>
-            <button
-              onClick={() => submolt.is_member ? leaveMutation.mutate() : joinMutation.mutate()}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
-                submolt.is_member
-                  ? 'bg-surface-hover text-text border border-border hover:border-danger hover:text-danger'
-                  : 'bg-primary hover:bg-primary-dark text-white'
-              }`}
-            >
-              {submolt.is_member ? 'Leave' : 'Join'}
-            </button>
+            {user && (
+              <button
+                onClick={() => submolt.is_member ? leaveMutation.mutate() : joinMutation.mutate()}
+                disabled={joinMutation.isPending || leaveMutation.isPending}
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer disabled:opacity-50 ${
+                  submolt.is_member
+                    ? 'bg-surface-hover text-text border border-border hover:border-danger hover:text-danger'
+                    : 'bg-primary hover:bg-primary-dark text-white'
+                }`}
+              >
+                {submolt.is_member ? 'Leave' : 'Join'}
+              </button>
+            )}
           </div>
         </div>
         {submolt.description && (
           <p className="text-sm mb-2">{submolt.description}</p>
         )}
         {submolt.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {submolt.tags.map((tag) => (
               <span key={tag} className="text-xs px-2 py-0.5 bg-surface-hover rounded text-text-muted">
                 {tag}
@@ -113,39 +166,144 @@ export default function SubmoltDetail() {
             ))}
           </div>
         )}
+        {submolt.rules && (
+          <div>
+            <button
+              onClick={() => setShowRules(!showRules)}
+              className="text-xs text-text-muted hover:text-text cursor-pointer"
+            >
+              {showRules ? 'Hide rules' : 'Show rules'}
+            </button>
+            {showRules && (
+              <div className="mt-2 bg-background rounded-md p-3 text-sm whitespace-pre-wrap">
+                {submolt.rules}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="text-xs text-text-muted mt-2">
+          Created {new Date(submolt.created_at).toLocaleDateString()}
+        </div>
       </div>
+
+      {/* Post form */}
+      {user && submolt.is_member && (
+        <form onSubmit={handlePost} className="mb-4">
+          <textarea
+            value={postContent}
+            onChange={(e) => setPostContent(e.target.value)}
+            placeholder={`Post in m/${submolt.name}...`}
+            rows={3}
+            maxLength={10000}
+            className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
+          />
+          <div className="flex justify-end mt-2">
+            <button
+              type="submit"
+              disabled={!postContent.trim() || postMutation.isPending}
+              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {postMutation.isPending ? 'Posting...' : 'Post'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {user && !submolt.is_member && (
+        <div className="bg-surface border border-border rounded-md p-3 mb-4 text-center text-sm text-text-muted">
+          Join this community to post
+        </div>
+      )}
 
       {/* Posts */}
       <div className="space-y-3">
-        {posts.map((post) => (
-          <Link
+        {allPosts.map((post) => (
+          <div
             key={post.id}
-            to={`/post/${post.id}`}
-            className="block bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+            className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
           >
-            <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
-              <span className="font-medium text-text">{post.author_display_name}</span>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
-              }`}>
-                {post.author_type}
-              </span>
-              <span>{timeAgo(post.created_at)}</span>
+            {post.is_pinned && (
+              <div className="text-[10px] text-warning uppercase tracking-wider font-semibold mb-1">
+                Pinned
+              </div>
+            )}
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center gap-0.5">
+                <button
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 1 })}
+                  className={`text-sm leading-none cursor-pointer transition-colors ${
+                    post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
+                  }`}
+                >
+                  &#9650;
+                </button>
+                <span className={`text-xs font-medium ${
+                  post.vote_count > 0 ? 'text-primary-light' : post.vote_count < 0 ? 'text-danger' : 'text-text-muted'
+                }`}>
+                  {post.vote_count}
+                </span>
+                <button
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: -1 })}
+                  className={`text-sm leading-none cursor-pointer transition-colors ${
+                    post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
+                  }`}
+                >
+                  &#9660;
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+                  <Link
+                    to={`/profile/${post.author_id}`}
+                    className="font-medium text-text hover:text-primary-light transition-colors"
+                  >
+                    {post.author_name}
+                  </Link>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                    post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  }`}>
+                    {post.author_type}
+                  </span>
+                  {post.flair && (
+                    <span className="px-1.5 py-0.5 bg-warning/20 text-warning rounded text-[10px]">
+                      {post.flair}
+                    </span>
+                  )}
+                  <span>{timeAgo(post.created_at)}</span>
+                </div>
+                <Link to={`/post/${post.id}`}>
+                  <p className="text-sm line-clamp-4 mb-2 hover:text-primary-light transition-colors">
+                    {post.content}
+                  </p>
+                </Link>
+                <div className="flex items-center gap-4 text-xs text-text-muted">
+                  <Link to={`/post/${post.id}`} className="hover:text-text transition-colors">
+                    {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
+                  </Link>
+                </div>
+              </div>
             </div>
-            <p className="text-sm line-clamp-3 mb-2">{post.content}</p>
-            <div className="flex items-center gap-4 text-xs text-text-muted">
-              <span>{post.vote_count} votes</span>
-              <span>{post.reply_count} replies</span>
-            </div>
-          </Link>
+          </div>
         ))}
 
-        {posts.length === 0 && (
+        {allPosts.length === 0 && (
           <div className="text-text-muted text-center py-10">
-            No posts in this community yet.
+            No posts in this community yet. Be the first!
           </div>
         )}
       </div>
+
+      {hasNextPage && (
+        <div className="text-center mt-4">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="text-sm text-primary hover:text-primary-light transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'Loading more...' : 'Load more posts'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
