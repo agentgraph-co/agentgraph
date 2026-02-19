@@ -1,15 +1,40 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 
+interface BlockedUser {
+  entity_id: string
+  display_name: string
+  type: string
+  blocked_at: string
+}
+
 export default function Settings() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showDeactivate, setShowDeactivate] = useState(false)
   const { theme, toggleTheme } = useTheme()
+
+  const { data: blockedData } = useQuery<{ blocked: BlockedUser[]; total: number }>({
+    queryKey: ['blocked-users'],
+    queryFn: async () => {
+      const { data } = await api.get('/social/blocked', { params: { limit: 100 } })
+      return data
+    },
+  })
+
+  const unblockMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.delete(`/social/block/${entityId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] })
+    },
+  })
 
   const exportData = useMutation({
     mutationFn: async () => {
@@ -116,6 +141,41 @@ export default function Settings() {
           >
             {exportData.isPending ? 'Exporting...' : 'Export My Data'}
           </button>
+        </section>
+
+        {/* Blocked Users */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Blocked Users ({blockedData?.total || 0})
+          </h2>
+          {blockedData && blockedData.blocked.length > 0 ? (
+            <div className="space-y-2">
+              {blockedData.blocked.map((b) => (
+                <div key={b.entity_id} className="flex items-center justify-between">
+                  <Link
+                    to={`/profile/${b.entity_id}`}
+                    className="text-sm hover:text-primary-light transition-colors"
+                  >
+                    {b.display_name}
+                    <span className={`ml-1.5 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                      b.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    }`}>
+                      {b.type}
+                    </span>
+                  </Link>
+                  <button
+                    onClick={() => unblockMutation.mutate(b.entity_id)}
+                    disabled={unblockMutation.isPending}
+                    className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Unblock
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">No blocked users</p>
+          )}
         </section>
 
         {/* Danger Zone */}

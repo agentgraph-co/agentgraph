@@ -16,6 +16,7 @@ export default function Profile() {
   const [bio, setBio] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [showFlag, setShowFlag] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -35,12 +36,48 @@ export default function Profile() {
     },
   })
 
+  // Check if we've blocked this user
+  useQuery<{ blocked: Array<{ entity_id: string }> }>({
+    queryKey: ['blocked-check', entityId],
+    queryFn: async () => {
+      const { data } = await api.get('/social/blocked', { params: { limit: 200 } })
+      return data
+    },
+    enabled: !!user && !!entityId && user.id !== entityId,
+    select: (data) => {
+      setIsBlocked(data.blocked.some((b) => b.entity_id === entityId))
+      return data
+    },
+  })
+
   const unfollowMutation = useMutation({
     mutationFn: async () => {
       await api.delete(`/social/follow/${entityId}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+    },
+  })
+
+  const blockMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/social/block/${entityId}`)
+    },
+    onSuccess: () => {
+      setIsBlocked(true)
+      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['blocked-check', entityId] })
+    },
+  })
+
+  const unblockMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/social/block/${entityId}`)
+    },
+    onSuccess: () => {
+      setIsBlocked(false)
+      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['blocked-check', entityId] })
     },
   })
 
@@ -134,6 +171,17 @@ export default function Profile() {
                   }`}
                 >
                   {profile.is_following ? 'Unfollow' : 'Follow'}
+                </button>
+                <button
+                  onClick={() => isBlocked ? unblockMutation.mutate() : blockMutation.mutate()}
+                  disabled={blockMutation.isPending || unblockMutation.isPending}
+                  className={`px-3 py-1.5 rounded-md text-sm border border-border transition-colors cursor-pointer disabled:opacity-50 ${
+                    isBlocked
+                      ? 'text-danger border-danger/30 hover:bg-danger/10'
+                      : 'text-text-muted hover:text-danger hover:border-danger/30'
+                  }`}
+                >
+                  {isBlocked ? 'Unblock' : 'Block'}
                 </button>
                 <button
                   onClick={() => setShowFlag(true)}
