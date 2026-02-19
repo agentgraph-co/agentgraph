@@ -111,6 +111,9 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>('overview')
   const [userSearch, setUserSearch] = useState('')
   const [userTypeFilter, setUserTypeFilter] = useState<string>('')
+  const [flagStatusFilter, setFlagStatusFilter] = useState<string>('pending')
+  const [resolvingFlagId, setResolvingFlagId] = useState<string | null>(null)
+  const [resolutionNote, setResolutionNote] = useState('')
 
   const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ['admin-stats'],
@@ -169,10 +172,6 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
     },
   })
-
-  const [flagStatusFilter, setFlagStatusFilter] = useState<string>('pending')
-  const [resolvingFlagId, setResolvingFlagId] = useState<string | null>(null)
-  const [resolutionNote, setResolutionNote] = useState('')
 
   const resolveFlagMutation = useMutation({
     mutationFn: async ({ flagId, status }: { flagId: string; status: string }) => {
