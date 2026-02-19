@@ -7,6 +7,9 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Feed from './pages/Feed'
 import Profile from './pages/Profile'
+import Search from './pages/Search'
+import PostDetail from './pages/PostDetail'
+import Graph from './pages/Graph'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,7 +35,10 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
+        <Route path="/post/:postId" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
         <Route path="/profile/:entityId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+        <Route path="/graph" element={<ProtectedRoute><Graph /></ProtectedRoute>} />
       </Route>
     </Routes>
   )
