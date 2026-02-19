@@ -26,6 +26,7 @@ import NotFound from './pages/NotFound'
 import { ThemeProvider } from './hooks/useTheme'
 import Bookmarks from './pages/Bookmarks'
 import Admin from './pages/Admin'
+import Webhooks from './pages/Webhooks'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
         <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

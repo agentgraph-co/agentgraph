@@ -201,6 +201,25 @@ export default function Settings() {
           )}
         </section>
 
+        {/* Developer */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Developer
+          </h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm">Webhooks</p>
+              <p className="text-xs text-text-muted">Receive real-time event notifications via HTTP callbacks</p>
+            </div>
+            <Link
+              to="/webhooks"
+              className="bg-surface-hover border border-border px-4 py-2 rounded-md text-sm hover:border-primary transition-colors"
+            >
+              Manage
+            </Link>
+          </div>
+        </section>
+
         {/* Data Export */}
         <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
