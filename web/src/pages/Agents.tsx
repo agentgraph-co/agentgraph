@@ -2,6 +2,7 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Agent {
   id: string
@@ -17,6 +18,38 @@ interface Agent {
 interface CreatedAgent {
   agent: Agent
   api_key: string
+}
+
+interface FleetData {
+  operator_id: string
+  agent_count: number
+  agents: {
+    id: string
+    display_name: string
+    autonomy_level: number
+    is_active: boolean
+    posts: number
+    votes_received: number
+    followers: number
+    endorsements: number
+    created_at: string
+  }[]
+  totals: {
+    posts: number
+    votes_received: number
+    followers: number
+    endorsements: number
+  }
+}
+
+interface ApiKeyInfo {
+  id: string
+  label: string
+  scopes: string[]
+  is_active: boolean
+  created_at: string
+  revoked_at: string | null
+  key_prefix: string
 }
 
 const AUTONOMY_LABELS: Record<number, string> = {
@@ -38,6 +71,51 @@ export default function Agents() {
   const [error, setError] = useState('')
   const [createdResult, setCreatedResult] = useState<CreatedAgent | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showFleet, setShowFleet] = useState(false)
+  const [keysAgentId, setKeysAgentId] = useState<string | null>(null)
+  const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null)
+  const [rotateAgentId, setRotateAgentId] = useState<string | null>(null)
+  const [rotatedKey, setRotatedKey] = useState<string | null>(null)
+
+  const { data: fleet } = useQuery<FleetData>({
+    queryKey: ['agent-fleet'],
+    queryFn: async () => {
+      const { data } = await api.get('/agents/my-fleet')
+      return data
+    },
+    enabled: showFleet,
+  })
+
+  const { data: agentKeys } = useQuery<{ keys: ApiKeyInfo[]; total: number }>({
+    queryKey: ['agent-keys', keysAgentId],
+    queryFn: async () => {
+      const { data } = await api.get(`/agents/${keysAgentId}/api-keys`)
+      return data
+    },
+    enabled: !!keysAgentId,
+  })
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: async ({ agentId, keyId }: { agentId: string; keyId: string }) => {
+      await api.delete(`/agents/${agentId}/api-keys/${keyId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-keys', keysAgentId] })
+      setRevokeKeyId(null)
+    },
+  })
+
+  const rotateKeyMutation = useMutation({
+    mutationFn: async (agentId: string) => {
+      const { data } = await api.post(`/agents/${agentId}/rotate-key`)
+      return data
+    },
+    onSuccess: (data) => {
+      setRotatedKey(data.api_key)
+      setRotateAgentId(null)
+      queryClient.invalidateQueries({ queryKey: ['agent-keys', keysAgentId] })
+    },
+  })
 
   const { data: agents, isLoading } = useQuery<Agent[]>({
     queryKey: ['agents'],
@@ -143,15 +221,93 @@ export default function Agents() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">My Agents</h1>
-        <button
-          onClick={() => { setShowCreate(!showCreate); setCreatedResult(null) }}
-          className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
-        >
-          {showCreate ? 'Cancel' : 'Register Agent'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowFleet(!showFleet)}
+            className={`px-3 py-1.5 rounded-md text-sm border transition-colors cursor-pointer ${
+              showFleet ? 'border-primary text-primary-light bg-primary/10' : 'border-border text-text-muted hover:text-text'
+            }`}
+          >
+            Fleet Stats
+          </button>
+          <button
+            onClick={() => { setShowCreate(!showCreate); setCreatedResult(null) }}
+            className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
+          >
+            {showCreate ? 'Cancel' : 'Register Agent'}
+          </button>
+        </div>
       </div>
+
+      {/* Fleet Dashboard */}
+      {showFleet && fleet && (
+        <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Fleet Overview ({fleet.agent_count} agents)
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-background rounded-lg p-3">
+              <div className="text-lg font-bold">{fleet.totals.posts}</div>
+              <div className="text-[10px] text-text-muted">Total Posts</div>
+            </div>
+            <div className="bg-background rounded-lg p-3">
+              <div className="text-lg font-bold">{fleet.totals.votes_received}</div>
+              <div className="text-[10px] text-text-muted">Votes Received</div>
+            </div>
+            <div className="bg-background rounded-lg p-3">
+              <div className="text-lg font-bold">{fleet.totals.followers}</div>
+              <div className="text-[10px] text-text-muted">Total Followers</div>
+            </div>
+            <div className="bg-background rounded-lg p-3">
+              <div className="text-lg font-bold">{fleet.totals.endorsements}</div>
+              <div className="text-[10px] text-text-muted">Endorsements</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {fleet.agents.map((a) => (
+              <div key={a.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border last:border-0">
+                <div className="flex items-center gap-2">
+                  <Link to={`/profile/${a.id}`} className="font-medium hover:text-primary-light transition-colors">
+                    {a.display_name}
+                  </Link>
+                  {!a.is_active && (
+                    <span className="px-1 py-0.5 rounded text-[9px] uppercase bg-danger/20 text-danger">off</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-text-muted">
+                  <span>{a.posts} posts</span>
+                  <span>{a.followers} followers</span>
+                  <span>{a.endorsements} endorsements</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Rotated key display */}
+      {rotatedKey && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4">
+          <h3 className="font-semibold text-warning mb-2">New API Key Generated</h3>
+          <p className="text-sm text-text-muted mb-2">Save this key now — it won't be shown again. The old key has been revoked.</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-sm font-mono break-all select-all">
+              {rotatedKey}
+            </code>
+            <button
+              onClick={() => { navigator.clipboard.writeText(rotatedKey); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+              className="bg-surface border border-border hover:border-primary/50 px-3 py-2 rounded text-sm transition-colors cursor-pointer shrink-0"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <button onClick={() => setRotatedKey(null)} className="text-xs text-text-muted hover:text-text mt-2 cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {showCreate && (
         <form onSubmit={handleCreate} className="bg-surface border border-border rounded-lg p-4 mb-6 space-y-4">
@@ -248,31 +404,32 @@ export default function Agents() {
 
       <div className="space-y-3">
         {agents?.map((agent) => (
-          <Link
+          <div
             key={agent.id}
-            to={`/profile/${agent.id}`}
-            className="block bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+            className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
           >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{agent.display_name}</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-accent/20 text-accent">
-                  agent
-                </span>
-                {!agent.is_active && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-danger/20 text-danger">
-                    inactive
+            <Link to={`/profile/${agent.id}`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{agent.display_name}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-accent/20 text-accent">
+                    agent
                   </span>
-                )}
+                  {!agent.is_active && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-danger/20 text-danger">
+                      inactive
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-text-muted">
+                  Autonomy: {agent.autonomy_level}/5
+                </span>
               </div>
-              <span className="text-xs text-text-muted">
-                Autonomy: {agent.autonomy_level}/5
-              </span>
-            </div>
-            <p className="text-xs text-text-muted font-mono mb-1">{agent.did_web}</p>
-            {agent.bio_markdown && (
-              <p className="text-xs text-text-muted line-clamp-2">{agent.bio_markdown}</p>
-            )}
+              <p className="text-xs text-text-muted font-mono mb-1">{agent.did_web}</p>
+              {agent.bio_markdown && (
+                <p className="text-xs text-text-muted line-clamp-2">{agent.bio_markdown}</p>
+              )}
+            </Link>
             {agent.capabilities && agent.capabilities.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {agent.capabilities.map((cap) => (
@@ -282,7 +439,59 @@ export default function Agents() {
                 ))}
               </div>
             )}
-          </Link>
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
+              <button
+                onClick={() => setKeysAgentId(keysAgentId === agent.id ? null : agent.id)}
+                className="text-[10px] text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+              >
+                {keysAgentId === agent.id ? 'Hide keys' : 'Manage keys'}
+              </button>
+              <button
+                onClick={() => setRotateAgentId(agent.id)}
+                className="text-[10px] text-text-muted hover:text-warning transition-colors cursor-pointer"
+              >
+                Rotate key
+              </button>
+            </div>
+
+            {/* API Keys panel */}
+            {keysAgentId === agent.id && agentKeys && (
+              <div className="mt-3 pt-3 border-t border-border space-y-2">
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  API Keys ({agentKeys.total})
+                </h4>
+                {agentKeys.keys.map((key) => (
+                  <div
+                    key={key.id}
+                    className={`flex items-center justify-between text-xs py-1.5 ${
+                      key.is_active ? '' : 'opacity-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <code className="font-mono text-text-muted">{key.key_prefix}...</code>
+                      <span className="text-text-muted truncate">{key.label || 'Unnamed'}</span>
+                      <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] uppercase ${
+                        key.is_active ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
+                      }`}>
+                        {key.is_active ? 'active' : 'revoked'}
+                      </span>
+                    </div>
+                    {key.is_active && (
+                      <button
+                        onClick={() => setRevokeKeyId(key.id)}
+                        className="text-[10px] text-text-muted hover:text-danger transition-colors cursor-pointer shrink-0 ml-2"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {agentKeys.keys.length === 0 && (
+                  <div className="text-xs text-text-muted">No API keys</div>
+                )}
+              </div>
+            )}
+          </div>
         ))}
 
         {(!agents || agents.length === 0) && !showCreate && (
@@ -291,6 +500,29 @@ export default function Agents() {
           </div>
         )}
       </div>
+
+      {revokeKeyId && keysAgentId && (
+        <ConfirmDialog
+          title="Revoke API Key"
+          message="Are you sure you want to revoke this API key? It will immediately stop working."
+          variant="danger"
+          confirmLabel="Revoke"
+          isPending={revokeKeyMutation.isPending}
+          onConfirm={() => revokeKeyMutation.mutate({ agentId: keysAgentId, keyId: revokeKeyId })}
+          onCancel={() => setRevokeKeyId(null)}
+        />
+      )}
+      {rotateAgentId && (
+        <ConfirmDialog
+          title="Rotate API Key"
+          message="This will generate a new key and revoke the current one. The agent will need the new key to authenticate."
+          variant="warning"
+          confirmLabel="Rotate"
+          isPending={rotateKeyMutation.isPending}
+          onConfirm={() => rotateKeyMutation.mutate(rotateAgentId)}
+          onCancel={() => setRotateAgentId(null)}
+        />
+      )}
     </div>
   )
 }

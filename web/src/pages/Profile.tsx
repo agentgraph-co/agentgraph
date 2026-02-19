@@ -9,7 +9,25 @@ import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
 import { ProfileSkeleton } from '../components/Skeleton'
 
-type ProfileTab = 'posts' | 'followers' | 'following'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity'
+
+interface ActivityItem {
+  type: string
+  entity_id: string
+  entity_name: string
+  target_id: string | null
+  summary: string
+  created_at: string
+}
+
+const ACTIVITY_LABELS: Record<string, { label: string; color: string }> = {
+  post: { label: 'Post', color: 'bg-primary/20 text-primary-light' },
+  reply: { label: 'Reply', color: 'bg-accent/20 text-accent' },
+  vote: { label: 'Vote', color: 'bg-surface-hover text-text-muted' },
+  follow: { label: 'Follow', color: 'bg-success/20 text-success' },
+  endorsement: { label: 'Endorsement', color: 'bg-warning/20 text-warning' },
+  review: { label: 'Review', color: 'bg-danger/20 text-danger' },
+}
 
 interface FollowEntity {
   entity_id: string
@@ -157,6 +175,24 @@ export default function Profile() {
     },
     enabled: !!entityId && activeTab === 'following',
   })
+
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+
+  const { data: activityData, fetchNextPage: fetchMoreActivity, hasNextPage: hasMoreActivity, isFetchingNextPage: loadingMoreActivity } = useInfiniteQuery<{ activities: ActivityItem[]; count: number; next_cursor: string | null }>({
+    queryKey: ['profile-activity', entityId],
+    queryFn: async ({ pageParam }) => {
+      const params: Record<string, string> = { limit: '30' }
+      if (pageParam) params.before = pageParam as string
+      const { data } = await api.get(`/activity/${entityId}`, { params })
+      return data
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
+    enabled: !!entityId && activeTab === 'activity',
+  })
+
+  const allActivities = activityData?.pages.flatMap((p) => p.activities) || []
+  const filteredActivities = activityFilter === 'all' ? allActivities : allActivities.filter((a) => a.type === activityFilter)
 
   const allPosts = postsData?.pages.flatMap((p) => p.posts) || []
 
@@ -322,7 +358,7 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4">
-        {(['posts', 'followers', 'following'] as ProfileTab[]).map((tab) => (
+        {(['posts', 'followers', 'following', 'activity'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -335,6 +371,7 @@ export default function Profile() {
             {tab === 'posts' && `Posts (${profile.post_count})`}
             {tab === 'followers' && `Followers (${profile.follower_count})`}
             {tab === 'following' && `Following (${profile.following_count})`}
+            {tab === 'activity' && 'Activity'}
           </button>
         ))}
       </div>
@@ -428,6 +465,72 @@ export default function Profile() {
           ))}
           {followingData && followingData.following.length === 0 && (
             <p className="text-center text-text-muted text-sm py-6">Not following anyone yet</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'activity' && (
+        <div className="mt-3">
+          <div className="flex gap-1.5 mb-3 flex-wrap">
+            {['all', 'post', 'reply', 'vote', 'follow', 'endorsement', 'review'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setActivityFilter(f)}
+                className={`px-2 py-0.5 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
+                  activityFilter === f
+                    ? 'border-primary text-primary bg-primary/10'
+                    : 'border-border text-text-muted hover:border-primary hover:text-primary'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-2">
+            {filteredActivities.map((act, i) => {
+              const info = ACTIVITY_LABELS[act.type] || { label: act.type, color: 'bg-surface-hover text-text-muted' }
+              return (
+                <div key={`${act.type}-${act.target_id}-${i}`} className="bg-surface border border-border rounded-lg px-4 py-3 flex items-start gap-3">
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider mt-0.5 ${info.color}`}>
+                    {info.label}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{act.summary}</p>
+                    <span className="text-[10px] text-text-muted">{timeAgo(act.created_at)}</span>
+                  </div>
+                  {act.target_id && (act.type === 'post' || act.type === 'reply' || act.type === 'vote') && (
+                    <Link
+                      to={`/post/${act.target_id}`}
+                      className="text-[10px] text-text-muted hover:text-primary-light transition-colors shrink-0"
+                    >
+                      View
+                    </Link>
+                  )}
+                  {act.target_id && (act.type === 'follow' || act.type === 'endorsement' || act.type === 'review') && (
+                    <Link
+                      to={`/profile/${act.target_id}`}
+                      className="text-[10px] text-text-muted hover:text-primary-light transition-colors shrink-0"
+                    >
+                      View
+                    </Link>
+                  )}
+                </div>
+              )
+            })}
+            {filteredActivities.length === 0 && (
+              <p className="text-center text-text-muted text-sm py-6">No activity yet</p>
+            )}
+          </div>
+          {hasMoreActivity && (
+            <div className="text-center py-2 mt-2">
+              <button
+                onClick={() => fetchMoreActivity()}
+                disabled={loadingMoreActivity}
+                className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+              >
+                {loadingMoreActivity ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
           )}
         </div>
       )}

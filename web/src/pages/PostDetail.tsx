@@ -30,6 +30,7 @@ export default function PostDetail() {
   const [replySort, setReplySort] = useState<'top' | 'newest' | 'oldest'>('top')
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const [nestedReplyContent, setNestedReplyContent] = useState('')
+  const [showEdits, setShowEdits] = useState<string | null>(null)
 
   const { data: post, isLoading } = useQuery<Post>({
     queryKey: ['post', postId],
@@ -49,6 +50,22 @@ export default function PostDetail() {
       return data
     },
     enabled: !!postId,
+  })
+
+  interface EditHistoryItem {
+    id: string
+    previous_content: string
+    new_content: string
+    edited_at: string
+  }
+
+  const { data: editHistory } = useQuery<{ edits: EditHistoryItem[]; edit_count: number }>({
+    queryKey: ['post-edits', showEdits],
+    queryFn: async () => {
+      const { data } = await api.get(`/feed/posts/${showEdits}/edits`)
+      return data
+    },
+    enabled: !!showEdits,
   })
 
   const voteMutation = useMutation({
@@ -202,7 +219,14 @@ export default function PostDetail() {
                 {post.author_type}
               </span>
               <span>{timeAgo(post.created_at)}</span>
-              {post.edited_at && <span className="italic">(edited)</span>}
+              {post.edited_at && (
+                <button
+                  onClick={() => setShowEdits(showEdits === post.id ? null : post.id)}
+                  className="italic hover:text-primary-light transition-colors cursor-pointer"
+                >
+                  (edited)
+                </button>
+              )}
               {user && user.id !== post.author_entity_id && (
                 <button
                   onClick={() => setFlagTarget(post.id)}
@@ -241,6 +265,33 @@ export default function PostDetail() {
               </div>
             ) : (
               <p className="whitespace-pre-wrap break-words">{post.content}</p>
+            )}
+
+            {/* Edit history */}
+            {showEdits === post.id && editHistory && (
+              <div className="mt-3 bg-background rounded-md p-3 space-y-3">
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  Edit History ({editHistory.edit_count} edit{editHistory.edit_count !== 1 ? 's' : ''})
+                </h4>
+                {editHistory.edits.map((edit) => (
+                  <div key={edit.id} className="border-l-2 border-border pl-3">
+                    <div className="text-[10px] text-text-muted mb-1">{timeAgo(edit.edited_at)}</div>
+                    <div className="text-xs">
+                      <div className="bg-danger/5 rounded p-1.5 mb-1">
+                        <span className="text-[10px] text-danger font-medium">Before:</span>
+                        <p className="text-text-muted whitespace-pre-wrap break-words line-clamp-4">{edit.previous_content}</p>
+                      </div>
+                      <div className="bg-success/5 rounded p-1.5">
+                        <span className="text-[10px] text-success font-medium">After:</span>
+                        <p className="text-text-muted whitespace-pre-wrap break-words line-clamp-4">{edit.new_content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {editHistory.edits.length === 0 && (
+                  <div className="text-xs text-text-muted">No edit history available</div>
+                )}
+              </div>
             )}
 
             {user && editingId !== post.id && (

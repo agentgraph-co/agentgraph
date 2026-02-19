@@ -12,6 +12,36 @@ interface BlockedUser {
   blocked_at: string
 }
 
+interface AuditEntry {
+  id: string
+  action: string
+  resource_type: string | null
+  resource_id: string | null
+  details: Record<string, unknown>
+  ip_address: string | null
+  created_at: string
+}
+
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+const ACTION_COLORS: Record<string, string> = {
+  'auth': 'bg-primary/20 text-primary-light',
+  'account': 'bg-accent/20 text-accent',
+  'social': 'bg-success/20 text-success',
+  'feed': 'bg-warning/20 text-warning',
+  'mcp': 'bg-danger/20 text-danger',
+  'admin': 'bg-danger/20 text-danger',
+}
+
 interface NotifPrefs {
   follow_enabled: boolean
   reply_enabled: boolean
@@ -40,6 +70,7 @@ export default function Settings() {
   const queryClient = useQueryClient()
   const [showDeactivate, setShowDeactivate] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const [auditOffset, setAuditOffset] = useState(0)
 
   // Password change
   const [currentPass, setCurrentPass] = useState('')
@@ -143,6 +174,16 @@ export default function Settings() {
       updatePrefMutation.mutate({ [key]: !notifPrefs[key] })
     }
   }
+
+  const { data: auditData } = useQuery<{ entries: AuditEntry[]; total: number }>({
+    queryKey: ['audit-log', auditOffset],
+    queryFn: async () => {
+      const { data } = await api.get('/account/audit-log', {
+        params: { limit: 20, offset: auditOffset },
+      })
+      return data
+    },
+  })
 
   const { data: blockedData } = useQuery<{ blocked: BlockedUser[]; total: number }>({
     queryKey: ['blocked-users'],
@@ -378,6 +419,18 @@ export default function Settings() {
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
             Developer
           </h2>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm">MCP Tools</p>
+              <p className="text-xs text-text-muted">Discover and test Agent Interaction Protocol tools</p>
+            </div>
+            <Link
+              to="/tools"
+              className="bg-surface-hover border border-border px-4 py-2 rounded-md text-sm hover:border-primary transition-colors"
+            >
+              Explore
+            </Link>
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm">Webhooks</p>
@@ -442,6 +495,83 @@ export default function Settings() {
             </div>
           ) : (
             <p className="text-xs text-text-muted">No blocked users</p>
+          )}
+        </section>
+
+        {/* Audit Log */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Account Audit Log
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            Recent activity and security events on your account.
+          </p>
+          {auditData && auditData.entries.length > 0 ? (
+            <div className="space-y-2">
+              {auditData.entries.map((entry) => {
+                const prefix = entry.action.split('.')[0]
+                const colorClass = ACTION_COLORS[prefix] || 'bg-surface-hover text-text-muted'
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-start justify-between gap-3 py-2 border-b border-border last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${colorClass}`}>
+                          {entry.action}
+                        </span>
+                        {entry.resource_type && (
+                          <span className="text-[10px] text-text-muted">
+                            on {entry.resource_type}
+                          </span>
+                        )}
+                      </div>
+                      {entry.details && Object.keys(entry.details).length > 0 && (
+                        <p className="text-xs text-text-muted truncate max-w-md">
+                          {Object.entries(entry.details)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xs text-text-muted">{timeAgo(entry.created_at)}</div>
+                      {entry.ip_address && (
+                        <div className="text-[10px] text-text-muted font-mono">{entry.ip_address}</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs text-text-muted">
+                  Showing {auditOffset + 1}-{Math.min(auditOffset + 20, auditData.total)} of {auditData.total}
+                </span>
+                <div className="flex gap-2">
+                  {auditOffset > 0 && (
+                    <button
+                      onClick={() => setAuditOffset(Math.max(0, auditOffset - 20))}
+                      className="text-xs text-primary-light hover:underline cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                  )}
+                  {auditOffset + 20 < auditData.total && (
+                    <button
+                      onClick={() => setAuditOffset(auditOffset + 20)}
+                      className="text-xs text-primary-light hover:underline cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : auditData ? (
+            <p className="text-xs text-text-muted">No audit log entries yet</p>
+          ) : (
+            <p className="text-xs text-text-muted">Loading audit log...</p>
           )}
         </section>
 

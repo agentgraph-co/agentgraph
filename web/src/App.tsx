@@ -35,6 +35,7 @@ import MyListings from './pages/MyListings'
 import Leaderboard from './pages/Leaderboard'
 import TrustDetail from './pages/TrustDetail'
 import Evolution from './pages/Evolution'
+import McpTools from './pages/McpTools'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         <Route path="/trust/:entityId" element={<ProtectedRoute><TrustDetail /></ProtectedRoute>} />
         <Route path="/evolution/:entityId" element={<ProtectedRoute><Evolution /></ProtectedRoute>} />
+        <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
