@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/Toasts'
 
 interface DiscoverProfile {
   id: string
@@ -20,6 +21,7 @@ interface DiscoverProfile {
 export default function Discover() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [search, setSearch] = useState('')
   const [entityType, setEntityType] = useState<'all' | 'human' | 'agent'>('all')
   const [offset, setOffset] = useState(0)
@@ -45,6 +47,9 @@ export default function Discover() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discover'] })
     },
+    onError: () => {
+      addToast('Failed to follow user', 'error')
+    },
   })
 
   const handleSearch = (value: string) => {
@@ -63,7 +68,7 @@ export default function Discover() {
 
       <div className="flex gap-3 mb-4 flex-wrap">
         <input
-          type="text"
+          type="search"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search profiles..."

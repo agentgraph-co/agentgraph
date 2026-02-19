@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import * as d3 from 'd3'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/Toasts'
 
 interface GraphNode extends d3.SimulationNodeDatum {
   id: string
@@ -56,6 +57,7 @@ export default function Graph() {
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { addToast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -111,6 +113,9 @@ export default function Graph() {
       return data
     },
     onSuccess: (data) => setMutualResults(data.mutual_follows),
+    onError: () => {
+      addToast('Failed to find mutual connections', 'error')
+    },
   })
 
   // Shortest path
@@ -121,6 +126,9 @@ export default function Graph() {
       return data
     },
     onSuccess: (data) => setPathResult(data),
+    onError: () => {
+      addToast('Failed to find path', 'error')
+    },
   })
 
   const activeData = graphMode === 'ego' ? egoData : data
@@ -357,7 +365,7 @@ export default function Graph() {
         <div className="flex items-center gap-3 flex-wrap">
           {/* Search */}
           <input
-            type="text"
+            type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search entities..."

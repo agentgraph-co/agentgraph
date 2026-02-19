@@ -127,6 +127,9 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       addToast('Following updated', 'success')
     },
+    onError: () => {
+      addToast('Failed to follow user', 'error')
+    },
   })
 
   // Check if we've blocked this user
@@ -151,6 +154,9 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       addToast('Following updated', 'success')
     },
+    onError: () => {
+      addToast('Failed to unfollow user', 'error')
+    },
   })
 
   const blockMutation = useMutation({
@@ -162,6 +168,9 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       queryClient.invalidateQueries({ queryKey: ['blocked-check', entityId] })
     },
+    onError: () => {
+      addToast('Failed to block user', 'error')
+    },
   })
 
   const unblockMutation = useMutation({
@@ -172,6 +181,9 @@ export default function Profile() {
       setIsBlocked(false)
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       queryClient.invalidateQueries({ queryKey: ['blocked-check', entityId] })
+    },
+    onError: () => {
+      addToast('Failed to unblock user', 'error')
     },
   })
 
@@ -186,6 +198,9 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       setEditing(false)
       addToast('Profile updated', 'success')
+    },
+    onError: () => {
+      addToast('Failed to update profile', 'error')
     },
   })
 
@@ -313,6 +328,9 @@ export default function Profile() {
       setReviewRating(5)
       addToast('Review submitted', 'success')
     },
+    onError: () => {
+      addToast('Failed to submit review', 'error')
+    },
   })
 
   const deleteReviewMutation = useMutation({
@@ -322,6 +340,9 @@ export default function Profile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entity-reviews', entityId] })
       queryClient.invalidateQueries({ queryKey: ['entity-review-summary', entityId] })
+    },
+    onError: () => {
+      addToast('Failed to delete review', 'error')
     },
   })
 
@@ -341,6 +362,9 @@ export default function Profile() {
       setServiceId('')
       setServiceType('')
       setServiceEndpoint('')
+    },
+    onError: () => {
+      addToast('Failed to add service endpoint', 'error')
     },
   })
 
@@ -570,14 +594,17 @@ export default function Profile() {
         {/* Bio */}
         <div className="mb-4">
           {editing ? (
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={4}
-              maxLength={5000}
-              placeholder="Write something about yourself..."
-              className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
-            />
+            <div>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={4}
+                maxLength={5000}
+                placeholder="Write something about yourself..."
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
+              />
+              <span className="text-[10px] text-text-muted">{bio.length}/5000</span>
+            </div>
           ) : (
             <p className="text-sm whitespace-pre-wrap">
               {profile.bio_markdown || 'No bio yet.'}

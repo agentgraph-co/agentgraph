@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { NotificationSkeleton } from '../components/Skeleton'
+import { useToast } from '../components/Toasts'
 
 interface Notification {
   id: string
@@ -57,6 +58,7 @@ const KIND_FILTERS = [
 
 export default function Notifications() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [kindFilter, setKindFilter] = useState<string>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
 
@@ -100,6 +102,9 @@ export default function Notifications() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['unread-count'] })
     },
+    onError: () => {
+      addToast('Failed to mark as read', 'error')
+    },
   })
 
   const markAllRead = useMutation({
@@ -109,6 +114,9 @@ export default function Notifications() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['unread-count'] })
+    },
+    onError: () => {
+      addToast('Failed to mark all as read', 'error')
     },
   })
 

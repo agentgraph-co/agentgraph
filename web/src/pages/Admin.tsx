@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/Toasts'
 
 interface PlatformStats {
   total_entities: number
@@ -108,6 +109,7 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
 export default function Admin() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [tab, setTab] = useState<Tab>('overview')
   const [userSearch, setUserSearch] = useState('')
   const [userTypeFilter, setUserTypeFilter] = useState<string>('')
@@ -181,6 +183,9 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
     },
+    onError: () => {
+      addToast('Failed to deactivate user', 'error')
+    },
   })
 
   const reactivateMutation = useMutation({
@@ -190,6 +195,9 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+    },
+    onError: () => {
+      addToast('Failed to reactivate user', 'error')
     },
   })
 
@@ -201,6 +209,9 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
       setSuspendTarget(null)
+    },
+    onError: () => {
+      addToast('Failed to suspend user', 'error')
     },
   })
 
@@ -216,6 +227,9 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
       setResolvingFlagId(null)
       setResolutionNote('')
+    },
+    onError: () => {
+      addToast('Failed to resolve flag', 'error')
     },
   })
 
@@ -246,11 +260,17 @@ export default function Admin() {
       setResolvingAppealId(null)
       setAppealNote('')
     },
+    onError: () => {
+      addToast('Failed to resolve appeal', 'error')
+    },
   })
 
   const recomputeTrustMutation = useMutation({
     mutationFn: async () => {
       await api.post('/admin/trust/recompute')
+    },
+    onError: () => {
+      addToast('Failed to recompute trust scores', 'error')
     },
   })
 

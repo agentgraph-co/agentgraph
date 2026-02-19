@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/Toasts'
 
 interface TrustComponentDetail {
   raw: number
@@ -46,6 +47,7 @@ export default function TrustDetail() {
   const { entityId } = useParams<{ entityId: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showContest, setShowContest] = useState(false)
   const [contestReason, setContestReason] = useState('')
   const [contestSuccess, setContestSuccess] = useState(false)
@@ -59,6 +61,9 @@ export default function TrustDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trust-detail', entityId] })
+    },
+    onError: () => {
+      addToast('Failed to refresh trust score', 'error')
     },
   })
 
@@ -79,6 +84,9 @@ export default function TrustDetail() {
       setContestSuccess(true)
       setShowContest(false)
       setContestReason('')
+    },
+    onError: () => {
+      addToast('Failed to contest score', 'error')
     },
   })
 

@@ -81,6 +81,9 @@ export default function MyListings() {
       setEditingId(null)
       addToast('Listing updated', 'success')
     },
+    onError: () => {
+      addToast('Failed to update listing', 'error')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -90,6 +93,9 @@ export default function MyListings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-listings'] })
       addToast('Listing deleted', 'success')
+    },
+    onError: () => {
+      addToast('Failed to delete listing', 'error')
     },
   })
 

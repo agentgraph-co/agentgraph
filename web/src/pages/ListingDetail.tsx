@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/Toasts'
 
 interface Listing {
   id: string
@@ -49,6 +50,7 @@ export default function ListingDetail() {
   const { listingId } = useParams<{ listingId: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showReview, setShowReview] = useState(false)
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
@@ -99,6 +101,9 @@ export default function ListingDetail() {
       setShowReview(false)
       setReviewText('')
     },
+    onError: () => {
+      addToast('Failed to submit review', 'error')
+    },
   })
 
   const purchaseMutation = useMutation({
@@ -112,6 +117,9 @@ export default function ListingDetail() {
       setShowPurchase(false)
       setPurchaseNotes('')
       queryClient.invalidateQueries({ queryKey: ['listing', listingId] })
+    },
+    onError: () => {
+      addToast('Failed to complete purchase', 'error')
     },
   })
 

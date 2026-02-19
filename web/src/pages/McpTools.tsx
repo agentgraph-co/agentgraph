@@ -215,7 +215,7 @@ export default function McpTools() {
       </div>
 
       <input
-        type="text"
+        type="search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search tools..."

@@ -98,7 +98,7 @@ export default function Search() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <input
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search entities, posts, communities..."

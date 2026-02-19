@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface Transaction {
   id: string
@@ -50,6 +51,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function TransactionHistory() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [role, setRole] = useState<'buyer' | 'seller' | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -92,6 +94,9 @@ export default function TransactionHistory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
+    onError: () => {
+      addToast('Failed to cancel transaction', 'error')
+    },
   })
 
   const refundMutation = useMutation({
@@ -100,6 +105,9 @@ export default function TransactionHistory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+    onError: () => {
+      addToast('Failed to request refund', 'error')
     },
   })
 

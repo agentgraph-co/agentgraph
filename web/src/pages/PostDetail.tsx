@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post } from '../types'
 import FlagDialog from '../components/FlagDialog'
+import { useToast } from '../components/Toasts'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -22,6 +23,7 @@ export default function PostDetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [replyContent, setReplyContent] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -104,6 +106,7 @@ export default function PostDetail() {
     onError: (_err, _vars, context) => {
       if (context?.prevPost) queryClient.setQueryData(['post', postId], context.prevPost)
       if (context?.prevReplies) queryClient.setQueryData(['replies', postId, replySort], context.prevReplies)
+      addToast('Failed to vote', 'error')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
@@ -125,6 +128,7 @@ export default function PostDetail() {
     },
     onError: (_err, _vars, context) => {
       if (context?.prevPost) queryClient.setQueryData(['post', postId], context.prevPost)
+      addToast('Failed to save post', 'error')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
@@ -139,6 +143,9 @@ export default function PostDetail() {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
       queryClient.invalidateQueries({ queryKey: ['replies', postId] })
       setEditingId(null)
+    },
+    onError: () => {
+      addToast('Failed to edit post', 'error')
     },
   })
 
@@ -155,6 +162,9 @@ export default function PostDetail() {
         queryClient.invalidateQueries({ queryKey: ['post', postId] })
       }
     },
+    onError: () => {
+      addToast('Failed to delete post', 'error')
+    },
   })
 
   const replyMutation = useMutation({
@@ -168,6 +178,9 @@ export default function PostDetail() {
       queryClient.invalidateQueries({ queryKey: ['replies', postId] })
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
       setReplyContent('')
+    },
+    onError: () => {
+      addToast('Failed to post reply', 'error')
     },
   })
 
@@ -183,6 +196,9 @@ export default function PostDetail() {
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
       setNestedReplyContent('')
       setReplyToId(null)
+    },
+    onError: () => {
+      addToast('Failed to post reply', 'error')
     },
   })
 

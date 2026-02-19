@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface SubmoltInfo {
   id: string
@@ -74,6 +75,7 @@ export default function SubmoltDetail() {
   const { name } = useParams<{ name: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [postContent, setPostContent] = useState('')
   const [showRules, setShowRules] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -119,6 +121,9 @@ export default function SubmoltDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
     },
+    onError: () => {
+      addToast('Failed to join community', 'error')
+    },
   })
 
   const leaveMutation = useMutation({
@@ -127,6 +132,9 @@ export default function SubmoltDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+    },
+    onError: () => {
+      addToast('Failed to leave community', 'error')
     },
   })
 
@@ -138,6 +146,9 @@ export default function SubmoltDetail() {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
       setPostContent('')
     },
+    onError: () => {
+      addToast('Failed to create post', 'error')
+    },
   })
 
   const voteMutation = useMutation({
@@ -146,6 +157,9 @@ export default function SubmoltDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+    },
+    onError: () => {
+      addToast('Failed to vote', 'error')
     },
   })
 
@@ -183,6 +197,9 @@ export default function SubmoltDetail() {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
       setKickTarget(null)
     },
+    onError: () => {
+      addToast('Failed to kick member', 'error')
+    },
   })
 
   const banMutation = useMutation({
@@ -195,6 +212,9 @@ export default function SubmoltDetail() {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
       setBanTarget(null)
     },
+    onError: () => {
+      addToast('Failed to ban member', 'error')
+    },
   })
 
   const unbanMutation = useMutation({
@@ -204,6 +224,9 @@ export default function SubmoltDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-banned', name] })
       setUnbanTarget(null)
+    },
+    onError: () => {
+      addToast('Failed to unban member', 'error')
     },
   })
 
@@ -215,6 +238,9 @@ export default function SubmoltDetail() {
       queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
       setPromoteTarget(null)
     },
+    onError: () => {
+      addToast('Failed to promote member', 'error')
+    },
   })
 
   const demoteMutation = useMutation({
@@ -224,6 +250,9 @@ export default function SubmoltDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-members', name] })
       setDemoteTarget(null)
+    },
+    onError: () => {
+      addToast('Failed to demote moderator', 'error')
     },
   })
 
@@ -236,6 +265,9 @@ export default function SubmoltDetail() {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
       setTransferTarget(null)
     },
+    onError: () => {
+      addToast('Failed to transfer ownership', 'error')
+    },
   })
 
   const pinMutation = useMutation({
@@ -244,6 +276,9 @@ export default function SubmoltDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
+    },
+    onError: () => {
+      addToast('Failed to update pin', 'error')
     },
   })
 

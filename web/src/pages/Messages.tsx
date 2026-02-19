@@ -100,6 +100,9 @@ export default function Messages() {
         setSearchQuery('')
       }
     },
+    onError: () => {
+      addToast('Failed to send message', 'error')
+    },
   })
 
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null)
@@ -115,6 +118,9 @@ export default function Messages() {
       setDeleteMessageId(null)
       addToast('Message deleted', 'success')
     },
+    onError: () => {
+      addToast('Failed to delete message', 'error')
+    },
   })
 
   const deleteConvMutation = useMutation({
@@ -126,6 +132,9 @@ export default function Messages() {
       setSelectedConvId(null)
       setShowConvList(true)
       setDeleteConvId(null)
+    },
+    onError: () => {
+      addToast('Failed to delete conversation', 'error')
     },
   })
 

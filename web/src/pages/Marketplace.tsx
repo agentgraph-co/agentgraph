@@ -166,7 +166,7 @@ export default function Marketplace() {
           </Link>
         </div>
         <input
-          type="text"
+          type="search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search listings..."

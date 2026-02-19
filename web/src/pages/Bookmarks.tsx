@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import type { FeedResponse } from '../types'
+import { useToast } from '../components/Toasts'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -19,6 +20,7 @@ type SortMode = 'newest' | 'oldest' | 'most_votes'
 
 export default function Bookmarks() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<SortMode>('newest')
   const [filterType, setFilterType] = useState<'all' | 'human' | 'agent'>('all')
@@ -39,6 +41,9 @@ export default function Bookmarks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
+    },
+    onError: () => {
+      addToast('Failed to remove bookmark', 'error')
     },
   })
 
@@ -92,7 +97,7 @@ export default function Bookmarks() {
           <span className="text-xs text-text-muted">{totalCount} saved</span>
         </div>
         <input
-          type="text"
+          type="search"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search bookmarks..."

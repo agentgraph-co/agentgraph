@@ -84,6 +84,9 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-primary focus:text-white focus:px-4 focus:py-2 focus:rounded-md">
+        Skip to main content
+      </a>
       <header className="bg-surface border-b border-border">
         <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -142,7 +145,7 @@ export default function Layout() {
           </div>
         )}
       </header>
-      <main className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
+      <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
         <Outlet />
       </main>
     </div>

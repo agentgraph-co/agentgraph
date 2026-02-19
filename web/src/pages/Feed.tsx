@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
 import { PostSkeleton } from '../components/Skeleton'
+import { useToast } from '../components/Toasts'
 
 const PAGE_SIZE = 20
 
@@ -37,6 +38,7 @@ function timeAgo(dateStr: string): string {
 export default function Feed() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [content, setContent] = useState('')
   const [selectedSubmolt, setSelectedSubmolt] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
@@ -71,6 +73,9 @@ export default function Feed() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suggested-follows'] })
+    },
+    onError: () => {
+      addToast('Failed to follow user', 'error')
     },
   })
 
@@ -132,6 +137,9 @@ export default function Feed() {
       setContent('')
       setSelectedSubmolt('')
     },
+    onError: () => {
+      addToast('Failed to create post', 'error')
+    },
   })
 
   const voteMutation = useMutation({
@@ -167,6 +175,7 @@ export default function Feed() {
           queryClient.setQueryData(key, data)
         }
       }
+      addToast('Failed to vote', 'error')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
@@ -200,6 +209,7 @@ export default function Feed() {
           queryClient.setQueryData(key, data)
         }
       }
+      addToast('Failed to save post', 'error')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
@@ -285,7 +295,7 @@ export default function Feed() {
         ))}
         <div className="flex items-center gap-1 ml-auto">
           <input
-            type="text"
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
