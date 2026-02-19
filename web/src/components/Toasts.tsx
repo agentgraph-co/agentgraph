@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 
 interface Toast {
   id: number
@@ -24,6 +24,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => prev.filter((t) => t.id !== id))
     }, 4000)
   }, [])
+
+  useEffect(() => {
+    const handler = () => addToast('Your session has expired. Please sign in again.', 'error')
+    window.addEventListener('session-expired', handler)
+    return () => window.removeEventListener('session-expired', handler)
+  }, [addToast])
 
   return (
     <ToastContext.Provider value={{ addToast }}>

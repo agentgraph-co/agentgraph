@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import api from '../lib/api'
@@ -7,7 +7,12 @@ import api from '../lib/api'
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
+  const navCls = (path: string) =>
+    `text-sm transition-colors ${isActive(path) ? 'text-primary-light font-medium' : 'text-text-muted hover:text-text'}`
 
   const { data: unreadData } = useQuery<{ unread_count: number }>({
     queryKey: ['unread-count'],
@@ -28,52 +33,24 @@ export default function Layout() {
 
   const navLinks = (
     <>
-      <Link to="/feed" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Feed
-      </Link>
-      <Link to="/search" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Search
-      </Link>
-      <Link to="/discover" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Discover
-      </Link>
-      <Link to="/graph" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Graph
-      </Link>
-      <Link to="/communities" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Communities
-      </Link>
-      <Link to="/marketplace" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Market
-      </Link>
-      <Link to="/agents" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Agents
-      </Link>
-      <Link to="/leaderboard" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
-        Rankings
-      </Link>
+      <Link to="/feed" className={navCls('/feed')} onClick={() => setMobileOpen(false)}>Feed</Link>
+      <Link to="/search" className={navCls('/search')} onClick={() => setMobileOpen(false)}>Search</Link>
+      <Link to="/discover" className={navCls('/discover')} onClick={() => setMobileOpen(false)}>Discover</Link>
+      <Link to="/graph" className={navCls('/graph')} onClick={() => setMobileOpen(false)}>Graph</Link>
+      <Link to="/communities" className={navCls('/communities')} onClick={() => setMobileOpen(false)}>Communities</Link>
+      <Link to="/marketplace" className={navCls('/marketplace')} onClick={() => setMobileOpen(false)}>Market</Link>
+      <Link to="/agents" className={navCls('/agents')} onClick={() => setMobileOpen(false)}>Agents</Link>
+      <Link to="/leaderboard" className={navCls('/leaderboard')} onClick={() => setMobileOpen(false)}>Rankings</Link>
     </>
   )
 
   const userLinks = (
     <>
-      <Link
-        to="/messages"
-        className="text-sm text-text-muted hover:text-text transition-colors"
-        onClick={() => setMobileOpen(false)}
-      >
-        DMs
-      </Link>
-      <Link
-        to="/bookmarks"
-        className="text-sm text-text-muted hover:text-text transition-colors"
-        onClick={() => setMobileOpen(false)}
-      >
-        Saved
-      </Link>
+      <Link to="/messages" className={navCls('/messages')} onClick={() => setMobileOpen(false)}>DMs</Link>
+      <Link to="/bookmarks" className={navCls('/bookmarks')} onClick={() => setMobileOpen(false)}>Saved</Link>
       <Link
         to="/notifications"
-        className="text-sm text-text-muted hover:text-text transition-colors relative"
+        className={`${navCls('/notifications')} relative`}
         onClick={() => setMobileOpen(false)}
       >
         Alerts
@@ -83,27 +60,17 @@ export default function Layout() {
           </span>
         )}
       </Link>
-      <Link
-        to="/settings"
-        className="text-sm text-text-muted hover:text-text transition-colors"
-        onClick={() => setMobileOpen(false)}
-      >
-        Settings
-      </Link>
+      <Link to="/settings" className={navCls('/settings')} onClick={() => setMobileOpen(false)}>Settings</Link>
       {user?.is_admin && (
         <Link
           to="/admin"
-          className="text-sm text-warning hover:text-warning/80 transition-colors"
+          className={`text-sm transition-colors ${isActive('/admin') ? 'text-warning font-medium' : 'text-warning hover:text-warning/80'}`}
           onClick={() => setMobileOpen(false)}
         >
           Admin
         </Link>
       )}
-      <Link
-        to={`/profile/${user?.id}`}
-        className="text-sm text-text-muted hover:text-text transition-colors"
-        onClick={() => setMobileOpen(false)}
-      >
+      <Link to={`/profile/${user?.id}`} className={navCls(`/profile/${user?.id}`)} onClick={() => setMobileOpen(false)}>
         {user?.display_name}
       </Link>
       <button

@@ -125,6 +125,7 @@ export default function Evolution() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <Link to={`/profile/${entityId}`} className="text-xs text-text-muted hover:text-text transition-colors mb-3 inline-block">&larr; Back to Profile</Link>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1 text-xs text-text-muted">
         <Link to={`/profile/${entityId}`} className="hover:text-primary-light transition-colors">

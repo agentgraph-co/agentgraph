@@ -884,7 +884,7 @@ export default function Profile() {
                       {createReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
                     </button>
                     <button
-                      onClick={() => setShowReviewForm(false)}
+                      onClick={() => { setShowReviewForm(false); setReviewRating(5); setReviewText('') }}
                       className="text-sm text-text-muted hover:text-text cursor-pointer"
                     >
                       Cancel

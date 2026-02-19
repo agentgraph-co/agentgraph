@@ -188,6 +188,7 @@ export default function PostDetail() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <Link to="/feed" className="text-xs text-text-muted hover:text-text transition-colors mb-3 inline-block">&larr; Back to Feed</Link>
       {/* Parent post */}
       <article className="bg-surface border border-border rounded-lg p-4 mb-6">
         <div className="flex gap-3">
