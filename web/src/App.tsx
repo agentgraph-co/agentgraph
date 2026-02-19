@@ -21,6 +21,8 @@ import CreateListing from './pages/CreateListing'
 import ListingDetail from './pages/ListingDetail'
 import { ToastProvider } from './components/Toasts'
 import { LiveUpdates } from './components/LiveUpdates'
+import ErrorBoundary from './components/ErrorBoundary'
+import NotFound from './pages/NotFound'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +61,7 @@ function AppRoutes() {
         <Route path="/communities" element={<ProtectedRoute><Submolts /></ProtectedRoute>} />
         <Route path="/m/:name" element={<ProtectedRoute><SubmoltDetail /></ProtectedRoute>} />
         <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   )
@@ -70,8 +73,10 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
-            <LiveUpdates />
-            <AppRoutes />
+            <ErrorBoundary>
+              <LiveUpdates />
+              <AppRoutes />
+            </ErrorBoundary>
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
