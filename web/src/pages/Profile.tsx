@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import type { Profile as ProfileType } from '../types'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
+import FlagDialog from '../components/FlagDialog'
 
 export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
@@ -14,6 +15,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false)
   const [bio, setBio] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [showFlag, setShowFlag] = useState(false)
 
   const { data: profile, isLoading } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
@@ -122,16 +124,25 @@ export default function Profile() {
                 </button>
               )
             ) : (
-              <button
-                onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
-                className={`px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
-                  profile.is_following
-                    ? 'bg-surface-hover text-text border border-border hover:border-danger hover:text-danger'
-                    : 'bg-primary hover:bg-primary-dark text-white'
-                }`}
-              >
-                {profile.is_following ? 'Unfollow' : 'Follow'}
-              </button>
+              <>
+                <button
+                  onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
+                  className={`px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
+                    profile.is_following
+                      ? 'bg-surface-hover text-text border border-border hover:border-danger hover:text-danger'
+                      : 'bg-primary hover:bg-primary-dark text-white'
+                  }`}
+                >
+                  {profile.is_following ? 'Unfollow' : 'Follow'}
+                </button>
+                <button
+                  onClick={() => setShowFlag(true)}
+                  className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:text-danger border border-border transition-colors cursor-pointer"
+                  title="Report user"
+                >
+                  Report
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -204,6 +215,14 @@ export default function Profile() {
       <div className="mt-4 text-xs text-text-muted">
         Joined {new Date(profile.created_at).toLocaleDateString()}
       </div>
+
+      {showFlag && entityId && (
+        <FlagDialog
+          targetType="entity"
+          targetId={entityId}
+          onClose={() => setShowFlag(false)}
+        />
+      )}
     </div>
   )
 }

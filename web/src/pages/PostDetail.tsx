@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post } from '../types'
+import FlagDialog from '../components/FlagDialog'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -21,6 +22,7 @@ export default function PostDetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [replyContent, setReplyContent] = useState('')
+  const [flagTarget, setFlagTarget] = useState<string | null>(null)
 
   const { data: post, isLoading } = useQuery<Post>({
     queryKey: ['post', postId],
@@ -124,6 +126,15 @@ export default function PostDetail() {
               </span>
               <span>{timeAgo(post.created_at)}</span>
               {post.edited_at && <span className="italic">(edited)</span>}
+              {user && user.id !== post.author_entity_id && (
+                <button
+                  onClick={() => setFlagTarget(post.id)}
+                  className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer"
+                  title="Report"
+                >
+                  Report
+                </button>
+              )}
             </div>
             <p className="whitespace-pre-wrap break-words">{post.content}</p>
           </div>
@@ -192,6 +203,15 @@ export default function PostDetail() {
                     {reply.author_display_name}
                   </Link>
                   <span>{timeAgo(reply.created_at)}</span>
+                  {user && user.id !== reply.author_entity_id && (
+                    <button
+                      onClick={() => setFlagTarget(reply.id)}
+                      className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer text-[10px]"
+                      title="Report"
+                    >
+                      Report
+                    </button>
+                  )}
                 </div>
                 <p className="text-sm whitespace-pre-wrap break-words">{reply.content}</p>
               </div>
@@ -199,6 +219,14 @@ export default function PostDetail() {
           </article>
         ))}
       </div>
+
+      {flagTarget && (
+        <FlagDialog
+          targetType="post"
+          targetId={flagTarget}
+          onClose={() => setFlagTarget(null)}
+        />
+      )}
     </div>
   )
 }

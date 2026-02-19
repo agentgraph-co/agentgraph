@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { FeedResponse } from '../types'
+import FlagDialog from '../components/FlagDialog'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -20,6 +21,7 @@ export default function Feed() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
+  const [flagTarget, setFlagTarget] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery<FeedResponse>({
     queryKey: ['feed'],
@@ -140,6 +142,14 @@ export default function Feed() {
                   >
                     {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
                   </Link>
+                  {user && user.id !== post.author_entity_id && (
+                    <button
+                      onClick={() => setFlagTarget(post.id)}
+                      className="hover:text-danger transition-colors cursor-pointer"
+                    >
+                      Report
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -152,6 +162,14 @@ export default function Feed() {
           </div>
         )}
       </div>
+
+      {flagTarget && (
+        <FlagDialog
+          targetType="post"
+          targetId={flagTarget}
+          onClose={() => setFlagTarget(null)}
+        />
+      )}
     </div>
   )
 }
