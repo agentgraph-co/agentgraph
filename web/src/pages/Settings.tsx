@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -40,6 +40,72 @@ export default function Settings() {
   const queryClient = useQueryClient()
   const [showDeactivate, setShowDeactivate] = useState(false)
   const { theme, toggleTheme } = useTheme()
+
+  // Password change
+  const [currentPass, setCurrentPass] = useState('')
+  const [newPass, setNewPass] = useState('')
+  const [passMsg, setPassMsg] = useState('')
+  const [passErr, setPassErr] = useState('')
+
+  // Email change
+  const [newEmail, setNewEmail] = useState('')
+  const [emailPass, setEmailPass] = useState('')
+  const [emailMsg, setEmailMsg] = useState('')
+  const [emailErr, setEmailErr] = useState('')
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/account/change-password', {
+        current_password: currentPass,
+        new_password: newPass,
+      })
+    },
+    onSuccess: () => {
+      setPassMsg('Password changed successfully')
+      setPassErr('')
+      setCurrentPass('')
+      setNewPass('')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPassErr(msg || 'Failed to change password')
+      setPassMsg('')
+    },
+  })
+
+  const changeEmailMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/auth/change-email', {
+        new_email: newEmail,
+        current_password: emailPass,
+      })
+    },
+    onSuccess: () => {
+      setEmailMsg('Email updated. Please verify your new email.')
+      setEmailErr('')
+      setNewEmail('')
+      setEmailPass('')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setEmailErr(msg || 'Failed to change email')
+      setEmailMsg('')
+    },
+  })
+
+  const handlePasswordChange = (e: FormEvent) => {
+    e.preventDefault()
+    if (currentPass && newPass.length >= 8) {
+      changePasswordMutation.mutate()
+    }
+  }
+
+  const handleEmailChange = (e: FormEvent) => {
+    e.preventDefault()
+    if (newEmail && emailPass) {
+      changeEmailMutation.mutate()
+    }
+  }
 
   const { data: notifPrefs } = useQuery<NotifPrefs>({
     queryKey: ['notif-prefs'],
@@ -146,6 +212,78 @@ export default function Settings() {
               <span className="text-text-muted">Member Since</span>
               <span>{new Date(user.created_at).toLocaleDateString()}</span>
             </div>
+          </div>
+        </section>
+
+        {/* Security */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
+            Security
+          </h2>
+          <div className="space-y-4">
+            {/* Change Password */}
+            <form onSubmit={handlePasswordChange} className="space-y-2">
+              <p className="text-sm font-medium">Change Password</p>
+              {passMsg && <div className="text-sm text-success">{passMsg}</div>}
+              {passErr && <div className="text-sm text-danger">{passErr}</div>}
+              <input
+                type="password"
+                value={currentPass}
+                onChange={(e) => setCurrentPass(e.target.value)}
+                placeholder="Current password"
+                required
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              />
+              <input
+                type="password"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                placeholder="New password (min 8 chars)"
+                required
+                minLength={8}
+                maxLength={128}
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={changePasswordMutation.isPending || !currentPass || newPass.length < 8}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
+              </button>
+            </form>
+
+            <div className="border-t border-border" />
+
+            {/* Change Email */}
+            <form onSubmit={handleEmailChange} className="space-y-2">
+              <p className="text-sm font-medium">Change Email</p>
+              {emailMsg && <div className="text-sm text-success">{emailMsg}</div>}
+              {emailErr && <div className="text-sm text-danger">{emailErr}</div>}
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="New email address"
+                required
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              />
+              <input
+                type="password"
+                value={emailPass}
+                onChange={(e) => setEmailPass(e.target.value)}
+                placeholder="Confirm with current password"
+                required
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={changeEmailMutation.isPending || !newEmail || !emailPass}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {changeEmailMutation.isPending ? 'Changing...' : 'Change Email'}
+              </button>
+            </form>
           </div>
         </section>
 
