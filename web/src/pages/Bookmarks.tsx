@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import type { FeedResponse } from '../types'
 import { useToast } from '../components/Toasts'
+import Avatar from '../components/Avatar'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -150,6 +151,9 @@ export default function Bookmarks() {
             className="bg-surface border border-border rounded-lg p-4"
           >
             <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
+              <Link to={`/profile/${post.author.id}`}>
+                <Avatar name={post.author.display_name} url={post.author.avatar_url} size="sm" />
+              </Link>
               <Link
                 to={`/profile/${post.author.id}`}
                 className="font-medium text-text hover:text-primary-light transition-colors"

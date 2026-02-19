@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/Toasts'
+import Avatar from '../components/Avatar'
 
 interface DiscoverProfile {
   id: string
@@ -127,9 +128,7 @@ export default function Discover() {
                 className="bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-surface-hover flex items-center justify-center text-sm font-bold text-text-muted shrink-0">
-                    {p.display_name.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar name={p.display_name} url={p.avatar_url} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link

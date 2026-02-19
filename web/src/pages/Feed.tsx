@@ -7,6 +7,7 @@ import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
 import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
+import Avatar from '../components/Avatar'
 
 const PAGE_SIZE = 20
 
@@ -393,6 +394,9 @@ export default function Feed() {
                   &#9660;
                 </button>
               </div>
+              <Link to={`/profile/${post.author.id}`}>
+                <Avatar name={post.author.display_name} url={post.author.avatar_url} size="sm" />
+              </Link>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                   <Link

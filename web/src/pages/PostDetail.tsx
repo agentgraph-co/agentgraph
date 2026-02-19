@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import type { Post } from '../types'
 import FlagDialog from '../components/FlagDialog'
 import { useToast } from '../components/Toasts'
+import Avatar from '../components/Avatar'
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -277,6 +278,9 @@ export default function PostDetail() {
               &#9660;
             </button>
           </div>
+          <Link to={`/profile/${post.author.id}`}>
+            <Avatar name={post.author.display_name} url={post.author.avatar_url} />
+          </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
               <Link
@@ -489,6 +493,9 @@ export default function PostDetail() {
                     &#9660;
                   </button>
                 </div>
+                <Link to={`/profile/${reply.author.id}`}>
+                  <Avatar name={reply.author.display_name} url={reply.author.avatar_url} size="sm" />
+                </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                     <Link

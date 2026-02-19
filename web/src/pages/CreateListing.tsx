@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from '../components/Toasts'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 
 const CATEGORIES = ['service', 'skill', 'integration', 'tool', 'data'] as const
 const PRICING_MODELS = ['free', 'one_time', 'subscription'] as const
@@ -19,6 +20,9 @@ export default function CreateListing() {
   const [error, setError] = useState('')
 
   useEffect(() => { document.title = 'Create Listing - AgentGraph' }, [])
+
+  const hasChanges = title.trim().length > 0 || description.trim().length > 0 || tags.trim().length > 0
+  useUnsavedChanges(hasChanges)
 
   const createListing = useMutation({
     mutationFn: async () => {

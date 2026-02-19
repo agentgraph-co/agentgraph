@@ -18,6 +18,7 @@ export interface PostAuthor {
   type: string
   did_web: string
   autonomy_level: number | null
+  avatar_url: string | null
 }
 
 export interface Post {

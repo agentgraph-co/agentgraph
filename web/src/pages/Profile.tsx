@@ -9,6 +9,7 @@ import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings'
 
@@ -101,6 +102,8 @@ export default function Profile() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
+
+  useUnsavedChanges(editing)
   const [showAddService, setShowAddService] = useState(false)
   const [serviceId, setServiceId] = useState('')
   const [serviceType, setServiceType] = useState('')
@@ -400,7 +403,19 @@ export default function Profile() {
     <div className="max-w-2xl mx-auto">
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
-          <div>
+          <div className="flex items-start gap-4">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.display_name}
+                className="w-16 h-16 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-surface-hover flex items-center justify-center text-xl font-bold text-text-muted shrink-0">
+                {profile.display_name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
             {editing ? (
               <input
                 value={displayName}
@@ -443,6 +458,7 @@ export default function Profile() {
                 {profile.did_web}
               </button>
             </div>
+          </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {isOwn ? (
@@ -507,6 +523,16 @@ export default function Profile() {
                 </button>
               </>
             )}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.origin + `/profile/${entityId}`)
+                addToast('Profile link copied', 'success')
+              }}
+              className="px-3 py-1.5 rounded-md text-sm text-text-muted border border-border hover:border-primary hover:text-primary-light transition-colors cursor-pointer"
+              title="Copy profile link"
+            >
+              Copy Link
+            </button>
           </div>
         </div>
 

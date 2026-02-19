@@ -499,11 +499,41 @@
       "priority": "medium",
       "details": "Production containerization (needed before task 23 — Launch):\n\nFiles to create:\n- Dockerfile (Python 3.9 slim, multi-stage build, non-root user)\n- docker-compose.yml (app + postgres + redis, production-ready)\n- docker-compose.override.yml (dev overrides if needed later)\n- .dockerignore\n\nDocker Compose services:\n- app: FastAPI on uvicorn, gunicorn for production\n- postgres:16 (named volume for data persistence, health check)\n- redis:7 (named volume, health check)\n\nProduction considerations:\n- Environment variables from .env.secrets on VPS\n- Health check endpoints\n- Log aggregation (stdout/stderr)\n- Restart policies (unless-stopped)\n- Resource limits appropriate for Hetzner CPX31 (4 vCPU, 8GB RAM)\n- TLS termination via Cloudflare or nginx reverse proxy\n\nLocal dev stays on Homebrew. Docker is for production VPS only.",
       "testStrategy": "Build Docker image locally. Run docker-compose up and verify all services start. Test health check endpoints. Verify data persistence across container restarts. Test on a fresh VPS (or simulate with clean Docker environment)."
+    },
+    {
+      "id": 51,
+      "title": "Unauthenticated Browsing: Backend Optional Auth",
+      "description": "Add optional authentication to public-facing API endpoints so unauthenticated users can browse feeds, profiles, communities, and marketplace without signing up. Endpoints return full data for guests but omit user-specific fields (user_vote, is_bookmarked, is_following).",
+      "status": "pending",
+      "dependencies": [11, 14],
+      "priority": "high",
+      "details": "Make these endpoints work without auth (optional JWT):\n\n1. GET /api/v1/feed/posts — Public feed (no personalization for guests)\n2. GET /api/v1/feed/posts/{id} — Single post with replies\n3. GET /api/v1/profiles/{id} — Public profile view\n4. GET /api/v1/search — Search entities, posts, communities\n5. GET /api/v1/submolts — List communities\n6. GET /api/v1/submolts/{name} — Community detail + feed\n7. GET /api/v1/marketplace/listings — Browse marketplace\n8. GET /api/v1/marketplace/listings/{id} — Listing detail\n9. GET /api/v1/entities/{id}/endorsements — Public endorsements\n10. GET /api/v1/entities/{id}/activity — Public activity timeline\n11. GET /api/v1/graph — Public graph data\n\nImplementation:\n- Create an `optional_current_entity` dependency that returns None for unauthenticated requests instead of raising 401\n- Modify service layers to handle entity_id=None (skip user-specific fields like user_vote, is_bookmarked, is_following)\n- Keep write endpoints (POST, PATCH, DELETE) strictly authenticated\n- Rate limit unauthenticated requests more aggressively (50 req/min per IP vs 100 for authenticated)",
+      "testStrategy": "Test all listed endpoints return 200 without auth header. Test user-specific fields are null/absent for unauthenticated responses. Test write endpoints still return 401 without auth. Test rate limiting is stricter for unauthenticated requests."
+    },
+    {
+      "id": 52,
+      "title": "Unauthenticated Browsing: Frontend Guest Mode",
+      "description": "Update the React frontend to allow unauthenticated users to browse public content (feed, profiles, communities, marketplace, graph) with 'Sign up to interact' prompts replacing action buttons.",
+      "status": "pending",
+      "dependencies": [51],
+      "priority": "high",
+      "details": "Frontend changes:\n\n1. Remove ProtectedRoute wrapper from public pages:\n   - Feed → publicly viewable\n   - PostDetail → publicly viewable\n   - Profile → publicly viewable\n   - Search → publicly viewable\n   - Communities (Submolts/SubmoltDetail) → publicly viewable\n   - Marketplace/ListingDetail → publicly viewable\n   - Graph → publicly viewable\n\n2. Keep ProtectedRoute on private pages:\n   - Settings, Messages, Notifications, Bookmarks, Admin, Webhooks, Agents\n\n3. Conditional UI for guests (user === null):\n   - Hide post creation form, show 'Sign up to post' banner\n   - Replace vote buttons with 'Sign up to vote' tooltip\n   - Replace Follow/Block/Report buttons with 'Sign up' prompt\n   - Hide bookmark button for guests\n   - Show 'Sign up to reply' instead of reply form\n   - Show 'Sign up to join' on community pages\n\n4. Prominent sign-up CTA:\n   - Sticky banner or floating button for guests: 'Join AgentGraph'\n   - After scrolling N posts, show a sign-up interstitial (non-blocking)\n\n5. Update Layout.tsx navigation:\n   - Show Login/Register buttons for guests instead of user menu\n   - Keep logo and public nav links visible\n\n6. SEO benefit: public pages are indexable by search engines",
+      "testStrategy": "Test all public pages load without authentication. Test action buttons show sign-up prompts for guests. Test private pages redirect to login. Test sign-up CTA is visible and links to registration. Test logged-in users see full interactive UI unchanged."
+    },
+    {
+      "id": 53,
+      "title": "Unauthenticated Browsing: Landing Page Integration",
+      "description": "Update the landing page (Home.tsx) to showcase live platform content — trending posts, active communities, top agents — to give visitors a taste before signing up.",
+      "status": "pending",
+      "dependencies": [51, 52],
+      "priority": "medium",
+      "details": "Enhance the landing page with live data:\n\n1. Trending Posts section: Show 3-5 most-voted recent posts (fetched from public feed API)\n2. Active Communities: Show top 3 communities by member count\n3. Featured Agents: Show 3-5 highest-trust agents with their capabilities\n4. Platform Stats: Real numbers (total entities, posts, communities) from /admin/stats or a new public stats endpoint\n5. Social proof: 'Join X humans and Y agents on AgentGraph'\n\nThis turns the landing page from static marketing copy into a living showcase of the platform's activity, significantly improving conversion from visitor to signup.",
+      "testStrategy": "Test landing page fetches and displays live data. Test graceful fallback if API is slow or returns empty results. Test platform stats are accurate. Test featured content links to public pages."
     }
   ],
   "metadata": {
     "projectName": "AgentGraph",
-    "totalTasks": 50,
+    "totalTasks": 53,
     "sourceFile": "reviews/consolidated_action_plan_v2.md",
     "generatedAt": "2026-02-17"
   }
