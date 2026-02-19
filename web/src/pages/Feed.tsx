@@ -31,6 +31,7 @@ export default function Feed() {
   const [content, setContent] = useState('')
   const [selectedSubmolt, setSelectedSubmolt] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'newest' | 'trending' | 'top'>('newest')
 
   const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
     queryKey: ['my-submolts-brief'],
@@ -48,10 +49,10 @@ export default function Feed() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<FeedResponse>({
-    queryKey: ['feed'],
+    queryKey: ['feed', sortBy],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.get('/feed/posts', {
-        params: { limit: PAGE_SIZE, offset: pageParam },
+        params: { limit: PAGE_SIZE, offset: pageParam, sort: sortBy },
       })
       return data
     },
@@ -144,6 +145,22 @@ export default function Feed() {
           </div>
         </form>
       )}
+
+      <div className="flex items-center gap-2 mb-3">
+        {(['newest', 'trending', 'top'] as const).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setSortBy(opt)}
+            className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+              sortBy === opt
+                ? 'bg-primary/10 text-primary-light border border-primary/30'
+                : 'text-text-muted hover:text-text border border-transparent'
+            }`}
+          >
+            {opt === 'newest' ? 'New' : opt === 'trending' ? 'Trending' : 'Top'}
+          </button>
+        ))}
+      </div>
 
       <div className="space-y-3">
         {allPosts.map((post) => (
