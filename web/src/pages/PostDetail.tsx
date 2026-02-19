@@ -27,6 +27,9 @@ export default function PostDetail() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [replySort, setReplySort] = useState<'top' | 'newest' | 'oldest'>('top')
+  const [replyToId, setReplyToId] = useState<string | null>(null)
+  const [nestedReplyContent, setNestedReplyContent] = useState('')
 
   const { data: post, isLoading } = useQuery<Post>({
     queryKey: ['post', postId],
@@ -38,10 +41,10 @@ export default function PostDetail() {
   })
 
   const { data: replies } = useQuery<{ posts: Post[] }>({
-    queryKey: ['replies', postId],
+    queryKey: ['replies', postId, replySort],
     queryFn: async () => {
       const { data } = await api.get(`/feed/posts/${postId}/replies`, {
-        params: { limit: 50 },
+        params: { limit: 100, sort: replySort },
       })
       return data
     },
@@ -107,10 +110,32 @@ export default function PostDetail() {
     },
   })
 
+  const nestedReplyMutation = useMutation({
+    mutationFn: async ({ content, parentId }: { content: string; parentId: string }) => {
+      await api.post('/feed/posts', {
+        content,
+        parent_post_id: parentId,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['replies', postId] })
+      queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      setNestedReplyContent('')
+      setReplyToId(null)
+    },
+  })
+
   const handleReply = (e: FormEvent) => {
     e.preventDefault()
     if (replyContent.trim()) {
       replyMutation.mutate(replyContent)
+    }
+  }
+
+  const handleNestedReply = (e: FormEvent, parentId: string) => {
+    e.preventDefault()
+    if (nestedReplyContent.trim()) {
+      nestedReplyMutation.mutate({ content: nestedReplyContent, parentId })
     }
   }
 
@@ -290,10 +315,27 @@ export default function PostDetail() {
         </form>
       )}
 
-      {/* Replies */}
-      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
-        {post.reply_count} {post.reply_count === 1 ? 'Reply' : 'Replies'}
-      </h2>
+      {/* Replies header + sort */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+          {post.reply_count} {post.reply_count === 1 ? 'Reply' : 'Replies'}
+        </h2>
+        <div className="flex gap-1">
+          {(['top', 'newest', 'oldest'] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setReplySort(opt)}
+              className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                replySort === opt
+                  ? 'bg-primary/10 text-primary-light'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {opt === 'top' ? 'Top' : opt === 'newest' ? 'Newest' : 'Oldest'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="space-y-3">
         {replies?.posts.map((reply) => {
           const isReplyOwner = user?.id === reply.author_entity_id
@@ -372,38 +414,85 @@ export default function PostDetail() {
                     <p className="text-sm whitespace-pre-wrap break-words">{reply.content}</p>
                   )}
 
-                  {isReplyOwner && editingId !== reply.id && (
-                    <div className="mt-2 flex gap-3 text-xs text-text-muted">
+                  <div className="mt-2 flex gap-3 text-xs text-text-muted">
+                    {user && (
                       <button
-                        onClick={() => startEdit(reply)}
+                        onClick={() => {
+                          setReplyToId(replyToId === reply.id ? null : reply.id)
+                          setNestedReplyContent('')
+                        }}
                         className="hover:text-primary-light transition-colors cursor-pointer"
                       >
-                        Edit
+                        Reply
                       </button>
-                      {confirmDelete === reply.id ? (
-                        <span className="flex gap-2">
-                          <button
-                            onClick={() => deleteMutation.mutate(reply.id)}
-                            className="text-danger cursor-pointer"
-                          >
-                            Confirm
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(null)}
-                            className="cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </span>
-                      ) : (
+                    )}
+                    {isReplyOwner && editingId !== reply.id && (
+                      <>
                         <button
-                          onClick={() => setConfirmDelete(reply.id)}
-                          className="hover:text-danger transition-colors cursor-pointer"
+                          onClick={() => startEdit(reply)}
+                          className="hover:text-primary-light transition-colors cursor-pointer"
                         >
-                          Delete
+                          Edit
                         </button>
-                      )}
-                    </div>
+                        {confirmDelete === reply.id ? (
+                          <span className="flex gap-2">
+                            <button
+                              onClick={() => deleteMutation.mutate(reply.id)}
+                              className="text-danger cursor-pointer"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(reply.id)}
+                            className="hover:text-danger transition-colors cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Inline nested reply form */}
+                  {replyToId === reply.id && (
+                    <form
+                      onSubmit={(e) => handleNestedReply(e, reply.id)}
+                      className="mt-3 space-y-2"
+                    >
+                      <textarea
+                        value={nestedReplyContent}
+                        onChange={(e) => setNestedReplyContent(e.target.value)}
+                        placeholder={`Replying to ${reply.author_display_name}...`}
+                        rows={2}
+                        maxLength={10000}
+                        autoFocus
+                        className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          disabled={!nestedReplyContent.trim() || nestedReplyMutation.isPending}
+                          className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {nestedReplyMutation.isPending ? 'Replying...' : 'Reply'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReplyToId(null)}
+                          className="text-xs text-text-muted hover:text-text cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </div>
               </div>
