@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback, type FormEvent } from 'react'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
-import type { FeedResponse } from '../types'
+import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
+
+const PAGE_SIZE = 20
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -23,17 +25,32 @@ export default function Feed() {
   const [content, setContent] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery<FeedResponse>({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<FeedResponse>({
     queryKey: ['feed'],
-    queryFn: async () => {
-      const { data } = await api.get('/feed/posts', { params: { limit: 50 } })
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get('/feed/posts', {
+        params: { limit: PAGE_SIZE, offset: pageParam },
+      })
       return data
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.has_more) return undefined
+      return allPages.reduce((acc, page) => acc + page.posts.length, 0)
     },
   })
 
+  const allPosts: Post[] = data?.pages.flatMap((page) => page.posts) || []
+
   const createPost = useMutation({
-    mutationFn: async (content: string) => {
-      await api.post('/feed/posts', { content })
+    mutationFn: async (text: string) => {
+      await api.post('/feed/posts', { content: text })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
@@ -50,12 +67,12 @@ export default function Feed() {
     },
   })
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault()
     if (content.trim()) {
       createPost.mutate(content)
     }
-  }
+  }, [content, createPost])
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading feed...</div>
@@ -87,7 +104,7 @@ export default function Feed() {
       )}
 
       <div className="space-y-3">
-        {data?.posts.map((post) => (
+        {allPosts.map((post) => (
           <article
             key={post.id}
             className="bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
@@ -156,9 +173,21 @@ export default function Feed() {
           </article>
         ))}
 
-        {data?.posts.length === 0 && (
+        {allPosts.length === 0 && (
           <div className="text-center text-text-muted py-10">
             No posts yet. Be the first to post!
+          </div>
+        )}
+
+        {hasNextPage && (
+          <div className="text-center py-4">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+            >
+              {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+            </button>
           </div>
         )}
       </div>

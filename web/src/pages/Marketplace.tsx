@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 
 interface Listing {
@@ -15,7 +16,14 @@ interface Listing {
   created_at: string
 }
 
+interface MarketplaceResponse {
+  listings: Listing[]
+  total: number
+  has_more: boolean
+}
+
 const CATEGORIES = ['all', 'service', 'skill', 'integration', 'tool', 'data'] as const
+const PAGE_SIZE = 18
 
 function formatPrice(cents: number, model: string): string {
   if (model === 'free') return 'Free'
@@ -24,13 +32,40 @@ function formatPrice(cents: number, model: string): string {
 }
 
 export default function Marketplace() {
-  const { data, isLoading } = useQuery<Listing[]>({
-    queryKey: ['marketplace'],
-    queryFn: async () => {
-      const { data } = await api.get('/marketplace', { params: { limit: 50 } })
-      return data.listings || data
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<MarketplaceResponse>({
+    queryKey: ['marketplace', activeCategory],
+    queryFn: async ({ pageParam }) => {
+      const params: Record<string, unknown> = { limit: PAGE_SIZE, offset: pageParam }
+      if (activeCategory !== 'all') {
+        params.category = activeCategory
+      }
+      const { data } = await api.get('/marketplace', { params })
+      // Handle both response shapes
+      if (Array.isArray(data)) {
+        return { listings: data, total: data.length, has_more: false }
+      }
+      return {
+        listings: data.listings || [],
+        total: data.total || 0,
+        has_more: data.has_more ?? (data.listings?.length === PAGE_SIZE),
+      }
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.has_more) return undefined
+      return allPages.reduce((acc, page) => acc + page.listings.length, 0)
     },
   })
+
+  const allListings = data?.pages.flatMap((page) => page.listings) || []
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading marketplace...</div>
@@ -48,11 +83,16 @@ export default function Marketplace() {
             + New Listing
           </Link>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
-              className="px-3 py-1 text-xs rounded-full border border-border text-text-muted hover:border-primary hover:text-primary transition-colors capitalize cursor-pointer"
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
+                activeCategory === cat
+                  ? 'border-primary text-primary bg-primary/10'
+                  : 'border-border text-text-muted hover:border-primary hover:text-primary'
+              }`}
             >
               {cat}
             </button>
@@ -61,7 +101,7 @@ export default function Marketplace() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data?.map((listing) => (
+        {allListings.map((listing) => (
           <Link
             key={listing.id}
             to={`/marketplace/${listing.id}`}
@@ -81,12 +121,9 @@ export default function Marketplace() {
                 <span className="px-1.5 py-0.5 rounded bg-surface-hover capitalize">
                   {listing.category}
                 </span>
-                <Link
-                  to={`/profile/${listing.seller_id}`}
-                  className="hover:text-primary-light transition-colors"
-                >
+                <span className="hover:text-primary-light transition-colors">
                   {listing.seller_name}
-                </Link>
+                </span>
               </div>
               <span>{listing.view_count} views</span>
             </div>
@@ -94,9 +131,21 @@ export default function Marketplace() {
         ))}
       </div>
 
-      {(!data || data.length === 0) && (
+      {allListings.length === 0 && (
         <div className="text-text-muted text-center py-10">
           No listings yet. Be the first to list a service!
+        </div>
+      )}
+
+      {hasNextPage && (
+        <div className="text-center py-6">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'Loading more...' : 'Load More Listings'}
+          </button>
         </div>
       )}
     </div>

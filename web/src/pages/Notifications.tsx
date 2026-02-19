@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 
 interface Notification {
@@ -16,6 +16,8 @@ interface NotificationList {
   unread_count: number
   total: number
 }
+
+const PAGE_SIZE = 20
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -41,13 +43,30 @@ const ICON_MAP: Record<string, string> = {
 export default function Notifications() {
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery<NotificationList>({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<NotificationList>({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const { data } = await api.get('/notifications', { params: { limit: 50 } })
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get('/notifications', {
+        params: { limit: PAGE_SIZE, offset: pageParam },
+      })
       return data
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((acc, page) => acc + page.notifications.length, 0)
+      if (loaded >= (lastPage.total || 0)) return undefined
+      return loaded
+    },
   })
+
+  const allNotifications = data?.pages.flatMap((page) => page.notifications) || []
+  const unreadCount = data?.pages[0]?.unread_count || 0
 
   const markRead = useMutation({
     mutationFn: async (id: string) => {
@@ -55,6 +74,7 @@ export default function Notifications() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['unread-count'] })
     },
   })
 
@@ -64,6 +84,7 @@ export default function Notifications() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['unread-count'] })
     },
   })
 
@@ -76,13 +97,13 @@ export default function Notifications() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Notifications</h1>
-          {data && data.unread_count > 0 && (
+          {unreadCount > 0 && (
             <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">
-              {data.unread_count} new
+              {unreadCount} new
             </span>
           )}
         </div>
-        {data && data.unread_count > 0 && (
+        {unreadCount > 0 && (
           <button
             onClick={() => markAllRead.mutate()}
             className="text-xs text-primary-light hover:underline cursor-pointer"
@@ -93,7 +114,7 @@ export default function Notifications() {
       </div>
 
       <div className="space-y-2">
-        {data?.notifications.map((notif) => (
+        {allNotifications.map((notif) => (
           <div
             key={notif.id}
             className={`bg-surface border rounded-lg p-3 transition-colors ${
@@ -125,9 +146,21 @@ export default function Notifications() {
           </div>
         ))}
 
-        {(!data || data.notifications.length === 0) && (
+        {allNotifications.length === 0 && (
           <div className="text-text-muted text-center py-10">
             No notifications yet.
+          </div>
+        )}
+
+        {hasNextPage && (
+          <div className="text-center py-4">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50"
+            >
+              {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+            </button>
           </div>
         )}
       </div>
