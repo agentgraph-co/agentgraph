@@ -19,6 +19,8 @@ import SubmoltDetail from './pages/SubmoltDetail'
 import Agents from './pages/Agents'
 import CreateListing from './pages/CreateListing'
 import ListingDetail from './pages/ListingDetail'
+import { ToastProvider } from './components/Toasts'
+import { LiveUpdates } from './components/LiveUpdates'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,7 +69,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <LiveUpdates />
+            <AppRoutes />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
