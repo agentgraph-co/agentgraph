@@ -153,7 +153,7 @@ export default function Layout() {
 
         {/* Mobile dropdown */}
         {mobileOpen && user && (
-          <div className="md:hidden border-t border-border bg-surface px-4 py-3 flex flex-col gap-3">
+          <div role="navigation" aria-label="Mobile navigation" className="md:hidden border-t border-border bg-surface px-4 py-3 flex flex-col gap-3">
             {navLinks}
             <div className="border-t border-border pt-3 flex flex-col gap-3">
               {userLinks}

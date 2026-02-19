@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -111,7 +111,9 @@ export default function Admin() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [tab, setTab] = useState<Tab>('overview')
+  const [userSearchInput, setUserSearchInput] = useState('')
   const [userSearch, setUserSearch] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [userTypeFilter, setUserTypeFilter] = useState<string>('')
   const [flagStatusFilter, setFlagStatusFilter] = useState<string>('pending')
   const [resolvingFlagId, setResolvingFlagId] = useState<string | null>(null)
@@ -120,6 +122,13 @@ export default function Admin() {
   const [suspendDays, setSuspendDays] = useState(7)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => {
+      setUserSearch(userSearchInput.trim())
+    }, 300)
+    return () => clearTimeout(debounceRef.current)
+  }, [userSearchInput])
 
   const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ['admin-stats'],
@@ -470,9 +479,11 @@ export default function Admin() {
         <div>
           <div className="flex gap-3 mb-4">
             <input
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
+              type="search"
+              value={userSearchInput}
+              onChange={(e) => setUserSearchInput(e.target.value)}
               placeholder="Search by name or email..."
+              aria-label="Search users"
               className="flex-1 bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
             />
             <select

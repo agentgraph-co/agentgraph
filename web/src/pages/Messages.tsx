@@ -391,7 +391,7 @@ export default function Messages() {
                   Send
                 </button>
               </form>
-              {messageText.length > 4500 && (
+              {messageText.length > 4000 && (
                 <span className={`text-[10px] ${messageText.length >= 5000 ? 'text-danger' : 'text-text-muted'}`}>
                   {messageText.length}/5000
                 </span>

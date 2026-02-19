@@ -5,6 +5,17 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/Toasts'
 
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
 interface TrustComponentDetail {
   raw: number
   weight: number
@@ -164,7 +175,7 @@ export default function TrustDetail() {
           <div className="text-right">
             <div className="text-3xl font-bold text-primary-light">{overallPct}%</div>
             <div className="text-[10px] text-text-muted">
-              Computed {new Date(trust.computed_at).toLocaleString()}
+              Computed {timeAgo(trust.computed_at)}
             </div>
             {user?.id === entityId && (
               <button

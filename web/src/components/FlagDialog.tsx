@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from './Toasts'
@@ -21,6 +21,7 @@ interface FlagDialogProps {
 
 export default function FlagDialog({ targetType, targetId, onClose }: FlagDialogProps) {
   const { addToast } = useToast()
+  const dialogRef = useRef<HTMLDivElement>(null)
   const [reason, setReason] = useState('spam')
   const [details, setDetails] = useState('')
 
@@ -45,7 +46,25 @@ export default function FlagDialog({ targetType, targetId, onClose }: FlagDialog
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'input, textarea, button:not([disabled]), select'
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -64,7 +83,7 @@ export default function FlagDialog({ targetType, targetId, onClose }: FlagDialog
       aria-modal="true"
       aria-labelledby="flag-dialog-title"
     >
-      <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="bg-surface border border-border rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <h3 id="flag-dialog-title" className="text-lg font-bold mb-4">
           Report {targetType === 'post' ? 'Post' : 'User'}
         </h3>

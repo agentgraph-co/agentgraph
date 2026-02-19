@@ -123,8 +123,8 @@ export default function McpTools() {
     },
   })
 
-  const handleCall = (toolName: string, e: FormEvent) => {
-    e.preventDefault()
+  const handleCall = (toolName: string, e?: FormEvent) => {
+    e?.preventDefault()
     callTool.mutate({ name: toolName, args: toolArgs[toolName] || {} })
   }
 
@@ -318,7 +318,7 @@ export default function McpTools() {
 
                   {Object.keys(props).length === 0 && user && (
                     <button
-                      onClick={(e) => handleCall(tool.name, e)}
+                      onClick={() => handleCall(tool.name)}
                       disabled={callTool.isPending}
                       className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
                     >
