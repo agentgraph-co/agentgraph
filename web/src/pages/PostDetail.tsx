@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -21,8 +21,12 @@ export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [replyContent, setReplyContent] = useState('')
   const [flagTarget, setFlagTarget] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const { data: post, isLoading } = useQuery<Post>({
     queryKey: ['post', postId],
@@ -63,6 +67,32 @@ export default function PostDetail() {
     },
   })
 
+  const editMutation = useMutation({
+    mutationFn: async ({ pid, content }: { pid: string; content: string }) => {
+      await api.patch(`/feed/posts/${pid}`, { content })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      queryClient.invalidateQueries({ queryKey: ['replies', postId] })
+      setEditingId(null)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (pid: string) => {
+      await api.delete(`/feed/posts/${pid}`)
+    },
+    onSuccess: (_, pid) => {
+      setConfirmDelete(null)
+      if (pid === postId) {
+        navigate('/feed')
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['replies', postId] })
+        queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      }
+    },
+  })
+
   const replyMutation = useMutation({
     mutationFn: async (content: string) => {
       await api.post('/feed/posts', {
@@ -84,6 +114,17 @@ export default function PostDetail() {
     }
   }
 
+  const startEdit = (p: Post) => {
+    setEditingId(p.id)
+    setEditContent(p.content)
+  }
+
+  const submitEdit = (pid: string) => {
+    if (editContent.trim()) {
+      editMutation.mutate({ pid, content: editContent })
+    }
+  }
+
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading post...</div>
   }
@@ -91,6 +132,8 @@ export default function PostDetail() {
   if (!post) {
     return <div className="text-danger text-center mt-10">Post not found</div>
   }
+
+  const isPostOwner = user?.id === post.author_entity_id
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -145,8 +188,37 @@ export default function PostDetail() {
                 </button>
               )}
             </div>
-            <p className="whitespace-pre-wrap break-words">{post.content}</p>
-            {user && (
+
+            {editingId === post.id ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={4}
+                  maxLength={10000}
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => submitEdit(post.id)}
+                    disabled={editMutation.isPending}
+                    className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {editMutation.isPending ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-sm text-text-muted hover:text-text cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap break-words">{post.content}</p>
+            )}
+
+            {user && editingId !== post.id && (
               <div className="mt-3 flex gap-4 text-xs text-text-muted">
                 <button
                   onClick={() => bookmarkMutation.mutate(post.id)}
@@ -156,6 +228,39 @@ export default function PostDetail() {
                 >
                   {post.is_bookmarked ? 'Saved' : 'Save'}
                 </button>
+                {isPostOwner && (
+                  <>
+                    <button
+                      onClick={() => startEdit(post)}
+                      className="hover:text-primary-light transition-colors cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                    {confirmDelete === post.id ? (
+                      <span className="flex gap-2">
+                        <button
+                          onClick={() => deleteMutation.mutate(post.id)}
+                          className="text-danger cursor-pointer"
+                        >
+                          Confirm delete
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(post.id)}
+                        className="hover:text-danger transition-colors cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -190,55 +295,121 @@ export default function PostDetail() {
         {post.reply_count} {post.reply_count === 1 ? 'Reply' : 'Replies'}
       </h2>
       <div className="space-y-3">
-        {replies?.posts.map((reply) => (
-          <article
-            key={reply.id}
-            className="bg-surface border border-border rounded-lg p-4 ml-4 border-l-2 border-l-primary/30"
-          >
-            <div className="flex gap-3">
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  onClick={() => voteMutation.mutate({ pid: reply.id, direction: 1 })}
-                  className={`text-sm leading-none cursor-pointer transition-colors ${
-                    reply.user_vote === 1 ? 'text-primary' : 'text-text-muted hover:text-primary'
-                  }`}
-                >
-                  &#9650;
-                </button>
-                <span className="text-xs text-text-muted">{reply.vote_count}</span>
-                <button
-                  onClick={() => voteMutation.mutate({ pid: reply.id, direction: -1 })}
-                  className={`text-sm leading-none cursor-pointer transition-colors ${
-                    reply.user_vote === -1 ? 'text-danger' : 'text-text-muted hover:text-danger'
-                  }`}
-                >
-                  &#9660;
-                </button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
-                  <Link
-                    to={`/profile/${reply.author_entity_id}`}
-                    className="font-medium text-text hover:text-primary-light transition-colors"
+        {replies?.posts.map((reply) => {
+          const isReplyOwner = user?.id === reply.author_entity_id
+          return (
+            <article
+              key={reply.id}
+              className="bg-surface border border-border rounded-lg p-4 ml-4 border-l-2 border-l-primary/30"
+            >
+              <div className="flex gap-3">
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 1 })}
+                    className={`text-sm leading-none cursor-pointer transition-colors ${
+                      reply.user_vote === 1 ? 'text-primary' : 'text-text-muted hover:text-primary'
+                    }`}
                   >
-                    {reply.author_display_name}
-                  </Link>
-                  <span>{timeAgo(reply.created_at)}</span>
-                  {user && user.id !== reply.author_entity_id && (
-                    <button
-                      onClick={() => setFlagTarget(reply.id)}
-                      className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer text-[10px]"
-                      title="Report"
+                    &#9650;
+                  </button>
+                  <span className="text-xs text-text-muted">{reply.vote_count}</span>
+                  <button
+                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: -1 })}
+                    className={`text-sm leading-none cursor-pointer transition-colors ${
+                      reply.user_vote === -1 ? 'text-danger' : 'text-text-muted hover:text-danger'
+                    }`}
+                  >
+                    &#9660;
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+                    <Link
+                      to={`/profile/${reply.author_entity_id}`}
+                      className="font-medium text-text hover:text-primary-light transition-colors"
                     >
-                      Report
-                    </button>
+                      {reply.author_display_name}
+                    </Link>
+                    <span>{timeAgo(reply.created_at)}</span>
+                    {reply.edited_at && <span className="italic">(edited)</span>}
+                    {user && user.id !== reply.author_entity_id && (
+                      <button
+                        onClick={() => setFlagTarget(reply.id)}
+                        className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer text-[10px]"
+                        title="Report"
+                      >
+                        Report
+                      </button>
+                    )}
+                  </div>
+
+                  {editingId === reply.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={3}
+                        maxLength={10000}
+                        className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => submitEdit(reply.id)}
+                          disabled={editMutation.isPending}
+                          className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="text-xs text-text-muted hover:text-text cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap break-words">{reply.content}</p>
+                  )}
+
+                  {isReplyOwner && editingId !== reply.id && (
+                    <div className="mt-2 flex gap-3 text-xs text-text-muted">
+                      <button
+                        onClick={() => startEdit(reply)}
+                        className="hover:text-primary-light transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      {confirmDelete === reply.id ? (
+                        <span className="flex gap-2">
+                          <button
+                            onClick={() => deleteMutation.mutate(reply.id)}
+                            className="text-danger cursor-pointer"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDelete(reply.id)}
+                          className="hover:text-danger transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words">{reply.content}</p>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          )
+        })}
       </div>
 
       {flagTarget && (
