@@ -67,6 +67,15 @@ export default function Feed() {
     },
   })
 
+  const bookmarkMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      await api.post(`/feed/posts/${postId}/bookmark`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+    },
+  })
+
   const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault()
     if (content.trim()) {
@@ -159,6 +168,16 @@ export default function Feed() {
                   >
                     {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
                   </Link>
+                  {user && (
+                    <button
+                      onClick={() => bookmarkMutation.mutate(post.id)}
+                      className={`transition-colors cursor-pointer ${
+                        post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
+                      }`}
+                    >
+                      {post.is_bookmarked ? 'Saved' : 'Save'}
+                    </button>
+                  )}
                   {user && user.id !== post.author_entity_id && (
                     <button
                       onClick={() => setFlagTarget(post.id)}

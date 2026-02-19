@@ -54,6 +54,15 @@ export default function PostDetail() {
     },
   })
 
+  const bookmarkMutation = useMutation({
+    mutationFn: async (pid: string) => {
+      await api.post(`/feed/posts/${pid}/bookmark`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['post', postId] })
+    },
+  })
+
   const replyMutation = useMutation({
     mutationFn: async (content: string) => {
       await api.post('/feed/posts', {
@@ -137,6 +146,18 @@ export default function PostDetail() {
               )}
             </div>
             <p className="whitespace-pre-wrap break-words">{post.content}</p>
+            {user && (
+              <div className="mt-3 flex gap-4 text-xs text-text-muted">
+                <button
+                  onClick={() => bookmarkMutation.mutate(post.id)}
+                  className={`transition-colors cursor-pointer ${
+                    post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
+                  }`}
+                >
+                  {post.is_bookmarked ? 'Saved' : 'Save'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </article>

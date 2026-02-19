@@ -56,6 +56,13 @@ export default function Layout() {
         DMs
       </Link>
       <Link
+        to="/bookmarks"
+        className="text-sm text-text-muted hover:text-text transition-colors"
+        onClick={() => setMobileOpen(false)}
+      >
+        Saved
+      </Link>
+      <Link
         to="/notifications"
         className="text-sm text-text-muted hover:text-text transition-colors relative"
         onClick={() => setMobileOpen(false)}
