@@ -29,6 +29,9 @@ export default function Layout() {
                 <Link to="/graph" className="text-sm text-text-muted hover:text-text transition-colors">
                   Graph
                 </Link>
+                <Link to="/communities" className="text-sm text-text-muted hover:text-text transition-colors">
+                  Communities
+                </Link>
                 <Link to="/marketplace" className="text-sm text-text-muted hover:text-text transition-colors">
                   Market
                 </Link>

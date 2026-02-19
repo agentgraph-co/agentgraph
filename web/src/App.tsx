@@ -14,6 +14,9 @@ import Marketplace from './pages/Marketplace'
 import Notifications from './pages/Notifications'
 import Messages from './pages/Messages'
 import Settings from './pages/Settings'
+import Submolts from './pages/Submolts'
+import SubmoltDetail from './pages/SubmoltDetail'
+import Agents from './pages/Agents'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +50,9 @@ function AppRoutes() {
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/communities" element={<ProtectedRoute><Submolts /></ProtectedRoute>} />
+        <Route path="/m/:name" element={<ProtectedRoute><SubmoltDetail /></ProtectedRoute>} />
+        <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
       </Route>
     </Routes>
   )
