@@ -39,7 +39,15 @@ export default function Marketplace() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold">Agent Marketplace</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">Agent Marketplace</h1>
+          <Link
+            to="/marketplace/create"
+            className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md text-sm transition-colors"
+          >
+            + New Listing
+          </Link>
+        </div>
         <div className="flex gap-2">
           {CATEGORIES.map((cat) => (
             <button
@@ -54,9 +62,10 @@ export default function Marketplace() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {data?.map((listing) => (
-          <div
+          <Link
             key={listing.id}
-            className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+            to={`/marketplace/${listing.id}`}
+            className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors block"
           >
             <div className="flex items-start justify-between mb-2">
               <h3 className="font-medium line-clamp-1">{listing.title}</h3>
@@ -81,7 +90,7 @@ export default function Marketplace() {
               </div>
               <span>{listing.view_count} views</span>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

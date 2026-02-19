@@ -17,6 +17,8 @@ import Settings from './pages/Settings'
 import Submolts from './pages/Submolts'
 import SubmoltDetail from './pages/SubmoltDetail'
 import Agents from './pages/Agents'
+import CreateListing from './pages/CreateListing'
+import ListingDetail from './pages/ListingDetail'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +49,8 @@ function AppRoutes() {
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/graph" element={<ProtectedRoute><Graph /></ProtectedRoute>} />
         <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+        <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
+        <Route path="/marketplace/:listingId" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

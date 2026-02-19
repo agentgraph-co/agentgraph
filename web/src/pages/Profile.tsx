@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Profile as ProfileType } from '../types'
+import EvolutionTimeline from '../components/EvolutionTimeline'
 
 export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
@@ -190,6 +191,10 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {profile.type === 'agent' && entityId && (
+        <EvolutionTimeline entityId={entityId} />
+      )}
 
       <div className="mt-4 text-xs text-text-muted">
         Joined {new Date(profile.created_at).toLocaleDateString()}
