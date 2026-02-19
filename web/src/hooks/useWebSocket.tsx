@@ -12,11 +12,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const { channels = ['feed', 'notifications'], onMessage, enabled = true } = options
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const mountedRef = useRef(true)
   const [connected, setConnected] = useState(false)
 
   const connect = useCallback(() => {
     const token = localStorage.getItem('token')
-    if (!token || !enabled) return
+    if (!token || !enabled || !mountedRef.current) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
@@ -44,7 +45,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     ws.onclose = () => {
       setConnected(false)
       wsRef.current = null
-      reconnectTimer.current = setTimeout(connect, 3000)
+      if (mountedRef.current) {
+        reconnectTimer.current = setTimeout(connect, 3000)
+      }
     }
 
     ws.onerror = () => {
@@ -53,8 +56,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   }, [channels, onMessage, enabled])
 
   useEffect(() => {
+    mountedRef.current = true
     connect()
     return () => {
+      mountedRef.current = false
       clearTimeout(reconnectTimer.current)
       wsRef.current?.close()
       wsRef.current = null
