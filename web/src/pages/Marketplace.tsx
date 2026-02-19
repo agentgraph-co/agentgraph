@@ -97,6 +97,7 @@ export default function Marketplace() {
   const {
     data,
     isLoading,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -136,6 +137,15 @@ export default function Marketplace() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
         {Array.from({ length: 6 }).map((_, i) => <ListingSkeleton key={i} />)}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load marketplace</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

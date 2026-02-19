@@ -63,6 +63,7 @@ export default function Notifications() {
   const {
     data,
     isLoading,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -108,6 +109,15 @@ export default function Notifications() {
       queryClient.invalidateQueries({ queryKey: ['unread-count'] })
     },
   })
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load notifications</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

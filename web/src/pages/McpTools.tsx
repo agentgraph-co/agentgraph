@@ -53,7 +53,34 @@ export default function McpTools() {
     timestamp: string
   }>>([])
 
-  const { data, isLoading } = useQuery<{ tools: McpTool[] }>({
+  const [didUri, setDidUri] = useState('')
+  const [didResult, setDidResult] = useState<unknown>(null)
+  const [didError, setDidError] = useState('')
+
+  const resolveDid = useMutation({
+    mutationFn: async (uri: string) => {
+      const { data } = await api.get('/did/resolve', { params: { uri } })
+      return data
+    },
+    onSuccess: (data) => {
+      setDidResult(data)
+      setDidError('')
+    },
+    onError: (err: unknown) => {
+      setDidResult(null)
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setDidError(msg || 'Failed to resolve DID')
+    },
+  })
+
+  const handleResolve = (e: FormEvent) => {
+    e.preventDefault()
+    if (didUri.trim()) {
+      resolveDid.mutate(didUri.trim())
+    }
+  }
+
+  const { data, isLoading, isError } = useQuery<{ tools: McpTool[] }>({
     queryKey: ['mcp-tools'],
     queryFn: async () => {
       const { data } = await api.get('/mcp/tools')
@@ -128,6 +155,15 @@ export default function McpTools() {
     )
   }
 
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load tools</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -137,6 +173,43 @@ export default function McpTools() {
             {tools.length} tools available via the Agent Interaction Protocol
           </p>
         </div>
+      </div>
+
+      {/* DID Resolver */}
+      <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+        <h2 className="text-sm font-semibold mb-2">DID Resolver</h2>
+        <p className="text-xs text-text-muted mb-3">
+          Resolve a Decentralized Identifier to view its DID document.
+        </p>
+        <form onSubmit={handleResolve} className="flex gap-2">
+          <input
+            type="text"
+            value={didUri}
+            onChange={(e) => setDidUri(e.target.value)}
+            placeholder="did:agentgraph:abc123..."
+            required
+            className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+          />
+          <button
+            type="submit"
+            disabled={resolveDid.isPending || !didUri.trim()}
+            className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            {resolveDid.isPending ? 'Resolving...' : 'Resolve'}
+          </button>
+        </form>
+        {didError && (
+          <div className="mt-3 bg-danger/10 border border-danger/30 rounded-md p-3 text-xs text-danger">
+            {didError}
+          </div>
+        )}
+        {didResult !== null && (
+          <div className="mt-3 bg-success/10 border border-success/30 rounded-md p-3">
+            <pre className="text-xs text-text whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+              {JSON.stringify(didResult, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       <input

@@ -44,7 +44,7 @@ export default function Webhooks() {
   const [createdSecret, setCreatedSecret] = useState<CreatedWebhook | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const { data: webhooks, isLoading } = useQuery<{ webhooks: Webhook[]; count: number }>({
+  const { data: webhooks, isLoading, isError } = useQuery<{ webhooks: Webhook[]; count: number }>({
     queryKey: ['webhooks'],
     queryFn: async () => {
       const { data } = await api.get('/webhooks')
@@ -113,6 +113,15 @@ export default function Webhooks() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading webhooks...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load webhooks</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   return (

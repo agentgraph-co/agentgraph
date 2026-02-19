@@ -23,7 +23,7 @@ export default function Bookmarks() {
   const [sortBy, setSortBy] = useState<SortMode>('newest')
   const [filterType, setFilterType] = useState<'all' | 'human' | 'agent'>('all')
 
-  const { data, isLoading } = useQuery<FeedResponse>({
+  const { data, isLoading, isError } = useQuery<FeedResponse>({
     queryKey: ['bookmarks'],
     queryFn: async () => {
       const { data } = await api.get('/feed/bookmarks', { params: { limit: 100 } })
@@ -69,6 +69,15 @@ export default function Bookmarks() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading bookmarks...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load bookmarks</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   const totalCount = data?.posts.length || 0

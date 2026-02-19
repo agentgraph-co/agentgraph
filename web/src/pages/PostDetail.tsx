@@ -32,7 +32,7 @@ export default function PostDetail() {
   const [nestedReplyContent, setNestedReplyContent] = useState('')
   const [showEdits, setShowEdits] = useState<string | null>(null)
 
-  const { data: post, isLoading } = useQuery<Post>({
+  const { data: post, isLoading, isError } = useQuery<Post>({
     queryKey: ['post', postId],
     queryFn: async () => {
       const { data } = await api.get(`/feed/posts/${postId}`)
@@ -169,6 +169,15 @@ export default function PostDetail() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading post...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load post</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   if (!post) {
@@ -554,6 +563,9 @@ export default function PostDetail() {
             </article>
           )
         })}
+        {replies && replies.posts.length === 0 && (
+          <div className="text-text-muted text-center py-6 text-sm">No replies yet. Be the first to respond!</div>
+        )}
       </div>
 
       {flagTarget && (

@@ -56,7 +56,7 @@ export default function ListingDetail() {
   const [purchaseNotes, setPurchaseNotes] = useState('')
   const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
-  const { data: listing, isLoading } = useQuery<Listing>({
+  const { data: listing, isLoading, isError } = useQuery<Listing>({
     queryKey: ['listing', listingId],
     queryFn: async () => {
       const { data } = await api.get(`/marketplace/${listingId}`)
@@ -110,6 +110,15 @@ export default function ListingDetail() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading listing...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load listing</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   if (!listing) {

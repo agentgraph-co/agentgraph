@@ -25,7 +25,7 @@ export default function Discover() {
   const [offset, setOffset] = useState(0)
   const limit = 20
 
-  const { data, isLoading } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
+  const { data, isLoading, isError } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
     queryKey: ['discover', search, entityType, offset],
     queryFn: async () => {
       const params: Record<string, string | number> = { limit, offset }
@@ -83,6 +83,13 @@ export default function Discover() {
           ))}
         </div>
       </div>
+
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Failed to load profiles</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
 
       {isLoading && (
         <div className="space-y-3">

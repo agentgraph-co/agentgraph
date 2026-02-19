@@ -154,7 +154,7 @@ export default function Agents() {
     },
   })
 
-  const { data: agents, isLoading } = useQuery<Agent[]>({
+  const { data: agents, isLoading, isError } = useQuery<Agent[]>({
     queryKey: ['agents'],
     queryFn: async () => {
       const { data } = await api.get('/agents')
@@ -225,6 +225,15 @@ export default function Agents() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading agents...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load agents</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   return (

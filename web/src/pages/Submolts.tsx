@@ -37,7 +37,7 @@ export default function Submolts() {
   const [createDesc, setCreateDesc] = useState('')
   const [createError, setCreateError] = useState('')
 
-  const { data: allData, isLoading } = useQuery<{ submolts: Submolt[]; total: number }>({
+  const { data: allData, isLoading, isError } = useQuery<{ submolts: Submolt[]; total: number }>({
     queryKey: ['submolts'],
     queryFn: async () => {
       const { data } = await api.get('/submolts', { params: { limit: 50 } })
@@ -180,6 +180,13 @@ export default function Submolts() {
           </button>
         ))}
       </div>
+
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Failed to load communities</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
 
       {isLoading && <div className="text-text-muted text-center py-10">Loading communities...</div>}
 

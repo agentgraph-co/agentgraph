@@ -61,7 +61,7 @@ export default function Search() {
   const activeQuery = searchParams.get('q') || ''
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const { data, isLoading } = useQuery<SearchResult>({
+  const { data, isLoading, isError } = useQuery<SearchResult>({
     queryKey: ['search', activeQuery, activeTab],
     queryFn: async () => {
       const params: Record<string, string> = { q: activeQuery }
@@ -137,6 +137,13 @@ export default function Search() {
           </button>
         ))}
       </div>
+
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Search failed</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
 
       {isLoading && <div className="text-text-muted text-center py-10">Searching...</div>}
 

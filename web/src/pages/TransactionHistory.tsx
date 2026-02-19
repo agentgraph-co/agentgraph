@@ -58,6 +58,7 @@ export default function TransactionHistory() {
   const {
     data,
     isLoading,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -105,6 +106,15 @@ export default function TransactionHistory() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading transactions...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load transactions</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   return (

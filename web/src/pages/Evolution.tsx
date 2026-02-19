@@ -72,7 +72,7 @@ export default function Evolution() {
   const [diffA, setDiffA] = useState<string | null>(null)
   const [diffB, setDiffB] = useState<string | null>(null)
 
-  const { data: lineage, isLoading } = useQuery<LineageData>({
+  const { data: lineage, isLoading, isError } = useQuery<LineageData>({
     queryKey: ['evolution-lineage', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/evolution/${entityId}/lineage`)
@@ -89,6 +89,15 @@ export default function Evolution() {
     },
     enabled: !!entityId && !!diffA && !!diffB && diffA !== diffB,
   })
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load evolution data</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

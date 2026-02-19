@@ -87,7 +87,7 @@ export default function TrustDetail() {
     }
   }
 
-  const { data: trust, isLoading } = useQuery<TrustScoreData>({
+  const { data: trust, isLoading, isError } = useQuery<TrustScoreData>({
     queryKey: ['trust-detail', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/entities/${entityId}/trust`)
@@ -107,6 +107,15 @@ export default function TrustDetail() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading trust data...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load trust data</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   if (!trust) {

@@ -75,6 +75,7 @@ export default function Feed() {
   const {
     data,
     isLoading,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -160,6 +161,15 @@ export default function Feed() {
     return (
       <div className="max-w-2xl mx-auto space-y-3 mt-6">
         {Array.from({ length: 5 }).map((_, i) => <PostSkeleton key={i} />)}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load feed</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

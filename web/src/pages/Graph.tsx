@@ -72,7 +72,7 @@ export default function Graph() {
   // Main full graph
   const [graphMode, setGraphMode] = useState<'full' | 'ego'>('full')
 
-  const { data, isLoading } = useQuery<GraphData>({
+  const { data, isLoading, isError } = useQuery<GraphData>({
     queryKey: ['graph'],
     queryFn: async () => {
       const { data } = await api.get('/graph', { params: { limit: 500 } })
@@ -336,6 +336,15 @@ export default function Graph() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading graph...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load graph data</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   return (

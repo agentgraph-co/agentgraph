@@ -104,7 +104,7 @@ export default function Profile() {
   const [serviceType, setServiceType] = useState('')
   const [serviceEndpoint, setServiceEndpoint] = useState('')
 
-  const { data: profile, isLoading } = useQuery<ProfileType>({
+  const { data: profile, isLoading, isError } = useQuery<ProfileType>({
     queryKey: ['profile', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/profiles/${entityId}`)
@@ -343,6 +343,15 @@ export default function Profile() {
     return (
       <div className="max-w-2xl mx-auto">
         <ProfileSkeleton />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load profile</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
       </div>
     )
   }

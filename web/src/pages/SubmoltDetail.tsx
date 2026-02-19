@@ -88,6 +88,7 @@ export default function SubmoltDetail() {
   const {
     data,
     isLoading,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -251,6 +252,15 @@ export default function SubmoltDetail() {
 
   if (isLoading) {
     return <div className="text-text-muted text-center mt-10">Loading community...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-danger mb-2">Failed to load community</p>
+        <button onClick={() => window.location.reload()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+      </div>
+    )
   }
 
   if (!submolt) {
