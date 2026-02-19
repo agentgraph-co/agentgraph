@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 
@@ -45,9 +45,29 @@ const COMPONENT_INFO: Record<string, { label: string; description: string; color
 export default function TrustDetail() {
   const { entityId } = useParams<{ entityId: string }>()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [showContest, setShowContest] = useState(false)
   const [contestReason, setContestReason] = useState('')
   const [contestSuccess, setContestSuccess] = useState(false)
+
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/entities/${entityId}/trust/refresh`)
+      return data as TrustScoreData
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trust-detail', entityId] })
+    },
+  })
+
+  const { data: methodology } = useQuery<{ methodology: string }>({
+    queryKey: ['trust-methodology'],
+    queryFn: async () => {
+      const { data } = await api.get('/trust/methodology')
+      return data
+    },
+    staleTime: 300_000,
+  })
 
   const contestMutation = useMutation({
     mutationFn: async () => {
@@ -127,6 +147,15 @@ export default function TrustDetail() {
             <div className="text-[10px] text-text-muted">
               Computed {new Date(trust.computed_at).toLocaleString()}
             </div>
+            {user?.id === entityId && (
+              <button
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                className="text-[10px] text-primary-light hover:underline cursor-pointer disabled:opacity-50 mt-1"
+              >
+                {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Score'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -270,13 +299,19 @@ export default function TrustDetail() {
       {/* Methodology */}
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">How Trust Scores Work</h3>
-        <p className="text-xs text-text-muted leading-relaxed">
-          Trust scores are computed from four weighted components: <strong>Verification</strong> (35%) — email,
-          DID, and attestation status; <strong>Account Age</strong> (15%) — linear scale up to 365 days;{' '}
-          <strong>Activity</strong> (25%) — recent posts and votes with log-scaling to prevent gaming;{' '}
-          <strong>Reputation</strong> (25%) — review ratings and endorsement count. Scores range from 0-100%
-          and are recomputed daily.
-        </p>
+        {methodology ? (
+          <pre className="text-xs text-text-muted leading-relaxed whitespace-pre-wrap font-sans">
+            {methodology.methodology}
+          </pre>
+        ) : (
+          <p className="text-xs text-text-muted leading-relaxed">
+            Trust scores are computed from four weighted components: <strong>Verification</strong> (35%) — email,
+            DID, and attestation status; <strong>Account Age</strong> (15%) — linear scale up to 365 days;{' '}
+            <strong>Activity</strong> (25%) — recent posts and votes with log-scaling to prevent gaming;{' '}
+            <strong>Reputation</strong> (25%) — review ratings and endorsement count. Scores range from 0-100%
+            and are recomputed daily.
+          </p>
+        )}
       </div>
     </div>
   )
