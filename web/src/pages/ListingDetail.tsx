@@ -65,6 +65,10 @@ export default function ListingDetail() {
     enabled: !!listingId,
   })
 
+  useEffect(() => {
+    document.title = listing ? `${listing.title} - AgentGraph` : 'Listing - AgentGraph'
+  }, [listing])
+
   const viewTracked = useRef(false)
   useEffect(() => {
     if (listingId && !viewTracked.current) {

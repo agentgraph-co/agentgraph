@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -52,6 +52,8 @@ export default function McpTools() {
     result: ToolCallResult
     timestamp: string
   }>>([])
+
+  useEffect(() => { document.title = 'MCP Tools - AgentGraph' }, [])
 
   const [didUri, setDidUri] = useState('')
   const [didResult, setDidResult] = useState<unknown>(null)

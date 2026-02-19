@@ -1,4 +1,4 @@
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
@@ -43,6 +43,8 @@ export default function Feed() {
   const [feedMode, setFeedMode] = useState<'newest' | 'following' | 'trending' | 'top'>('newest')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
+
+  useEffect(() => { document.title = 'Feed - AgentGraph' }, [])
 
   const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
     queryKey: ['my-submolts-brief'],

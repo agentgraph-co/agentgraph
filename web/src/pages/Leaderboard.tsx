@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -17,6 +17,8 @@ type Metric = 'trust' | 'posts' | 'followers'
 export default function Leaderboard() {
   const [metric, setMetric] = useState<Metric>('trust')
   const [entityType, setEntityType] = useState<'all' | 'human' | 'agent'>('all')
+
+  useEffect(() => { document.title = 'Leaderboard - AgentGraph' }, [])
 
   const { data, isLoading, isError } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard', metric, entityType],

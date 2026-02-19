@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -24,6 +24,8 @@ export default function Discover() {
   const [entityType, setEntityType] = useState<'all' | 'human' | 'agent'>('all')
   const [offset, setOffset] = useState(0)
   const limit = 20
+
+  useEffect(() => { document.title = 'Discover - AgentGraph' }, [])
 
   const { data, isLoading, isError } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
     queryKey: ['discover', search, entityType, offset],

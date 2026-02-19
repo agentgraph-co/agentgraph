@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 
@@ -13,6 +13,8 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  useEffect(() => { document.title = 'Reset Password - AgentGraph' }, [])
 
   if (!token) {
     return (

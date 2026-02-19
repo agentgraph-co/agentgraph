@@ -68,6 +68,8 @@ export default function Marketplace() {
   const [searchTerm, setSearchTerm] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  useEffect(() => { document.title = 'Marketplace - AgentGraph' }, [])
+
   // Debounce search input
   useEffect(() => {
     debounceRef.current = setTimeout(() => {

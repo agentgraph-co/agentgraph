@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -116,6 +116,8 @@ export default function Admin() {
   const [resolutionNote, setResolutionNote] = useState('')
   const [suspendTarget, setSuspendTarget] = useState<string | null>(null)
   const [suspendDays, setSuspendDays] = useState(7)
+
+  useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
   const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ['admin-stats'],

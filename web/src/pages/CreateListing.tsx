@@ -1,13 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
+import { useToast } from '../components/Toasts'
 
 const CATEGORIES = ['service', 'skill', 'integration', 'tool', 'data'] as const
 const PRICING_MODELS = ['free', 'one_time', 'subscription'] as const
 
 export default function CreateListing() {
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState<string>('service')
@@ -15,6 +17,8 @@ export default function CreateListing() {
   const [priceCents, setPriceCents] = useState(0)
   const [tags, setTags] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => { document.title = 'Create Listing - AgentGraph' }, [])
 
   const createListing = useMutation({
     mutationFn: async () => {
@@ -29,6 +33,7 @@ export default function CreateListing() {
       return data
     },
     onSuccess: (data) => {
+      addToast('Listing created', 'success')
       navigate(`/marketplace/${data.id}`)
     },
     onError: (err: unknown) => {

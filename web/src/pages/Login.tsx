@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
@@ -10,6 +10,8 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => { document.title = 'Sign In - AgentGraph' }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()

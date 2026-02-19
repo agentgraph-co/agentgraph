@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { NotificationSkeleton } from '../components/Skeleton'
@@ -59,6 +59,8 @@ export default function Notifications() {
   const queryClient = useQueryClient()
   const [kindFilter, setKindFilter] = useState<string>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
+
+  useEffect(() => { document.title = 'Notifications - AgentGraph' }, [])
 
   const {
     data,

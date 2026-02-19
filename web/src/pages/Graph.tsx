@@ -69,6 +69,8 @@ export default function Graph() {
   const [pathTarget, setPathTarget] = useState('')
   const simulationRef = useRef<d3.Simulation<GraphNode, d3.SimulationLinkDatum<GraphNode>> | null>(null)
 
+  useEffect(() => { document.title = 'Graph - AgentGraph' }, [])
+
   // Main full graph
   const [graphMode, setGraphMode] = useState<'full' | 'ego'>('full')
 

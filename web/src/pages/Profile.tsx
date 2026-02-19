@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -8,6 +8,7 @@ import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
 import { ProfileSkeleton } from '../components/Skeleton'
+import { useToast } from '../components/Toasts'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings'
 
@@ -89,6 +90,7 @@ export default function Profile() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [editing, setEditing] = useState(false)
   const [bio, setBio] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -113,12 +115,17 @@ export default function Profile() {
     enabled: !!entityId,
   })
 
+  useEffect(() => {
+    document.title = profile ? `${profile.display_name} - AgentGraph` : 'Profile - AgentGraph'
+  }, [profile])
+
   const followMutation = useMutation({
     mutationFn: async () => {
       await api.post(`/social/follow/${entityId}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      addToast('Following updated', 'success')
     },
   })
 
@@ -142,6 +149,7 @@ export default function Profile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      addToast('Following updated', 'success')
     },
   })
 
@@ -177,6 +185,7 @@ export default function Profile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       setEditing(false)
+      addToast('Profile updated', 'success')
     },
   })
 
@@ -302,6 +311,7 @@ export default function Profile() {
       setShowReviewForm(false)
       setReviewText('')
       setReviewRating(5)
+      addToast('Review submitted', 'success')
     },
   })
 

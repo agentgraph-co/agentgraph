@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface Conversation {
   id: string
@@ -46,12 +47,15 @@ function timeAgo(dateStr: string): string {
 export default function Messages() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
   const [showCompose, setShowCompose] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConvList, setShowConvList] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { document.title = 'Messages - AgentGraph' }, [])
 
   const { data: conversations } = useQuery<{ conversations: Conversation[]; total: number }>({
     queryKey: ['conversations'],
@@ -109,6 +113,7 @@ export default function Messages() {
       queryClient.invalidateQueries({ queryKey: ['messages', selectedConvId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       setDeleteMessageId(null)
+      addToast('Message deleted', 'success')
     },
   })
 

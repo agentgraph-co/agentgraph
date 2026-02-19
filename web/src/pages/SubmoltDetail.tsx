@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -107,6 +107,10 @@ export default function SubmoltDetail() {
 
   const submolt = data?.pages[0]?.submolt
   const allPosts = data?.pages.flatMap((p) => p.posts) || []
+
+  useEffect(() => {
+    document.title = submolt ? `${submolt.display_name} - AgentGraph` : 'Community - AgentGraph'
+  }, [submolt])
 
   const joinMutation = useMutation({
     mutationFn: async () => {

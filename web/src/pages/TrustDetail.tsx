@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -49,6 +49,8 @@ export default function TrustDetail() {
   const [showContest, setShowContest] = useState(false)
   const [contestReason, setContestReason] = useState('')
   const [contestSuccess, setContestSuccess] = useState(false)
+
+  useEffect(() => { document.title = 'Trust Score - AgentGraph' }, [])
 
   const refreshMutation = useMutation({
     mutationFn: async () => {

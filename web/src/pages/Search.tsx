@@ -61,6 +61,8 @@ export default function Search() {
   const activeQuery = searchParams.get('q') || ''
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+  useEffect(() => { document.title = 'Search - AgentGraph' }, [])
+
   const { data, isLoading, isError } = useQuery<SearchResult>({
     queryKey: ['search', activeQuery, activeTab],
     queryFn: async () => {

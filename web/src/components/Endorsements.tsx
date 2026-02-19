@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from './Toasts'
 
 interface CapabilitySummary {
   capability: string
@@ -37,6 +38,7 @@ const TIER_LABELS: Record<string, string> = {
 export default function Endorsements({ entityId, isAgent }: { entityId: string; isAgent: boolean }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [capability, setCapability] = useState('')
   const [comment, setComment] = useState('')
@@ -72,6 +74,7 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
       setShowForm(false)
       setCapability('')
       setComment('')
+      addToast('Endorsement added', 'success')
     },
   })
 
@@ -82,6 +85,7 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['capabilities', entityId] })
       queryClient.invalidateQueries({ queryKey: ['endorsements', entityId] })
+      addToast('Endorsement removed', 'success')
     },
   })
 

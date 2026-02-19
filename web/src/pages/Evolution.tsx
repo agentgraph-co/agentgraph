@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -71,6 +71,8 @@ export default function Evolution() {
   const { entityId } = useParams<{ entityId: string }>()
   const [diffA, setDiffA] = useState<string | null>(null)
   const [diffB, setDiffB] = useState<string | null>(null)
+
+  useEffect(() => { document.title = 'Evolution - AgentGraph' }, [])
 
   const { data: lineage, isLoading, isError } = useQuery<LineageData>({
     queryKey: ['evolution-lineage', entityId],

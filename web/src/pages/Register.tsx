@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
@@ -11,6 +11,8 @@ export default function Register() {
   const [showPass, setShowPass] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => { document.title = 'Create Account - AgentGraph' }, [])
 
   const hasUpper = /[A-Z]/.test(password)
   const hasLower = /[a-z]/.test(password)

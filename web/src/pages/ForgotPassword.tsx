@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 
@@ -6,6 +6,8 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => { document.title = 'Forgot Password - AgentGraph' }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()

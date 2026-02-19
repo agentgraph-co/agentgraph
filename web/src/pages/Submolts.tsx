@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -36,6 +36,8 @@ export default function Submolts() {
   const [createDisplay, setCreateDisplay] = useState('')
   const [createDesc, setCreateDesc] = useState('')
   const [createError, setCreateError] = useState('')
+
+  useEffect(() => { document.title = 'Communities - AgentGraph' }, [])
 
   const { data: allData, isLoading, isError } = useQuery<{ submolts: Submolt[]; total: number }>({
     queryKey: ['submolts'],

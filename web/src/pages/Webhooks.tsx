@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import { useToast } from '../components/Toasts'
 
 interface Webhook {
   id: string
@@ -37,12 +38,16 @@ const EVENT_TYPES = [
 
 export default function Webhooks() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [callbackUrl, setCallbackUrl] = useState('')
   const [selectedEvents, setSelectedEvents] = useState<string[]>([])
   const [error, setError] = useState('')
   const [createdSecret, setCreatedSecret] = useState<CreatedWebhook | null>(null)
   const [copied, setCopied] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  useEffect(() => { document.title = 'Webhooks - AgentGraph' }, [])
 
   const { data: webhooks, isLoading, isError } = useQuery<{ webhooks: Webhook[]; count: number }>({
     queryKey: ['webhooks'],
@@ -67,6 +72,7 @@ export default function Webhooks() {
       setCallbackUrl('')
       setSelectedEvents([])
       setError('')
+      addToast('Webhook created', 'success')
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -80,6 +86,7 @@ export default function Webhooks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+      addToast('Webhook deleted', 'success')
     },
   })
 
@@ -252,13 +259,30 @@ export default function Webhooks() {
                 >
                   {wh.is_active ? 'Pause' : 'Resume'}
                 </button>
-                <button
-                  onClick={() => deleteMutation.mutate(wh.id)}
-                  disabled={deleteMutation.isPending}
-                  className="text-xs text-text-muted hover:text-danger cursor-pointer disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                {confirmDeleteId === wh.id ? (
+                  <span className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => { deleteMutation.mutate(wh.id); setConfirmDeleteId(null) }}
+                      disabled={deleteMutation.isPending}
+                      className="text-xs text-danger cursor-pointer disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="text-xs text-text-muted hover:text-text cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteId(wh.id)}
+                    className="text-xs text-text-muted hover:text-danger cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-1">

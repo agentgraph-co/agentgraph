@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface BlockedUser {
   entity_id: string
@@ -69,9 +70,12 @@ export default function Settings() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showDeactivate, setShowDeactivate] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const [auditOffset, setAuditOffset] = useState(0)
+
+  useEffect(() => { document.title = 'Settings - AgentGraph' }, [])
 
   // Password change
   const [currentPass, setCurrentPass] = useState('')
@@ -112,6 +116,7 @@ export default function Settings() {
       setPassErr('')
       setCurrentPass('')
       setNewPass('')
+      addToast('Password updated', 'success')
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -132,6 +137,7 @@ export default function Settings() {
       setEmailErr('')
       setNewEmail('')
       setEmailPass('')
+      addToast('Verification email sent', 'success')
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -239,6 +245,7 @@ export default function Settings() {
       a.download = `agentgraph-export-${new Date().toISOString().slice(0, 10)}.json`
       a.click()
       URL.revokeObjectURL(url)
+      addToast('Export started', 'success')
     },
   })
 

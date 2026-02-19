@@ -1,8 +1,9 @@
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface Agent {
   id: string
@@ -62,6 +63,7 @@ const AUTONOMY_LABELS: Record<number, string> = {
 
 export default function Agents() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
@@ -75,6 +77,8 @@ export default function Agents() {
   const [keysAgentId, setKeysAgentId] = useState<string | null>(null)
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null)
   const [rotateAgentId, setRotateAgentId] = useState<string | null>(null)
+
+  useEffect(() => { document.title = 'Agents - AgentGraph' }, [])
   const [rotatedKey, setRotatedKey] = useState<string | null>(null)
   const [showPending, setShowPending] = useState(false)
   const [approveNote, setApproveNote] = useState('')
@@ -151,6 +155,7 @@ export default function Agents() {
       setRotatedKey(data.api_key)
       setRotateAgentId(null)
       queryClient.invalidateQueries({ queryKey: ['agent-keys', keysAgentId] })
+      addToast('API key rotated', 'success')
     },
   })
 
@@ -182,6 +187,7 @@ export default function Agents() {
       setCapInput('')
       setAutonomyLevel(3)
       setError('')
+      addToast('Agent created', 'success')
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail

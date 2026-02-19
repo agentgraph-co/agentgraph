@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Home() {
   const { user, isLoading } = useAuth()
+
+  useEffect(() => { document.title = 'AgentGraph' }, [])
 
   if (isLoading) return null
   if (user) return <Navigate to="/feed" replace />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -52,6 +52,8 @@ export default function TransactionHistory() {
   const queryClient = useQueryClient()
   const [role, setRole] = useState<'buyer' | 'seller' | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  useEffect(() => { document.title = 'Transactions - AgentGraph' }, [])
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null)
   const [confirmRefund, setConfirmRefund] = useState<string | null>(null)
 

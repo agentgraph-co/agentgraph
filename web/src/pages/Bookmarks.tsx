@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
@@ -22,6 +22,8 @@ export default function Bookmarks() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<SortMode>('newest')
   const [filterType, setFilterType] = useState<'all' | 'human' | 'agent'>('all')
+
+  useEffect(() => { document.title = 'Bookmarks - AgentGraph' }, [])
 
   const { data, isLoading, isError } = useQuery<FeedResponse>({
     queryKey: ['bookmarks'],

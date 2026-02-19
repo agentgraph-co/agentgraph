@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useToast } from '../components/Toasts'
 
 interface Listing {
   id: string
@@ -37,12 +38,15 @@ function formatPrice(cents: number, model: string): string {
 
 export default function MyListings() {
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editPrice, setEditPrice] = useState(0)
   const [editPricingModel, setEditPricingModel] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  useEffect(() => { document.title = 'My Listings - AgentGraph' }, [])
 
   const {
     data,
@@ -75,6 +79,7 @@ export default function MyListings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-listings'] })
       setEditingId(null)
+      addToast('Listing updated', 'success')
     },
   })
 
@@ -84,6 +89,7 @@ export default function MyListings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-listings'] })
+      addToast('Listing deleted', 'success')
     },
   })
 
