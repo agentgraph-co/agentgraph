@@ -29,12 +29,21 @@ export default function Layout() {
                 <Link to="/graph" className="text-sm text-text-muted hover:text-text transition-colors">
                   Graph
                 </Link>
+                <Link to="/marketplace" className="text-sm text-text-muted hover:text-text transition-colors">
+                  Market
+                </Link>
               </>
             )}
           </div>
           <div className="flex items-center gap-4">
             {user ? (
               <>
+                <Link
+                  to="/notifications"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  Alerts
+                </Link>
                 <Link
                   to={`/profile/${user.id}`}
                   className="text-sm text-text-muted hover:text-text transition-colors"

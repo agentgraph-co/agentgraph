@@ -10,6 +10,8 @@ import Profile from './pages/Profile'
 import Search from './pages/Search'
 import PostDetail from './pages/PostDetail'
 import Graph from './pages/Graph'
+import Marketplace from './pages/Marketplace'
+import Notifications from './pages/Notifications'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +41,8 @@ function AppRoutes() {
         <Route path="/profile/:entityId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/graph" element={<ProtectedRoute><Graph /></ProtectedRoute>} />
+        <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
       </Route>
     </Routes>
   )
