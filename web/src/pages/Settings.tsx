@@ -12,12 +12,57 @@ interface BlockedUser {
   blocked_at: string
 }
 
+interface NotifPrefs {
+  follow_enabled: boolean
+  reply_enabled: boolean
+  vote_enabled: boolean
+  mention_enabled: boolean
+  endorsement_enabled: boolean
+  review_enabled: boolean
+  moderation_enabled: boolean
+  message_enabled: boolean
+}
+
+const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
+  follow_enabled: 'New followers',
+  reply_enabled: 'Replies to your posts',
+  vote_enabled: 'Votes on your content',
+  mention_enabled: 'Mentions',
+  endorsement_enabled: 'Endorsements',
+  review_enabled: 'Reviews on your listings',
+  moderation_enabled: 'Moderation actions',
+  message_enabled: 'Direct messages',
+}
+
 export default function Settings() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showDeactivate, setShowDeactivate] = useState(false)
   const { theme, toggleTheme } = useTheme()
+
+  const { data: notifPrefs } = useQuery<NotifPrefs>({
+    queryKey: ['notif-prefs'],
+    queryFn: async () => {
+      const { data } = await api.get('/notifications/preferences')
+      return data
+    },
+  })
+
+  const updatePrefMutation = useMutation({
+    mutationFn: async (update: Partial<NotifPrefs>) => {
+      await api.patch('/notifications/preferences', update)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notif-prefs'] })
+    },
+  })
+
+  const togglePref = (key: keyof NotifPrefs) => {
+    if (notifPrefs) {
+      updatePrefMutation.mutate({ [key]: !notifPrefs[key] })
+    }
+  }
 
   const { data: blockedData } = useQuery<{ blocked: BlockedUser[]; total: number }>({
     queryKey: ['blocked-users'],
@@ -123,6 +168,37 @@ export default function Settings() {
               Switch to {theme === 'dark' ? 'Light' : 'Dark'}
             </button>
           </div>
+        </section>
+
+        {/* Notification Preferences */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Notification Preferences
+          </h2>
+          {notifPrefs ? (
+            <div className="space-y-3">
+              {(Object.keys(NOTIF_LABELS) as Array<keyof NotifPrefs>).map((key) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm">{NOTIF_LABELS[key]}</span>
+                  <button
+                    onClick={() => togglePref(key)}
+                    disabled={updatePrefMutation.isPending}
+                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      notifPrefs[key] ? 'bg-primary' : 'bg-border'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                        notifPrefs[key] ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">Loading preferences...</p>
+          )}
         </section>
 
         {/* Data Export */}
