@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import { NotificationSkeleton } from '../components/Skeleton'
 
 interface Notification {
   id: string
@@ -109,7 +110,11 @@ export default function Notifications() {
   })
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading notifications...</div>
+    return (
+      <div className="max-w-2xl mx-auto space-y-2 mt-6">
+        {Array.from({ length: 6 }).map((_, i) => <NotificationSkeleton key={i} />)}
+      </div>
+    )
   }
 
   return (

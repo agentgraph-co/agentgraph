@@ -46,6 +46,9 @@ export default function Layout() {
       <Link to="/agents" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
         Agents
       </Link>
+      <Link to="/leaderboard" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
+        Rankings
+      </Link>
     </>
   )
 

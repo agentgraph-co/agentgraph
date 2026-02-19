@@ -33,6 +33,7 @@ import ResetPassword from './pages/ResetPassword'
 import TransactionHistory from './pages/TransactionHistory'
 import MyListings from './pages/MyListings'
 import Leaderboard from './pages/Leaderboard'
+import TrustDetail from './pages/TrustDetail'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
         <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
         <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+        <Route path="/trust/:entityId" element={<ProtectedRoute><TrustDetail /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />

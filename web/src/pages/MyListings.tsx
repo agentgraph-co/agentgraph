@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Listing {
   id: string
@@ -41,6 +42,7 @@ export default function MyListings() {
   const [editDescription, setEditDescription] = useState('')
   const [editPrice, setEditPrice] = useState(0)
   const [editPricingModel, setEditPricingModel] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const {
     data,
@@ -256,11 +258,7 @@ export default function MyListings() {
                       {listing.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm('Delete this listing permanently?')) {
-                          deleteMutation.mutate(listing.id)
-                        }
-                      }}
+                      onClick={() => setDeleteTarget(listing.id)}
                       disabled={deleteMutation.isPending}
                       className="hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
                     >
@@ -294,6 +292,21 @@ export default function MyListings() {
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Listing"
+          message="This will permanently delete this listing and all associated reviews. This cannot be undone."
+          confirmLabel="Delete"
+          variant="danger"
+          isPending={deleteMutation.isPending}
+          onConfirm={() => {
+            deleteMutation.mutate(deleteTarget)
+            setDeleteTarget(null)
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }

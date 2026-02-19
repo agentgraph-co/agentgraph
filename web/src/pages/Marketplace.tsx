@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { ListingSkeleton } from '../components/Skeleton'
 
 interface Listing {
   id: string
@@ -103,7 +104,11 @@ export default function Marketplace() {
   const totalCount = data?.pages[0]?.total || 0
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading marketplace...</div>
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+        {Array.from({ length: 6 }).map((_, i) => <ListingSkeleton key={i} />)}
+      </div>
+    )
   }
 
   return (

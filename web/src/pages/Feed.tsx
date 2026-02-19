@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
+import { PostSkeleton } from '../components/Skeleton'
 
 const PAGE_SIZE = 20
 
@@ -104,7 +105,11 @@ export default function Feed() {
   }, [content, createPost])
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading feed...</div>
+    return (
+      <div className="max-w-2xl mx-auto space-y-3 mt-6">
+        {Array.from({ length: 5 }).map((_, i) => <PostSkeleton key={i} />)}
+      </div>
+    )
   }
 
   return (

@@ -7,6 +7,7 @@ import type { Post, Profile as ProfileType } from '../types'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
+import { ProfileSkeleton } from '../components/Skeleton'
 
 type ProfileTab = 'posts' | 'followers' | 'following'
 
@@ -160,7 +161,11 @@ export default function Profile() {
   const allPosts = postsData?.pages.flatMap((p) => p.posts) || []
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading profile...</div>
+    return (
+      <div className="max-w-2xl mx-auto">
+        <ProfileSkeleton />
+      </div>
+    )
   }
 
   if (!profile) {
@@ -266,6 +271,12 @@ export default function Profile() {
               <span className="text-sm font-medium text-primary-light">
                 {(profile.trust_score * 100).toFixed(0)}%
               </span>
+              <Link
+                to={`/trust/${entityId}`}
+                className="text-[10px] text-text-muted hover:text-primary-light transition-colors"
+              >
+                Details
+              </Link>
             </div>
           </div>
         )}
