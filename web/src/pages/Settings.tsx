@@ -92,7 +92,6 @@ export default function Settings() {
   const [emailErr, setEmailErr] = useState('')
 
   const [verifyMsg, setVerifyMsg] = useState('')
-  const [privacyUpdating, setPrivacyUpdating] = useState(false)
 
   const resendVerification = useMutation({
     mutationFn: async () => {
@@ -195,15 +194,10 @@ export default function Settings() {
 
   const updatePrivacyMutation = useMutation({
     mutationFn: async (tier: string) => {
-      setPrivacyUpdating(true)
       await api.put('/account/privacy', { tier })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['privacy-tier'] })
-      setPrivacyUpdating(false)
-    },
-    onError: () => {
-      setPrivacyUpdating(false)
     },
   })
 
@@ -453,7 +447,7 @@ export default function Settings() {
                     value={opt.value}
                     checked={privacyData.tier === opt.value}
                     onChange={() => updatePrivacyMutation.mutate(opt.value)}
-                    disabled={privacyUpdating}
+                    disabled={updatePrivacyMutation.isPending}
                     className="mt-0.5 accent-primary"
                   />
                   <div>

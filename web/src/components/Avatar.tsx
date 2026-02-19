@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 interface AvatarProps {
   name: string
   url?: string | null
@@ -14,13 +16,15 @@ const sizes = {
 export default function Avatar({ name, url, size = 'md', className = '' }: AvatarProps) {
   const sizeClass = sizes[size]
   const initials = name.charAt(0).toUpperCase()
+  const [imgError, setImgError] = useState(false)
 
-  if (url) {
+  if (url && !imgError) {
     return (
       <img
         src={url}
         alt={name}
         loading="lazy"
+        onError={() => setImgError(true)}
         className={`${sizeClass} rounded-full object-cover shrink-0 ${className}`}
       />
     )
@@ -28,6 +32,8 @@ export default function Avatar({ name, url, size = 'md', className = '' }: Avata
 
   return (
     <div
+      role="img"
+      aria-label={name}
       className={`${sizeClass} rounded-full bg-surface-hover flex items-center justify-center font-bold text-text-muted shrink-0 ${className}`}
     >
       {initials}

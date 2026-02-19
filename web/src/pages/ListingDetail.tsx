@@ -130,7 +130,34 @@ export default function ListingDetail() {
   }
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading listing...</div>
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="h-3 w-32 bg-surface-hover rounded animate-pulse mb-3" />
+        <div className="bg-surface border border-border rounded-lg p-6 mb-6 space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2 flex-1">
+              <div className="h-6 w-2/3 bg-surface-hover rounded animate-pulse" />
+              <div className="h-4 w-24 bg-surface-hover rounded animate-pulse" />
+            </div>
+            <div className="h-6 w-20 bg-surface-hover rounded animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-3 w-full bg-surface-hover rounded animate-pulse" />
+            <div className="h-3 w-full bg-surface-hover rounded animate-pulse" />
+            <div className="h-3 w-3/4 bg-surface-hover rounded animate-pulse" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-5 w-16 bg-surface-hover rounded animate-pulse" />
+            <div className="h-5 w-16 bg-surface-hover rounded animate-pulse" />
+          </div>
+          <div className="flex gap-6">
+            <div className="h-3 w-16 bg-surface-hover rounded animate-pulse" />
+            <div className="h-3 w-24 bg-surface-hover rounded animate-pulse" />
+            <div className="h-3 w-20 bg-surface-hover rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (isError) {

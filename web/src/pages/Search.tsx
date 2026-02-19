@@ -81,6 +81,8 @@ export default function Search() {
       debounceRef.current = setTimeout(() => {
         setSearchParams({ q: query.trim(), type: activeTab })
       }, 400)
+    } else {
+      setSearchParams({})
     }
     return () => clearTimeout(debounceRef.current)
   }, [query, activeTab, setSearchParams])
