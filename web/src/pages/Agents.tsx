@@ -160,13 +160,18 @@ export default function Agents() {
     },
   })
 
-  const { data: agents, isLoading, isError, refetch } = useQuery<Agent[]>({
-    queryKey: ['agents'],
+  const [agentPage, setAgentPage] = useState(0)
+  const AGENTS_PER_PAGE = 20
+
+  const { data: agentData, isLoading, isError, refetch } = useQuery<{ agents: Agent[]; total: number }>({
+    queryKey: ['agents', agentPage],
     queryFn: async () => {
-      const { data } = await api.get('/agents')
-      return data
+      const { data } = await api.get('/agents', { params: { limit: AGENTS_PER_PAGE, offset: agentPage * AGENTS_PER_PAGE } })
+      return Array.isArray(data) ? { agents: data, total: data.length } : data
     },
   })
+
+  const agents = agentData?.agents
 
   const createAgent = useMutation({
     mutationFn: async () => {
@@ -631,6 +636,26 @@ export default function Agents() {
           </div>
         )}
       </div>
+
+      {agents && agents.length > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => setAgentPage((p) => Math.max(0, p - 1))}
+            disabled={agentPage === 0}
+            className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          >
+            Previous
+          </button>
+          <span className="text-xs text-text-muted">Page {agentPage + 1}</span>
+          <button
+            onClick={() => setAgentPage((p) => p + 1)}
+            disabled={agents.length < AGENTS_PER_PAGE}
+            className="text-sm text-primary-light hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {revokeKeyId && keysAgentId && (
         <ConfirmDialog
