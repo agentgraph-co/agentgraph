@@ -5,6 +5,7 @@ posts, replies, votes, follows, profile updates.
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 
@@ -66,56 +67,12 @@ async def get_activity(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid cursor format")
 
-    activities: list[ActivityItem] = []
-
-    # Posts
+    # Build all 5 queries upfront
     posts_q = select(Post).where(
         Post.author_entity_id == entity_id,
         Post.is_hidden.is_(False),
     )
-    if before_dt:
-        posts_q = posts_q.where(Post.created_at < before_dt)
-    posts_result = await db.execute(
-        posts_q.order_by(Post.created_at.desc()).limit(limit)
-    )
-    for post in posts_result.scalars().all():
-        if post.parent_post_id:
-            activities.append(ActivityItem(
-                type="reply",
-                entity_id=str(entity_id),
-                entity_name=entity.display_name,
-                target_id=str(post.parent_post_id),
-                summary=post.content[:100],
-                created_at=post.created_at,
-            ))
-        else:
-            activities.append(ActivityItem(
-                type="post",
-                entity_id=str(entity_id),
-                entity_name=entity.display_name,
-                target_id=str(post.id),
-                summary=post.content[:100],
-                created_at=post.created_at,
-            ))
-
-    # Votes
     votes_q = select(Vote).where(Vote.entity_id == entity_id)
-    if before_dt:
-        votes_q = votes_q.where(Vote.created_at < before_dt)
-    votes_result = await db.execute(
-        votes_q.order_by(Vote.created_at.desc()).limit(limit)
-    )
-    for vote in votes_result.scalars().all():
-        activities.append(ActivityItem(
-            type="vote",
-            entity_id=str(entity_id),
-            entity_name=entity.display_name,
-            target_id=str(vote.post_id),
-            summary=f"{vote.direction.value}voted a post",
-            created_at=vote.created_at,
-        ))
-
-    # Follows
     follows_q = (
         select(EntityRelationship, Entity)
         .join(Entity, EntityRelationship.target_entity_id == Entity.id)
@@ -125,22 +82,6 @@ async def get_activity(
             Entity.is_active.is_(True),
         )
     )
-    if before_dt:
-        follows_q = follows_q.where(EntityRelationship.created_at < before_dt)
-    follows_result = await db.execute(
-        follows_q.order_by(EntityRelationship.created_at.desc()).limit(limit)
-    )
-    for rel, target in follows_result.all():
-        activities.append(ActivityItem(
-            type="follow",
-            entity_id=str(entity_id),
-            entity_name=entity.display_name,
-            target_id=str(target.id),
-            summary=f"Followed {target.display_name}",
-            created_at=rel.created_at,
-        ))
-
-    # Endorsements given
     endorse_q = (
         select(CapabilityEndorsement, Entity)
         .join(Entity, CapabilityEndorsement.agent_entity_id == Entity.id)
@@ -149,22 +90,6 @@ async def get_activity(
             Entity.is_active.is_(True),
         )
     )
-    if before_dt:
-        endorse_q = endorse_q.where(CapabilityEndorsement.created_at < before_dt)
-    endorse_result = await db.execute(
-        endorse_q.order_by(CapabilityEndorsement.created_at.desc()).limit(limit)
-    )
-    for endorsement, agent in endorse_result.all():
-        activities.append(ActivityItem(
-            type="endorsement",
-            entity_id=str(entity_id),
-            entity_name=entity.display_name,
-            target_id=str(agent.id),
-            summary=f"Endorsed {agent.display_name}'s '{endorsement.capability}'",
-            created_at=endorsement.created_at,
-        ))
-
-    # Reviews given
     review_q = (
         select(Review, Entity)
         .join(Entity, Review.target_entity_id == Entity.id)
@@ -173,16 +98,70 @@ async def get_activity(
             Entity.is_active.is_(True),
         )
     )
+
     if before_dt:
+        posts_q = posts_q.where(Post.created_at < before_dt)
+        votes_q = votes_q.where(Vote.created_at < before_dt)
+        follows_q = follows_q.where(EntityRelationship.created_at < before_dt)
+        endorse_q = endorse_q.where(CapabilityEndorsement.created_at < before_dt)
         review_q = review_q.where(Review.created_at < before_dt)
-    review_result = await db.execute(
-        review_q.order_by(Review.created_at.desc()).limit(limit)
+
+    # Execute all 5 queries concurrently
+    posts_result, votes_result, follows_result, endorse_result, review_result = (
+        await asyncio.gather(
+            db.execute(posts_q.order_by(Post.created_at.desc()).limit(limit)),
+            db.execute(votes_q.order_by(Vote.created_at.desc()).limit(limit)),
+            db.execute(follows_q.order_by(EntityRelationship.created_at.desc()).limit(limit)),
+            db.execute(endorse_q.order_by(CapabilityEndorsement.created_at.desc()).limit(limit)),
+            db.execute(review_q.order_by(Review.created_at.desc()).limit(limit)),
+        )
     )
+
+    activities: list[ActivityItem] = []
+    eid = str(entity_id)
+    name = entity.display_name
+
+    for post in posts_result.scalars().all():
+        if post.parent_post_id:
+            activities.append(ActivityItem(
+                type="reply", entity_id=eid, entity_name=name,
+                target_id=str(post.parent_post_id),
+                summary=post.content[:100], created_at=post.created_at,
+            ))
+        else:
+            activities.append(ActivityItem(
+                type="post", entity_id=eid, entity_name=name,
+                target_id=str(post.id),
+                summary=post.content[:100], created_at=post.created_at,
+            ))
+
+    for vote in votes_result.scalars().all():
+        activities.append(ActivityItem(
+            type="vote", entity_id=eid, entity_name=name,
+            target_id=str(vote.post_id),
+            summary=f"{vote.direction.value}voted a post",
+            created_at=vote.created_at,
+        ))
+
+    for rel, target in follows_result.all():
+        activities.append(ActivityItem(
+            type="follow", entity_id=eid, entity_name=name,
+            target_id=str(target.id),
+            summary=f"Followed {target.display_name}",
+            created_at=rel.created_at,
+        ))
+
+    for endorsement, agent in endorse_result.all():
+        activities.append(ActivityItem(
+            type="endorsement", entity_id=eid, entity_name=name,
+            target_id=str(agent.id),
+            summary=f"Endorsed {agent.display_name}'s '{endorsement.capability}'",
+            created_at=endorsement.created_at,
+        ))
+
     for review, target in review_result.all():
         activities.append(ActivityItem(
-            type="review",
-            entity_id=str(entity_id),
-            entity_name=entity.display_name,
+            type="review", entity_id=eid, entity_name=name,
             target_id=str(target.id),
             summary=f"Reviewed {target.display_name} ({review.rating}/5)",
             created_at=review.created_at,
