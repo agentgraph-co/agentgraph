@@ -33,17 +33,23 @@ interface BannedMember {
   banned_at: string
 }
 
+interface FeedPostAuthor {
+  id: string
+  display_name: string
+  type: string
+  did_web: string
+  autonomy_level: number | null
+}
+
 interface FeedPost {
   id: string
   content: string
-  author_id: string
-  author_name: string
-  author_type: string
+  author: FeedPostAuthor
   vote_count: number
   reply_count: number
   is_pinned: boolean
   flair: string | null
-  user_vote: string | null
+  user_vote: 'up' | 'down' | null
   created_at: string
 }
 
@@ -120,7 +126,7 @@ export default function SubmoltDetail() {
 
   const postMutation = useMutation({
     mutationFn: async (content: string) => {
-      await api.post('/feed/posts', { content, submolt_name: name })
+      await api.post('/feed/posts', { content, submolt_id: submolt?.id })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submolt-feed', name] })
@@ -129,7 +135,7 @@ export default function SubmoltDetail() {
   })
 
   const voteMutation = useMutation({
-    mutationFn: async ({ postId, direction }: { postId: string; direction: number }) => {
+    mutationFn: async ({ postId, direction }: { postId: string; direction: 'up' | 'down' }) => {
       await api.post(`/feed/posts/${postId}/vote`, { direction })
     },
     onSuccess: () => {
@@ -458,7 +464,7 @@ export default function SubmoltDetail() {
             <div className="flex gap-3">
               <div className="flex flex-col items-center gap-0.5">
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 1 })}
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                   }`}
@@ -471,7 +477,7 @@ export default function SubmoltDetail() {
                   {post.vote_count}
                 </span>
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: -1 })}
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                   }`}
@@ -482,15 +488,15 @@ export default function SubmoltDetail() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                   <Link
-                    to={`/profile/${post.author_id}`}
+                    to={`/profile/${post.author.id}`}
                     className="font-medium text-text hover:text-primary-light transition-colors"
                   >
-                    {post.author_name}
+                    {post.author.display_name}
                   </Link>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                    post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
                   }`}>
-                    {post.author_type}
+                    {post.author.type}
                   </span>
                   {post.flair && (
                     <span className="px-1.5 py-0.5 bg-warning/20 text-warning rounded text-[10px]">

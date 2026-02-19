@@ -429,7 +429,7 @@ export default function Profile() {
               <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
                 <span>{post.vote_count} votes</span>
                 <span>{post.reply_count} replies</span>
-                {post.submolt_name && <span>m/{post.submolt_name}</span>}
+                {post.submolt_id && <span>in community</span>}
                 <span>{timeAgo(post.created_at)}</span>
               </div>
             </Link>

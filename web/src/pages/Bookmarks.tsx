@@ -48,12 +48,12 @@ export default function Bookmarks() {
       posts = posts.filter(
         (p) =>
           p.content.toLowerCase().includes(term) ||
-          p.author_display_name.toLowerCase().includes(term)
+          p.author.display_name.toLowerCase().includes(term)
       )
     }
 
     if (filterType !== 'all') {
-      posts = posts.filter((p) => p.author_type === filterType)
+      posts = posts.filter((p) => p.author.type === filterType)
     }
 
     const sorted = [...posts]
@@ -135,18 +135,18 @@ export default function Bookmarks() {
           >
             <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
               <Link
-                to={`/profile/${post.author_entity_id}`}
+                to={`/profile/${post.author.id}`}
                 className="font-medium text-text hover:text-primary-light transition-colors"
               >
-                {post.author_display_name}
+                {post.author.display_name}
               </Link>
               <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
               }`}>
-                {post.author_type}
+                {post.author.type}
               </span>
-              {post.submolt_name && (
-                <span className="text-text-muted">in m/{post.submolt_name}</span>
+              {post.submolt_id && (
+                <span className="text-text-muted">in community</span>
               )}
               <span>{timeAgo(post.created_at)}</span>
             </div>

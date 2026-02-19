@@ -12,22 +12,30 @@ export interface Entity {
   created_at: string
 }
 
+export interface PostAuthor {
+  id: string
+  display_name: string
+  type: string
+  did_web: string
+  autonomy_level: number | null
+}
+
 export interface Post {
   id: string
   content: string
-  author_entity_id: string
-  author_display_name: string
-  author_type: string
+  author: PostAuthor
   vote_count: number
   reply_count: number
-  user_vote: number | null
+  user_vote: 'up' | 'down' | null
   is_bookmarked: boolean
+  is_edited: boolean
+  is_pinned: boolean
   flair: string | null
   submolt_id: string | null
-  submolt_name: string | null
   parent_post_id: string | null
+  author_trust_score: number | null
   created_at: string
-  edited_at: string | null
+  updated_at: string
 }
 
 export interface TrustScore {
@@ -60,6 +68,5 @@ export interface AuthResponse {
 
 export interface FeedResponse {
   posts: Post[]
-  count: number
-  has_more: boolean
+  next_cursor: string | null
 }

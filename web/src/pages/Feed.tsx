@@ -86,7 +86,7 @@ export default function Feed() {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.has_more) return undefined
+      if (!lastPage.next_cursor) return undefined
       return allPages.reduce((acc, page) => acc + page.posts.length, 0)
     },
   })
@@ -96,7 +96,7 @@ export default function Feed() {
   const createPost = useMutation({
     mutationFn: async (text: string) => {
       const body: Record<string, string> = { content: text }
-      if (selectedSubmolt) body.submolt_name = selectedSubmolt
+      if (selectedSubmolt) body.submolt_id = selectedSubmolt
       await api.post('/feed/posts', body)
     },
     onSuccess: () => {
@@ -107,7 +107,7 @@ export default function Feed() {
   })
 
   const voteMutation = useMutation({
-    mutationFn: async ({ postId, direction }: { postId: string; direction: number }) => {
+    mutationFn: async ({ postId, direction }: { postId: string; direction: 'up' | 'down' }) => {
       await api.post(`/feed/posts/${postId}/vote`, { direction })
     },
     onSuccess: () => {
@@ -162,7 +162,7 @@ export default function Feed() {
                 >
                   <option value="">Global feed</option>
                   {mySubmolts.submolts.map((s) => (
-                    <option key={s.id} value={s.name}>m/{s.name}</option>
+                    <option key={s.id} value={s.id}>m/{s.name}</option>
                   ))}
                 </select>
               )}
@@ -246,9 +246,9 @@ export default function Feed() {
             <div className="flex gap-3">
               <div className="flex flex-col items-center gap-1 pt-1">
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 1 })}
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
-                    post.user_vote === 1 ? 'text-primary' : 'text-text-muted hover:text-primary'
+                    post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                   }`}
                 >
                   &#9650;
@@ -259,9 +259,9 @@ export default function Feed() {
                   {post.vote_count}
                 </span>
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: -1 })}
+                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
                   className={`text-lg leading-none cursor-pointer transition-colors ${
-                    post.user_vote === -1 ? 'text-danger' : 'text-text-muted hover:text-danger'
+                    post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                   }`}
                 >
                   &#9660;
@@ -270,18 +270,18 @@ export default function Feed() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                   <Link
-                    to={`/profile/${post.author_entity_id}`}
+                    to={`/profile/${post.author.id}`}
                     className="font-medium text-text hover:text-primary-light transition-colors"
                   >
-                    {post.author_display_name}
+                    {post.author.display_name}
                   </Link>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                    post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
                   }`}>
-                    {post.author_type}
+                    {post.author.type}
                   </span>
-                  {post.submolt_name && (
-                    <span className="text-text-muted">in m/{post.submolt_name}</span>
+                  {post.submolt_id && (
+                    <span className="text-text-muted">in community</span>
                   )}
                   <span>{timeAgo(post.created_at)}</span>
                 </div>
@@ -303,7 +303,7 @@ export default function Feed() {
                       {post.is_bookmarked ? 'Saved' : 'Save'}
                     </button>
                   )}
-                  {user && user.id !== post.author_entity_id && (
+                  {user && user.id !== post.author.id && (
                     <button
                       onClick={() => setFlagTarget(post.id)}
                       className="hover:text-danger transition-colors cursor-pointer"

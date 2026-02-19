@@ -69,7 +69,7 @@ export default function PostDetail() {
   })
 
   const voteMutation = useMutation({
-    mutationFn: async ({ pid, direction }: { pid: string; direction: number }) => {
+    mutationFn: async ({ pid, direction }: { pid: string; direction: 'up' | 'down' }) => {
       await api.post(`/feed/posts/${pid}/vote`, { direction })
     },
     onSuccess: () => {
@@ -175,7 +175,7 @@ export default function PostDetail() {
     return <div className="text-danger text-center mt-10">Post not found</div>
   }
 
-  const isPostOwner = user?.id === post.author_entity_id
+  const isPostOwner = user?.id === post.author.id
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -184,9 +184,9 @@ export default function PostDetail() {
         <div className="flex gap-3">
           <div className="flex flex-col items-center gap-1 pt-1">
             <button
-              onClick={() => voteMutation.mutate({ pid: post.id, direction: 1 })}
+              onClick={() => voteMutation.mutate({ pid: post.id, direction: 'up' })}
               className={`text-lg leading-none cursor-pointer transition-colors ${
-                post.user_vote === 1 ? 'text-primary' : 'text-text-muted hover:text-primary'
+                post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
               }`}
             >
               &#9650;
@@ -197,9 +197,9 @@ export default function PostDetail() {
               {post.vote_count}
             </span>
             <button
-              onClick={() => voteMutation.mutate({ pid: post.id, direction: -1 })}
+              onClick={() => voteMutation.mutate({ pid: post.id, direction: 'down' })}
               className={`text-lg leading-none cursor-pointer transition-colors ${
-                post.user_vote === -1 ? 'text-danger' : 'text-text-muted hover:text-danger'
+                post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
               }`}
             >
               &#9660;
@@ -208,18 +208,18 @@ export default function PostDetail() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
               <Link
-                to={`/profile/${post.author_entity_id}`}
+                to={`/profile/${post.author.id}`}
                 className="font-medium text-text hover:text-primary-light transition-colors"
               >
-                {post.author_display_name}
+                {post.author.display_name}
               </Link>
               <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                post.author_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
               }`}>
-                {post.author_type}
+                {post.author.type}
               </span>
               <span>{timeAgo(post.created_at)}</span>
-              {post.edited_at && (
+              {post.is_edited && (
                 <button
                   onClick={() => setShowEdits(showEdits === post.id ? null : post.id)}
                   className="italic hover:text-primary-light transition-colors cursor-pointer"
@@ -227,7 +227,7 @@ export default function PostDetail() {
                   (edited)
                 </button>
               )}
-              {user && user.id !== post.author_entity_id && (
+              {user && user.id !== post.author.id && (
                 <button
                   onClick={() => setFlagTarget(post.id)}
                   className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer"
@@ -389,7 +389,7 @@ export default function PostDetail() {
       </div>
       <div className="space-y-3">
         {replies?.posts.map((reply) => {
-          const isReplyOwner = user?.id === reply.author_entity_id
+          const isReplyOwner = user?.id === reply.author.id
           return (
             <article
               key={reply.id}
@@ -398,18 +398,18 @@ export default function PostDetail() {
               <div className="flex gap-3">
                 <div className="flex flex-col items-center gap-1">
                   <button
-                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 1 })}
+                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'up' })}
                     className={`text-sm leading-none cursor-pointer transition-colors ${
-                      reply.user_vote === 1 ? 'text-primary' : 'text-text-muted hover:text-primary'
+                      reply.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
                     }`}
                   >
                     &#9650;
                   </button>
                   <span className="text-xs text-text-muted">{reply.vote_count}</span>
                   <button
-                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: -1 })}
+                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'down' })}
                     className={`text-sm leading-none cursor-pointer transition-colors ${
-                      reply.user_vote === -1 ? 'text-danger' : 'text-text-muted hover:text-danger'
+                      reply.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
                     }`}
                   >
                     &#9660;
@@ -418,14 +418,14 @@ export default function PostDetail() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
                     <Link
-                      to={`/profile/${reply.author_entity_id}`}
+                      to={`/profile/${reply.author.id}`}
                       className="font-medium text-text hover:text-primary-light transition-colors"
                     >
-                      {reply.author_display_name}
+                      {reply.author.display_name}
                     </Link>
                     <span>{timeAgo(reply.created_at)}</span>
-                    {reply.edited_at && <span className="italic">(edited)</span>}
-                    {user && user.id !== reply.author_entity_id && (
+                    {reply.is_edited && <span className="italic">(edited)</span>}
+                    {user && user.id !== reply.author.id && (
                       <button
                         onClick={() => setFlagTarget(reply.id)}
                         className="ml-auto text-text-muted hover:text-danger transition-colors cursor-pointer text-[10px]"
@@ -521,7 +521,7 @@ export default function PostDetail() {
                       <textarea
                         value={nestedReplyContent}
                         onChange={(e) => setNestedReplyContent(e.target.value)}
-                        placeholder={`Replying to ${reply.author_display_name}...`}
+                        placeholder={`Replying to ${reply.author.display_name}...`}
                         rows={2}
                         maxLength={10000}
                         autoFocus
