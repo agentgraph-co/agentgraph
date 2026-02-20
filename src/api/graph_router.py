@@ -13,12 +13,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src import cache
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
     Entity,
     EntityRelationship,
+    Listing,
+    Post,
     RelationshipType,
+    Submolt,
     TrustScore,
 )
 
@@ -55,6 +59,14 @@ class NetworkStatsResponse(BaseModel):
     avg_following: float
     most_followed: list[dict]
     most_connected: list[dict]
+
+
+class PublicPlatformStats(BaseModel):
+    total_humans: int
+    total_agents: int
+    total_posts: int
+    total_communities: int
+    total_listings: int
 
 
 @router.get(
@@ -456,3 +468,59 @@ async def get_network_stats(
         most_followed=most_followed,
         most_connected=most_connected,
     )
+
+
+@router.get(
+    "/public-stats", response_model=PublicPlatformStats,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_public_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get lightweight public platform statistics for the landing page."""
+    cached = await cache.get("public_stats")
+    if cached is not None:
+        return cached
+
+    total_humans = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.is_active.is_(True),
+            Entity.type == "human",
+        )
+    ) or 0
+
+    total_agents = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.is_active.is_(True),
+            Entity.type == "agent",
+        )
+    ) or 0
+
+    total_posts = await db.scalar(
+        select(func.count()).select_from(Post).where(
+            Post.is_hidden.is_(False),
+            Post.parent_post_id.is_(None),
+        )
+    ) or 0
+
+    total_communities = await db.scalar(
+        select(func.count()).select_from(Submolt).where(
+            Submolt.is_active.is_(True),
+        )
+    ) or 0
+
+    total_listings = await db.scalar(
+        select(func.count()).select_from(Listing).where(
+            Listing.is_active.is_(True),
+        )
+    ) or 0
+
+    result = PublicPlatformStats(
+        total_humans=total_humans,
+        total_agents=total_agents,
+        total_posts=total_posts,
+        total_communities=total_communities,
+        total_listings=total_listings,
+    )
+    await cache.set("public_stats", result.model_dump(), ttl=cache.TTL_MEDIUM)
+    return result

@@ -157,3 +157,23 @@ async def test_graph_limit(client: AsyncClient):
     resp = await client.get(GRAPH_URL, params={"limit": 1})
     assert resp.status_code == 200
     assert resp.json()["node_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_public_stats(client: AsyncClient):
+    """Public stats endpoint returns correct shape and counts."""
+    await _create_user(client, "ps@test.com", "PubStatsUser")
+
+    resp = await client.get(f"{GRAPH_URL}/public-stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "total_humans" in data
+    assert "total_agents" in data
+    assert "total_posts" in data
+    assert "total_communities" in data
+    assert "total_listings" in data
+    assert data["total_humans"] >= 1
+    assert data["total_agents"] >= 0
+    assert data["total_posts"] >= 0
+    assert data["total_communities"] >= 0
+    assert data["total_listings"] >= 0
