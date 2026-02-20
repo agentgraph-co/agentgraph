@@ -406,21 +406,41 @@ async def get_rate_limit_status(
 
     now = _time.time()
     active_keys: list[dict] = []
-    for key, timestamps in _limiter._windows.items():
-        recent = [t for t in timestamps if now - t < 60]
-        if recent:
-            active_keys.append({
-                "key": key,
-                "requests_last_60s": len(recent),
-                "oldest_request_age_s": round(now - min(recent), 1),
-            })
+
+    # Try Redis first for accurate cross-worker data
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        keys = await r.keys("rl:*")
+        for rk in keys[:200]:
+            await r.zremrangebyscore(rk, 0, now - 60)
+            count = await r.zcard(rk)
+            if count > 0:
+                oldest = await r.zrange(rk, 0, 0, withscores=True)
+                age = round(now - oldest[0][1], 1) if oldest else 0
+                active_keys.append({
+                    "key": rk.replace("rl:", "", 1) if isinstance(rk, str) else rk,
+                    "requests_last_60s": count,
+                    "oldest_request_age_s": age,
+                })
+    except Exception:
+        # Fallback to in-memory data
+        for key, timestamps in _limiter._fallback.items():
+            recent = [t for t in timestamps if now - t < 60]
+            if recent:
+                active_keys.append({
+                    "key": key,
+                    "requests_last_60s": len(recent),
+                    "oldest_request_age_s": round(now - min(recent), 1),
+                })
 
     active_keys.sort(
         key=lambda x: x["requests_last_60s"], reverse=True,
     )
 
     return {
-        "total_tracked_keys": len(_limiter._windows),
+        "total_tracked_keys": len(active_keys),
         "active_keys": active_keys[:50],
     }
 

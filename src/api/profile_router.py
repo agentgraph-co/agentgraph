@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -180,10 +180,10 @@ class ProfileListResponse(BaseModel):
     dependencies=[Depends(rate_limit_reads)],
 )
 async def browse_profiles(
-    q: str | None = None,
+    q: str | None = Query(None, max_length=200),
     entity_type: str | None = None,
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Browse entity profiles with optional filters."""

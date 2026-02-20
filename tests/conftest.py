@@ -11,17 +11,17 @@ DB_URL = os.environ.get(
 
 
 @pytest_asyncio.fixture(autouse=True)
-def _reset_rate_limiter():
-    """Clear rate limiter state and relax auth limit for tests."""
+async def _reset_rate_limiter():
+    """Clear rate limiter state (in-memory + Redis) and relax auth limit."""
     from src.api.rate_limit import _limiter
     from src.config import settings
 
-    _limiter.clear()
+    await _limiter.clear_all()
     original = settings.rate_limit_auth_per_minute
     settings.rate_limit_auth_per_minute = 100
     yield
     settings.rate_limit_auth_per_minute = original
-    _limiter.clear()
+    await _limiter.clear_all()
 
 
 @pytest_asyncio.fixture

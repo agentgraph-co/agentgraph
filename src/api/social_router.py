@@ -568,7 +568,7 @@ async def list_blocked(
 
 @router.get("/suggested", dependencies=[Depends(rate_limit_reads)])
 async def get_suggested_follows(
-    limit: int = 10,
+    limit: int = Query(10, ge=1, le=100),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):

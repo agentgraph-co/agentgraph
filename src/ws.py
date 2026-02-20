@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 from collections import defaultdict
 from typing import Any
 
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Redis channel prefix for WebSocket broadcasts
 _REDIS_WS_CHANNEL = "agentgraph:ws"
+
+# Unique ID for this worker process (prevents double-delivery)
+_WORKER_ID = str(uuid.uuid4())
 
 
 class ConnectionManager:
@@ -62,42 +66,44 @@ class ConnectionManager:
         self, entity_id: str, channel: str, data: dict[str, Any],
     ) -> int:
         """Send a message to all connections of an entity on a channel, across all workers."""
-        msg = {
+        # Always deliver locally first for immediate feedback
+        sent = await self._local_send_to_entity(entity_id, channel, data)
+        # Then publish to Redis for other workers
+        await self._publish({
             "target": "entity",
             "channel": channel,
             "entity_id": entity_id,
             "data": data,
-        }
-        published = await self._publish(msg)
-        if not published:
-            # Fallback: deliver locally only
-            return await self._local_send_to_entity(entity_id, channel, data)
-        return 0  # Redis subscriber handles local delivery
+            "origin": _WORKER_ID,
+        })
+        return sent
 
     async def broadcast_to_channel(
         self, channel: str, data: dict[str, Any],
     ) -> int:
         """Broadcast to all connections subscribed to a channel, across all workers."""
-        msg = {
+        # Always deliver locally first
+        sent = await self._local_broadcast_to_channel(channel, data)
+        # Then publish to Redis for other workers
+        await self._publish({
             "target": "channel",
             "channel": channel,
             "data": data,
-        }
-        published = await self._publish(msg)
-        if not published:
-            return await self._local_broadcast_to_channel(channel, data)
-        return 0
+            "origin": _WORKER_ID,
+        })
+        return sent
 
     async def broadcast(self, data: dict[str, Any]) -> int:
         """Broadcast to all connected clients across all workers."""
-        msg = {
+        # Always deliver locally first
+        sent = await self._local_broadcast(data)
+        # Then publish to Redis for other workers
+        await self._publish({
             "target": "all",
             "data": data,
-        }
-        published = await self._publish(msg)
-        if not published:
-            return await self._local_broadcast(data)
-        return 0
+            "origin": _WORKER_ID,
+        })
+        return sent
 
     @property
     def active_connections(self) -> int:
@@ -150,7 +156,13 @@ class ConnectionManager:
             self._subscriber_task = None
 
     async def _handle_pubsub_message(self, msg: dict[str, Any]) -> None:
-        """Route an incoming pub/sub message to local WebSocket connections."""
+        """Route an incoming pub/sub message to local WebSocket connections.
+
+        Skip messages from this worker (already delivered locally).
+        """
+        if msg.get("origin") == _WORKER_ID:
+            return
+
         target = msg.get("target")
         data = msg.get("data", {})
 

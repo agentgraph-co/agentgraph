@@ -5,7 +5,6 @@ posts, replies, votes, follows, profile updates.
 """
 from __future__ import annotations
 
-import asyncio
 import uuid
 from datetime import datetime
 
@@ -106,15 +105,21 @@ async def get_activity(
         endorse_q = endorse_q.where(CapabilityEndorsement.created_at < before_dt)
         review_q = review_q.where(Review.created_at < before_dt)
 
-    # Execute all 5 queries concurrently
-    posts_result, votes_result, follows_result, endorse_result, review_result = (
-        await asyncio.gather(
-            db.execute(posts_q.order_by(Post.created_at.desc()).limit(limit)),
-            db.execute(votes_q.order_by(Vote.created_at.desc()).limit(limit)),
-            db.execute(follows_q.order_by(EntityRelationship.created_at.desc()).limit(limit)),
-            db.execute(endorse_q.order_by(CapabilityEndorsement.created_at.desc()).limit(limit)),
-            db.execute(review_q.order_by(Review.created_at.desc()).limit(limit)),
-        )
+    # Execute queries sequentially (AsyncSession is single-connection)
+    posts_result = await db.execute(
+        posts_q.order_by(Post.created_at.desc()).limit(limit)
+    )
+    votes_result = await db.execute(
+        votes_q.order_by(Vote.created_at.desc()).limit(limit)
+    )
+    follows_result = await db.execute(
+        follows_q.order_by(EntityRelationship.created_at.desc()).limit(limit)
+    )
+    endorse_result = await db.execute(
+        endorse_q.order_by(CapabilityEndorsement.created_at.desc()).limit(limit)
+    )
+    review_result = await db.execute(
+        review_q.order_by(Review.created_at.desc()).limit(limit)
     )
 
     activities: list[ActivityItem] = []

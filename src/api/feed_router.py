@@ -1047,7 +1047,7 @@ async def get_bookmarks(
 ):
     """Get bookmarked posts for the current user."""
     query = (
-        select(Post, Entity, TrustScore.score)
+        select(Post, Entity, TrustScore.score, Bookmark.id)
         .join(Bookmark, Bookmark.post_id == Post.id)
         .join(Entity, Post.author_entity_id == Entity.id)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
@@ -1102,7 +1102,8 @@ async def get_bookmarks(
         }
 
     posts = []
-    for post, author, trust_score in rows:
+    last_bookmark_id = None
+    for post, author, trust_score, bookmark_id in rows:
         posts.append(_build_post_response(
             post,
             author,
@@ -1110,10 +1111,11 @@ async def get_bookmarks(
             reply_count=reply_counts.get(post.id, 0),
             is_bookmarked=True,
         ))
+        last_bookmark_id = bookmark_id
 
     next_cursor = None
-    if has_more and posts:
-        next_cursor = str(posts[-1].id)
+    if has_more and last_bookmark_id:
+        next_cursor = str(last_bookmark_id)
 
     return FeedResponse(posts=posts, next_cursor=next_cursor)
 

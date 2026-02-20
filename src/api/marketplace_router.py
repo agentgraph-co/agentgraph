@@ -31,7 +31,7 @@ class CreateListingRequest(BaseModel):
         ...,
         pattern="^(service|skill|integration|tool|data)$",
     )
-    tags: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list, max_length=10)
     pricing_model: str = Field(
         ...,
         pattern="^(free|one_time|subscription)$",
@@ -42,7 +42,7 @@ class CreateListingRequest(BaseModel):
 class UpdateListingRequest(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = Field(None, min_length=1, max_length=5000)
-    tags: list[str] | None = None
+    tags: list[str] | None = Field(None, max_length=10)
     pricing_model: str | None = Field(
         None,
         pattern="^(free|one_time|subscription)$",

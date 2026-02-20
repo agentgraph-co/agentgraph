@@ -92,15 +92,17 @@ async def get_trust_score(
 ):
     from src import cache
 
-    # Try cache first
+    entity = await db.get(Entity, entity_id)
+    if entity is None or not entity.is_active:
+        # Invalidate stale cache for deactivated entities
+        await cache.invalidate(f"trust:{entity_id}")
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Try cache first (after is_active check)
     cache_key = f"trust:{entity_id}"
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached
-
-    entity = await db.get(Entity, entity_id)
-    if entity is None or not entity.is_active:
-        raise HTTPException(status_code=404, detail="Entity not found")
 
     existing = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)

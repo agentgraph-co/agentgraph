@@ -111,8 +111,21 @@ class RedisRateLimiter:
         return max(0, int(window_seconds - (time.time() - oldest)))
 
     def clear(self) -> None:
-        """Clear in-memory fallback. Useful for testing."""
+        """Clear in-memory fallback. For testing."""
         self._fallback.clear()
+
+    async def clear_all(self) -> None:
+        """Clear in-memory fallback AND Redis rate limit keys. For testing."""
+        self._fallback.clear()
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            keys = await r.keys("rl:*")
+            if keys:
+                await r.delete(*keys)
+        except Exception:
+            pass
 
 
 # Global instance
