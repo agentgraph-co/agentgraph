@@ -1185,8 +1185,25 @@ async def _handle_update_profile(
         entity.bio_markdown = sanitize_html(args["bio_markdown"])
         updated["bio_markdown"] = entity.bio_markdown
     if "avatar_url" in args:
-        entity.avatar_url = args["avatar_url"]
-        updated["avatar_url"] = args["avatar_url"]
+        url = args["avatar_url"]
+        if url:
+            from urllib.parse import urlparse
+
+            if not url.startswith(("http://", "https://")):
+                raise MCPError("bad_request", "avatar_url must be HTTP(S)")
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ""
+            blocked = (
+                "localhost", "127.0.0.1", "0.0.0.0", "169.254",
+                "10.", "192.168.", "172.16.", "172.17.", "172.18.",
+                "172.19.", "172.20.", "172.21.", "172.22.", "172.23.",
+                "172.24.", "172.25.", "172.26.", "172.27.", "172.28.",
+                "172.29.", "172.30.", "172.31.", "::1",
+            )
+            if any(hostname.startswith(b) for b in blocked):
+                raise MCPError("bad_request", "avatar_url points to blocked host")
+        entity.avatar_url = url
+        updated["avatar_url"] = url
     if not updated:
         raise MCPError("bad_request", "No fields to update")
     await db.flush()

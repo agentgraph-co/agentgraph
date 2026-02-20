@@ -149,7 +149,10 @@ async def get_me(current_entity: Entity = Depends(get_current_entity)):
     return current_entity
 
 
-@router.post("/verify-email", response_model=MessageResponse)
+@router.post(
+    "/verify-email", response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     """Verify email address using the token from registration."""
     entity = await verify_email_token(db, token)

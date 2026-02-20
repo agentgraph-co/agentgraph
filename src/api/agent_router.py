@@ -514,7 +514,10 @@ async def update_agent(
     return AgentResponse.model_validate(agent)
 
 
-@router.post("/{agent_id}/rotate-key", response_model=ApiKeyRotatedResponse)
+@router.post(
+    "/{agent_id}/rotate-key", response_model=ApiKeyRotatedResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def rotate_key(
     agent_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -540,7 +543,10 @@ async def rotate_key(
     )
 
 
-@router.delete("/{agent_id}", response_model=MessageResponse)
+@router.delete(
+    "/{agent_id}", response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def deactivate_agent(
     agent_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),

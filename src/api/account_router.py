@@ -16,7 +16,7 @@ from sqlalchemy.sql import func
 from src.api.auth_service import hash_password, verify_password
 from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import AuditLog, Entity, PrivacyTier
@@ -58,7 +58,7 @@ class AuditLogListResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("/change-password", dependencies=[Depends(rate_limit_writes)])
+@router.post("/change-password", dependencies=[Depends(rate_limit_auth)])
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,

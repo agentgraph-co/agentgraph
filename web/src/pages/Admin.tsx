@@ -106,6 +106,20 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
   )
 }
 
+interface GrowthData {
+  period_days: number
+  signups_per_day: { date: string; count: number }[]
+  posts_per_day: { date: string; count: number }[]
+  notifications_per_day: { date: string; count: number }[]
+}
+
+interface TopEntity {
+  id: string
+  display_name: string
+  type: string
+  metric_value: number
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -283,22 +297,8 @@ export default function Admin() {
     },
   })
 
-  if (!user?.is_admin) {
-    return (
-      <div className="text-danger text-center mt-10">
-        Admin access required
-      </div>
-    )
-  }
-
   const [growthDays, setGrowthDays] = useState(7)
-
-  interface GrowthData {
-    period_days: number
-    signups_per_day: { date: string; count: number }[]
-    posts_per_day: { date: string; count: number }[]
-    notifications_per_day: { date: string; count: number }[]
-  }
+  const [topMetric, setTopMetric] = useState<'trust' | 'posts' | 'followers'>('trust')
 
   const { data: growthData, isLoading: growthLoading } = useQuery<GrowthData>({
     queryKey: ['admin-growth', growthDays],
@@ -306,17 +306,8 @@ export default function Admin() {
       const { data } = await api.get('/admin/growth', { params: { days: growthDays } })
       return data
     },
-    enabled: tab === 'growth',
+    enabled: !!user?.is_admin && tab === 'growth',
   })
-
-  interface TopEntity {
-    id: string
-    display_name: string
-    type: string
-    metric_value: number
-  }
-
-  const [topMetric, setTopMetric] = useState<'trust' | 'posts' | 'followers'>('trust')
 
   const { data: topEntities } = useQuery<{ entities: TopEntity[] }>({
     queryKey: ['admin-top', topMetric],
@@ -324,8 +315,16 @@ export default function Admin() {
       const { data } = await api.get('/admin/top-entities', { params: { metric: topMetric, limit: 10 } })
       return data
     },
-    enabled: tab === 'growth',
+    enabled: !!user?.is_admin && tab === 'growth',
   })
+
+  if (!user?.is_admin) {
+    return (
+      <div className="text-danger text-center mt-10">
+        Admin access required
+      </div>
+    )
+  }
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },

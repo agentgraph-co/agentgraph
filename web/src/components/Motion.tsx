@@ -3,7 +3,7 @@
  * Import these in any page for scroll-triggered reveals,
  * staggered lists, counters, and ambient effects.
  */
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   motion,
   useInView,
@@ -200,25 +200,25 @@ function CounterDisplay({ target, duration }: { target: number; duration: number
   const startRef = useRef(0)
   const frameRef = useRef(0)
 
-  const animate = () => {
-    const elapsed = (performance.now() - startRef.current) / 1000
-    const progress = Math.min(elapsed / duration, 1)
-    // Ease out cubic
-    const eased = 1 - Math.pow(1 - progress, 3)
-    const current = Math.round(eased * target)
-    if (ref.current) {
-      ref.current.textContent = current.toLocaleString()
+  useEffect(() => {
+    const animate = () => {
+      const elapsed = (performance.now() - startRef.current) / 1000
+      const progress = Math.min(elapsed / duration, 1)
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const current = Math.round(eased * target)
+      if (ref.current) {
+        ref.current.textContent = current.toLocaleString()
+      }
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(animate)
+      }
     }
-    if (progress < 1) {
-      frameRef.current = requestAnimationFrame(animate)
-    }
-  }
 
-  if (typeof window !== 'undefined') {
-    if (frameRef.current) cancelAnimationFrame(frameRef.current)
     startRef.current = performance.now()
     frameRef.current = requestAnimationFrame(animate)
-  }
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [target, duration])
 
   return <span ref={ref}>0</span>
 }

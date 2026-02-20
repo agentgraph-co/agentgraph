@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-import warnings
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,7 +79,7 @@ if settings.jwt_secret == "CHANGE-ME-IN-PRODUCTION":
         "Set a strong, random JWT_SECRET in .env before deploying to production."
     )
     if not settings.debug:
-        warnings.warn(_msg, stacklevel=1)
+        raise RuntimeError(_msg)
     logging.getLogger(__name__).warning(_msg)
 
 

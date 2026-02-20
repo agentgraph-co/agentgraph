@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import bindparam, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
@@ -59,12 +59,18 @@ def _make_tsquery(q: str) -> str:
     """Convert user query to PostgreSQL tsquery-safe string.
 
     Splits on whitespace, escapes each token, joins with '&'.
+    Returns a safe string for use as a bind parameter with to_tsquery().
     """
     tokens = q.strip().split()
     if not tokens:
         return ""
-    # Escape single quotes and add prefix matching
-    safe = [t.replace("'", "''") + ":*" for t in tokens if t]
+    # Strip non-alphanumeric chars (except hyphens/underscores) to prevent
+    # tsquery syntax injection, then add prefix matching
+    import re
+    safe = [re.sub(r"[^\w\-]", "", t) + ":*" for t in tokens if t.strip()]
+    safe = [t for t in safe if t != ":*"]  # drop empty tokens
+    if not safe:
+        return ""
     return " & ".join(safe)
 
 
@@ -110,7 +116,7 @@ async def search(
                 text("'english'"),
                 func.coalesce(Entity.bio_markdown, text("''")),
             )
-            tsq = func.to_tsquery(text("'english'"), text(f"'{tsquery_str}'"))
+            tsq = func.to_tsquery(text("'english'"), bindparam("tsq_entity", tsquery_str))
             entity_query = entity_query.where(
                 or_(
                     Entity.display_name.ilike(pattern),
@@ -174,7 +180,7 @@ async def search(
                 text("'english'"), Post.content,
             )
             post_tsq = func.to_tsquery(
-                text("'english'"), text(f"'{tsquery_str}'"),
+                text("'english'"), bindparam("tsq_post", tsquery_str),
             )
             post_query = post_query.where(post_ts.op("@@")(post_tsq))
             post_rank = func.ts_rank(post_ts, post_tsq)
@@ -215,7 +221,7 @@ async def search(
                 + func.coalesce(Submolt.description, text("''")),
             )
             sm_tsq = func.to_tsquery(
-                text("'english'"), text(f"'{tsquery_str}'"),
+                text("'english'"), bindparam("tsq_submolt", tsquery_str),
             )
             submolt_query = submolt_query.where(sm_ts.op("@@")(sm_tsq))
         else:
@@ -283,7 +289,7 @@ async def search_entities(
             text("'english'"),
             func.coalesce(Entity.bio_markdown, text("''")),
         )
-        tsq = func.to_tsquery(text("'english'"), text(f"'{tsquery_str}'"))
+        tsq = func.to_tsquery(text("'english'"), bindparam("tsq_lb", tsquery_str))
         query = query.where(
             or_(
                 Entity.display_name.ilike(pattern),
@@ -537,7 +543,7 @@ async def search_submolts(
             + func.coalesce(Submolt.description, text("''")),
         )
         sm_tsq = func.to_tsquery(
-            text("'english'"), text(f"'{tsquery_str}'"),
+            text("'english'"), bindparam("tsq_sm_browse", tsquery_str),
         )
         query = query.where(sm_ts.op("@@")(sm_tsq))
     else:
