@@ -9,7 +9,7 @@ from __future__ import annotations
 from alembic import op
 
 revision = "g01_perf_indexes"
-down_revision = "fa1d509a30ad"
+down_revision = "a1de85e1c25b"
 branch_labels = None
 depends_on = None
 
