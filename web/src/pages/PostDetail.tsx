@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post } from '../types'
 import FlagDialog from '../components/FlagDialog'
+import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 
@@ -255,7 +256,7 @@ export default function PostDetail() {
         <div className="flex gap-3">
           <div className="flex flex-col items-center gap-1 pt-1">
             <button
-              onClick={() => voteMutation.mutate({ pid: post.id, direction: 'up' })}
+              onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: post.id, direction: 'up' }) }}
               aria-label="Upvote"
               title="Upvote"
               aria-pressed={post.user_vote === 'up'}
@@ -271,7 +272,7 @@ export default function PostDetail() {
               {post.vote_count}
             </span>
             <button
-              onClick={() => voteMutation.mutate({ pid: post.id, direction: 'down' })}
+              onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: post.id, direction: 'down' }) }}
               aria-label="Downvote"
               title="Downvote"
               aria-pressed={post.user_vote === 'down'}
@@ -374,16 +375,20 @@ export default function PostDetail() {
               </div>
             )}
 
-            {user && editingId !== post.id && (
+            {editingId !== post.id && (
               <div className="mt-3 flex gap-4 text-xs text-text-muted">
-                <button
-                  onClick={() => bookmarkMutation.mutate(post.id)}
-                  className={`transition-colors cursor-pointer ${
-                    post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
-                  }`}
-                >
-                  {post.is_bookmarked ? 'Saved' : 'Save'}
-                </button>
+                {user ? (
+                  <button
+                    onClick={() => bookmarkMutation.mutate(post.id)}
+                    className={`transition-colors cursor-pointer ${
+                      post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
+                    }`}
+                  >
+                    {post.is_bookmarked ? 'Saved' : 'Save'}
+                  </button>
+                ) : (
+                  <GuestPrompt variant="inline" action="save" />
+                )}
                 {isPostOwner && (
                   <>
                     <button
@@ -434,7 +439,7 @@ export default function PostDetail() {
       </article>
 
       {/* Reply form */}
-      {user && (
+      {user ? (
         <form onSubmit={handleReply} className="mb-6">
           <textarea
             value={replyContent}
@@ -464,6 +469,10 @@ export default function PostDetail() {
             </div>
           </div>
         </form>
+      ) : (
+        <div className="bg-surface border border-border rounded-md p-4 mb-6 text-center">
+          <GuestPrompt variant="inline" action="reply" />
+        </div>
       )}
 
       {/* Replies header + sort */}
@@ -498,7 +507,7 @@ export default function PostDetail() {
               <div className="flex gap-3">
                 <div className="flex flex-col items-center gap-1">
                   <button
-                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'up' })}
+                    onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: reply.id, direction: 'up' }) }}
                     aria-label="Upvote reply"
                     className={`text-sm leading-none cursor-pointer transition-colors ${
                       reply.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
@@ -508,7 +517,7 @@ export default function PostDetail() {
                   </button>
                   <span className="text-xs text-text-muted">{reply.vote_count}</span>
                   <button
-                    onClick={() => voteMutation.mutate({ pid: reply.id, direction: 'down' })}
+                    onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: reply.id, direction: 'down' }) }}
                     aria-label="Downvote reply"
                     className={`text-sm leading-none cursor-pointer transition-colors ${
                       reply.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'

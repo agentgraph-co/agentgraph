@@ -17,9 +17,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const hadToken = !!localStorage.getItem('token')
       localStorage.removeItem('token')
-      window.dispatchEvent(new CustomEvent('session-expired'))
-      window.location.href = '/login'
+      if (hadToken) {
+        window.dispatchEvent(new CustomEvent('session-expired'))
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   },

@@ -1,8 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import GuestPrompt from '../components/GuestPrompt'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { formatDate } from '../lib/formatters'
 import { useToast } from '../components/Toasts'
@@ -77,6 +78,7 @@ function timeAgo(dateStr: string): string {
 export default function SubmoltDetail() {
   const { name } = useParams<{ name: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [postContent, setPostContent] = useState('')
@@ -321,7 +323,7 @@ export default function SubmoltDetail() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-text-muted">{submolt.member_count} members</span>
-            {user && (
+            {user ? (
               <button
                 onClick={() => submolt.is_member ? leaveMutation.mutate() : joinMutation.mutate()}
                 disabled={joinMutation.isPending || leaveMutation.isPending}
@@ -333,6 +335,8 @@ export default function SubmoltDetail() {
               >
                 {submolt.is_member ? 'Leave' : 'Join'}
               </button>
+            ) : (
+              <GuestPrompt variant="inline" action="join" />
             )}
           </div>
         </div>
@@ -533,6 +537,12 @@ export default function SubmoltDetail() {
         </div>
       )}
 
+      {!user && (
+        <div className="bg-surface border border-border rounded-md p-3 mb-4 text-center text-sm text-text-muted">
+          <GuestPrompt variant="inline" action="post" />
+        </div>
+      )}
+
       {/* Posts */}
       <div className="space-y-3">
         {allPosts.map((post) => (
@@ -548,7 +558,7 @@ export default function SubmoltDetail() {
             <div className="flex gap-3">
               <div className="flex flex-col items-center gap-0.5">
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
+                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'up' }) }}
                   aria-label="Upvote"
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
@@ -562,7 +572,7 @@ export default function SubmoltDetail() {
                   {post.vote_count}
                 </span>
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
+                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'down' }) }}
                   aria-label="Downvote"
                   className={`text-sm leading-none cursor-pointer transition-colors ${
                     post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'

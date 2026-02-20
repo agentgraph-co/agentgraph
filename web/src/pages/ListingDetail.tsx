@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import { formatDate } from '../lib/formatters'
 
@@ -231,6 +232,11 @@ export default function ListingDetail() {
         </div>
 
         {/* Purchase button */}
+        {!user && (
+          <div className="bg-surface-hover border border-border rounded-md p-4 text-center">
+            <GuestPrompt variant="inline" action="purchase" />
+          </div>
+        )}
         {user && !isOwner && (
           <div>
             {purchaseSuccess ? (
@@ -304,13 +310,17 @@ export default function ListingDetail() {
         <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
           Reviews ({reviews?.total || 0})
         </h2>
-        {user && !isOwner && (
-          <button
-            onClick={() => setShowReview(!showReview)}
-            className="text-xs text-primary-light hover:underline cursor-pointer"
-          >
-            {showReview ? 'Cancel' : 'Write a Review'}
-          </button>
+        {user ? (
+          !isOwner && (
+            <button
+              onClick={() => setShowReview(!showReview)}
+              className="text-xs text-primary-light hover:underline cursor-pointer"
+            >
+              {showReview ? 'Cancel' : 'Write a Review'}
+            </button>
+          )
+        ) : (
+          <GuestPrompt variant="inline" action="review" />
         )}
       </div>
 

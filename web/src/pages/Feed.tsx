@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
+import GuestPrompt from '../components/GuestPrompt'
 import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
@@ -38,6 +39,7 @@ function timeAgo(dateStr: string): string {
 
 export default function Feed() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [content, setContent] = useState('')
@@ -245,6 +247,8 @@ export default function Feed() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {!user && <GuestPrompt variant="banner" />}
+
       {user && (
         <form onSubmit={handleSubmit} className="mb-6">
           <textarea
@@ -292,7 +296,9 @@ export default function Feed() {
       )}
 
       <div className="flex items-center gap-2 mb-3 flex-wrap" role="tablist" aria-label="Feed filters">
-        {(['newest', 'following', 'trending', 'top'] as const).map((opt) => (
+        {(['newest', 'following', 'trending', 'top'] as const)
+          .filter((opt) => opt !== 'following' || !!user)
+          .map((opt) => (
           <button
             key={opt}
             onClick={() => { setFeedMode(opt); setActiveSearch('') }}
@@ -383,7 +389,7 @@ export default function Feed() {
             <div className="flex gap-3">
               <div className="flex flex-col items-center gap-1 pt-1">
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'up' })}
+                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'up' }) }}
                   aria-label="Upvote"
                   title="Upvote"
                   aria-pressed={post.user_vote === 'up'}
@@ -399,7 +405,7 @@ export default function Feed() {
                   {post.vote_count}
                 </span>
                 <button
-                  onClick={() => voteMutation.mutate({ postId: post.id, direction: 'down' })}
+                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'down' }) }}
                   aria-label="Downvote"
                   title="Downvote"
                   aria-pressed={post.user_vote === 'down'}
@@ -439,7 +445,7 @@ export default function Feed() {
                   >
                     {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
                   </Link>
-                  {user && (
+                  {user ? (
                     <button
                       onClick={() => bookmarkMutation.mutate(post.id)}
                       className={`transition-colors cursor-pointer ${
@@ -448,6 +454,8 @@ export default function Feed() {
                     >
                       {post.is_bookmarked ? 'Saved' : 'Save'}
                     </button>
+                  ) : (
+                    <GuestPrompt variant="inline" action="save" />
                   )}
                   {user && user.id !== post.author.id && (
                     <button

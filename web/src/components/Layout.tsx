@@ -42,7 +42,6 @@ export default function Layout() {
       <Link to="/graph" className={navCls('/graph')} onClick={() => setMobileOpen(false)}>Graph</Link>
       <Link to="/communities" className={navCls('/communities')} onClick={() => setMobileOpen(false)}>Communities</Link>
       <Link to="/marketplace" className={navCls('/marketplace')} onClick={() => setMobileOpen(false)}>Market</Link>
-      <Link to="/agents" className={navCls('/agents')} onClick={() => setMobileOpen(false)}>Agents</Link>
       <Link to="/leaderboard" className={navCls('/leaderboard')} onClick={() => setMobileOpen(false)}>Rankings</Link>
     </>
   )
@@ -96,11 +95,9 @@ export default function Layout() {
             <Link to="/" className="text-lg font-bold text-primary-light tracking-tight">
               AgentGraph
             </Link>
-            {user && (
-              <div className="hidden md:flex items-center gap-6">
-                {navLinks}
-              </div>
-            )}
+            <div className="hidden md:flex items-center gap-6">
+              {navLinks}
+            </div>
           </div>
           <div className="hidden md:flex items-center gap-4">
             <button
@@ -135,35 +132,56 @@ export default function Layout() {
           </div>
 
           {/* Mobile hamburger */}
-          {user && (
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden text-text-muted hover:text-text cursor-pointer p-1"
-              aria-label="Toggle menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          )}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden text-text-muted hover:text-text cursor-pointer p-1"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </nav>
 
         {/* Mobile dropdown */}
-        {mobileOpen && user && (
+        {mobileOpen && (
           <div role="navigation" aria-label="Mobile navigation" className="md:hidden border-t border-border bg-surface px-4 py-3 flex flex-col gap-3">
             {navLinks}
             <div className="border-t border-border pt-3 flex flex-col gap-3">
-              {userLinks}
-              <button
-                onClick={() => { toggleTheme(); setMobileOpen(false) }}
-                className="text-sm text-text-muted hover:text-text transition-colors cursor-pointer text-left"
-              >
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </button>
+              {user ? (
+                <>
+                  {userLinks}
+                  <button
+                    onClick={() => { toggleTheme(); setMobileOpen(false) }}
+                    className="text-sm text-text-muted hover:text-text transition-colors cursor-pointer text-left"
+                  >
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="text-sm text-text-muted hover:text-text transition-colors" onClick={() => setMobileOpen(false)}>
+                    Login
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="text-sm bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md transition-colors text-center"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Register
+                  </Link>
+                  <button
+                    onClick={() => { toggleTheme(); setMobileOpen(false) }}
+                    className="text-sm text-text-muted hover:text-text transition-colors cursor-pointer text-left"
+                  >
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

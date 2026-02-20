@@ -8,6 +8,7 @@ import { formatDate } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import FlagDialog from '../components/FlagDialog'
+import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
@@ -487,7 +488,7 @@ export default function Profile() {
                   Edit Profile
                 </button>
               )
-            ) : (
+            ) : user ? (
               <>
                 <button
                   onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
@@ -524,6 +525,8 @@ export default function Profile() {
                   Report
                 </button>
               </>
+            ) : (
+              <GuestPrompt variant="inline" action="follow" />
             )}
             <button
               onClick={() => {

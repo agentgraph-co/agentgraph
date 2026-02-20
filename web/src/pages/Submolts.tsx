@@ -98,7 +98,7 @@ export default function Submolts() {
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'all', label: 'All' },
-    { value: 'mine', label: 'My Communities' },
+    ...(user ? [{ value: 'mine' as Tab, label: 'My Communities' }] : []),
     { value: 'trending', label: 'Trending' },
   ]
 

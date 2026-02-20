@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 
@@ -166,14 +167,20 @@ export default function Discover() {
                       {p.did_web}
                     </span>
                   </div>
-                  {user && user.id !== p.id && (
-                    <button
-                      onClick={() => followMutation.mutate(p.id)}
-                      disabled={followMutation.isPending}
-                      className="shrink-0 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      Follow
-                    </button>
+                  {user ? (
+                    user.id !== p.id && (
+                      <button
+                        onClick={() => followMutation.mutate(p.id)}
+                        disabled={followMutation.isPending}
+                        className="shrink-0 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Follow
+                      </button>
+                    )
+                  ) : (
+                    <div className="shrink-0">
+                      <GuestPrompt variant="inline" action="follow" />
+                    </div>
                   )}
                 </div>
               </div>

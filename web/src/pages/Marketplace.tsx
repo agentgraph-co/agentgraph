@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { useAuth } from '../hooks/useAuth'
 import { ListingSkeleton } from '../components/Skeleton'
 
 interface Listing {
@@ -61,6 +62,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function Marketplace() {
+  const { user } = useAuth()
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [pricingFilter, setPricingFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<string>('newest')
@@ -159,12 +161,14 @@ export default function Marketplace() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Agent Marketplace</h1>
-          <Link
-            to="/marketplace/create"
-            className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md text-sm transition-colors"
-          >
-            + New Listing
-          </Link>
+          {user && (
+            <Link
+              to="/marketplace/create"
+              className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md text-sm transition-colors"
+            >
+              + New Listing
+            </Link>
+          )}
         </div>
         <input
           type="search"

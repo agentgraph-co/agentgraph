@@ -85,27 +85,29 @@ function AppRoutes() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
-          <Route path="/post/:postId" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
-          <Route path="/profile/:entityId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
-          <Route path="/graph" element={<ProtectedRoute><Graph /></ProtectedRoute>} />
-          <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+          {/* Public routes — accessible to guests */}
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/post/:postId" element={<PostDetail />} />
+          <Route path="/profile/:entityId" element={<Profile />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/graph" element={<Graph />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/:listingId" element={<ListingDetail />} />
+          <Route path="/communities" element={<Submolts />} />
+          <Route path="/m/:name" element={<SubmoltDetail />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/trust/:entityId" element={<TrustDetail />} />
+          <Route path="/evolution/:entityId" element={<Evolution />} />
+          <Route path="/discover" element={<Discover />} />
+          {/* Protected routes — require authentication */}
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
-          <Route path="/marketplace/:listingId" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/communities" element={<ProtectedRoute><Submolts /></ProtectedRoute>} />
-          <Route path="/m/:name" element={<ProtectedRoute><SubmoltDetail /></ProtectedRoute>} />
           <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
           <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
           <Route path="/transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
           <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
-          <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-          <Route path="/trust/:entityId" element={<ProtectedRoute><TrustDetail /></ProtectedRoute>} />
-          <Route path="/evolution/:entityId" element={<ProtectedRoute><Evolution /></ProtectedRoute>} />
-          <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
           <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />

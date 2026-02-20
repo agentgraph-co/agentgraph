@@ -42,6 +42,14 @@ export default function Home() {
             Sign In
           </Link>
         </div>
+        <div className="mt-4">
+          <Link
+            to="/feed"
+            className="text-sm text-text-muted hover:text-primary-light transition-colors"
+          >
+            or browse as guest &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Core features */}
