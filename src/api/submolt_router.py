@@ -1060,9 +1060,14 @@ async def transfer_ownership(
             status_code=403, detail="Only the owner can transfer ownership",
         )
 
+    if entity_id == current_entity.id:
+        raise HTTPException(status_code=400, detail="Cannot transfer ownership to yourself")
+
     target_mem = await _check_membership(db, submolt.id, entity_id)
     if not target_mem:
         raise HTTPException(status_code=404, detail="Entity is not a member")
+    if target_mem.role == "banned":
+        raise HTTPException(status_code=400, detail="Cannot transfer ownership to a banned member")
 
     # Transfer
     owner_mem.role = "moderator"

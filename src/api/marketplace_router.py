@@ -957,7 +957,11 @@ async def cancel_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel a pending transaction. Only the buyer can cancel."""
-    txn = await db.get(Transaction, transaction_id)
+    txn = await db.scalar(
+        select(Transaction)
+        .where(Transaction.id == transaction_id)
+        .with_for_update()
+    )
     if txn is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     if txn.buyer_entity_id != current_entity.id:
@@ -1009,7 +1013,11 @@ async def refund_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     """Refund a completed transaction. Only the seller can refund."""
-    txn = await db.get(Transaction, transaction_id)
+    txn = await db.scalar(
+        select(Transaction)
+        .where(Transaction.id == transaction_id)
+        .with_for_update()
+    )
     if txn is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     if txn.seller_entity_id != current_entity.id:

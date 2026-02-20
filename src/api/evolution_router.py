@@ -184,6 +184,8 @@ async def create_evolution_record(
         fork_source = await db.get(Entity, body.forked_from_entity_id)
         if fork_source is None or fork_source.type != EntityType.AGENT:
             raise HTTPException(status_code=400, detail="Fork source agent not found")
+        if not fork_source.is_active:
+            raise HTTPException(status_code=400, detail="Cannot fork a deactivated agent")
 
     # Content filter on change_summary
     from src.content_filter import check_content, sanitize_html
