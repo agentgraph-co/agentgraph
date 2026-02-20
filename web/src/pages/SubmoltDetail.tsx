@@ -106,7 +106,21 @@ export default function SubmoltDetail() {
       const params: Record<string, string> = { limit: '20' }
       if (pageParam) params.cursor = pageParam as string
       const { data } = await api.get(`/submolts/${name}/feed`, { params })
-      return data
+      // Backend returns flat author_id/author_name/author_type — reshape to nested author
+      return {
+        ...data,
+        posts: data.posts.map((p: Record<string, unknown>) => ({
+          ...p,
+          author: {
+            id: p.author_id,
+            display_name: p.author_name,
+            type: p.author_type,
+            did_web: '',
+            autonomy_level: null,
+            avatar_url: null,
+          },
+        })),
+      }
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
