@@ -26,6 +26,7 @@ from src.models import (
     Vote,
     VoteDirection,
 )
+from src.utils import like_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -733,7 +734,7 @@ async def search_feed(
     db: AsyncSession = Depends(get_db),
 ):
     """Search posts by content with optional filters."""
-    pattern = f"%{q}%"
+    pattern = like_pattern(q)
 
     query = (
         select(Post, Entity, TrustScore.score)

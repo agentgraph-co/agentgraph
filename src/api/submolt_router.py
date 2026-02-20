@@ -25,6 +25,7 @@ from src.models import (
     SubmoltMembership,
     Vote,
 )
+from src.utils import like_pattern
 
 router = APIRouter(prefix="/submolts", tags=["submolts"])
 
@@ -408,7 +409,7 @@ async def list_submolts(
     query = select(Submolt).where(Submolt.is_active.is_(True))
 
     if q:
-        pattern = f"%{q}%"
+        pattern = like_pattern(q)
         query = query.where(
             Submolt.display_name.ilike(pattern)
             | Submolt.description.ilike(pattern)

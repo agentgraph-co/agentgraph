@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import Entity, EntityType, Listing, Post, PrivacyTier, Submolt, TrustScore
+from src.utils import like_pattern
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -103,7 +104,7 @@ async def search(
 
         # Entities use ILIKE for display_name (handles compound names)
         # combined with FTS for bio text when available
-        pattern = f"%{q}%"
+        pattern = like_pattern(q)
         if use_fts:
             ts_col = func.to_tsvector(
                 text("'english'"),
@@ -182,7 +183,7 @@ async def search(
                 Post.vote_count.desc(),
             )
         else:
-            pattern = f"%{q}%"
+            pattern = like_pattern(q)
             post_query = post_query.where(Post.content.ilike(pattern))
             post_query = post_query.order_by(
                 Post.vote_count.desc(), Post.created_at.desc(),
@@ -218,7 +219,7 @@ async def search(
             )
             submolt_query = submolt_query.where(sm_ts.op("@@")(sm_tsq))
         else:
-            pattern = f"%{q}%"
+            pattern = like_pattern(q)
             submolt_query = submolt_query.where(
                 or_(
                     Submolt.display_name.ilike(pattern),
@@ -276,7 +277,7 @@ async def search_entities(
         )
     )
 
-    pattern = f"%{q}%"
+    pattern = like_pattern(q)
     if use_fts:
         ts_col = func.to_tsvector(
             text("'english'"),
@@ -471,7 +472,7 @@ async def search_listings(
     if pricing:
         query = query.where(Listing.pricing_model == pricing)
 
-    pattern = f"%{q}%"
+    pattern = like_pattern(q)
     query = query.where(
         or_(
             Listing.title.ilike(pattern),
@@ -539,7 +540,7 @@ async def search_submolts(
         )
         query = query.where(sm_ts.op("@@")(sm_tsq))
     else:
-        pattern = f"%{q}%"
+        pattern = like_pattern(q)
         query = query.where(
             or_(
                 Submolt.display_name.ilike(pattern),

@@ -18,6 +18,7 @@ from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
+from src.utils import like_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ async def browse_listings(
     if tag:
         query = query.where(Listing.tags.contains([tag]))
     if search:
-        pattern = f"%{search}%"
+        pattern = like_pattern(search)
         query = query.where(
             Listing.title.ilike(pattern) | Listing.description.ilike(pattern)
         )

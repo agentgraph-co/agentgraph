@@ -33,6 +33,7 @@ from src.models import (
     Vote,
     WebhookSubscription,
 )
+from src.utils import like_pattern
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -211,7 +212,7 @@ async def list_entities(
         count_query = count_query.where(Entity.type == EntityType.AGENT)
 
     if q:
-        pattern = f"%{q}%"
+        pattern = like_pattern(q)
         search_filter = or_(
             Entity.display_name.ilike(pattern),
             Entity.email.ilike(pattern),

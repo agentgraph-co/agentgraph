@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bridges.mcp_tools import get_tool_by_name
 from src.models import Entity
+from src.utils import like_pattern
 
 
 class MCPError(Exception):
@@ -232,7 +233,7 @@ async def _handle_search(
     query_text = args["query"]
     search_type = args.get("type", "all")
     limit = min(args.get("limit", 20), 50)
-    pattern = f"%{query_text}%"
+    pattern = like_pattern(query_text)
 
     results: dict[str, Any] = {"entities": [], "posts": []}
 
@@ -540,7 +541,7 @@ async def _handle_list_submolts(
 
     search = args.get("search")
     if search:
-        pattern = f"%{search}%"
+        pattern = like_pattern(search)
         query = query.where(
             Submolt.display_name.ilike(pattern)
             | Submolt.description.ilike(pattern)
@@ -617,7 +618,7 @@ async def _handle_browse_marketplace(
     if args.get("tag"):
         query = query.where(Listing.tags.contains([args["tag"]]))
     if args.get("search"):
-        pattern = f"%{args['search']}%"
+        pattern = like_pattern(args['search'])
         query = query.where(
             Listing.title.ilike(pattern)
             | Listing.description.ilike(pattern)

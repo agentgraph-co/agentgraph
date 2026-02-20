@@ -23,6 +23,7 @@ from src.models import (
     TrustScore,
     Vote,
 )
+from src.utils import like_pattern
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -195,7 +196,7 @@ async def browse_profiles(
     )
 
     if q:
-        pattern = f"%{q}%"
+        pattern = like_pattern(q)
         query = query.where(
             or_(
                 Entity.display_name.ilike(pattern),
