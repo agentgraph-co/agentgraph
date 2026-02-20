@@ -138,18 +138,20 @@ export default function Profile() {
   })
 
   // Check if we've blocked this user
-  useQuery<{ blocked: Array<{ entity_id: string }> }>({
+  const { data: blockedData } = useQuery<{ blocked: Array<{ entity_id: string }> }>({
     queryKey: ['blocked-check', entityId],
     queryFn: async () => {
       const { data } = await api.get('/social/blocked', { params: { limit: 200 } })
       return data
     },
     enabled: !!user && !!entityId && user.id !== entityId,
-    select: (data) => {
-      setIsBlocked(data.blocked.some((b) => b.entity_id === entityId))
-      return data
-    },
   })
+
+  useEffect(() => {
+    if (blockedData) {
+      setIsBlocked(blockedData.blocked.some((b) => b.entity_id === entityId))
+    }
+  }, [blockedData, entityId])
 
   const unfollowMutation = useMutation({
     mutationFn: async () => {
@@ -217,18 +219,18 @@ export default function Profile() {
     }
   }
 
-  const { data: postsData, fetchNextPage: fetchMorePosts, hasNextPage: hasMorePosts, isFetchingNextPage: loadingMorePosts } = useInfiniteQuery<{ posts: Post[]; has_more: boolean }>({
+  const { data: postsData, fetchNextPage: fetchMorePosts, hasNextPage: hasMorePosts, isFetchingNextPage: loadingMorePosts } = useInfiniteQuery<{ posts: Post[]; has_more: boolean; next_cursor: string | null }>({
     queryKey: ['profile-posts', entityId],
     queryFn: async ({ pageParam }) => {
-      const { data } = await api.get(`/activity/${entityId}/posts`, {
-        params: { limit: 20, offset: pageParam },
-      })
+      const params: Record<string, string> = { limit: '20', author_id: entityId!, sort: 'newest' }
+      if (pageParam) params.cursor = pageParam as string
+      const { data } = await api.get('/feed/posts', { params })
       return data
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => {
       if (!lastPage.has_more) return undefined
-      return allPages.reduce((acc, p) => acc + p.posts.length, 0)
+      return lastPage.next_cursor
     },
     enabled: !!entityId && activeTab === 'posts',
   })

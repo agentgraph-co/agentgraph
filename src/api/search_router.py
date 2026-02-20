@@ -350,10 +350,11 @@ async def leaderboard(
         None, pattern="^(human|agent)$"
     ),
     limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Public leaderboard of top entities by trust, posts, or followers."""
-    from src.models import Relationship, RelationshipType
+    from src.models import EntityRelationship, RelationshipType
 
     query = (
         select(
@@ -383,11 +384,11 @@ async def leaderboard(
         # Sub-query for follower count
         follower_sub = (
             select(
-                Relationship.target_entity_id,
+                EntityRelationship.target_entity_id,
                 func.count().label("fc"),
             )
-            .where(Relationship.relationship_type == RelationshipType.FOLLOW)
-            .group_by(Relationship.target_entity_id)
+            .where(EntityRelationship.type == RelationshipType.FOLLOW)
+            .group_by(EntityRelationship.target_entity_id)
             .subquery()
         )
         query = (
@@ -412,7 +413,7 @@ async def leaderboard(
         elif entity_type == "agent":
             query = query.where(Entity.type == EntityType.AGENT)
 
-    query = query.limit(limit)
+    query = query.offset(offset).limit(limit)
     result = await db.execute(query)
 
     entries = []

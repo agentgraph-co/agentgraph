@@ -16,11 +16,12 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Load staging env vars
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+# Load staging env vars (line-by-line to preserve JSON values)
+while IFS= read -r line; do
+  # Skip comments and empty lines
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  export "$line"
+done < "$ENV_FILE"
 
 cleanup() {
   echo ""
