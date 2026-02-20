@@ -337,6 +337,8 @@ async def get_fleet_summary(
 )
 async def list_api_keys(
     agent_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -347,10 +349,16 @@ async def list_api_keys(
     _require_human(current_entity)
     _require_owner(current_entity, agent)
 
+    total = await db.scalar(
+        select(func.count()).select_from(APIKey).where(APIKey.entity_id == agent_id)
+    ) or 0
+
     result = await db.execute(
         select(APIKey)
         .where(APIKey.entity_id == agent_id)
         .order_by(APIKey.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     keys = result.scalars().all()
 
@@ -368,7 +376,7 @@ async def list_api_keys(
             }
             for k in keys
         ],
-        "total": len(keys),
+        "total": total,
     }
 
 
