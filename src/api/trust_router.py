@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +14,8 @@ from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, ModerationFlag, ModerationReason, ModerationStatus, TrustScore
 from src.trust.score import compute_trust_score
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["trust"])
 
@@ -202,7 +205,7 @@ async def refresh_trust_score(
             "components": ts.components,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook
     try:
@@ -214,7 +217,7 @@ async def refresh_trust_score(
             "components": ts.components,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     await log_action(
         db,

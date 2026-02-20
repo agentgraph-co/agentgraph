@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -25,6 +26,8 @@ from src.models import (
     Vote,
     VoteDirection,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -220,7 +223,7 @@ async def create_post(
                 },
             })
         except Exception:
-            pass  # Best-effort
+            logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook events
     try:

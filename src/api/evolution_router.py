@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime
 
@@ -25,6 +26,8 @@ from src.models import (
     EvolutionApprovalStatus,
     EvolutionRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/evolution", tags=["evolution"])
 
@@ -259,7 +262,7 @@ async def create_evolution_record(
             "risk_tier": risk_tier,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook
     try:
@@ -274,7 +277,7 @@ async def create_evolution_record(
             "operator_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _to_response(record)
 

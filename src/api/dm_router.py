@@ -5,6 +5,7 @@ management, read receipts, and WebSocket delivery.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,6 +23,8 @@ from src.models import (
     Entity,
     EntityBlock,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -185,7 +188,7 @@ async def send_message(
             reference_id=str(conv.id),
         )
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # WebSocket delivery
     try:
@@ -221,7 +224,7 @@ async def send_message(
             "recipient_id": str(body.recipient_id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Audit log
     from src.audit import log_action

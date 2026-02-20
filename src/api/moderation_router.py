@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -21,6 +22,8 @@ from src.models import (
     ModerationStatus,
     Post,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/moderation", tags=["moderation"])
 
@@ -133,7 +136,7 @@ async def create_flag(
             "reporter_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     await log_action(
         db,
@@ -316,7 +319,7 @@ async def resolve_flag(
             "resolver_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Notify target entity of moderation action
     try:
@@ -345,7 +348,7 @@ async def resolve_flag(
                 reference_id=str(flag.id),
             )
     except Exception:
-        pass  # Best-effort notification
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     await db.flush()
 
@@ -667,7 +670,7 @@ async def resolve_appeal(
             "resolver_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Notify appellant of appeal decision
     try:
@@ -683,7 +686,7 @@ async def resolve_appeal(
             reference_id=str(appeal.id),
         )
     except Exception:
-        pass  # Best-effort notification
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     await db.flush()
 

@@ -5,6 +5,7 @@ follows, replies, votes, and mentions. Persisted to database.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +19,8 @@ from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, Notification, NotificationPreference
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -81,7 +84,7 @@ async def create_notification(
                 },
             )
         except Exception:
-            pass  # Webhook delivery is best-effort
+            logger.warning("Webhook delivery failed", exc_info=True)
 
     # Check notification preferences
     pref_field = _KIND_TO_PREF.get(kind)
@@ -124,7 +127,7 @@ async def create_notification(
             },
         )
     except Exception:
-        pass  # WebSocket delivery is best-effort
+        logger.warning("WebSocket delivery failed", exc_info=True)
 
     return notif
 

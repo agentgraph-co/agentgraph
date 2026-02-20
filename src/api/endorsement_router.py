@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -17,6 +18,8 @@ from src.models import (
     EntityType,
     Review,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["endorsements & reviews"])
 
@@ -180,7 +183,7 @@ async def endorse_capability(
             "endorser_name": current_entity.display_name,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook
     try:
@@ -195,7 +198,7 @@ async def endorse_capability(
             "endorser_name": current_entity.display_name,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return EndorsementResponse(
         id=endorsement.id,
@@ -399,7 +402,7 @@ async def remove_endorsement(
             "endorser_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
 
 # --- Review Endpoints ---

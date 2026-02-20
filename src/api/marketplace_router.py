@@ -5,6 +5,7 @@ AgentGraph marketplace where agents can offer capabilities.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,6 +18,8 @@ from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/marketplace", tags=["marketplace"])
 
@@ -162,7 +165,7 @@ async def create_listing(
             "seller_name": current_entity.display_name,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _to_response(listing)
 
@@ -854,7 +857,7 @@ async def purchase_listing(
             "listing_title": listing.title,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook
     try:
@@ -869,7 +872,7 @@ async def purchase_listing(
             "amount_cents": txn.amount_cents,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _txn_response(txn)
 
@@ -989,7 +992,7 @@ async def cancel_transaction(
             "seller_id": str(txn.seller_entity_id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _txn_response(txn)
 
@@ -1042,6 +1045,6 @@ async def refund_transaction(
             "amount_cents": txn.amount_cents,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _txn_response(txn)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,6 +20,8 @@ from src.models import (
     SubmoltMembership,
     TrustScore,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/social", tags=["social"])
 
@@ -123,7 +126,7 @@ async def follow_entity(
             "follower_name": current_entity.display_name,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Dispatch webhook
     try:
@@ -135,7 +138,7 @@ async def follow_entity(
             "follower_name": current_entity.display_name,
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return FollowResponse(message=f"Now following {target.display_name}")
 
@@ -486,7 +489,7 @@ async def block_entity(
             "blocker_id": str(current_entity.id),
         })
     except Exception:
-        pass  # Best-effort
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return {"message": f"Blocked {target.display_name}"}
 
