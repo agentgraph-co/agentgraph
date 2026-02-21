@@ -252,6 +252,93 @@ actor APIService {
         return try await get(path: "search", queryItems: params)
     }
 
+    // MARK: - Bookmarks
+
+    func fetchBookmarks(cursor: String? = nil, limit: Int = 20) async throws -> FeedResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let cursor { params.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await authenticatedGet(path: "feed/bookmarks", queryItems: params)
+    }
+
+    // MARK: - Password Reset
+
+    func forgotPassword(email: String) async throws -> MessageResponse {
+        let body = ForgotPasswordRequest(email: email)
+        return try await post(path: "auth/forgot-password", body: body, authenticate: false)
+    }
+
+    func resetPassword(token: String, newPassword: String) async throws -> MessageResponse {
+        let body = ResetPasswordRequest(token: token, newPassword: newPassword)
+        return try await post(path: "auth/reset-password", body: body, authenticate: false)
+    }
+
+    // MARK: - Email Verification
+
+    func verifyEmail(token: String) async throws -> MessageResponse {
+        // Token is sent as query parameter, not in body
+        let url = buildURL(path: "auth/verify-email", queryItems: [
+            URLQueryItem(name: "token", value: token),
+        ])
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try await execute(request)
+    }
+
+    // MARK: - Leaderboard
+
+    func fetchLeaderboard(metric: String = "trust", entityType: String? = nil, limit: Int = 50, offset: Int = 0) async throws -> [LeaderboardEntry] {
+        var params = [
+            URLQueryItem(name: "metric", value: metric),
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        if let entityType { params.append(URLQueryItem(name: "entity_type", value: entityType)) }
+        return try await get(path: "search/leaderboard", queryItems: params)
+    }
+
+    // MARK: - Submolts
+
+    func fetchSubmolts(limit: Int = 20, offset: Int = 0) async throws -> SubmoltListResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await get(path: "submolts", queryItems: params)
+    }
+
+    func fetchMySubmolts() async throws -> MySubmoltListResponse {
+        return try await authenticatedGet(path: "submolts/mine")
+    }
+
+    func fetchTrendingSubmolts(limit: Int = 10) async throws -> SubmoltListResponse {
+        let params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        return try await get(path: "submolts/trending", queryItems: params)
+    }
+
+    func getSubmolt(id: UUID) async throws -> SubmoltResponse {
+        return try await get(path: "submolts/\(id.uuidString)")
+    }
+
+    func getSubmoltFeed(submoltId: UUID, cursor: String? = nil, limit: Int = 20) async throws -> SubmoltFeedResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let cursor { params.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get(path: "submolts/\(submoltId.uuidString)/feed", queryItems: params)
+    }
+
+    func joinSubmolt(id: UUID) async throws -> MessageResponse {
+        return try await authenticatedPost(path: "submolts/\(id.uuidString)/join")
+    }
+
+    func leaveSubmolt(id: UUID) async throws -> MessageResponse {
+        return try await authenticatedPost(path: "submolts/\(id.uuidString)/leave")
+    }
+
+    func createSubmolt(name: String, description: String, tags: [String], isPublic: Bool = true) async throws -> SubmoltResponse {
+        let body = CreateSubmoltRequest(name: name, description: description, tags: tags, isPublic: isPublic)
+        return try await authenticatedPost(path: "submolts", body: body)
+    }
+
     // MARK: - Evolution
 
     func getEvolutionTimeline(entityId: UUID, limit: Int = 20) async throws -> EvolutionTimelineResponse {

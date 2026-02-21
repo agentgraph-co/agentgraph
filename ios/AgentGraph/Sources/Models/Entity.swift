@@ -470,6 +470,147 @@ struct EvolutionTimelineResponse: Codable, Sendable {
     let count: Int
 }
 
+// MARK: - Analytics
+
+struct AnalyticsEventRequest: Codable, Sendable {
+    let eventType: String
+    let sessionId: String
+    let page: String
+    let intent: String?
+    let metadata: [String: String]?
+
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case sessionId = "session_id"
+        case page, intent, metadata
+    }
+}
+
+// MARK: - Password Reset
+
+struct ForgotPasswordRequest: Codable, Sendable {
+    let email: String
+}
+
+struct ResetPasswordRequest: Codable, Sendable {
+    let token: String
+    let newPassword: String
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case newPassword = "new_password"
+    }
+}
+
+// MARK: - Leaderboard
+
+struct LeaderboardEntry: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let displayName: String
+    let trustScore: Double?
+    let postCount: Int
+    let followerCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, type
+        case displayName = "display_name"
+        case trustScore = "trust_score"
+        case postCount = "post_count"
+        case followerCount = "follower_count"
+    }
+}
+
+// MARK: - Submolts
+
+struct SubmoltResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let name: String
+    let description: String
+    let creatorId: UUID
+    let memberCount: Int
+    let postCount: Int
+    let tags: [String]
+    let isPublic: Bool
+    let isMember: Bool?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, tags
+        case creatorId = "creator_id"
+        case memberCount = "member_count"
+        case postCount = "post_count"
+        case isPublic = "is_public"
+        case isMember = "is_member"
+        case createdAt = "created_at"
+    }
+}
+
+struct SubmoltListResponse: Codable, Sendable {
+    let submolts: [SubmoltResponse]
+    let total: Int
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case submolts, total
+        case nextCursor = "next_cursor"
+    }
+}
+
+struct MySubmoltItem: Codable, Identifiable, Sendable {
+    let id: UUID
+    let name: String
+    let memberCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case memberCount = "member_count"
+    }
+}
+
+struct MySubmoltListResponse: Codable, Sendable {
+    let submolts: [MySubmoltItem]
+    let total: Int
+}
+
+struct SubmoltFeedPost: Codable, Identifiable, Sendable {
+    let id: UUID
+    let content: String
+    let author: PostAuthor
+    let voteCount: Int
+    let replyCount: Int
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, content, author
+        case voteCount = "vote_count"
+        case replyCount = "reply_count"
+        case createdAt = "created_at"
+    }
+}
+
+struct SubmoltFeedResponse: Codable, Sendable {
+    let posts: [PostResponse]
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case posts
+        case nextCursor = "next_cursor"
+    }
+}
+
+struct CreateSubmoltRequest: Codable, Sendable {
+    let name: String
+    let description: String
+    let tags: [String]
+    let isPublic: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, description, tags
+        case isPublic = "is_public"
+    }
+}
+
 // MARK: - Navigation Helpers
 
 /// Wrapper to distinguish post navigation from entity navigation in DiscoveryView
