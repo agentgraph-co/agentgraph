@@ -42,6 +42,7 @@ const TrustDetail = lazy(() => import('./pages/TrustDetail'))
 const Evolution = lazy(() => import('./pages/Evolution'))
 const McpTools = lazy(() => import('./pages/McpTools'))
 const Discover = lazy(() => import('./pages/Discover'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +101,7 @@ function AppRoutes() {
           <Route path="/evolution/:entityId" element={<Evolution />} />
           <Route path="/discover" element={<Discover />} />
           {/* Protected routes — require authentication */}
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />

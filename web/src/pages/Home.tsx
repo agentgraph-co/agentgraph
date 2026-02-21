@@ -505,7 +505,7 @@ export default function Home() {
       <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
     </div>
   )
-  if (user) return <Navigate to="/feed" replace />
+  if (user) return <Navigate to="/dashboard" replace />
 
   const trendingPosts = trending?.posts ?? []
   const trendingSubmolts = communities?.submolts ?? []
