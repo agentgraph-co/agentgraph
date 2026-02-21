@@ -15,9 +15,7 @@ targets:
     platform: iOS
     sources:
       - Sources
-      - path: Resources
-        type: folder
-        buildPhase: resources
+      - path: Resources/Assets.xcassets
     info:
       path: Info.plist
       properties:
