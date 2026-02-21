@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="teal-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+    <linearGradient id="fuchsia-glow" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E879F9"/>
+      <stop offset="100%" stop-color="#A21CAF"/>
+    </linearGradient>
+    <linearGradient id="bio-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="50%" stop-color="#E879F9"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <radialGradient id="node-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#2DD4BF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Mycelium network connections (organic curves) -->
+  <g opacity="0.3" stroke="url(#teal-glow)" stroke-width="1.5" fill="none">
+    <path d="M128 384 Q180 320 256 280 Q332 240 384 180"/>
+    <path d="M160 128 Q200 200 256 256 Q312 312 352 384"/>
+    <path d="M96 256 Q176 230 256 256 Q336 282 416 256"/>
+    <path d="M180 100 Q220 180 280 220 Q340 260 380 340"/>
+    <path d="M132 340 Q200 280 256 256 Q312 232 380 172"/>
+  </g>
+
+  <!-- Central trust graph — hexagonal arrangement of nodes -->
+  <g filter="url(#glow)">
+    <!-- Core node (largest) -->
+    <circle cx="256" cy="256" r="28" fill="url(#teal-glow)"/>
+    <circle cx="256" cy="256" r="40" fill="url(#node-glow)"/>
+
+    <!-- Primary ring — 6 nodes -->
+    <circle cx="256" cy="156" r="14" fill="url(#teal-glow)"/>
+    <circle cx="343" cy="206" r="12" fill="url(#bio-gradient)"/>
+    <circle cx="343" cy="306" r="14" fill="url(#fuchsia-glow)"/>
+    <circle cx="256" cy="356" r="12" fill="url(#teal-glow)"/>
+    <circle cx="169" cy="306" r="14" fill="url(#bio-gradient)"/>
+    <circle cx="169" cy="206" r="12" fill="url(#fuchsia-glow)"/>
+
+    <!-- Connections from center to ring -->
+    <g stroke="url(#teal-glow)" stroke-width="2" opacity="0.6">
+      <line x1="256" y1="228" x2="256" y2="170"/>
+      <line x1="280" y1="244" x2="331" y2="212"/>
+      <line x1="280" y1="268" x2="331" y2="300"/>
+      <line x1="256" y1="284" x2="256" y2="344"/>
+      <line x1="232" y1="268" x2="181" y2="300"/>
+      <line x1="232" y1="244" x2="181" y2="212"/>
+    </g>
+
+    <!-- Cross connections (trust edges) -->
+    <g stroke="url(#fuchsia-glow)" stroke-width="1" opacity="0.35">
+      <line x1="256" y1="156" x2="343" y2="206"/>
+      <line x1="343" y1="206" x2="343" y2="306"/>
+      <line x1="343" y1="306" x2="256" y2="356"/>
+      <line x1="256" y1="356" x2="169" y2="306"/>
+      <line x1="169" y1="306" x2="169" y2="206"/>
+      <line x1="169" y1="206" x2="256" y2="156"/>
+    </g>
+
+    <!-- Outer satellite nodes (smaller, organic) -->
+    <circle cx="200" cy="108" r="6" fill="#2DD4BF" opacity="0.7"/>
+    <circle cx="312" cy="108" r="5" fill="#E879F9" opacity="0.5"/>
+    <circle cx="400" cy="168" r="7" fill="#2DD4BF" opacity="0.6"/>
+    <circle cx="400" cy="344" r="5" fill="#E879F9" opacity="0.5"/>
+    <circle cx="312" cy="404" r="6" fill="#F59E0B" opacity="0.5"/>
+    <circle cx="200" cy="404" r="7" fill="#2DD4BF" opacity="0.6"/>
+    <circle cx="112" cy="344" r="5" fill="#E879F9" opacity="0.5"/>
+    <circle cx="112" cy="168" r="6" fill="#F59E0B" opacity="0.5"/>
+
+    <!-- Satellite connections -->
+    <g stroke="#2DD4BF" stroke-width="1" opacity="0.25">
+      <line x1="200" y1="108" x2="256" y2="156"/>
+      <line x1="312" y1="108" x2="256" y2="156"/>
+      <line x1="400" y1="168" x2="343" y2="206"/>
+      <line x1="400" y1="344" x2="343" y2="306"/>
+      <line x1="312" y1="404" x2="256" y2="356"/>
+      <line x1="200" y1="404" x2="256" y2="356"/>
+      <line x1="112" y1="344" x2="169" y2="306"/>
+      <line x1="112" y1="168" x2="169" y2="206"/>
+    </g>
+  </g>
+</svg>

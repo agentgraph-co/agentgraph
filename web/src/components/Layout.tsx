@@ -98,10 +98,22 @@ export default function Layout() {
                 whileTap={{ scale: 0.95 }}
                 transition={spring}
               >
-                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
+                <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
+                  <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
+                  <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
+                  <circle cx="23.8" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="16" cy="25" r="1.5" fill="#E879F9"/>
+                  <circle cx="8.2" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="8.2" cy="11.5" r="1.5" fill="#E879F9"/>
+                  <g stroke="white" strokeWidth="0.7" opacity="0.5">
+                    <line x1="16" y1="12.5" x2="16" y2="8.8"/>
+                    <line x1="19" y1="14.5" x2="22.3" y2="12.8"/>
+                    <line x1="19" y1="17.5" x2="22.3" y2="19.2"/>
+                    <line x1="16" y1="19.5" x2="16" y2="23.2"/>
+                    <line x1="13" y1="17.5" x2="9.7" y2="19.2"/>
+                    <line x1="13" y1="14.5" x2="9.7" y2="12.8"/>
+                  </g>
                 </svg>
               </motion.div>
               <span className="text-lg font-bold tracking-tight gradient-text">
