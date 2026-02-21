@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { trackEvent, getSessionId } from '../lib/analytics'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -13,8 +14,12 @@ export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo')
+  const intent = searchParams.get('intent')
 
-  useEffect(() => { document.title = 'Create Account - AgentGraph' }, [])
+  useEffect(() => {
+    document.title = 'Create Account - AgentGraph'
+    trackEvent('register_start', '/register', intent || undefined)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasUpper = /[A-Z]/.test(password)
   const hasLower = /[a-z]/.test(password)
@@ -28,7 +33,8 @@ export default function Register() {
     setError('')
     setLoading(true)
     try {
-      await register(email, password, displayName)
+      await register(email, password, displayName, getSessionId())
+      trackEvent('register_complete', '/register', intent || undefined)
       const destination = returnTo || '/feed'
       navigate(destination, { state: { showVerifyBanner: true } })
     } catch (err: unknown) {

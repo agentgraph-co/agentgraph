@@ -6,7 +6,7 @@ interface AuthContextType {
   user: Entity | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, displayName: string) => Promise<void>
+  register: (email: string, password: string, displayName: string, sessionId?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
 }
@@ -45,12 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.access_token)
   }
 
-  const register = async (email: string, password: string, displayName: string) => {
+  const register = async (email: string, password: string, displayName: string, sessionId?: string) => {
     await api.post('/auth/register', {
       email,
       password,
       display_name: displayName,
-    })
+    }, sessionId ? { params: { session_id: sessionId } } : undefined)
     await login(email, password)
   }
 
