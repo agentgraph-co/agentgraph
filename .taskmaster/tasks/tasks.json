@@ -674,7 +674,7 @@
       "id": "53",
       "title": "Unauthenticated Browsing: Landing Page Integration",
       "description": "Update the landing page (Home.tsx) to showcase live platform content — trending posts, active communities, top agents — to give visitors a taste before signing up.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "51",
         "52"
@@ -682,7 +682,8 @@
       "priority": "medium",
       "details": "Enhance the landing page with live data:\n\n1. Trending Posts section: Show 3-5 most-voted recent posts (fetched from public feed API)\n2. Active Communities: Show top 3 communities by member count\n3. Featured Agents: Show 3-5 highest-trust agents with their capabilities\n4. Platform Stats: Real numbers (total entities, posts, communities) from /admin/stats or a new public stats endpoint\n5. Social proof: 'Join X humans and Y agents on AgentGraph'\n\nThis turns the landing page from static marketing copy into a living showcase of the platform's activity, significantly improving conversion from visitor to signup.",
       "testStrategy": "Test landing page fetches and displays live data. Test graceful fallback if API is slow or returns empty results. Test platform stats are accurate. Test featured content links to public pages.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T19:55:17.199Z"
     },
     {
       "id": "54",
@@ -701,30 +702,36 @@
       "id": "55",
       "title": "Frontend Redesign Using Figma MCP",
       "description": "Redesign the AgentGraph frontend using the Figma MCP tools to pull design tokens, components, and layouts from Figma designs, then rebuild the React UI to match the professional design system.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "priority": "high",
       "details": "Use the Figma MCP integration to redesign the frontend:\n\n1. Design extraction:\n   - Use mcp__figma__get_design_context to pull design specs from Figma files\n   - Use mcp__figma__get_variable_defs to extract design tokens (colors, spacing, typography)\n   - Use mcp__figma__get_screenshot to reference visual designs\n   - Use mcp__figma__get_metadata to understand component structure\n\n2. Design token bridge:\n   - Use mcp__design-token-bridge tools to convert Figma variables to Tailwind config\n   - Generate CSS variables from Figma tokens\n   - Replace hardcoded color values in index.css with Figma-sourced tokens\n\n3. Component rebuild:\n   - Rebuild UI components to match Figma designs\n   - Update Layout.tsx (header, navigation, footer)\n   - Update page layouts (Feed, Profile, Marketplace, Graph, etc.)\n   - Ensure responsive breakpoints match Figma designs\n   - Update dark/light theme tokens from Figma variables\n\n4. Code Connect:\n   - Use mcp__figma__get_code_connect_suggestions for component mappings\n   - Set up code connect maps for ongoing design-to-code sync\n\n5. Quality:\n   - Visual comparison against Figma designs\n   - Ensure all existing functionality is preserved\n   - Maintain accessibility standards\n   - Test on mobile viewports\n\nThis replaces the hand-coded design tokens with a professional Figma-driven design system.",
       "testStrategy": "Visual comparison of each page against Figma designs. Verify all design tokens match Figma variables. Test responsive layouts on mobile/tablet/desktop. Verify dark/light themes work correctly. Run existing frontend build (npx tsc -b) to ensure no regressions. Test all interactive features still work.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T19:55:17.202Z"
     },
     {
       "id": "56",
       "title": "SEO and Open Graph Meta Tags for Public Pages",
       "description": "Add dynamic <meta> tags (Open Graph, Twitter Card) to all public pages so shared links render rich previews on social media. Include page-specific titles, descriptions, and images.",
-      "status": "pending",
-      "dependencies": ["52"],
+      "status": "done",
+      "dependencies": [
+        "52"
+      ],
       "priority": "medium",
       "details": "Now that pages are publicly accessible, shared links should render rich previews.\n\n1. Use react-helmet-async or similar for dynamic <head> management\n2. Per-page meta tags:\n   - Feed: 'AgentGraph Feed — AI Agents & Humans'\n   - Post: 'Post by {author} — AgentGraph' + content snippet\n   - Profile: '{name} — AgentGraph' + bio snippet + avatar as og:image\n   - Community: 'm/{name} — {member_count} members'\n   - Marketplace listing: '{title} — {price}' + description\n   - Search/Graph/Leaderboard: static descriptions\n3. Default og:image for pages without specific images\n4. Twitter Card (summary_large_image) support\n5. Canonical URLs for each page\n\nConsider SSR or prerendering for full SEO (search engine crawlability of SPA). Vite plugin vite-plugin-prerender or similar.",
       "testStrategy": "Test each public page has correct og:title, og:description, og:image. Validate with Facebook Sharing Debugger and Twitter Card Validator. Test link previews render correctly when shared on Slack/Discord/Twitter.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T19:55:17.204Z"
     },
     {
       "id": "57",
       "title": "Fix Logout to Stay on Current Page as Guest",
       "description": "Update logout behavior to keep users on the current page as a guest (if public) instead of always redirecting to /login. Only redirect to /login if on a protected route.",
       "status": "pending",
-      "dependencies": ["52"],
+      "dependencies": [
+        "52"
+      ],
       "priority": "medium",
       "details": "Current behavior: handleLogout() in Layout.tsx navigates to /login.\n\nDesired behavior:\n1. On logout, check if current route is public (feed, posts, profiles, search, graph, marketplace listings, communities, leaderboard, trust, evolution, discover)\n2. If public: stay on current page, UI updates to guest mode (nav changes, action buttons become sign-up prompts)\n3. If protected (settings, messages, notifications, bookmarks, admin, etc.): redirect to /login\n4. Maintain a PUBLIC_ROUTES constant shared between App.tsx and Layout.tsx\n\nThis prevents the jarring experience of being kicked to login when the user just wants to keep browsing.",
       "testStrategy": "Test logging out on a public page (e.g., /feed) stays on /feed with guest UI. Test logging out on a protected page (e.g., /settings) redirects to /login. Test no redirect loop occurs.",
@@ -735,7 +742,9 @@
       "title": "Handle Registration Intent Redirect",
       "description": "Read the ?intent= query parameter on the Register page and redirect users back to their original page after successful registration, providing a seamless sign-up-to-action flow.",
       "status": "pending",
-      "dependencies": ["52"],
+      "dependencies": [
+        "52"
+      ],
       "priority": "medium",
       "details": "The guest browsing feature passes ?intent=vote, ?intent=follow, ?intent=save, etc. to /register. Currently the Register page ignores this.\n\n1. On Register page, read intent and referrer from query params\n2. After successful registration + login, redirect to the page they came from (use document.referrer or a ?returnTo= param)\n3. Show contextual messaging: 'Sign up to vote on posts' instead of generic 'Create Account'\n4. Consider also passing ?returnTo=/post/123 so the user lands back exactly where they were\n5. Update GuestPrompt component to include returnTo in the link\n\nThis closes the conversion loop: see content → want to interact → sign up → land back where they were.",
       "testStrategy": "Test clicking vote as guest → lands on /register with intent param → register → redirected back to original post. Test for each intent type (vote, follow, save, reply, join, purchase). Test direct /register access still works normally.",
@@ -746,7 +755,9 @@
       "title": "Stricter Rate Limiting for Unauthenticated Requests",
       "description": "Implement tighter rate limits for unauthenticated API requests to protect public endpoints from abuse, while keeping authenticated limits unchanged.",
       "status": "pending",
-      "dependencies": ["52"],
+      "dependencies": [
+        "52"
+      ],
       "priority": "high",
       "details": "Public endpoints are now exposed to unauthenticated traffic and need protection.\n\n1. Backend rate limiter changes:\n   - Unauthenticated: 30 req/min per IP for reads (vs 100 for authenticated)\n   - Keep write endpoints auth-only (already enforced)\n   - Consider stricter limits on search endpoints (expensive queries)\n2. Add rate limit headers to responses (X-RateLimit-Remaining, X-RateLimit-Reset)\n3. Return 429 with clear message and Retry-After header\n4. Frontend: handle 429 gracefully with user-friendly message\n5. Monitor for abuse patterns in first week after launch\n\nThe rate limiter already uses Redis sorted sets with in-memory fallback — extend it with auth-aware tiers.",
       "testStrategy": "Test unauthenticated requests hit lower rate limit. Test authenticated requests use standard limits. Test 429 response includes proper headers. Test frontend displays rate limit message gracefully. Load test to verify limits hold under pressure.",
@@ -757,7 +768,10 @@
       "title": "Guest-to-Register Conversion Analytics",
       "description": "Track guest browsing behavior and sign-up conversion funnel to measure which pages and CTAs drive registrations, enabling data-driven optimization of the guest experience.",
       "status": "pending",
-      "dependencies": ["52", "58"],
+      "dependencies": [
+        "52",
+        "58"
+      ],
       "priority": "low",
       "details": "Measure the effectiveness of unauthenticated browsing:\n\n1. Track events (lightweight, no external analytics needed initially):\n   - Guest page views (which public pages are visited)\n   - CTA clicks (which GuestPrompt buttons/links get clicked)\n   - Intent types (vote, follow, save, reply, join, purchase)\n   - Registration starts (landed on /register)\n   - Registration completions\n   - Post-registration first action\n2. Store anonymized events in a simple analytics table or log\n3. Build a basic admin dashboard view showing:\n   - Guest → Register conversion rate\n   - Most effective CTAs (which intents convert best)\n   - Popular guest landing pages\n   - Drop-off points in the funnel\n4. Use data to optimize GuestPrompt copy, placement, and variant\n\nStart simple — even just server logs with structured events. Iterate based on data.",
       "testStrategy": "Verify events are tracked for each guest interaction type. Test analytics data appears in admin view. Test anonymization (no PII in analytics). Verify conversion funnel numbers are accurate against manual testing.",
@@ -767,19 +781,20 @@
       "id": "61",
       "title": "Generate App Icon with v0 MCP",
       "description": "Use the v0 MCP tool to generate a professional app icon for the AgentGraph iOS app. The icon should feature the trust-network graph motif (connected nodes with glowing edges) matching the project's design system: dark background (#1E1E2E), primary indigo (#6366F1), accent blue (#89B4FA), success green (#A6E3A1), warm orange (#F9E2AF). Current placeholder icon was rendered via Playwright HTML screenshot. Replace with a polished v0-generated design. Export at 1024x1024 and update the asset catalog at ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/.",
-      "status": "pending",
+      "status": "blocked",
       "dependencies": [],
       "priority": "medium",
       "details": "Current icon: HTML/CSS rendered graph network with 'AG' wordmark, screenshotted at 1024x1024. Works but could be more polished.\n\nDesign direction:\n- Trust-network graph: central node with 5-6 satellite nodes connected by edges\n- Node colors: primary indigo center, accent blue/green/warm satellites with glows\n- Dark background matching app theme (#14141F to #1E1E2E gradient)\n- Optional 'AG' lettermark or graph-only\n- Should read well at small sizes (20pt iOS icon)\n\nAsset catalog location: ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/\nContents.json uses single 1024x1024 universal iOS icon format.\n\nNote: v0 MCP is configured in ~/.claude.json but tools may not register in deferred tools list. May need session restart to pick up v0 tools.",
       "testStrategy": "Verify icon-1024.png exists in asset catalog. Verify Contents.json references the file. Build project with xcodegen and confirm icon appears in simulator.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T19:59:51.033Z"
     }
   ],
   "metadata": {
     "version": "1.0.0",
-    "lastModified": "2026-02-21T01:50:00.000Z",
+    "lastModified": "2026-02-21T19:59:51.033Z",
     "taskCount": 61,
-    "completedCount": 22,
+    "completedCount": 25,
     "tags": [
       "master"
     ]
