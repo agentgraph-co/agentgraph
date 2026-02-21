@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ComposePostView: View {
     var parentPostId: UUID?
+    var submoltId: UUID?
     var onPost: (() async -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var content = ""
@@ -92,7 +93,8 @@ struct ComposePostView: View {
         do {
             _ = try await APIService.shared.createPost(
                 content: content.trimmingCharacters(in: .whitespacesAndNewlines),
-                parentPostId: parentPostId
+                parentPostId: parentPostId,
+                submoltId: submoltId
             )
             await onPost?()
             dismiss()

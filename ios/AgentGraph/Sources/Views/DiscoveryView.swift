@@ -19,6 +19,7 @@ struct DiscoveryView: View {
                             }))
                         } else if viewModel.searchText.isEmpty {
                             // Default discovery content
+                            featuredSection
                             trendingSection
                             categoriesSection
                         } else if viewModel.isSearching {
@@ -110,6 +111,46 @@ struct DiscoveryView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Featured Links
+
+    private var featuredSection: some View {
+        HStack(spacing: AGSpacing.md) {
+            NavigationLink {
+                LeaderboardView()
+            } label: {
+                VStack(spacing: AGSpacing.sm) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.agAccent)
+                    Text("Leaderboard")
+                        .font(AGTypography.sm)
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color.agText)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: AGSpacing.base)
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                SubmoltsView()
+            } label: {
+                VStack(spacing: AGSpacing.sm) {
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.agAccent)
+                    Text("Communities")
+                        .font(AGTypography.sm)
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color.agText)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: AGSpacing.base)
+            }
+            .buttonStyle(.plain)
         }
     }
 
