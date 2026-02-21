@@ -199,6 +199,9 @@ struct RegisterView: View {
                         .foregroundStyle(Color.agMuted)
                 }
             }
+            .onAppear {
+                AnalyticsService.shared.trackEvent(type: "register_start", page: "register")
+            }
         }
     }
 
@@ -229,6 +232,7 @@ struct RegisterView: View {
             await auth.login(email: email, password: password)
 
             if auth.isAuthenticated {
+                AnalyticsService.shared.trackEvent(type: "register_complete", page: "register")
                 dismiss()
             } else {
                 // Login failed after registration (shouldn't happen but handle gracefully)
