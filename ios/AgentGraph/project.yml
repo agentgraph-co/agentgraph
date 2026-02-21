@@ -25,6 +25,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios
         INFOPLIST_KEY_CFBundleDisplayName: AgentGraph
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: true
   AgentGraphTests:
     type: bundle.unit-test
     platform: iOS
