@@ -1,0 +1,156 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background gradient -->
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#1E1E2E"/>
+      <stop offset="100%" stop-color="#111118"/>
+    </radialGradient>
+
+    <!-- Prism outer glow -->
+    <filter id="prismGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="40" result="blur"/>
+    </filter>
+
+    <!-- Beam glow (wide, soft) -->
+    <filter id="beamGlow" x="-30%" y="-150%" width="160%" height="400%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+
+    <!-- Input beam glow -->
+    <filter id="inputGlow" x="-30%" y="-200%" width="160%" height="500%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+
+    <!-- Tip glow (bright point) -->
+    <filter id="tipGlow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+
+    <!-- Prism glass gradient — more translucent -->
+    <linearGradient id="prismFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A5B4FC" stop-opacity="0.25"/>
+      <stop offset="40%" stop-color="#818CF8" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0.35"/>
+    </linearGradient>
+
+    <!-- Prism inner specular highlight -->
+    <linearGradient id="prismSpec" x1="0.1" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#C7D2FE" stop-opacity="0.2"/>
+      <stop offset="40%" stop-color="#A5B4FC" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Beam gradients for more vibrant tips -->
+    <linearGradient id="beamTailwind" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="beamApple" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#007AFF" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#007AFF" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="beamMaterial" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#34A853" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#34A853" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Subtle vignette ring -->
+  <rect width="1024" height="1024" fill="none" stroke="#6366F1" stroke-width="1" opacity="0.04" rx="0"/>
+
+  <!-- ═══════ INPUT BEAM (white/light → prism) ═══════ -->
+  <!-- Wide glow -->
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="24" stroke-linecap="round"
+        filter="url(#inputGlow)" opacity="0.45"/>
+  <!-- Medium glow -->
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="16" stroke-linecap="round"
+        filter="url(#inputGlow)" opacity="0.3"/>
+  <!-- Core beam -->
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="10" stroke-linecap="round" opacity="0.92"/>
+  <!-- Source dot -->
+  <circle cx="140" cy="512" r="14" fill="#CDD6F4" filter="url(#tipGlow)" opacity="0.35"/>
+  <circle cx="140" cy="512" r="6" fill="#E8ECF8" opacity="0.85"/>
+
+  <!-- ═══════ PRISM ═══════ -->
+  <!-- Deep glow halo -->
+  <g transform="rotate(6, 488, 512)">
+    <polygon points="375,660 375,364 635,512"
+             fill="#6366F1" opacity="0.5" filter="url(#prismGlow)"/>
+  </g>
+  <!-- Prism body -->
+  <g transform="rotate(6, 488, 512)">
+    <!-- Glass fill -->
+    <polygon points="375,660 375,364 635,512"
+             fill="url(#prismFill)"/>
+    <!-- Specular highlight -->
+    <polygon points="375,660 375,364 635,512"
+             fill="url(#prismSpec)"/>
+    <!-- Refraction line inside (subtle internal beam split) -->
+    <line x1="400" y1="512" x2="600" y2="512"
+          stroke="#C7D2FE" stroke-width="2" opacity="0.08"/>
+    <line x1="420" y1="500" x2="590" y2="470"
+          stroke="#38BDF8" stroke-width="1.5" opacity="0.06"/>
+    <line x1="420" y1="524" x2="590" y2="554"
+          stroke="#34A853" stroke-width="1.5" opacity="0.06"/>
+    <!-- Edge stroke -->
+    <polygon points="375,660 375,364 635,512"
+             fill="none" stroke="#818CF8" stroke-width="3"
+             stroke-linejoin="round" opacity="0.7"/>
+    <!-- Top-left edge specular -->
+    <line x1="377" y1="370" x2="377" y2="530"
+          stroke="#C7D2FE" stroke-width="1.5" opacity="0.25"/>
+  </g>
+
+  <!-- ═══════ OUTPUT BEAMS ═══════ -->
+
+  <!-- Top beam: Tailwind Sky Blue #38BDF8 -->
+  <g>
+    <!-- Wide glow -->
+    <line x1="622" y1="488" x2="880" y2="320"
+          stroke="#38BDF8" stroke-width="22" stroke-linecap="round"
+          filter="url(#beamGlow)" opacity="0.4"/>
+    <!-- Core beam -->
+    <line x1="622" y1="488" x2="880" y2="320"
+          stroke="#38BDF8" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+    <!-- Tip glow -->
+    <circle cx="880" cy="320" r="18" fill="#38BDF8" filter="url(#tipGlow)" opacity="0.6"/>
+    <!-- Tip dot -->
+    <circle cx="880" cy="320" r="8" fill="#7DD3FC"/>
+  </g>
+
+  <!-- Middle beam: Apple Blue #007AFF -->
+  <g>
+    <!-- Wide glow -->
+    <line x1="635" y1="512" x2="895" y2="512"
+          stroke="#007AFF" stroke-width="22" stroke-linecap="round"
+          filter="url(#beamGlow)" opacity="0.4"/>
+    <!-- Core beam -->
+    <line x1="635" y1="512" x2="895" y2="512"
+          stroke="#007AFF" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+    <!-- Tip glow -->
+    <circle cx="895" cy="512" r="18" fill="#007AFF" filter="url(#tipGlow)" opacity="0.6"/>
+    <!-- Tip dot -->
+    <circle cx="895" cy="512" r="8" fill="#5AC8FA"/>
+  </g>
+
+  <!-- Bottom beam: Material Green #34A853 -->
+  <g>
+    <!-- Wide glow -->
+    <line x1="622" y1="536" x2="880" y2="704"
+          stroke="#34A853" stroke-width="22" stroke-linecap="round"
+          filter="url(#beamGlow)" opacity="0.4"/>
+    <!-- Core beam -->
+    <line x1="622" y1="536" x2="880" y2="704"
+          stroke="#34A853" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+    <!-- Tip glow -->
+    <circle cx="880" cy="704" r="18" fill="#34A853" filter="url(#tipGlow)" opacity="0.6"/>
+    <!-- Tip dot -->
+    <circle cx="880" cy="704" r="8" fill="#81C995"/>
+  </g>
+</svg>

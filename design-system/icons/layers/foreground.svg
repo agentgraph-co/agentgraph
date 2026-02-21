@@ -1,0 +1,52 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="beamGlow" x="-30%" y="-150%" width="160%" height="400%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="inputGlow" x="-30%" y="-200%" width="160%" height="500%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <filter id="tipGlow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+  </defs>
+
+  <!-- Input beam -->
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="24" stroke-linecap="round"
+        filter="url(#inputGlow)" opacity="0.45"/>
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="16" stroke-linecap="round"
+        filter="url(#inputGlow)" opacity="0.3"/>
+  <line x1="140" y1="512" x2="380" y2="512"
+        stroke="#CDD6F4" stroke-width="10" stroke-linecap="round" opacity="0.92"/>
+  <circle cx="140" cy="512" r="14" fill="#CDD6F4" filter="url(#tipGlow)" opacity="0.35"/>
+  <circle cx="140" cy="512" r="6" fill="#E8ECF8" opacity="0.85"/>
+
+  <!-- Top beam: Tailwind -->
+  <line x1="622" y1="488" x2="880" y2="320"
+        stroke="#38BDF8" stroke-width="22" stroke-linecap="round"
+        filter="url(#beamGlow)" opacity="0.4"/>
+  <line x1="622" y1="488" x2="880" y2="320"
+        stroke="#38BDF8" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+  <circle cx="880" cy="320" r="18" fill="#38BDF8" filter="url(#tipGlow)" opacity="0.6"/>
+  <circle cx="880" cy="320" r="8" fill="#7DD3FC"/>
+
+  <!-- Middle beam: Apple -->
+  <line x1="635" y1="512" x2="895" y2="512"
+        stroke="#007AFF" stroke-width="22" stroke-linecap="round"
+        filter="url(#beamGlow)" opacity="0.4"/>
+  <line x1="635" y1="512" x2="895" y2="512"
+        stroke="#007AFF" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+  <circle cx="895" cy="512" r="18" fill="#007AFF" filter="url(#tipGlow)" opacity="0.6"/>
+  <circle cx="895" cy="512" r="8" fill="#5AC8FA"/>
+
+  <!-- Bottom beam: Material -->
+  <line x1="622" y1="536" x2="880" y2="704"
+        stroke="#34A853" stroke-width="22" stroke-linecap="round"
+        filter="url(#beamGlow)" opacity="0.4"/>
+  <line x1="622" y1="536" x2="880" y2="704"
+        stroke="#34A853" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+  <circle cx="880" cy="704" r="18" fill="#34A853" filter="url(#tipGlow)" opacity="0.6"/>
+  <circle cx="880" cy="704" r="8" fill="#81C995"/>
+</svg>
