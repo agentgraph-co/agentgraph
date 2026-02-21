@@ -302,5 +302,234 @@ export function PageTransition({ children, className = '' }: PageTransitionProps
   )
 }
 
+// ─── Particle Field (canvas-based floating data points) ───
+
+interface ParticleFieldProps {
+  className?: string
+  count?: number
+  colors?: string[]
+  speed?: number
+}
+
+export function ParticleField({
+  className = '',
+  count = 50,
+  colors = ['#2DD4BF', '#E879F9', '#F59E0B'],
+  speed = 0.5,
+}: ParticleFieldProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const particles = Array.from({ length: count }, () => ({
+      x: Math.random() * canvas.offsetWidth,
+      y: Math.random() * canvas.offsetHeight,
+      vx: (Math.random() - 0.5) * speed,
+      vy: (Math.random() - 0.5) * speed,
+      r: Math.random() * 2 + 0.5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: Math.random() * 0.6 + 0.2,
+    }))
+
+    let raf: number
+    const animate = () => {
+      const w = canvas.offsetWidth
+      const h = canvas.offsetHeight
+      ctx.clearRect(0, 0, w, h)
+
+      for (const p of particles) {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0) p.x = w
+        if (p.x > w) p.x = 0
+        if (p.y < 0) p.y = h
+        if (p.y > h) p.y = 0
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = p.color
+        ctx.globalAlpha = p.alpha
+        ctx.fill()
+      }
+
+      // Draw connections between close particles
+      ctx.globalAlpha = 0.08
+      ctx.strokeStyle = '#2DD4BF'
+      ctx.lineWidth = 0.5
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 120) {
+            ctx.beginPath()
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.stroke()
+          }
+        }
+      }
+      ctx.globalAlpha = 1
+
+      raf = requestAnimationFrame(animate)
+    }
+    raf = requestAnimationFrame(animate)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+    }
+  }, [count, colors, speed])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={`absolute inset-0 pointer-events-none ${className}`}
+      style={{ width: '100%', height: '100%' }}
+    />
+  )
+}
+
+// ─── Gradient Breath (slow-pulsing gradient) ───
+
+interface GradientBreathProps {
+  className?: string
+  colors?: [string, string, string]
+  duration?: number
+}
+
+export function GradientBreath({
+  className = '',
+  colors = ['#0D9488', '#E879F9', '#F59E0B'],
+  duration = 8,
+}: GradientBreathProps) {
+  return (
+    <motion.div
+      className={`absolute inset-0 pointer-events-none ${className}`}
+      style={{
+        background: `radial-gradient(ellipse at 30% 50%, ${colors[0]}15 0%, transparent 50%),
+                     radial-gradient(ellipse at 70% 30%, ${colors[1]}10 0%, transparent 50%),
+                     radial-gradient(ellipse at 50% 80%, ${colors[2]}08 0%, transparent 50%)`,
+      }}
+      animate={{
+        opacity: [0.6, 0.9, 0.6],
+        scale: [1, 1.02, 1],
+      }}
+      transition={{
+        duration,
+        repeat: Infinity,
+        ease: 'easeInOut',
+      }}
+    />
+  )
+}
+
+// ─── Mycelium Lines (SVG connecting paths with draw animation) ───
+
+interface MyceliumLinesProps {
+  className?: string
+  nodePositions?: Array<{ x: number; y: number }>
+}
+
+export function MyceliumLines({
+  className = '',
+  nodePositions = [
+    { x: 10, y: 50 }, { x: 30, y: 20 }, { x: 50, y: 60 },
+    { x: 70, y: 30 }, { x: 90, y: 50 },
+  ],
+}: MyceliumLinesProps) {
+  const paths: string[] = []
+  for (let i = 0; i < nodePositions.length - 1; i++) {
+    const p1 = nodePositions[i]
+    const p2 = nodePositions[i + 1]
+    const cx = (p1.x + p2.x) / 2
+    const cy = p1.y + (Math.random() - 0.5) * 20
+    paths.push(`M${p1.x},${p1.y} Q${cx},${cy} ${p2.x},${p2.y}`)
+  }
+
+  return (
+    <svg
+      className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      fill="none"
+    >
+      {paths.map((d, i) => (
+        <motion.path
+          key={i}
+          d={d}
+          stroke="url(#mycelium-grad)"
+          strokeWidth="0.3"
+          strokeLinecap="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 0.3 }}
+          transition={{ duration: 2, delay: i * 0.3, ease: 'easeOut' }}
+        />
+      ))}
+      <defs>
+        <linearGradient id="mycelium-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="50%" stopColor="#E879F9" />
+          <stop offset="100%" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+// ─── Bioluminescent Glow (color-shifting orb variant) ───
+
+interface BioluminescentGlowProps {
+  className?: string
+  size?: number
+  delay?: number
+}
+
+export function BioluminescentGlow({
+  className = '',
+  size = 400,
+  delay = 0,
+}: BioluminescentGlowProps) {
+  return (
+    <motion.div
+      className={`absolute rounded-full pointer-events-none blur-3xl ${className}`}
+      style={{
+        width: size,
+        height: size,
+        background: 'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+      }}
+      animate={{
+        x: [0, 20, -15, 10, 0],
+        y: [0, -20, 10, -5, 0],
+        scale: [1, 1.15, 0.9, 1.1, 1],
+        background: [
+          'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+          'radial-gradient(circle, rgba(232,121,249,0.2) 0%, rgba(245,158,11,0.1) 50%, transparent 70%)',
+          'radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(13,148,136,0.1) 50%, transparent 70%)',
+          'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+        ],
+      }}
+      transition={{
+        duration: 16,
+        delay,
+        repeat: Infinity,
+        ease: 'easeInOut',
+      }}
+    />
+  )
+}
+
 // Re-export motion for use in other components
 export { motion, useInView, useScroll, useTransform }
