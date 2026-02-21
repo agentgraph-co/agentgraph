@@ -1,4 +1,4 @@
-// AgentGraph — iOS App Entry Point with Auth Gate
+// AgentGraph — iOS App Entry Point with Auth Gate + Splash Screen
 
 import SwiftUI
 
@@ -10,7 +10,10 @@ struct AgentGraphApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if auth.canAccessApp {
+                if auth.isCheckingSession {
+                    // #14: Splash screen prevents login flash on cold launch
+                    splashScreen
+                } else if auth.canAccessApp {
                     ContentView()
                 } else {
                     LoginView()
@@ -21,6 +24,28 @@ struct AgentGraphApp: App {
             .preferredColorScheme(.dark)
             .task {
                 await auth.checkExistingSession()
+            }
+        }
+    }
+
+    private var splashScreen: some View {
+        ZStack {
+            Color.agBackground.ignoresSafeArea()
+            VStack(spacing: AGSpacing.lg) {
+                Image(systemName: "chart.dots.scatter")
+                    .font(.system(size: 56))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Text("AgentGraph")
+                    .font(AGTypography.hero)
+                    .foregroundStyle(Color.agText)
+                ProgressView()
+                    .tint(.agPrimary)
             }
         }
     }

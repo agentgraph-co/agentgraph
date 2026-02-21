@@ -46,6 +46,10 @@ struct FeedView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                // #1: Pagination trigger
+                                .onAppear {
+                                    Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+                                }
                             }
                         }
 
@@ -95,7 +99,8 @@ struct FeedView: View {
                             ZStack(alignment: .topTrailing) {
                                 Image(systemName: "bell")
                                 if notificationsVM.unreadCount > 0 {
-                                    Text("\(notificationsVM.unreadCount)")
+                                    // #30: Cap badge at 99+
+                                    Text(notificationsVM.unreadCount > 99 ? "99+" : "\(notificationsVM.unreadCount)")
                                         .font(.system(size: 10, weight: .bold))
                                         .foregroundStyle(.white)
                                         .padding(3)
@@ -121,7 +126,8 @@ struct FeedView: View {
             }
             .alert("Sign In Required", isPresented: $showLoginPrompt) {
                 Button("Sign In") {
-                    Task { await auth.logout() }
+                    // #12: exitGuestMode instead of logout
+                    auth.exitGuestMode()
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
@@ -130,9 +136,10 @@ struct FeedView: View {
             .task {
                 await viewModel.loadFeed()
             }
-            .task {
+            .task(id: auth.isAuthenticated) {
+                // #21: Poll notifications periodically when authenticated
                 if auth.isAuthenticated {
-                    await notificationsVM.pollUnreadCount()
+                    await notificationsVM.startPolling()
                 }
             }
         }

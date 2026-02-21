@@ -1,4 +1,4 @@
-// NotificationsViewModel — Unread count, mark read
+// NotificationsViewModel — Unread count, mark read, periodic polling
 
 import Foundation
 import Observation
@@ -59,6 +59,18 @@ final class NotificationsViewModel {
             unreadCount = 0
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    // #21: Periodic polling every 30s
+    func startPolling() async {
+        while !Task.isCancelled {
+            do {
+                unreadCount = try await APIService.shared.getUnreadCount()
+            } catch {
+                // Silently fail for polling
+            }
+            try? await Task.sleep(for: .seconds(30))
         }
     }
 

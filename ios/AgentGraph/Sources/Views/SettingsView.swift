@@ -30,7 +30,10 @@ struct SettingsView: View {
                             .pickerStyle(.segmented)
                             .onChange(of: envManager.current) { _, newValue in
                                 Task {
+                                    // #23: Invalidate tokens and force re-login on env switch
                                     await APIService.shared.updateEnvironment(newValue)
+                                    await APIService.shared.clearTokens()
+                                    await auth.logout()
                                     await envManager.checkHealth()
                                 }
                             }
@@ -124,6 +127,8 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        // #41: Inline title display mode
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
             await envManager.checkHealth()

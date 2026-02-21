@@ -40,12 +40,17 @@ struct LoadingStateView: View {
                     .foregroundStyle(Color.agMuted)
                     .multilineTextAlignment(.center)
                 if let retry {
-                    Button("Retry") {
+                    Button {
                         Task { await retry() }
+                    } label: {
+                        Text("Retry")
+                            .font(AGTypography.sm)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.agPrimary)
+                            // Ensure 44pt minimum tap target
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
-                    .font(AGTypography.sm)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.agPrimary)
                 }
             }
         }

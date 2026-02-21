@@ -18,6 +18,7 @@ final class DiscoveryViewModel {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
             searchResults = nil
             isSearching = false
+            error = nil
             return
         }
 
@@ -44,6 +45,9 @@ final class DiscoveryViewModel {
             }
         }
 
-        isSearching = false
+        // #3 (DiscoveryVM): Only clear loading if not cancelled
+        if !Task.isCancelled {
+            isSearching = false
+        }
     }
 }

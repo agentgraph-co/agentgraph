@@ -4,21 +4,21 @@ import Foundation
 import Observation
 
 struct LayoutNode: Identifiable, Sendable {
-    let id: UUID
+    let id: String
     let label: String
     let type: String
     let trustScore: Double?
     let x: Double
     let y: Double
     let isCenter: Bool
-    let connections: [UUID]
+    let connections: [String]
 }
 
 @Observable @MainActor
 final class GraphViewModel {
     var nodes: [LayoutNode] = []
-    var edges: [(UUID, UUID)] = []
-    var selectedNode: LayoutNode?
+    var edges: [(String, String)] = []
+    var selectedNode: String?
     var nodeCount = 0
     var edgeCount = 0
     var isLoading = false
@@ -40,7 +40,7 @@ final class GraphViewModel {
             edgeCount = response.edgeCount
 
             // Build adjacency from edges
-            var adjacency: [UUID: [UUID]] = [:]
+            var adjacency: [String: [String]] = [:]
             for edge in response.edges {
                 adjacency[edge.source, default: []].append(edge.target)
                 adjacency[edge.target, default: []].append(edge.source)
@@ -57,15 +57,21 @@ final class GraphViewModel {
             }
 
             // Pick center: most connected node, or centerId if provided
-            let centerNodeId = centerId ?? apiNodes.max(by: {
+            let centerIdStr = centerId?.uuidString.lowercased()
+            let centerNodeId = centerIdStr ?? apiNodes.max(by: {
                 (adjacency[$0.id]?.count ?? 0) < (adjacency[$1.id]?.count ?? 0)
             })?.id ?? apiNodes[0].id
 
             var layoutNodes: [LayoutNode] = []
             let nonCenter = apiNodes.filter { $0.id != centerNodeId }
             let totalNonCenter = nonCenter.count
+            // #20: Build index map for O(1) lookup instead of O(N) firstIndex
+            var nonCenterIndex: [String: Int] = [:]
+            for (i, node) in nonCenter.enumerated() {
+                nonCenterIndex[node.id] = i
+            }
 
-            for (i, apiNode) in apiNodes.enumerated() {
+            for apiNode in apiNodes {
                 if apiNode.id == centerNodeId {
                     layoutNodes.append(LayoutNode(
                         id: apiNode.id,
@@ -77,11 +83,13 @@ final class GraphViewModel {
                         connections: adjacency[apiNode.id] ?? []
                     ))
                 } else {
-                    let idx = nonCenter.firstIndex(where: { $0.id == apiNode.id }) ?? i
+                    let idx = nonCenterIndex[apiNode.id] ?? 0
                     let angle = totalNonCenter > 0
                         ? (2.0 * .pi * Double(idx) / Double(totalNonCenter))
                         : 0
-                    let radius = 0.7
+                    // Use variable radius based on connection count for better spread
+                    let connectionCount = adjacency[apiNode.id]?.count ?? 0
+                    let radius = connectionCount > 2 ? 0.55 : 0.75
                     layoutNodes.append(LayoutNode(
                         id: apiNode.id,
                         label: apiNode.label,
@@ -101,5 +109,9 @@ final class GraphViewModel {
         }
 
         isLoading = false
+    }
+
+    func selectNode(_ id: String) {
+        selectedNode = (selectedNode == id) ? nil : id
     }
 }

@@ -7,6 +7,7 @@ import Observation
 final class AuthViewModel {
     var isAuthenticated = false
     var isGuestMode = false
+    var isCheckingSession = true
     var currentUser: EntityResponse?
     var isLoading = false
     var error: String?
@@ -16,7 +17,11 @@ final class AuthViewModel {
         isAuthenticated || isGuestMode
     }
 
+    // #14: Shows loading during session check to avoid login screen flash
     func checkExistingSession() async {
+        isCheckingSession = true
+        defer { isCheckingSession = false }
+
         guard let access = KeychainService.load(key: KeychainService.accessTokenKey),
               let refresh = KeychainService.load(key: KeychainService.refreshTokenKey) else {
             return
@@ -53,6 +58,12 @@ final class AuthViewModel {
         isGuestMode = true
     }
 
+    // #12: Clean exit from guest mode without touching Keychain
+    func exitGuestMode() {
+        isGuestMode = false
+        isAuthenticated = false
+    }
+
     func login(email: String, password: String) async {
         isLoading = true
         error = nil
@@ -68,6 +79,8 @@ final class AuthViewModel {
             isGuestMode = false
             isAuthenticated = true
         } catch {
+            // #8: If token was saved but getMe failed, clean up
+            await APIService.shared.clearTokens()
             self.error = error.localizedDescription
         }
 
@@ -93,9 +106,17 @@ final class AuthViewModel {
         }
     }
 
+    // #24: Refresh currentUser after profile edit
+    func refreshCurrentUser() async {
+        do {
+            let user = try await APIService.shared.getMe()
+            currentUser = user
+        } catch {
+            // Non-critical
+        }
+    }
+
     func logout() async {
-        _ = KeychainService.delete(key: KeychainService.accessTokenKey)
-        _ = KeychainService.delete(key: KeychainService.refreshTokenKey)
         await APIService.shared.clearTokens()
         currentUser = nil
         isAuthenticated = false

@@ -1,4 +1,4 @@
-// ComposePostView — Create post / reply
+// ComposePostView — Create post / reply with placeholder
 
 import SwiftUI
 
@@ -18,13 +18,26 @@ struct ComposePostView: View {
                 Color.agBackground.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Text editor
-                    TextEditor(text: $content)
-                        .scrollContentBackground(.hidden)
-                        .font(AGTypography.base)
-                        .foregroundStyle(Color.agText)
-                        .padding(AGSpacing.base)
-                        .background(Color.agSurface)
+                    // Text editor with placeholder overlay
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $content)
+                            .scrollContentBackground(.hidden)
+                            .font(AGTypography.base)
+                            .foregroundStyle(Color.agText)
+                            .padding(AGSpacing.base)
+
+                        // #28: Placeholder text
+                        if content.isEmpty {
+                            Text(parentPostId != nil ? "Write your reply..." : "What's on your mind?")
+                                .font(AGTypography.base)
+                                .foregroundStyle(Color.agMuted)
+                                .padding(AGSpacing.base)
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .background(Color.agSurface)
 
                     // Footer
                     HStack {
@@ -66,7 +79,7 @@ struct ComposePostView: View {
                         }
                     }
                     .tint(.agPrimary)
-                    .disabled(content.trimmingCharacters(in: .whitespaces).isEmpty || content.count > maxLength || isPosting)
+                    .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || content.count > maxLength || isPosting)
                 }
             }
         }
@@ -77,7 +90,10 @@ struct ComposePostView: View {
         error = nil
 
         do {
-            _ = try await APIService.shared.createPost(content: content, parentPostId: parentPostId)
+            _ = try await APIService.shared.createPost(
+                content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                parentPostId: parentPostId
+            )
             await onPost?()
             dismiss()
         } catch {

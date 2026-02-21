@@ -12,7 +12,12 @@ struct DiscoveryView: View {
 
                 ScrollView {
                     VStack(spacing: AGSpacing.lg) {
-                        if viewModel.searchText.isEmpty {
+                        // #17: Error state
+                        if let error = viewModel.error {
+                            LoadingStateView(state: .error(message: error, retry: {
+                                await viewModel.performSearch(query: viewModel.searchText)
+                            }))
+                        } else if viewModel.searchText.isEmpty {
                             // Default discovery content
                             trendingSection
                             categoriesSection
@@ -37,6 +42,10 @@ struct DiscoveryView: View {
             )
             .navigationDestination(for: UUID.self) { entityId in
                 ProfileDetailView(entityId: entityId)
+            }
+            // #16: Post navigation via PostNavigation wrapper
+            .navigationDestination(for: PostNavigation.self) { nav in
+                PostDetailView(postId: nav.postId)
             }
         }
     }
@@ -67,7 +76,7 @@ struct DiscoveryView: View {
                 }
             }
 
-            // Posts
+            // Posts — #16: Navigate to PostDetailView
             if !results.posts.isEmpty {
                 VStack(alignment: .leading, spacing: AGSpacing.md) {
                     Text("Posts (\(results.postCount))")
@@ -76,24 +85,28 @@ struct DiscoveryView: View {
                         .foregroundStyle(Color.agText)
 
                     ForEach(results.posts) { post in
-                        GlassCard {
-                            VStack(alignment: .leading, spacing: AGSpacing.sm) {
-                                Text(post.authorDisplayName)
-                                    .font(AGTypography.sm)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(Color.agText)
-                                Text(post.content)
-                                    .font(AGTypography.base)
-                                    .foregroundStyle(Color.agText)
-                                    .lineLimit(3)
-                                HStack {
-                                    Label("\(post.voteCount)", systemImage: "arrow.up")
-                                    Text(DateFormatting.relativeTime(from: post.createdAt))
+                        NavigationLink(value: PostNavigation(postId: post.id)) {
+                            GlassCard {
+                                VStack(alignment: .leading, spacing: AGSpacing.sm) {
+                                    Text(post.authorDisplayName.isEmpty ? "Unknown" : post.authorDisplayName)
+                                        .font(AGTypography.sm)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(Color.agText)
+                                    Text(post.content)
+                                        .font(AGTypography.base)
+                                        .foregroundStyle(Color.agText)
+                                        .lineLimit(3)
+                                        .multilineTextAlignment(.leading)
+                                    HStack {
+                                        Label("\(post.voteCount)", systemImage: "arrow.up")
+                                        Text(DateFormatting.relativeTime(from: post.createdAt))
+                                    }
+                                    .font(AGTypography.xs)
+                                    .foregroundStyle(Color.agMuted)
                                 }
-                                .font(AGTypography.xs)
-                                .foregroundStyle(Color.agMuted)
                             }
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }

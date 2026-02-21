@@ -39,6 +39,12 @@ struct ProfileView: View {
                         .padding(.horizontal, AGSpacing.base)
                         .padding(.top, AGSpacing.sm)
                     }
+                    // #18: Pull-to-refresh
+                    .refreshable {
+                        if let id = auth.currentUser?.id {
+                            await viewModel.loadProfile(entityId: id)
+                        }
+                    }
                 } else if let error = viewModel.error {
                     LoadingStateView(state: .error(message: error, retry: {
                         if let id = auth.currentUser?.id {
@@ -97,13 +103,13 @@ struct ProfileView: View {
                     )
                     .frame(width: 80, height: 80)
                     .overlay(
-                        Text(String(profile.displayName.prefix(1)).uppercased())
+                        Text(String((profile.displayName.isEmpty ? "?" : profile.displayName).prefix(1)).uppercased())
                             .font(.system(size: 32, weight: .bold))
                             .foregroundStyle(.white)
                     )
 
                 VStack(spacing: AGSpacing.xs) {
-                    Text(profile.displayName)
+                    Text(profile.displayName.isEmpty ? "Unknown" : profile.displayName)
                         .font(AGTypography.xxl)
                         .foregroundStyle(Color.agText)
 
@@ -282,7 +288,8 @@ struct ProfileView: View {
             }
 
             Button {
-                Task { await auth.logout() }
+                // #12: exitGuestMode instead of logout
+                auth.exitGuestMode()
             } label: {
                 Text("Sign In or Register")
                     .fontWeight(.semibold)
@@ -314,9 +321,9 @@ struct ProfileView: View {
                                 .foregroundStyle(Color.agText)
                                 .padding(AGSpacing.md)
                                 .background(Color.agSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: AGRadius.md))
+                                .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: AGRadius.md)
+                                    RoundedRectangle(cornerRadius: AGRadii.md)
                                         .stroke(Color.agBorder, lineWidth: 1)
                                 )
 
@@ -330,9 +337,9 @@ struct ProfileView: View {
                                 .frame(minHeight: 100)
                                 .padding(AGSpacing.md)
                                 .background(Color.agSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: AGRadius.md))
+                                .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: AGRadius.md)
+                                    RoundedRectangle(cornerRadius: AGRadii.md)
                                         .stroke(Color.agBorder, lineWidth: 1)
                                 )
                         }
@@ -358,6 +365,8 @@ struct ProfileView: View {
                                     displayName: editDisplayName,
                                     bio: editBio
                                 )
+                                // #24: Refresh current user after profile edit
+                                await auth.refreshCurrentUser()
                                 showEditSheet = false
                             }
                         }

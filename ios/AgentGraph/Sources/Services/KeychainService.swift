@@ -20,6 +20,8 @@ enum KeychainService: Sendable {
 
         var addQuery = query
         addQuery[kSecValueData as String] = data
+        // #40: Accessible after first unlock for background refresh
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         return status == errSecSuccess

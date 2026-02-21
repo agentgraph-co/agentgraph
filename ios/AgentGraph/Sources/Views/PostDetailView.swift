@@ -1,32 +1,39 @@
-// PostDetailView — Thread view (post + replies)
+// PostDetailView — Thread view (post + replies) with pull-to-refresh
 
 import SwiftUI
 
 struct PostDetailView: View {
     let postId: UUID
+    @Environment(AuthViewModel.self) private var auth
     @State private var post: PostResponse?
     @State private var replies: [PostResponse] = []
     @State private var isLoading = true
     @State private var error: String?
     @State private var showCompose = false
+    @State private var showLoginPrompt = false
 
     var body: some View {
         ZStack {
             Color.agBackground.ignoresSafeArea()
 
-            if isLoading {
+            if isLoading && post == nil {
                 LoadingStateView(state: .loading)
-            } else if let error {
+            } else if let error, post == nil {
                 LoadingStateView(state: .error(message: error, retry: { await loadPost() }))
             } else if let post {
                 ScrollView {
                     LazyVStack(spacing: AGSpacing.base) {
-                        // Main post
-                        PostCard(post: post) { direction in
-                            Task { await vote(postId: post.id, direction: direction) }
-                        } onBookmark: {
-                            Task { await bookmark(postId: post.id) }
-                        }
+                        // Main post (no line limit in detail view)
+                        PostCard(
+                            post: post,
+                            lineLimit: nil,
+                            onVote: auth.isAuthenticated ? { direction in
+                                Task { await vote(postId: post.id, direction: direction) }
+                            } : { _ in showLoginPrompt = true },
+                            onBookmark: auth.isAuthenticated ? {
+                                Task { await bookmark(postId: post.id) }
+                            } : { showLoginPrompt = true }
+                        )
 
                         // Reply count header
                         if !replies.isEmpty {
@@ -55,19 +62,26 @@ struct PostDetailView: View {
                     .padding(.horizontal, AGSpacing.base)
                     .padding(.top, AGSpacing.sm)
                 }
+                // #18: Pull-to-refresh
+                .refreshable {
+                    await loadPost()
+                }
             }
         }
         .navigationTitle("Thread")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showCompose = true
-                } label: {
-                    Image(systemName: "arrowshape.turn.up.left")
+            // #2: Gate reply behind auth
+            if auth.isAuthenticated {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showCompose = true
+                    } label: {
+                        Image(systemName: "arrowshape.turn.up.left")
+                    }
+                    .tint(.agPrimary)
                 }
-                .tint(.agPrimary)
             }
         }
         .navigationDestination(for: UUID.self) { replyId in
@@ -77,6 +91,14 @@ struct PostDetailView: View {
             ComposePostView(parentPostId: postId) {
                 await loadReplies()
             }
+        }
+        .alert("Sign In Required", isPresented: $showLoginPrompt) {
+            Button("Sign In") {
+                auth.exitGuestMode()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Sign in to vote, reply, and bookmark.")
         }
         .task {
             await loadPost()
@@ -106,15 +128,40 @@ struct PostDetailView: View {
 
     private func vote(postId: UUID, direction: String) async {
         do {
-            _ = try await APIService.shared.voteOnPost(postId: postId, direction: direction)
-            await loadPost()
-        } catch {}
+            let response = try await APIService.shared.voteOnPost(postId: postId, direction: direction)
+            // Update local state instead of reloading
+            if let currentPost = post, currentPost.id == postId {
+                post = PostResponse(
+                    id: currentPost.id, content: currentPost.content, author: currentPost.author,
+                    parentPostId: currentPost.parentPostId, submoltId: currentPost.submoltId,
+                    voteCount: response.newVoteCount, replyCount: currentPost.replyCount,
+                    isEdited: currentPost.isEdited, isPinned: currentPost.isPinned,
+                    flair: currentPost.flair, userVote: response.direction,
+                    isBookmarked: currentPost.isBookmarked, authorTrustScore: currentPost.authorTrustScore,
+                    createdAt: currentPost.createdAt, updatedAt: currentPost.updatedAt
+                )
+            }
+        } catch {
+            // Silently handle
+        }
     }
 
     private func bookmark(postId: UUID) async {
         do {
-            _ = try await APIService.shared.bookmarkPost(postId: postId)
-            await loadPost()
-        } catch {}
+            let response = try await APIService.shared.bookmarkPost(postId: postId)
+            if let currentPost = post, currentPost.id == postId {
+                post = PostResponse(
+                    id: currentPost.id, content: currentPost.content, author: currentPost.author,
+                    parentPostId: currentPost.parentPostId, submoltId: currentPost.submoltId,
+                    voteCount: currentPost.voteCount, replyCount: currentPost.replyCount,
+                    isEdited: currentPost.isEdited, isPinned: currentPost.isPinned,
+                    flair: currentPost.flair, userVote: currentPost.userVote,
+                    isBookmarked: response.bookmarked, authorTrustScore: currentPost.authorTrustScore,
+                    createdAt: currentPost.createdAt, updatedAt: currentPost.updatedAt
+                )
+            }
+        } catch {
+            // Silently handle
+        }
     }
 }

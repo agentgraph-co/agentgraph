@@ -15,10 +15,19 @@ actor APIService {
 
     init(
         baseURL: URL = ServerEnvironment.development.baseURL,
-        session: URLSession = .shared
+        session: URLSession? = nil
     ) {
         self.baseURL = baseURL
-        self.session = session
+
+        // #26: Configure timeout
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 15
+            config.timeoutIntervalForResource = 30
+            self.session = URLSession(configuration: config)
+        }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -47,9 +56,8 @@ actor APIService {
         }
         self.decoder = decoder
 
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        self.encoder = encoder
+        // #7: Remove convertToSnakeCase — models use explicit CodingKeys
+        self.encoder = JSONEncoder()
     }
 
     // MARK: - Token Management
@@ -59,9 +67,12 @@ actor APIService {
         self.refreshToken = refresh
     }
 
+    // #6: Also clear Keychain when clearing tokens
     func clearTokens() {
         self.accessToken = nil
         self.refreshToken = nil
+        _ = KeychainService.delete(key: KeychainService.accessTokenKey)
+        _ = KeychainService.delete(key: KeychainService.refreshTokenKey)
     }
 
     func hasTokens() -> Bool {
@@ -89,7 +100,6 @@ actor APIService {
             throw APIError.unauthorized
         }
         let body = RefreshRequest(refreshToken: token)
-        // Use unauthenticated request for refresh
         return try await post(path: "auth/refresh", body: body, authenticate: false)
     }
 
@@ -140,7 +150,8 @@ actor APIService {
         return try await get(path: "feed/posts/\(postId.uuidString)/replies", queryItems: params)
     }
 
-    func bookmarkPost(postId: UUID) async throws -> MessageResponse {
+    // #19: Return BookmarkResponse with toggle state
+    func bookmarkPost(postId: UUID) async throws -> BookmarkResponse {
         return try await authenticatedPost(path: "feed/posts/\(postId.uuidString)/bookmark")
     }
 
@@ -148,17 +159,17 @@ actor APIService {
         return try await authenticatedDelete(path: "feed/posts/\(postId.uuidString)")
     }
 
-    // MARK: - Profile
+    // MARK: - Profile (#11: Use get() for public endpoints)
 
     func getProfile(entityId: UUID) async throws -> ProfileResponse {
-        return try await authenticatedGet(path: "profiles/\(entityId.uuidString)")
+        return try await get(path: "profiles/\(entityId.uuidString)")
     }
 
     func updateProfile(entityId: UUID, request: UpdateProfileRequest) async throws -> ProfileResponse {
         return try await authenticatedPatch(path: "profiles/\(entityId.uuidString)", body: request)
     }
 
-    // MARK: - Social
+    // MARK: - Social (#11: followers/following are public)
 
     func follow(targetId: UUID) async throws -> MessageResponse {
         return try await authenticatedPost(path: "social/follow/\(targetId.uuidString)")
@@ -173,7 +184,7 @@ actor APIService {
             URLQueryItem(name: "limit", value: "\(limit)"),
             URLQueryItem(name: "offset", value: "\(offset)"),
         ]
-        return try await authenticatedGet(path: "social/followers/\(entityId.uuidString)", queryItems: params)
+        return try await get(path: "social/followers/\(entityId.uuidString)", queryItems: params)
     }
 
     func getFollowing(entityId: UUID, limit: Int = 20, offset: Int = 0) async throws -> FollowListResponse {
@@ -181,23 +192,23 @@ actor APIService {
             URLQueryItem(name: "limit", value: "\(limit)"),
             URLQueryItem(name: "offset", value: "\(offset)"),
         ]
-        return try await authenticatedGet(path: "social/following/\(entityId.uuidString)", queryItems: params)
+        return try await get(path: "social/following/\(entityId.uuidString)", queryItems: params)
     }
 
-    // MARK: - Graph
+    // MARK: - Graph (#11: graph endpoints are public)
 
     func getGraph(limit: Int = 100) async throws -> GraphResponse {
         let params = [URLQueryItem(name: "limit", value: "\(limit)")]
-        return try await authenticatedGet(path: "graph", queryItems: params)
+        return try await get(path: "graph", queryItems: params)
     }
 
     func getEgoGraph(entityId: UUID, depth: Int = 1) async throws -> GraphResponse {
         let params = [URLQueryItem(name: "depth", value: "\(depth)")]
-        return try await authenticatedGet(path: "graph/ego/\(entityId.uuidString)", queryItems: params)
+        return try await get(path: "graph/ego/\(entityId.uuidString)", queryItems: params)
     }
 
     func getNetworkStats() async throws -> NetworkStatsResponse {
-        return try await authenticatedGet(path: "graph/stats")
+        return try await get(path: "graph/stats")
     }
 
     // MARK: - Trust
@@ -248,11 +259,10 @@ actor APIService {
         return try await get(path: "evolution/\(entityId.uuidString)", queryItems: params)
     }
 
-    // MARK: - Health
+    // MARK: - Health (#15: Use ServerEnvironment.healthURL directly)
 
-    func healthCheck() async throws -> Bool {
-        let url = baseURL.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("health")
-        let (_, response) = try await session.data(from: url)
+    func healthCheck(environment: ServerEnvironment) async throws -> Bool {
+        let (_, response) = try await session.data(from: environment.healthURL)
         guard let http = response as? HTTPURLResponse else { return false }
         return (200...299).contains(http.statusCode)
     }
@@ -367,9 +377,15 @@ actor APIService {
             if httpResponse.statusCode == 401 {
                 throw APIError.httpError(statusCode: 401)
             }
-            // Try to extract error detail from response
+            // #25: Try to extract error detail — handle both string and array formats
             if let errorBody = try? JSONDecoder().decode(ErrorDetail.self, from: data) {
                 throw APIError.serverError(message: errorBody.detail)
+            }
+            if let validationError = try? JSONDecoder().decode(ValidationErrorDetail.self, from: data) {
+                let messages = validationError.detail.map { item in
+                    item.msg
+                }
+                throw APIError.serverError(message: messages.joined(separator: ". "))
             }
             throw APIError.httpError(statusCode: httpResponse.statusCode)
         }
@@ -377,12 +393,15 @@ actor APIService {
         return try decoder.decode(T.self, from: data)
     }
 
+    // #39: Safely build URLs without force-unwrap
     private func buildURL(path: String, queryItems: [URLQueryItem] = []) -> URL {
-        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
+            return baseURL.appendingPathComponent(path)
+        }
         if !queryItems.isEmpty {
             components.queryItems = queryItems
         }
-        return components.url!
+        return components.url ?? baseURL.appendingPathComponent(path)
     }
 }
 
@@ -390,6 +409,15 @@ actor APIService {
 
 private struct ErrorDetail: Codable {
     let detail: String
+}
+
+// #25: FastAPI 422 validation errors return detail as array
+private struct ValidationErrorDetail: Codable {
+    let detail: [ValidationErrorItem]
+}
+
+private struct ValidationErrorItem: Codable {
+    let msg: String
 }
 
 enum APIError: LocalizedError {

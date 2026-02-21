@@ -47,6 +47,13 @@ struct MessageResponse: Codable, Sendable {
     let message: String
 }
 
+// MARK: - Bookmark
+
+struct BookmarkResponse: Codable, Sendable {
+    let bookmarked: Bool
+    let message: String
+}
+
 // MARK: - Entity
 
 struct EntityResponse: Codable, Identifiable, Sendable {
@@ -246,7 +253,7 @@ struct FollowListResponse: Codable, Sendable {
 }
 
 struct SocialStatsResponse: Codable, Sendable {
-    let entityId: UUID
+    let entityId: String
     let followingCount: Int
     let followersCount: Int
 
@@ -274,10 +281,10 @@ struct TrustScoreResponse: Codable, Sendable {
     }
 }
 
-// MARK: - Graph
+// MARK: - Graph (#3: Use String IDs to match backend)
 
 struct APIGraphNode: Codable, Identifiable, Sendable {
-    let id: UUID
+    let id: String
     let label: String
     let type: String
     let trustScore: Double?
@@ -291,8 +298,8 @@ struct APIGraphNode: Codable, Identifiable, Sendable {
 }
 
 struct APIGraphEdge: Codable, Sendable {
-    let source: UUID
-    let target: UUID
+    let source: String
+    let target: String
     let type: String
 }
 
@@ -309,8 +316,8 @@ struct GraphResponse: Codable, Sendable {
     }
 }
 
-struct NetworkStatsEntry: Codable, Sendable {
-    let id: UUID
+struct NetworkStatsEntry: Codable, Identifiable, Sendable {
+    let id: String
     let displayName: String
     let type: String
     let followerCount: Int?
@@ -461,4 +468,11 @@ struct EvolutionResponse: Codable, Identifiable, Sendable {
 struct EvolutionTimelineResponse: Codable, Sendable {
     let records: [EvolutionResponse]
     let count: Int
+}
+
+// MARK: - Navigation Helpers
+
+/// Wrapper to distinguish post navigation from entity navigation in DiscoveryView
+struct PostNavigation: Hashable {
+    let postId: UUID
 }

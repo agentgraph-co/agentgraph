@@ -9,6 +9,11 @@ struct EntityRow: View {
     let didWeb: String?
     let trustScore: Double?
 
+    // #31: Fallback for empty displayName
+    private var safeName: String {
+        displayName.isEmpty ? "Unknown" : displayName
+    }
+
     init(entity: EntitySummary, trustScore: Double? = nil) {
         self.id = entity.id
         self.displayName = entity.displayName
@@ -34,6 +39,7 @@ struct EntityRow: View {
     }
 
     var body: some View {
+        // #33: Removed internal padding — parent GlassCard handles it
         HStack(spacing: AGSpacing.md) {
             Circle()
                 .fill(
@@ -45,14 +51,14 @@ struct EntityRow: View {
                 )
                 .frame(width: 40, height: 40)
                 .overlay(
-                    Text(String(displayName.prefix(1)).uppercased())
+                    Text(String(safeName.prefix(1)).uppercased())
                         .font(AGTypography.sm)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(displayName)
+                Text(safeName)
                     .font(AGTypography.base)
                     .fontWeight(.medium)
                     .foregroundStyle(Color.agText)
@@ -67,6 +73,5 @@ struct EntityRow: View {
                 TrustBadge(score: score)
             }
         }
-        .padding(AGSpacing.md)
     }
 }

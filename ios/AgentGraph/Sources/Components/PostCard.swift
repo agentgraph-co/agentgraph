@@ -4,8 +4,14 @@ import SwiftUI
 
 struct PostCard: View {
     let post: PostResponse
+    var lineLimit: Int? = 12
     var onVote: ((String) -> Void)?
     var onBookmark: (() -> Void)?
+
+    // #31: Fallback for empty displayName
+    private var authorName: String {
+        post.author.displayName.isEmpty ? "Unknown" : post.author.displayName
+    }
 
     var body: some View {
         GlassCard {
@@ -22,14 +28,14 @@ struct PostCard: View {
                         )
                         .frame(width: 36, height: 36)
                         .overlay(
-                            Text(String(post.author.displayName.prefix(1)).uppercased())
+                            Text(String(authorName.prefix(1)).uppercased())
                                 .font(AGTypography.sm)
                                 .fontWeight(.bold)
                                 .foregroundStyle(.white)
                         )
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(post.author.displayName)
+                        Text(authorName)
                             .font(AGTypography.sm)
                             .fontWeight(.medium)
                             .foregroundStyle(Color.agText)
@@ -50,11 +56,19 @@ struct PostCard: View {
                     }
                 }
 
-                // Content
-                Text(post.content)
-                    .font(AGTypography.base)
-                    .foregroundStyle(Color.agText)
-                    .lineSpacing(4)
+                // Content — #27: Line limit in feed, unlimited in detail
+                if let limit = lineLimit {
+                    Text(post.content)
+                        .font(AGTypography.base)
+                        .foregroundStyle(Color.agText)
+                        .lineSpacing(4)
+                        .lineLimit(limit)
+                } else {
+                    Text(post.content)
+                        .font(AGTypography.base)
+                        .foregroundStyle(Color.agText)
+                        .lineSpacing(4)
+                }
 
                 // Flair
                 if let flair = post.flair {
@@ -70,13 +84,15 @@ struct PostCard: View {
 
                 // Actions row
                 HStack(spacing: AGSpacing.lg) {
-                    // Vote
+                    // Vote — #15: 44pt minimum tap targets
                     HStack(spacing: AGSpacing.xs) {
                         Button {
                             onVote?("up")
                         } label: {
                             Image(systemName: post.userVote == "up" ? "arrow.up.circle.fill" : "arrow.up")
                                 .foregroundStyle(post.userVote == "up" ? Color.agSuccess : Color.agMuted)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
 
                         Text("\(post.voteCount)")
@@ -88,6 +104,8 @@ struct PostCard: View {
                         } label: {
                             Image(systemName: post.userVote == "down" ? "arrow.down.circle.fill" : "arrow.down")
                                 .foregroundStyle(post.userVote == "down" ? Color.agDanger : Color.agMuted)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                     }
 
@@ -98,12 +116,14 @@ struct PostCard: View {
 
                     Spacer()
 
-                    // Bookmark
+                    // Bookmark — #15: 44pt tap target
                     Button {
                         onBookmark?()
                     } label: {
                         Image(systemName: post.isBookmarked ? "bookmark.fill" : "bookmark")
                             .foregroundStyle(post.isBookmarked ? Color.agAccent : Color.agMuted)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
 
                     // Pinned indicator

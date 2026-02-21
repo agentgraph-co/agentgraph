@@ -11,8 +11,14 @@ struct RegisterView: View {
     @State private var isRegistering = false
     @State private var registrationError: String?
 
+    // #42: Email validation
+    private var isEmailValid: Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespaces)
+        return trimmed.contains("@") && trimmed.contains(".")
+    }
+
     private var isFormValid: Bool {
-        !email.isEmpty && !password.isEmpty && !displayName.isEmpty && password.count >= 8
+        isEmailValid && !password.isEmpty && !displayName.isEmpty && password.count >= 8
     }
 
     private var passwordStrength: PasswordStrength {
@@ -54,6 +60,11 @@ struct RegisterView: View {
                                                 .stroke(Color.agBorder, lineWidth: 1)
                                         )
                                         .textContentType(.name)
+                                        .submitLabel(.next)
+                                        // #29: Clear error on typing
+                                        .onChange(of: displayName) { _, _ in
+                                            registrationError = nil
+                                        }
                                 }
 
                                 // Email
@@ -76,6 +87,11 @@ struct RegisterView: View {
                                         .keyboardType(.emailAddress)
                                         .autocorrectionDisabled()
                                         .textInputAutocapitalization(.never)
+                                        .submitLabel(.next)
+                                        // #29: Clear error on typing
+                                        .onChange(of: email) { _, _ in
+                                            registrationError = nil
+                                        }
                                 }
 
                                 // Password with strength indicator
@@ -95,6 +111,17 @@ struct RegisterView: View {
                                                 .stroke(Color.agBorder, lineWidth: 1)
                                         )
                                         .textContentType(.newPassword)
+                                        // #13: Submit triggers registration
+                                        .submitLabel(.go)
+                                        .onSubmit {
+                                            if isFormValid && !isRegistering {
+                                                Task { await registerAndLogin() }
+                                            }
+                                        }
+                                        // #29: Clear error on typing
+                                        .onChange(of: password) { _, _ in
+                                            registrationError = nil
+                                        }
 
                                     // Password strength bar
                                     if !password.isEmpty {
@@ -160,6 +187,8 @@ struct RegisterView: View {
                     .padding(.horizontal, AGSpacing.xl)
                     .padding(.top, AGSpacing.lg)
                 }
+                // #13: Dismiss keyboard on scroll
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Create Account")
             .navigationBarTitleDisplayMode(.inline)

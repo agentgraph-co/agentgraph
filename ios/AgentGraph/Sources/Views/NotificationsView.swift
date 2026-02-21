@@ -1,4 +1,4 @@
-// NotificationsView — Notification list with mark read
+// NotificationsView — Notification list with tap-to-mark-read
 
 import SwiftUI
 
@@ -17,15 +17,15 @@ struct NotificationsView: View {
                 ScrollView {
                     LazyVStack(spacing: AGSpacing.sm) {
                         ForEach(viewModel.notifications) { notification in
-                            notificationRow(notification)
-                                .swipeActions(edge: .trailing) {
-                                    if !notification.isRead {
-                                        Button("Read") {
-                                            Task { await viewModel.markRead(id: notification.id) }
-                                        }
-                                        .tint(.agPrimary)
-                                    }
+                            // #10: Tap to mark read (swipeActions only works in List)
+                            Button {
+                                if !notification.isRead {
+                                    Task { await viewModel.markRead(id: notification.id) }
                                 }
+                            } label: {
+                                notificationRow(notification)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, AGSpacing.base)
@@ -73,6 +73,7 @@ struct NotificationsView: View {
                         .font(AGTypography.sm)
                         .foregroundStyle(Color.agMuted)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
                     Text(DateFormatting.relativeTime(from: notification.createdAt))
                         .font(AGTypography.xs)

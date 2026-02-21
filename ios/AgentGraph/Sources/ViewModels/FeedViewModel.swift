@@ -15,7 +15,10 @@ final class FeedViewModel {
     var isLoading = false
     var error: String?
     var feedMode: FeedMode = .all
+    var hasMore: Bool { nextCursor != nil }
     private var nextCursor: String?
+    // #9: Track current load task so we can cancel on mode switch
+    private var loadTask: Task<Void, Never>?
 
     func loadFeed() async {
         guard !isLoading else { return }
@@ -32,21 +35,28 @@ final class FeedViewModel {
             case .trending:
                 response = try await APIService.shared.fetchTrending(cursor: nextCursor)
             }
+            guard !Task.isCancelled else { return }
             posts.append(contentsOf: response.posts)
             nextCursor = response.nextCursor
         } catch {
-            self.error = error.localizedDescription
+            if !Task.isCancelled {
+                self.error = error.localizedDescription
+            }
         }
 
         isLoading = false
     }
 
     func refresh() async {
+        // #9: Cancel any in-flight load before refreshing
+        loadTask?.cancel()
         posts = []
         nextCursor = nil
-        await loadFeed()
+        loadTask = Task { await loadFeed() }
+        await loadTask?.value
     }
 
+    // #4: Set mode synchronously first, then refresh async
     func switchMode(_ mode: FeedMode) async {
         feedMode = mode
         await refresh()
@@ -54,7 +64,10 @@ final class FeedViewModel {
 
     func createPost(content: String, parentPostId: UUID? = nil) async -> Bool {
         do {
-            let post = try await APIService.shared.createPost(content: content, parentPostId: parentPostId)
+            let post = try await APIService.shared.createPost(
+                content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                parentPostId: parentPostId
+            )
             if parentPostId == nil {
                 posts.insert(post, at: 0)
             }
@@ -69,7 +82,6 @@ final class FeedViewModel {
         do {
             let response = try await APIService.shared.voteOnPost(postId: postId, direction: direction)
             if let index = posts.firstIndex(where: { $0.id == postId }) {
-                // Create an updated copy with new vote count and user vote
                 let old = posts[index]
                 let updated = PostResponse(
                     id: old.id,
@@ -95,9 +107,10 @@ final class FeedViewModel {
         }
     }
 
+    // #19: Use BookmarkResponse for proper toggle state
     func bookmark(postId: UUID) async {
         do {
-            _ = try await APIService.shared.bookmarkPost(postId: postId)
+            let response = try await APIService.shared.bookmarkPost(postId: postId)
             if let index = posts.firstIndex(where: { $0.id == postId }) {
                 let old = posts[index]
                 let updated = PostResponse(
@@ -112,7 +125,7 @@ final class FeedViewModel {
                     isPinned: old.isPinned,
                     flair: old.flair,
                     userVote: old.userVote,
-                    isBookmarked: !old.isBookmarked,
+                    isBookmarked: response.bookmarked,
                     authorTrustScore: old.authorTrustScore,
                     createdAt: old.createdAt,
                     updatedAt: old.updatedAt
@@ -122,5 +135,11 @@ final class FeedViewModel {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    // #1: Called by the view when nearing end of list
+    func loadMoreIfNeeded(currentPost: PostResponse) async {
+        guard let last = posts.last, last.id == currentPost.id, hasMore, !isLoading else { return }
+        await loadFeed()
     }
 }

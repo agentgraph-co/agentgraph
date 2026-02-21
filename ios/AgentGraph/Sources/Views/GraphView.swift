@@ -28,8 +28,9 @@ struct GraphView: View {
                     graphContent
                         .scaleEffect(scale)
                         .offset(offset)
-                        .gesture(magnifyGesture)
-                        .gesture(dragGesture)
+                        // #37: Use simultaneousGesture to prevent conflicts with nav taps
+                        .simultaneousGesture(magnifyGesture)
+                        .simultaneousGesture(dragGesture)
                         .gesture(doubleTapGesture)
 
                     // Stats overlay (fixed, not affected by zoom)
@@ -135,8 +136,11 @@ struct GraphView: View {
                     .tint(.agPrimary)
                 }
             }
-            .navigationDestination(for: UUID.self) { entityId in
-                ProfileDetailView(entityId: entityId)
+            // Node ID is a String (lowercase UUID) — parse for profile navigation
+            .navigationDestination(for: String.self) { nodeId in
+                if let uuid = UUID(uuidString: nodeId) {
+                    ProfileDetailView(entityId: uuid)
+                }
             }
             .task {
                 await viewModel.loadGraph(centerId: auth.currentUser?.id)
@@ -148,14 +152,17 @@ struct GraphView: View {
 
     private var graphContent: some View {
         ZStack {
+            // #20: Build nodeMap for O(1) lookup in Canvas
+            let nodeMap = Dictionary(uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0) })
+
             // Canvas for edges and nodes
             Canvas { context, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
 
                 // Draw edges
                 for (source, target) in viewModel.edges {
-                    guard let sourceNode = viewModel.nodes.first(where: { $0.id == source }),
-                          let targetNode = viewModel.nodes.first(where: { $0.id == target }) else {
+                    guard let sourceNode = nodeMap[source],
+                          let targetNode = nodeMap[target] else {
                         continue
                     }
                     let sourcePos = nodePosition(sourceNode, center: center, size: size)
@@ -215,7 +222,8 @@ struct GraphView: View {
                             Text(node.label)
                                 .font(AGTypography.xs)
                                 .foregroundStyle(
-                                    viewModel.selectedNode?.id == node.id
+                                    // #36: selectedNode is String
+                                    viewModel.selectedNode == node.id
                                         ? Color.agPrimary
                                         : Color.agMuted
                                 )

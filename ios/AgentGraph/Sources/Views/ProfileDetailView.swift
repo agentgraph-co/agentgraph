@@ -6,13 +6,19 @@ struct ProfileDetailView: View {
     let entityId: UUID
     @State private var viewModel = ProfileViewModel()
 
+    // #31: Fallback for empty displayName
+    private var displayName: String {
+        let name = viewModel.profile?.displayName ?? ""
+        return name.isEmpty ? "Unknown" : name
+    }
+
     var body: some View {
         ZStack {
             Color.agBackground.ignoresSafeArea()
 
-            if viewModel.isLoading {
+            if viewModel.isLoading && viewModel.profile == nil {
                 LoadingStateView(state: .loading)
-            } else if let error = viewModel.error {
+            } else if let error = viewModel.error, viewModel.profile == nil {
                 LoadingStateView(state: .error(message: error, retry: {
                     await viewModel.loadProfile(entityId: entityId)
                 }))
@@ -32,13 +38,13 @@ struct ProfileDetailView: View {
                                     )
                                     .frame(width: 80, height: 80)
                                     .overlay(
-                                        Text(String(profile.displayName.prefix(1)).uppercased())
+                                        Text(String(displayName.prefix(1)).uppercased())
                                             .font(.system(size: 32, weight: .bold))
                                             .foregroundStyle(.white)
                                     )
 
                                 VStack(spacing: AGSpacing.xs) {
-                                    Text(profile.displayName)
+                                    Text(displayName)
                                         .font(AGTypography.xxl)
                                         .foregroundStyle(Color.agText)
 
@@ -203,6 +209,10 @@ struct ProfileDetailView: View {
                     }
                     .padding(.horizontal, AGSpacing.base)
                     .padding(.top, AGSpacing.sm)
+                }
+                // #18: Pull-to-refresh
+                .refreshable {
+                    await viewModel.loadProfile(entityId: entityId)
                 }
             }
         }

@@ -8,6 +8,12 @@ struct LoginView: View {
     @State private var password = ""
     @State private var showRegister = false
 
+    // #42: Basic email validation
+    private var isEmailValid: Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespaces)
+        return trimmed.contains("@") && trimmed.contains(".")
+    }
+
     var body: some View {
         ZStack {
             Color.agBackground.ignoresSafeArea()
@@ -52,15 +58,23 @@ struct LoginView: View {
                                     .foregroundStyle(Color.agText)
                                     .padding(AGSpacing.md)
                                     .background(Color.agSurface)
-                                    .clipShape(RoundedRectangle(cornerRadius: AGRadius.md))
+                                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: AGRadius.md)
+                                        RoundedRectangle(cornerRadius: AGRadii.md)
                                             .stroke(Color.agBorder, lineWidth: 1)
                                     )
                                     .textContentType(.emailAddress)
                                     .keyboardType(.emailAddress)
                                     .autocorrectionDisabled()
                                     .textInputAutocapitalization(.never)
+                                    // #13: Submit on return key
+                                    .submitLabel(.next)
+                                    // #29: Clear error on typing
+                                    .onChange(of: email) { _, _ in
+                                        if auth.error != nil {
+                                            auth.error = nil
+                                        }
+                                    }
                             }
 
                             VStack(alignment: .leading, spacing: AGSpacing.sm) {
@@ -73,12 +87,25 @@ struct LoginView: View {
                                     .foregroundStyle(Color.agText)
                                     .padding(AGSpacing.md)
                                     .background(Color.agSurface)
-                                    .clipShape(RoundedRectangle(cornerRadius: AGRadius.md))
+                                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: AGRadius.md)
+                                        RoundedRectangle(cornerRadius: AGRadii.md)
                                             .stroke(Color.agBorder, lineWidth: 1)
                                     )
                                     .textContentType(.password)
+                                    // #13: Submit triggers login
+                                    .submitLabel(.go)
+                                    .onSubmit {
+                                        if isEmailValid && !password.isEmpty && !auth.isLoading {
+                                            Task { await auth.login(email: email, password: password) }
+                                        }
+                                    }
+                                    // #29: Clear error on typing
+                                    .onChange(of: password) { _, _ in
+                                        if auth.error != nil {
+                                            auth.error = nil
+                                        }
+                                    }
                             }
 
                             if let error = auth.error {
@@ -104,8 +131,8 @@ struct LoginView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.agPrimary)
-                            .clipShape(RoundedRectangle(cornerRadius: AGRadius.md))
-                            .disabled(email.isEmpty || password.isEmpty || auth.isLoading)
+                            .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                            .disabled(!isEmailValid || password.isEmpty || auth.isLoading)
 
                             Button("Create Account") {
                                 showRegister = true
@@ -130,6 +157,8 @@ struct LoginView: View {
                 }
                 .padding(.horizontal, AGSpacing.xl)
             }
+            // #13: Dismiss keyboard on scroll
+            .scrollDismissesKeyboard(.interactively)
         }
         .sheet(isPresented: $showRegister) {
             RegisterView()

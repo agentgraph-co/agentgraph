@@ -13,9 +13,11 @@ struct GlassCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(.ultraThinMaterial)
-            .background(Color.agSurface.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            // #34: Fix material stacking — use single background layer
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.ultraThinMaterial)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(Color.white.opacity(0.06), lineWidth: 1)
