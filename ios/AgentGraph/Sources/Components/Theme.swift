@@ -77,6 +77,8 @@ struct AGRadii {
     static let full: CGFloat = 9999
 }
 
+typealias AGRadius = AGRadii
+
 // MARK: - Shadows
 
 extension View {
