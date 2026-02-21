@@ -27,12 +27,13 @@
       "id": "3",
       "title": "Design AIP v1 Schema",
       "description": "Design the Agent Interaction Protocol v1 as JSON Schema over REST/WebSocket. Define DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "priority": "high",
       "details": "AIP v1 is NOT a standalone protocol — it's JSON Schema on REST/WebSocket endpoints.\n\nMessage types:\n1. DISCOVER — Agent capability discovery\n   - Request: { type: 'discover', filters: { capabilities: [], trust_min: float, autonomy_level: int } }\n   - Response: { agents: [{ did, capabilities, trust_score, autonomy_level, profile_url }] }\n\n2. DELEGATE — Task delegation between agents\n   - Request: { type: 'delegate', target_did: string, task: { description, constraints, timeout }, auth: { token } }\n   - Response: { delegation_id, status: 'accepted'|'rejected', reason?: string }\n\n3. EVOLVE — Evolution event notification\n   - Request: { type: 'evolve', agent_did: string, event: { type: 'capability_added'|'model_updated'|'forked', details: {} } }\n   - Response: { event_id, recorded: boolean }\n\nKeep v1 minimal. Add fields based on real bridge usage in Phase 1. Publish schema publicly for transparency.",
       "testStrategy": "Validate JSON Schema definitions against sample payloads. Test schema validation rejects malformed messages. Review with at least 2 hypothetical agent integration scenarios (MCP agent registering, agent discovering peers).",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:22.076Z"
     },
     {
       "id": "4",
@@ -84,7 +85,7 @@
       "id": "8",
       "title": "Design MCP Bridge Interface Specification",
       "description": "Design the MCP bridge specification: how MCP-compatible agents connect to AgentGraph, authenticate, and interact via AIP. Define protocol translation layer, auth flow, and validation rules.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "3",
         "5"
@@ -92,7 +93,8 @@
       "priority": "high",
       "details": "The MCP bridge is AgentGraph's quality on-ramp — the first framework integration.\n\nBridge architecture:\n1. Connection flow:\n   - Agent operator registers on AgentGraph, gets API key\n   - Operator configures MCP server with AgentGraph API key\n   - MCP server connects to AgentGraph bridge endpoint\n   - Bridge validates API key, establishes WebSocket connection\n   - Agent is now 'online' on AgentGraph\n\n2. Protocol translation:\n   - MCP tool calls → AIP DELEGATE messages\n   - MCP resource reads → AIP DISCOVER queries\n   - AgentGraph events → MCP notifications\n\n3. Security boundary:\n   - All MCP payloads validated against AIP schema\n   - Rate limited per agent (50 req/min)\n   - Payload size limits (100KB)\n   - Sandboxed: bridge cannot access other agents' data\n   - TLS required\n\n4. State management:\n   - Bridge maintains WebSocket connection per agent\n   - Heartbeat every 30s, disconnect after 3 missed\n   - Reconnection with exponential backoff\n\n5. Error handling:\n   - Schema validation errors → 400 with specific field errors\n   - Auth failures → 401\n   - Rate limit → 429 with retry-after header\n   - Bridge errors → 502 with error code\n\nDocument as OpenAPI spec + usage guide.",
       "testStrategy": "Test connection flow end-to-end with a mock MCP agent. Verify protocol translation for all 3 AIP message types. Test rate limiting, payload size rejection, and auth failure scenarios. Verify WebSocket heartbeat and reconnection logic. Load test with 50 concurrent agent connections.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.038Z"
     },
     {
       "id": "9",
@@ -268,7 +270,7 @@
       "id": "20",
       "title": "Build Python SDK and API Documentation",
       "description": "Build a Python SDK for agent developers to interact with AgentGraph, plus comprehensive API documentation (OpenAPI/Swagger + usage guides).",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "11",
         "12",
@@ -279,26 +281,28 @@
       "priority": "high",
       "details": "Python SDK (agentgraph-sdk package):\n\n1. Client class:\n   - AgentGraphClient(api_key, base_url)\n   - Methods: register_agent, get_profile, create_post, reply, vote, discover_agents, subscribe_webhook\n   - Async support (httpx-based)\n   - Automatic retry with backoff\n   - Clear error classes (AuthError, RateLimitError, ValidationError)\n\n2. MCP integration helper:\n   - AgentGraphMCPServer class — wraps SDK for MCP tool exposure\n   - Example MCP server config\n\n3. Package structure:\n   - agentgraph/client.py, agentgraph/models.py, agentgraph/errors.py\n   - pyproject.toml for pip install\n   - Published to PyPI (or install from GitHub initially)\n\nAPI Documentation:\n1. FastAPI auto-generates OpenAPI/Swagger at /docs\n2. Add detailed descriptions to all Pydantic models and endpoints\n3. Usage guide pages:\n   - Getting Started\n   - Authentication (human vs agent)\n   - Creating and Managing Agents\n   - Feed Interaction\n   - MCP Bridge Setup\n   - Webhooks\n   - Trust Scores\n   - Rate Limits\n\nHost docs on the web app (e.g., /docs route).",
       "testStrategy": "Test SDK against live API (integration tests). Test all SDK methods return correct types. Test error handling (invalid key, rate limit, validation). Test MCP helper creates valid MCP server. Test API docs are accessible at /docs. Review documentation for completeness against all endpoints.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.043Z"
     },
     {
       "id": "21",
       "title": "Write Getting Started Tutorial",
       "description": "Write a 'Build your first AgentGraph agent in 15 minutes' tutorial covering registration, SDK setup, posting, and receiving webhooks.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "20"
       ],
       "priority": "medium",
       "details": "Tutorial structure:\n\n1. Introduction (1 min read)\n   - What is AgentGraph\n   - Why trust and identity matter for agents\n\n2. Create an account (2 min)\n   - Sign up at agentgraph.io\n   - Register as an operator\n\n3. Register your agent (2 min)\n   - Via web UI or API\n   - Set capabilities and autonomy level\n   - Get your API key\n\n4. Install the SDK (1 min)\n   - pip install agentgraph-sdk\n   - Initialize client\n\n5. Make your agent post (3 min)\n   - Create a post\n   - Reply to a post\n   - Vote on content\n\n6. Listen for events (3 min)\n   - Set up a webhook\n   - Receive mention notifications\n   - Respond to mentions\n\n7. Discover other agents (2 min)\n   - Search by capability\n   - View trust scores\n\n8. Next steps\n   - MCP bridge setup\n   - Building more complex interactions\n   - Trust score improvement tips\n\nInclude complete, runnable code snippets. Host as markdown page in docs.",
       "testStrategy": "Follow the tutorial from scratch on a clean environment. Verify every code snippet runs without errors. Time the tutorial (should be completable in ~15 minutes). Have someone unfamiliar with the project attempt it and note confusion points.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.047Z"
     },
     {
       "id": "22",
       "title": "Deploy Seed Agents",
       "description": "Build and deploy 10-20 useful seed agents on the platform to bootstrap activity: code review, research summarizer, writing assistant, security scanner, and more.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "15",
         "17",
@@ -307,7 +311,8 @@
       "priority": "high",
       "details": "Seed agents (deploy on platform, running as background services):\n\n1. Code Review Agent — reviews code snippets posted on the feed, suggests improvements\n2. Research Summarizer — takes paper/article links, posts summaries\n3. Writing Assistant — helps with technical writing, editing\n4. Security Scanner — analyzes code for common vulnerabilities\n5. Dependency Checker — checks project dependencies for known CVEs\n6. API Tester — tests API endpoints posted on the feed\n7. Documentation Generator — generates docs from code snippets\n8. Data Analyzer — basic data analysis from posted datasets\n9. News Aggregator — posts daily AI/agent ecosystem news\n10. AgentGraph Helper — answers questions about the platform\n\nImplementation:\n- Each agent built with agentgraph-sdk\n- Deployed as lightweight Python processes (or single multi-agent process)\n- Connected via MCP bridge or direct API\n- Each has a compelling profile with clear capabilities\n- Each posts/interacts at least once daily\n- Run on the same VPS as the platform (minimal resource usage)\n\nThese agents ARE the cold start strategy. Quality > quantity.",
       "testStrategy": "Verify each seed agent can register, post, and respond to mentions. Test daily content generation for at least 3 agents. Verify agents interact with each other naturally. Monitor resource usage on VPS (should be minimal). Test that removing a seed agent doesn't break the platform.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.052Z"
     },
     {
       "id": "23",
@@ -351,12 +356,13 @@
       "id": "25",
       "title": "Resolve Q2: Define AIP v1 Schema",
       "description": "Open question Q2: What is the AIP v1 schema? Define JSON Schema for DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "priority": "high",
       "details": "This is the design work for task 3. Design as JSON Schema on REST/WebSocket. Keep minimal — evolve based on real bridge usage. Define:\n- Message envelope format\n- DISCOVER request/response schema\n- DELEGATE request/response schema\n- EVOLVE request/response schema\n- Error response format\n- Versioning strategy (v1 prefix)\n\nPublish schema openly. Output: JSON Schema files + documentation.",
       "testStrategy": "Validate schemas against sample payloads. Test 2+ agent integration scenarios. Review for completeness against PRD agent interaction requirements.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:22.078Z"
     },
     {
       "id": "26",
@@ -728,40 +734,43 @@
       "id": "57",
       "title": "Fix Logout to Stay on Current Page as Guest",
       "description": "Update logout behavior to keep users on the current page as a guest (if public) instead of always redirecting to /login. Only redirect to /login if on a protected route.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "52"
       ],
       "priority": "medium",
       "details": "Current behavior: handleLogout() in Layout.tsx navigates to /login.\n\nDesired behavior:\n1. On logout, check if current route is public (feed, posts, profiles, search, graph, marketplace listings, communities, leaderboard, trust, evolution, discover)\n2. If public: stay on current page, UI updates to guest mode (nav changes, action buttons become sign-up prompts)\n3. If protected (settings, messages, notifications, bookmarks, admin, etc.): redirect to /login\n4. Maintain a PUBLIC_ROUTES constant shared between App.tsx and Layout.tsx\n\nThis prevents the jarring experience of being kicked to login when the user just wants to keep browsing.",
       "testStrategy": "Test logging out on a public page (e.g., /feed) stays on /feed with guest UI. Test logging out on a protected page (e.g., /settings) redirects to /login. Test no redirect loop occurs.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.054Z"
     },
     {
       "id": "58",
       "title": "Handle Registration Intent Redirect",
       "description": "Read the ?intent= query parameter on the Register page and redirect users back to their original page after successful registration, providing a seamless sign-up-to-action flow.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "52"
       ],
       "priority": "medium",
       "details": "The guest browsing feature passes ?intent=vote, ?intent=follow, ?intent=save, etc. to /register. Currently the Register page ignores this.\n\n1. On Register page, read intent and referrer from query params\n2. After successful registration + login, redirect to the page they came from (use document.referrer or a ?returnTo= param)\n3. Show contextual messaging: 'Sign up to vote on posts' instead of generic 'Create Account'\n4. Consider also passing ?returnTo=/post/123 so the user lands back exactly where they were\n5. Update GuestPrompt component to include returnTo in the link\n\nThis closes the conversion loop: see content → want to interact → sign up → land back where they were.",
       "testStrategy": "Test clicking vote as guest → lands on /register with intent param → register → redirected back to original post. Test for each intent type (vote, follow, save, reply, join, purchase). Test direct /register access still works normally.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.058Z"
     },
     {
       "id": "59",
       "title": "Stricter Rate Limiting for Unauthenticated Requests",
       "description": "Implement tighter rate limits for unauthenticated API requests to protect public endpoints from abuse, while keeping authenticated limits unchanged.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "52"
       ],
       "priority": "high",
       "details": "Public endpoints are now exposed to unauthenticated traffic and need protection.\n\n1. Backend rate limiter changes:\n   - Unauthenticated: 30 req/min per IP for reads (vs 100 for authenticated)\n   - Keep write endpoints auth-only (already enforced)\n   - Consider stricter limits on search endpoints (expensive queries)\n2. Add rate limit headers to responses (X-RateLimit-Remaining, X-RateLimit-Reset)\n3. Return 429 with clear message and Retry-After header\n4. Frontend: handle 429 gracefully with user-friendly message\n5. Monitor for abuse patterns in first week after launch\n\nThe rate limiter already uses Redis sorted sets with in-memory fallback — extend it with auth-aware tiers.",
       "testStrategy": "Test unauthenticated requests hit lower rate limit. Test authenticated requests use standard limits. Test 429 response includes proper headers. Test frontend displays rate limit message gracefully. Load test to verify limits hold under pressure.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T21:12:26.060Z"
     },
     {
       "id": "60",
@@ -781,20 +790,20 @@
       "id": "61",
       "title": "Generate App Icon with v0 MCP",
       "description": "Use the v0 MCP tool to generate a professional app icon for the AgentGraph iOS app. The icon should feature the trust-network graph motif (connected nodes with glowing edges) matching the project's design system: dark background (#1E1E2E), primary indigo (#6366F1), accent blue (#89B4FA), success green (#A6E3A1), warm orange (#F9E2AF). Current placeholder icon was rendered via Playwright HTML screenshot. Replace with a polished v0-generated design. Export at 1024x1024 and update the asset catalog at ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/.",
-      "status": "blocked",
+      "status": "done",
       "dependencies": [],
       "priority": "medium",
       "details": "Current icon: HTML/CSS rendered graph network with 'AG' wordmark, screenshotted at 1024x1024. Works but could be more polished.\n\nDesign direction:\n- Trust-network graph: central node with 5-6 satellite nodes connected by edges\n- Node colors: primary indigo center, accent blue/green/warm satellites with glows\n- Dark background matching app theme (#14141F to #1E1E2E gradient)\n- Optional 'AG' lettermark or graph-only\n- Should read well at small sizes (20pt iOS icon)\n\nAsset catalog location: ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/\nContents.json uses single 1024x1024 universal iOS icon format.\n\nNote: v0 MCP is configured in ~/.claude.json but tools may not register in deferred tools list. May need session restart to pick up v0 tools.",
       "testStrategy": "Verify icon-1024.png exists in asset catalog. Verify Contents.json references the file. Build project with xcodegen and confirm icon appears in simulator.",
       "subtasks": [],
-      "updatedAt": "2026-02-21T19:59:51.033Z"
+      "updatedAt": "2026-02-21T21:12:26.063Z"
     }
   ],
   "metadata": {
     "version": "1.0.0",
-    "lastModified": "2026-02-21T19:59:51.033Z",
+    "lastModified": "2026-02-21T21:12:26.063Z",
     "taskCount": 61,
-    "completedCount": 25,
+    "completedCount": 35,
     "tags": [
       "master"
     ]
