@@ -16,6 +16,7 @@
     "axios": "^1.13.5",
     "d3": "^7.9.0",
     "framer-motion": "^12.34.2",
+    "geist": "^1.7.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",

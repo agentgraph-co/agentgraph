@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 @theme {
-  /* Core palette */
-  --color-primary: #6366f1;
-  --color-primary-dark: #4f46e5;
-  --color-primary-light: #818cf8;
-  --color-surface: #1e1e2e;
-  --color-surface-hover: #2a2a3e;
-  --color-background: #11111b;
+  /* Core palette — Organic Futurism (teal + fuchsia) */
+  --color-primary: #0D9488;
+  --color-primary-dark: #0F766E;
+  --color-primary-light: #2DD4BF;
+  --color-surface: #111B1B;
+  --color-surface-hover: #1A2828;
+  --color-background: #0A0F0F;
   --color-text: #cdd6f4;
   --color-text-muted: #6c7086;
-  --color-border: #313244;
+  --color-border: #1E3333;
   --color-success: #a6e3a1;
   --color-warning: #f9e2af;
   --color-danger: #f38ba8;
-  --color-accent: #89b4fa;
+  --color-accent: #E879F9;
 
   /* Extended palette for gradients & effects */
-  --color-primary-glow: #6366f180;
-  --color-accent-glow: #89b4fa60;
+  --color-primary-glow: #0D948880;
+  --color-accent-glow: #E879F960;
   --color-success-glow: #a6e3a140;
-  --color-surface-glass: #1e1e2ecc;
-  --color-surface-elevated: #252538;
+  --color-surface-glass: #111B1BCC;
+  --color-surface-elevated: #162222;
 }
 
 /* ─── Base ─── */
@@ -30,7 +30,7 @@ body {
   margin: 0;
   background-color: var(--color-background);
   color: var(--color-text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -73,7 +73,7 @@ select:focus-visible {
 }
 
 .glass-strong {
-  background: rgba(30, 30, 46, 0.9);
+  background: rgba(17, 27, 27, 0.9);
   backdrop-filter: blur(40px) saturate(200%);
   -webkit-backdrop-filter: blur(40px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -89,7 +89,14 @@ select:focus-visible {
 }
 
 .gradient-text-warm {
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-success));
+  background: linear-gradient(135deg, var(--color-primary-light), #F59E0B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-bio {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent), #F59E0B);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -98,11 +105,11 @@ select:focus-visible {
 /* ─── Glow Effects ─── */
 
 .glow-primary {
-  box-shadow: 0 0 20px var(--color-primary-glow), 0 0 60px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 20px var(--color-primary-glow), 0 0 60px rgba(13, 148, 136, 0.15);
 }
 
 .glow-accent {
-  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 60px rgba(137, 180, 250, 0.1);
+  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 60px rgba(232, 121, 249, 0.1);
 }
 
 .glow-sm {
@@ -120,7 +127,7 @@ select:focus-visible {
 .card-hover:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), 0 0 20px var(--color-primary-glow);
-  border-color: rgba(99, 102, 241, 0.3);
+  border-color: rgba(13, 148, 136, 0.3);
 }
 
 /* ─── Shimmer / Loading ─── */
@@ -177,6 +184,29 @@ select:focus-visible {
 .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
 .animate-gradient { animation: gradient-shift 8s ease infinite; background-size: 200% 200%; }
 .animate-rotate-slow { animation: rotate-slow 20s linear infinite; }
+
+/* ─── Organic Futurism Animations ─── */
+
+@keyframes gradient-breathe {
+  0%, 100% { opacity: 0.6; filter: hue-rotate(0deg); }
+  50% { opacity: 0.9; filter: hue-rotate(15deg); }
+}
+
+@keyframes particle-drift {
+  0% { opacity: 0; transform: translateY(0) translateX(0); }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-60px) translateX(20px); }
+}
+
+@keyframes mycelium-draw {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-gradient-breathe { animation: gradient-breathe 6s ease-in-out infinite; }
+.animate-particle-drift { animation: particle-drift 4s ease-in-out infinite; }
+.animate-mycelium-draw { animation: mycelium-draw 2s ease-out forwards; stroke-dasharray: 1000; }
 
 /* ─── Toast Slide-In ─── */
 
@@ -251,9 +281,9 @@ select:focus-visible {
   --color-success: #16a34a;
   --color-warning: #ca8a04;
   --color-danger: #dc2626;
-  --color-accent: #2563eb;
-  --color-primary-glow: #6366f140;
-  --color-accent-glow: #2563eb30;
+  --color-accent: #A21CAF;
+  --color-primary-glow: #0D948840;
+  --color-accent-glow: #A21CAF30;
   --color-success-glow: #16a34a30;
   --color-surface-glass: #ffffffcc;
   --color-surface-elevated: #ffffff;

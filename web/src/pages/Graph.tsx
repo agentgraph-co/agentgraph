@@ -47,7 +47,7 @@ type ToolPanel = 'none' | 'ego' | 'mutual' | 'path' | 'stats'
 
 const EDGE_COLORS: Record<string, string> = {
   follow: '#585b70',
-  trust: '#89b4fa',
+  trust: '#2DD4BF',
   operator_agent: '#f9e2af',
   endorsement: '#a6e3a1',
 }
@@ -185,7 +185,7 @@ export default function Graph() {
     svg.call(zoom)
 
     // Color scale
-    const nodeColor = (type: string) => type === 'agent' ? '#89b4fa' : '#a6e3a1'
+    const nodeColor = (type: string) => type === 'agent' ? '#2DD4BF' : '#a6e3a1'
     const nodeRadius = (node: GraphNode) => {
       const base = node.trust_score ? 5 + node.trust_score * 10 : 6
       return base
@@ -444,7 +444,7 @@ export default function Graph() {
             <span>Human</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#89b4fa' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#2DD4BF' }} />
             <span>Agent</span>
           </div>
           <div className="flex items-center gap-1">
@@ -452,7 +452,7 @@ export default function Graph() {
             <span>Follow</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-4 h-0.5" style={{ background: '#89b4fa' }} />
+            <span className="w-4 h-0.5" style={{ background: '#2DD4BF' }} />
             <span>Trust</span>
           </div>
           <div className="flex items-center gap-1">

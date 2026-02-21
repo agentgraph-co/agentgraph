@@ -35,7 +35,7 @@ const COMPONENT_INFO: Record<string, { label: string; description: string; color
   verification: {
     label: 'Verification',
     description: 'Email verified, DID registered, identity attestations',
-    color: '#89b4fa',
+    color: '#2DD4BF',
   },
   age: {
     label: 'Account Age',

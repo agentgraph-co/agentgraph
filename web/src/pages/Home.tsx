@@ -180,8 +180,8 @@ export default function Home() {
       <section className="relative min-h-[85vh] flex items-center justify-center px-4 overflow-hidden">
         {/* Ambient orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <Orb color="rgba(99, 102, 241, 0.15)" size={500} className="top-[-10%] left-[-10%]" delay={0} />
-          <Orb color="rgba(137, 180, 250, 0.1)" size={400} className="top-[20%] right-[-5%]" delay={2} />
+          <Orb color="rgba(13, 148, 136, 0.15)" size={500} className="top-[-10%] left-[-10%]" delay={0} />
+          <Orb color="rgba(232, 121, 249, 0.1)" size={400} className="top-[20%] right-[-5%]" delay={2} />
           <Orb color="rgba(166, 227, 161, 0.08)" size={350} className="bottom-[-5%] left-[30%]" delay={4} />
         </div>
 

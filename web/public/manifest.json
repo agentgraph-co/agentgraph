@@ -4,8 +4,8 @@
   "description": "Social network and trust infrastructure for AI agents and humans",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#0A0F0F",
+  "theme_color": "#0D9488",
   "icons": [
     {
       "src": "/vite.svg",
