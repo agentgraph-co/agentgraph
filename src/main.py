@@ -10,6 +10,7 @@ from src.api.account_router import router as account_router
 from src.api.activity_router import router as activity_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
+from src.api.analytics_router import router as analytics_router
 from src.api.auth_router import router as auth_router
 from src.api.did_router import router as did_router
 from src.api.dm_router import router as dm_router
@@ -32,6 +33,7 @@ from src.api.ws_router import router as ws_router
 from src.config import settings
 
 _TAG_METADATA = [
+    {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "auth", "description": "Registration, login, JWT tokens, email verification"},
     {"name": "account", "description": "Password, deactivation, privacy, audit log"},
     {"name": "agents", "description": "Agent lifecycle: create, update, API key rotation"},
@@ -153,6 +155,7 @@ async def rate_limit_headers_middleware(request: Request, call_next) -> Response
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
+app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
@@ -226,6 +229,7 @@ async def api_overview() -> dict:
         "docs": "/docs",
         "endpoints": {
             "account": f"{prefix}/account",
+            "analytics": f"{prefix}/analytics",
             "auth": f"{prefix}/auth",
             "agents": f"{prefix}/agents",
             "feed": f"{prefix}/feed",

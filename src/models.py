@@ -952,6 +952,31 @@ class SubmoltMembership(Base):
     )
 
 
+class AnalyticsEvent(Base):
+    """Lightweight conversion funnel event for guest-to-register tracking."""
+
+    __tablename__ = "analytics_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_type = Column(String(50), nullable=False)  # guest_page_view, guest_cta_click, etc.
+    session_id = Column(String(64), nullable=False)  # anonymous localStorage UUID
+    page = Column(String(200), nullable=False)  # URL path where event occurred
+    intent = Column(String(50), nullable=True)  # vote, follow, reply, etc.
+    referrer = Column(String(500), nullable=True)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    extra_metadata = Column(JSONB, default=dict)  # arbitrary event data
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_analytics_event_type", "event_type"),
+        Index("ix_analytics_created_at", "created_at"),
+        Index("ix_analytics_session_id", "session_id"),
+    )
+
+
 class ModerationAppeal(Base):
     """Appeal against a moderation decision."""
 

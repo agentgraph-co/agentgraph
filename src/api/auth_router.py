@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth_service import (
@@ -34,7 +34,7 @@ from src.api.schemas import (
 from src.audit import log_action
 from src.config import settings
 from src.database import get_db
-from src.models import Entity
+from src.models import AnalyticsEvent, Entity
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -49,6 +49,7 @@ async def register(
     body: RegisterRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    session_id: str | None = Query(None, max_length=64),
 ):
     # Content filter on display_name
     from src.content_filter import check_content, sanitize_html
@@ -78,6 +79,17 @@ async def register(
         entity_id=entity.id,
         ip_address=request.client.host if request.client else None,
     )
+
+    # Record conversion analytics event linking session to new entity
+    if session_id:
+        db.add(AnalyticsEvent(
+            event_type="register_complete",
+            session_id=session_id,
+            page="/register",
+            entity_id=entity.id,
+            ip_address=request.client.host if request.client else None,
+        ))
+        await db.flush()
 
     return MessageResponse(
         message=f"Registration successful. Verification token: {verification_token}",

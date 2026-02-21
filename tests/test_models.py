@@ -247,6 +247,7 @@ async def test_all_tables_exist(db: AsyncSession):
     tables = [row[0] for row in result.fetchall()]
     expected = [
         "alembic_version",
+        "analytics_events",
         "api_keys",
         "audit_logs",
         "bookmarks",
