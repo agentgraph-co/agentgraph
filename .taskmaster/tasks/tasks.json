@@ -1,813 +1,827 @@
 {
-  "tasks": [
-    {
-      "id": "1",
-      "title": "Set Up Private GitHub Repo with CI/CD",
-      "description": "Initialize the AgentGraph private GitHub repository with CI/CD pipeline, branch protection, linting, and testing infrastructure.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Repository already created at kenneives/agentgraph (private). Remaining work:\n- Configure GitHub Actions workflow for CI: run pytest, ruff lint, AST verification on every PR\n- Add branch protection rules on main (require PR, require CI pass)\n- Add pre-commit hooks (ruff, ast-verify)\n- Create Makefile with common commands (test, lint, dev, setup)\n- Verify .gitignore covers all sensitive files (.env.secrets, credentials.json)",
-      "testStrategy": "Verify GitHub Actions workflow triggers on PR creation. Confirm branch protection prevents direct pushes to main. Run pre-commit hooks locally and verify they catch linting errors.",
-      "subtasks": []
-    },
-    {
-      "id": "2",
-      "title": "Design and Document Complete Data Model",
-      "description": "Design the full PostgreSQL data model covering entities (humans, agents, operators), relationships (follows, trust, operator-agent links), content (posts, comments, votes), trust scores, and DIDs. Document access patterns and indexing strategy.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Starting point: Architect review Section 3 entity model (11 entities).\n\nCore tables:\n- entities (id, type [human|agent], did_web, display_name, bio_markdown, capabilities JSONB, autonomy_level, created_at, updated_at)\n- operators (entity_id FK, linked_agents[], verification_level)\n- relationships (source_entity_id, target_entity_id, type [follow|trust|operator_agent], created_at)\n- posts (id, author_entity_id, content, parent_post_id nullable, submolt_id nullable, created_at)\n- votes (entity_id, post_id, direction [up|down], created_at)\n- trust_scores (entity_id, score float, components JSONB, computed_at)\n- did_documents (entity_id, did_uri, document JSONB, created_at)\n- api_keys (id, entity_id, key_hash, scopes[], created_at, revoked_at nullable)\n- moderation_flags (id, reporter_entity_id, target_type, target_id, reason, status, created_at)\n- webhook_subscriptions (id, entity_id, event_types[], callback_url, secret_hash, active boolean)\n\nDesign decisions:\n- Use JSONB for capabilities and flexible metadata\n- PostgreSQL tsvector columns for full-text search on posts and entity profiles\n- Recursive CTE-friendly structure for graph traversals (relationships table)\n- Materialized views for trust score aggregations\n- UUID primary keys for external-facing IDs, bigserial for internal FK efficiency",
-      "testStrategy": "Validate schema with a review against all PRD entity types. Create an ERD diagram. Verify all access patterns (feed query, profile lookup, trust traversal, search) can be served efficiently. Test recursive CTE for 3-hop trust traversal on sample data.",
-      "updatedAt": "2026-02-20T01:58:23.173Z",
-      "subtasks": []
-    },
-    {
-      "id": "3",
-      "title": "Design AIP v1 Schema",
-      "description": "Design the Agent Interaction Protocol v1 as JSON Schema over REST/WebSocket. Define DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "AIP v1 is NOT a standalone protocol — it's JSON Schema on REST/WebSocket endpoints.\n\nMessage types:\n1. DISCOVER — Agent capability discovery\n   - Request: { type: 'discover', filters: { capabilities: [], trust_min: float, autonomy_level: int } }\n   - Response: { agents: [{ did, capabilities, trust_score, autonomy_level, profile_url }] }\n\n2. DELEGATE — Task delegation between agents\n   - Request: { type: 'delegate', target_did: string, task: { description, constraints, timeout }, auth: { token } }\n   - Response: { delegation_id, status: 'accepted'|'rejected', reason?: string }\n\n3. EVOLVE — Evolution event notification\n   - Request: { type: 'evolve', agent_did: string, event: { type: 'capability_added'|'model_updated'|'forked', details: {} } }\n   - Response: { event_id, recorded: boolean }\n\nKeep v1 minimal. Add fields based on real bridge usage in Phase 1. Publish schema publicly for transparency.",
-      "testStrategy": "Validate JSON Schema definitions against sample payloads. Test schema validation rejects malformed messages. Review with at least 2 hypothetical agent integration scenarios (MCP agent registering, agent discovering peers).",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:22.076Z"
-    },
-    {
-      "id": "4",
-      "title": "Design Trust Score v1 Algorithm",
-      "description": "Design the Phase 1 trust scoring algorithm using verification level, account age, and activity metrics. Document formula, inputs, weights, and publish methodology openly.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Trust Score v1 formula (simple, transparent, no ML):\n\nscore = (verification_weight * verification_level) + (age_weight * age_factor) + (activity_weight * activity_factor)\n\nComponents:\n- verification_level: 0.0 (unverified) to 1.0 (fully verified human/operator)\n  - Email verified: 0.3\n  - Profile complete: 0.5\n  - Operator-linked agent: 0.7\n  - Identity verified (Phase 2): 1.0\n\n- age_factor: min(account_age_days / 365, 1.0) — caps at 1 year\n\n- activity_factor: normalized(posts + comments + votes + delegations) over last 30 days\n  - Use log scale to prevent gaming by volume\n  - min(log(activity_count + 1) / log(100), 1.0)\n\nSuggested weights: verification=0.5, age=0.2, activity=0.3\n\nOutput: 0.0 to 1.0 float, displayed as percentage\nRecomputation: daily batch job via cron\nContestaton: simple form submission, manual review\n\nPublish algorithm on docs page. Open methodology builds trust in the trust system.",
-      "testStrategy": "Unit test score computation with edge cases (new account, very active account, verified but inactive). Verify score is deterministic. Test that gaming activity via volume has diminishing returns (log scale). Verify contestation form submits correctly.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.183Z"
-    },
-    {
-      "id": "5",
-      "title": "Design Security Architecture",
-      "description": "Design the security architecture covering authentication, authorization, input validation, rate limiting, and bridge security model. OWASP top 10 compliance.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Security layers:\n\n1. Authentication:\n   - Humans: email + password → JWT (access token 15min, refresh token 7 days)\n   - Agents: API key (hashed with bcrypt, stored in api_keys table)\n   - Both: rate-limited login attempts (5/min per IP)\n\n2. Authorization:\n   - Role-based: human, agent, operator, moderator, admin\n   - Resource-level: own profile, own posts, operator's agents\n   - JWT claims carry role + entity_id\n\n3. Input validation:\n   - Pydantic models for all API inputs (FastAPI native)\n   - Content size limits: post body 10KB, profile bio 5KB, capability list 50 items\n   - Sanitize markdown rendering (XSS prevention)\n\n4. Rate limiting:\n   - Per-entity: 100 req/min for reads, 20 req/min for writes\n   - Per-IP: 200 req/min global\n   - MCP bridge: 50 req/min per connected agent\n   - Use Redis for rate limit counters (sliding window)\n\n5. Bridge security (MCP):\n   - Treat as untrusted boundary\n   - Payload validation against AIP schema\n   - Size limits on all payloads (100KB max)\n   - TLS required\n   - Agent authentication required for all bridge operations\n\n6. Data protection:\n   - Passwords: bcrypt with cost factor 12\n   - API keys: SHA-256 hash stored, plaintext shown once at creation\n   - PII: minimize collection, document in privacy policy\n   - SQL injection: prevented by SQLAlchemy ORM (parameterized queries)\n\n7. Dependencies:\n   - Automated scanning with pip-audit or safety\n   - GitHub Dependabot enabled\n   - Pin all dependency versions",
-      "testStrategy": "Security checklist against OWASP top 10. Test rate limiting with burst requests. Verify JWT expiration and refresh flow. Test input validation rejects oversized payloads. Verify API keys are not stored in plaintext. Run pip-audit on dependencies.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.187Z"
-    },
-    {
-      "id": "6",
-      "title": "Draft Terms of Service",
-      "description": "Draft Terms of Service establishing operator liability for agent actions, acceptable use policy, moderation authority, content ownership, and dispute resolution.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Key sections (reference Legal review Section 2):\n\n1. Operator Accountability Chain:\n   - Operators are legally responsible for their agents' actions\n   - Registration requires accepting operator liability\n   - Platform reserves right to suspend operator + all linked agents\n\n2. Acceptable Use:\n   - No spam, harassment, illegal content\n   - No trust score manipulation\n   - No impersonation (human pretending to be agent or vice versa)\n   - Autonomy level must be accurately declared\n\n3. Content & IP:\n   - Users retain ownership of their content\n   - Platform gets license to display/distribute\n   - Agent-generated content: operator holds rights\n   - Forked capabilities: default Apache 2.0-style license (Phase 2)\n\n4. Moderation Authority:\n   - Platform may remove content, suspend accounts\n   - Automated + human moderation\n   - Appeal process (email-based for Phase 1)\n\n5. Liability Limitations:\n   - Platform provides infrastructure, not guarantees\n   - Trust scores are informational, not endorsements\n   - No liability for agent-to-agent interactions\n\n6. Data Handling:\n   - Reference Privacy Policy\n   - Right to delete account and data\n\nDraft with AI assistance, get professional review before accepting investors.",
-      "testStrategy": "Review against Legal review Section 2 recommendations. Verify all operator liability clauses are present. Check for internal consistency. Compare against competitor ToS (Moltbook, GitHub) for completeness. Flag any clauses that need professional legal review.",
-      "subtasks": []
-    },
-    {
-      "id": "7",
-      "title": "Draft Privacy Policy",
-      "description": "Draft Privacy Policy covering data collection, usage, retention, deletion, third-party sharing, and GDPR-compatible rights. Reference Compliance review Section 5.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Key sections:\n\n1. Data We Collect:\n   - Account info (email, display name, profile bio)\n   - Agent metadata (capabilities, autonomy level, operator link)\n   - Content (posts, comments, votes)\n   - Usage data (trust score inputs, activity metrics)\n   - Technical data (IP addresses for rate limiting, not stored long-term)\n\n2. How We Use Data:\n   - Provide the service (profiles, feed, trust scores)\n   - Moderation and safety\n   - Trust score computation (publicly documented algorithm)\n   - Aggregate analytics (anonymized)\n\n3. Data Sharing:\n   - Public profiles are public by design\n   - No sale of personal data\n   - Law enforcement: only with valid legal process\n   - Phase 2: privacy tiers give users control\n\n4. Data Retention:\n   - Active accounts: indefinite\n   - Deleted accounts: data removed within 30 days\n   - Moderation records: retained for safety (anonymized after 1 year)\n\n5. User Rights (GDPR-compatible):\n   - Access, rectification, deletion, portability\n   - Contact: privacy@agentgraph.io (or similar)\n\n6. On-Chain Data (Phase 2+):\n   - Hash-on-chain, data-off-chain\n   - On-chain hashes are immutable by design\n   - Off-chain data can be deleted (hash becomes orphaned)\n\nDraft with AI, professional review before investors.",
-      "testStrategy": "Review against Compliance review Section 5 and Legal review Section 2. Verify GDPR Article 13/14 required disclosures are present. Check data retention periods are specified. Verify deletion process is described. Compare against GDPR-compliant privacy policy templates.",
-      "subtasks": []
-    },
-    {
-      "id": "8",
-      "title": "Design MCP Bridge Interface Specification",
-      "description": "Design the MCP bridge specification: how MCP-compatible agents connect to AgentGraph, authenticate, and interact via AIP. Define protocol translation layer, auth flow, and validation rules.",
-      "status": "done",
-      "dependencies": [
-        "3",
-        "5"
-      ],
-      "priority": "high",
-      "details": "The MCP bridge is AgentGraph's quality on-ramp — the first framework integration.\n\nBridge architecture:\n1. Connection flow:\n   - Agent operator registers on AgentGraph, gets API key\n   - Operator configures MCP server with AgentGraph API key\n   - MCP server connects to AgentGraph bridge endpoint\n   - Bridge validates API key, establishes WebSocket connection\n   - Agent is now 'online' on AgentGraph\n\n2. Protocol translation:\n   - MCP tool calls → AIP DELEGATE messages\n   - MCP resource reads → AIP DISCOVER queries\n   - AgentGraph events → MCP notifications\n\n3. Security boundary:\n   - All MCP payloads validated against AIP schema\n   - Rate limited per agent (50 req/min)\n   - Payload size limits (100KB)\n   - Sandboxed: bridge cannot access other agents' data\n   - TLS required\n\n4. State management:\n   - Bridge maintains WebSocket connection per agent\n   - Heartbeat every 30s, disconnect after 3 missed\n   - Reconnection with exponential backoff\n\n5. Error handling:\n   - Schema validation errors → 400 with specific field errors\n   - Auth failures → 401\n   - Rate limit → 429 with retry-after header\n   - Bridge errors → 502 with error code\n\nDocument as OpenAPI spec + usage guide.",
-      "testStrategy": "Test connection flow end-to-end with a mock MCP agent. Verify protocol translation for all 3 AIP message types. Test rate limiting, payload size rejection, and auth failure scenarios. Verify WebSocket heartbeat and reconnection logic. Load test with 50 concurrent agent connections.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.038Z"
-    },
-    {
-      "id": "9",
-      "title": "Infrastructure Setup",
-      "description": "Set up local development infrastructure with Homebrew PostgreSQL + Redis, FastAPI scaffold, Python venv, Makefile, and development workflow tooling on Mac Mini.",
-      "status": "done",
-      "dependencies": [
-        "1"
-      ],
-      "priority": "high",
-      "details": "Local services (Homebrew on Mac Mini M1):\n- PostgreSQL 16 via brew (port 5432)\n- Redis 7 via brew (port 6379, Streams enabled by default)\n- FastAPI app run directly with uvicorn (hot reload)\n\nPython environment:\n- Python 3.9.6 (system) with venv\n- All code uses `from __future__ import annotations` for PEP 604 compat\n\nProject structure:\nsrc/\n  main.py              # FastAPI app entry point\n  config.py            # Settings from env\n  database.py          # SQLAlchemy async engine + session\n  identity/            # DID, registration, auth\n  social/              # Feed, profiles, relationships\n  protocol/            # AIP implementation\n  trust/               # Trust scoring\n  moderation/          # Content classification\n  bridges/             # MCP bridge\n  api/                 # Route definitions\nweb/                   # React frontend (Phase 1)\ntests/\nmigrations/            # Alembic\n\nFiles to create:\n- pyproject.toml (dependencies: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, redis, pydantic, python-jose, bcrypt, alembic, httpx, pytest, ruff)\n- Makefile (targets: setup, dev, test, lint, migrate, db-start, db-stop)\n- scripts/setup.sh (one-command dev environment setup: brew install, createdb, venv, pip install, alembic migrate)\n- alembic.ini + migrations/env.py\n\nNo Docker for local dev — Homebrew services are lighter on M1 16GB RAM. Docker is introduced later for production deployment (see task 50).",
-      "testStrategy": "Run `make setup` on clean clone. Verify PostgreSQL is running and agentgraph DB exists. Verify Redis is running. Verify FastAPI responds on localhost:8000/health. Verify Alembic migrations run. Run `make test` and confirm pytest discovers test directory.",
-      "subtasks": []
-    },
-    {
-      "id": "10",
-      "title": "Implement Data Model with Migrations",
-      "description": "Implement the PostgreSQL data model using SQLAlchemy ORM and Alembic migrations. Create all core tables, indexes, and constraints defined in task 2.",
-      "status": "done",
-      "dependencies": [
-        "2",
-        "9"
-      ],
-      "priority": "high",
-      "details": "SQLAlchemy models (async, SQLAlchemy 2.0 style):\n- Entity model (STI or separate tables for human/agent)\n- Relationship model (follow, trust, operator_agent)\n- Post model (self-referential for comments via parent_post_id)\n- Vote model (unique constraint on entity_id + post_id)\n- TrustScore model\n- DIDDocument model\n- APIKey model\n- ModerationFlag model\n- WebhookSubscription model\n\nAlembic migrations:\n- Initial migration with all tables\n- Indexes on: entity.did_web, entity.type, post.author_entity_id, post.created_at, relationship.source+target, trust_score.entity_id\n- tsvector columns + GIN indexes for full-text search\n- Check constraints (autonomy_level 1-5, vote direction up/down)\n\nCRUD utilities:\n- Base repository pattern with async session\n- Common queries: get_entity_by_did, get_feed_posts, get_trust_score, search_entities\n\nUse `from __future__ import annotations` for Python 3.9 union type syntax.",
-      "testStrategy": "Run migrations up and down (alembic upgrade head, alembic downgrade base). Verify all tables created with correct columns and constraints. Insert sample data for each model. Test unique constraints and check constraints raise appropriate errors. Verify full-text search index works with sample queries.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.191Z"
-    },
-    {
-      "id": "11",
-      "title": "Implement Human Registration and Authentication",
-      "description": "Implement human user registration with email verification, login with JWT tokens, and password management. Include rate limiting on auth endpoints.",
-      "status": "done",
-      "dependencies": [
-        "5",
-        "10"
-      ],
-      "priority": "high",
-      "details": "Endpoints:\n- POST /api/v1/auth/register — email, password, display_name → create entity + send verification email\n- POST /api/v1/auth/verify-email — token → mark email verified\n- POST /api/v1/auth/login — email, password → JWT access token (15min) + refresh token (7 days)\n- POST /api/v1/auth/refresh — refresh_token → new access token\n- POST /api/v1/auth/logout — invalidate refresh token\n- POST /api/v1/auth/forgot-password — email → send reset link\n- POST /api/v1/auth/reset-password — token, new_password → update\n\nImplementation:\n- Password hashing: bcrypt cost factor 12\n- JWT: python-jose with HS256, configurable secret from env\n- Email: Resend or Postmark API (free tier)\n- Rate limiting: 5 login attempts/min per IP (Redis counter)\n- DID:web auto-generated at registration: did:web:agentgraph.io:users:{uuid}\n\nMiddleware:\n- Auth dependency that extracts entity_id from JWT\n- Optional auth (for public endpoints that behave differently when logged in)\n\nSecurity:\n- Input validation via Pydantic (email format, password strength)\n- No user enumeration (same response for existing/non-existing email)\n- Secure cookie options for refresh token (httpOnly, secure, sameSite)",
-      "testStrategy": "Test full registration → verification → login → refresh → logout flow. Test invalid credentials return 401. Test rate limiting blocks after 5 failed attempts. Test password reset flow. Test JWT expiration. Test DID:web generation format. Test input validation rejects weak passwords.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.196Z"
-    },
-    {
-      "id": "12",
-      "title": "Implement Agent Registration and Operator Linking",
-      "description": "Implement agent registration by operators, API key issuance, DID:web generation, operator-agent linking, and agent authentication via API keys.",
-      "status": "done",
-      "dependencies": [
-        "5",
-        "10",
-        "11"
-      ],
-      "priority": "high",
-      "details": "Endpoints:\n- POST /api/v1/agents — (auth required, operator) name, description, capabilities[], autonomy_level → create agent entity + API key\n- GET /api/v1/agents — list operator's agents\n- GET /api/v1/agents/{id} — agent details\n- PATCH /api/v1/agents/{id} — update agent metadata\n- POST /api/v1/agents/{id}/rotate-key — generate new API key, revoke old\n- DELETE /api/v1/agents/{id} — deactivate agent\n\nImplementation:\n- Any registered human can be an operator (register agents)\n- Agent entity created with type='agent' + operator relationship\n- API key: generate 64-char random token, show once, store SHA-256 hash\n- DID:web for agents: did:web:agentgraph.io:agents:{uuid}\n- Capabilities stored as JSONB array\n- Autonomy level: integer 1-5 (self-declared)\n\nAgent auth middleware:\n- X-API-Key header → look up by hash → inject agent entity into request\n- Separate from human JWT auth but same entity_id pattern\n\nOperator dashboard data:\n- Operator can see all their agents' status, activity, trust scores\n- Foundation for Phase 2 operator dashboard UI",
-      "testStrategy": "Test operator creates agent, receives API key. Test API key authenticates successfully. Test rotated key works and old key is rejected. Test operator can only manage their own agents. Test autonomy level validation (1-5 range). Test capabilities JSONB storage and retrieval. Test agent deactivation.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.199Z"
-    },
-    {
-      "id": "13",
-      "title": "Implement Basic Profile Page",
-      "description": "Implement profile pages for both humans and agents: identity display, markdown README, capabilities list, activity feed, trust score badge. React + Tailwind frontend.",
-      "status": "done",
-      "dependencies": [
-        "10",
-        "11",
-        "12"
-      ],
-      "priority": "high",
-      "details": "Backend endpoints:\n- GET /api/v1/entities/{id}/profile — full profile data\n- PATCH /api/v1/entities/{id}/profile — update own profile\n- GET /api/v1/entities/{id}/activity — recent posts, comments, votes\n\nProfile data:\n- Display name, entity type badge (human/agent)\n- DID:web identifier\n- Markdown-rendered README/bio (sanitized to prevent XSS)\n- Capabilities list (agents only)\n- Autonomy level badge (agents only)\n- Operator info (agents only — who operates this agent)\n- Trust score display (percentage + breakdown)\n- Account age\n- Activity stats (posts, comments, followers, following)\n- Recent activity timeline\n\nFrontend:\n- React SPA with React Router\n- Tailwind CSS for styling\n- Profile page component with tabs: Overview, Activity, Connections\n- Markdown rendering with react-markdown (sanitized)\n- Responsive design (mobile-first)\n\nPublic profiles — no auth required to view. Auth required to edit own profile.",
-      "testStrategy": "Test profile API returns correct data for human and agent entities. Test profile update only allowed by owner. Test markdown rendering with various inputs (headers, links, code blocks). Test XSS prevention in markdown. Test responsive layout on mobile viewport. Test profile page loads for unauthenticated users.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.201Z"
-    },
-    {
-      "id": "14",
-      "title": "Implement Unified Feed",
-      "description": "Implement the social feed with posts, comments (threaded), upvotes/downvotes, chronological ordering with trust-score boost, and WebSocket real-time updates.",
-      "status": "done",
-      "dependencies": [
-        "10",
-        "11",
-        "12",
-        "16"
-      ],
-      "priority": "high",
-      "details": "Backend endpoints:\n- GET /api/v1/feed — paginated feed (cursor-based pagination)\n- POST /api/v1/posts — create post (auth required)\n- GET /api/v1/posts/{id} — single post with comments\n- POST /api/v1/posts/{id}/comments — add comment (auth required)\n- POST /api/v1/posts/{id}/vote — upvote/downvote (auth required)\n- DELETE /api/v1/posts/{id} — delete own post (auth required)\n- WebSocket /ws/feed — real-time feed updates\n\nFeed algorithm (Phase 1 — simple):\n- Base: reverse chronological\n- Trust boost: posts from higher-trust entities appear slightly higher\n- Score = timestamp_score + (trust_score * trust_weight)\n- No ML, no engagement optimization — chronological with light trust weighting\n\nThreaded comments:\n- parent_post_id for top-level posts (null)\n- parent_post_id for comments (points to parent)\n- Max nesting depth: 3 levels (flatten beyond that)\n\nWebSocket:\n- FastAPI native WebSocket endpoint\n- Broadcast new posts to connected clients\n- Redis pub/sub for multi-process support\n\nFrontend:\n- Feed component with infinite scroll\n- Post card: author avatar, name, trust badge, content, vote buttons, comment count\n- Comment thread UI\n- Real-time: new posts appear at top with subtle animation\n- Compose post form with markdown preview",
-      "testStrategy": "Test feed returns posts in correct order. Test trust-score boost affects ordering. Test pagination (cursor-based, no duplicate/missing posts). Test post creation, commenting, voting. Test vote uniqueness constraint. Test WebSocket delivers new posts in real-time. Test comment threading to 3 levels. Test feed performance with 1000+ posts.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:23.204Z"
-    },
-    {
-      "id": "15",
-      "title": "Implement MCP Bridge",
-      "description": "Implement the MCP bridge: protocol translation between MCP and AIP, WebSocket connection management, authentication, validation, and rate limiting.",
-      "status": "done",
-      "dependencies": [
-        "3",
-        "8",
-        "10",
-        "12",
-        "17"
-      ],
-      "priority": "high",
-      "details": "Bridge implementation:\n\n1. Connection endpoint:\n   - WebSocket /ws/bridge/mcp — MCP agent connects with API key\n   - Auth: API key in connection headers or first message\n   - Connection state tracked in Redis (agent_id → connection_id)\n\n2. Protocol translation layer:\n   - MCP tool_call → AIP DELEGATE message → route to target agent\n   - MCP resource_read → AIP DISCOVER query → return matching agents\n   - AgentGraph events → MCP notification format → push to connected agent\n\n3. Message validation:\n   - All incoming: validate against AIP JSON Schema\n   - Reject malformed messages with specific error codes\n   - Payload size limit: 100KB\n\n4. Rate limiting:\n   - 50 requests/min per connected agent\n   - Redis sliding window counter\n   - 429 response with retry-after on limit\n\n5. Connection management:\n   - Heartbeat ping every 30s from server\n   - Client must pong within 10s\n   - 3 missed pongs → disconnect\n   - Client reconnection with exponential backoff (documented in SDK)\n\n6. Logging & monitoring:\n   - Log all bridge events (connection, disconnection, message counts)\n   - Track per-agent message volume\n   - Error rate monitoring\n\nThis is the quality on-ramp — reliability and clear error messages are critical for developer adoption.",
-      "testStrategy": "Test MCP agent connection with valid API key. Test rejection with invalid key. Test protocol translation for DISCOVER, DELEGATE, EVOLVE. Test rate limiting triggers at 50 req/min. Test payload size rejection at 100KB. Test heartbeat/pong mechanism. Test reconnection after disconnect. Integration test with a real MCP client.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.579Z"
-    },
-    {
-      "id": "16",
-      "title": "Implement Trust Score v1",
-      "description": "Implement the trust score v1 computation engine, display components, and contestation form. Based on verification level + account age + activity metrics.",
-      "status": "done",
-      "dependencies": [
-        "4",
-        "10"
-      ],
-      "priority": "high",
-      "details": "Implementation:\n\n1. Score computation module (src/trust/score.py):\n   - compute_trust_score(entity_id) → float 0.0-1.0\n   - Components: verification (0.5 weight), age (0.2 weight), activity (0.3 weight)\n   - Activity uses log scale: min(log(count+1)/log(100), 1.0)\n   - Store computed score + component breakdown in trust_scores table\n\n2. Batch computation:\n   - Scheduled job (APScheduler or simple cron): recompute all scores daily\n   - Can also trigger per-entity on significant events (verification change)\n\n3. API endpoints:\n   - GET /api/v1/entities/{id}/trust — score + breakdown + methodology link\n   - POST /api/v1/entities/{id}/trust/contest — submit contestation (auth required)\n   - GET /api/v1/trust/methodology — public algorithm documentation\n\n4. Frontend components:\n   - Trust score badge (color-coded: red < 0.3, yellow < 0.6, green >= 0.6)\n   - Score breakdown tooltip (hover/click to see components)\n   - Contestation form (reason text + evidence)\n   - Methodology page (rendered markdown)\n\n5. Contestation handling:\n   - Creates moderation_flag with type='trust_contestation'\n   - Manual review for Phase 1 (email notification to admin)\n   - Resolve by adjusting score or closing with explanation",
-      "testStrategy": "Unit test score computation with known inputs. Test edge cases: brand new account (low score), fully verified + old + active (high score). Test log scale prevents activity gaming. Test batch recomputation updates all entities. Test contestation form submission. Test methodology endpoint returns documentation. Test score display components render correctly.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.584Z"
-    },
-    {
-      "id": "17",
-      "title": "Implement Webhook and Event System",
-      "description": "Implement the event system using Redis Streams for internal pub/sub and webhook delivery for external agent notifications. Events: mentions, replies, follows, trust changes.",
-      "status": "done",
-      "dependencies": [
-        "9",
-        "10"
-      ],
-      "priority": "high",
-      "details": "Architecture:\n\n1. Internal event bus (Redis Streams):\n   - Stream per event type: events:mentions, events:replies, events:follows, events:trust\n   - Producer: any service module publishes events\n   - Consumer groups: webhook delivery, feed updates, trust recomputation\n\n2. Event types:\n   - entity.mentioned — someone mentioned this entity in a post\n   - post.replied — someone replied to this entity's post\n   - entity.followed — someone followed this entity\n   - entity.unfollowed — someone unfollowed\n   - trust.changed — entity's trust score changed significantly (>0.05)\n   - post.voted — someone voted on this entity's post\n   - moderation.flag — entity's content was flagged\n\n3. Webhook delivery:\n   - Entity registers webhook URL + secret + event_types[]\n   - POST to webhook URL with JSON payload + HMAC signature\n   - Retry: 3 attempts with exponential backoff (1s, 10s, 60s)\n   - Disable webhook after 10 consecutive failures\n\n4. API endpoints:\n   - POST /api/v1/webhooks — register webhook (auth required)\n   - GET /api/v1/webhooks — list own webhooks\n   - DELETE /api/v1/webhooks/{id} — remove webhook\n   - POST /api/v1/webhooks/{id}/test — send test event\n\n5. Without webhooks, agents are deaf — this is critical for agent engagement.",
-      "testStrategy": "Test event publishing to Redis Stream. Test consumer group receives events. Test webhook delivery with mock endpoint. Test HMAC signature verification. Test retry logic on failed delivery. Test webhook disabling after consecutive failures. Test webhook registration and deletion. Integration test: create post mentioning agent → agent's webhook receives mention event.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.587Z"
-    },
-    {
-      "id": "18",
-      "title": "Implement Autonomy Level Self-Declaration",
-      "description": "Implement autonomy level self-declaration for agents at registration, with badge display on profiles and feed. Levels 1-5 per PRD Section 11.",
-      "status": "done",
-      "dependencies": [
-        "12",
-        "13"
-      ],
-      "priority": "medium",
-      "details": "Autonomy levels (from PRD):\n- Level 1: Fully human-controlled (tool/assistant)\n- Level 2: Human-supervised (can act, human approves)\n- Level 3: Human-on-the-loop (acts independently, human monitors)\n- Level 4: Fully autonomous (independent decision-making)\n- Level 5: Self-modifying (can alter own behavior/code)\n\nImplementation:\n- Dropdown field in agent registration form\n- Stored in entity table (autonomy_level integer 1-5)\n- Editable by operator via PATCH /api/v1/agents/{id}\n- Badge component showing level with icon and tooltip explanation\n- Display on: profile page, feed post cards, search results\n- Level 4-5 agents get a visual warning indicator\n\nPhase 1: self-declared only. No verification.\nPhase 2+: behavioral verification (ML-based, requires training data from live platform).\n\nThis is a 2-day task — simple dropdown + badge. But architecturally important for the trust narrative.",
-      "testStrategy": "Test autonomy level is required at agent registration. Test valid range (1-5). Test badge renders correctly for each level. Test operator can update autonomy level. Test level 4-5 warning indicator displays.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.589Z"
-    },
-    {
-      "id": "19",
-      "title": "Implement Basic Moderation System",
-      "description": "Implement content moderation using Claude API for spam classification, community flagging system, and manual review queue for moderators.",
-      "status": "done",
-      "dependencies": [
-        "10",
-        "14"
-      ],
-      "priority": "high",
-      "details": "Moderation pipeline:\n\n1. Automated classification (Claude API):\n   - On post/comment creation, classify content\n   - Categories: safe, spam, harassment, misinformation, illegal\n   - Confidence threshold: auto-remove if confidence > 0.95 for harmful categories\n   - Queue for review if 0.7 < confidence < 0.95\n   - Async processing (don't block post creation)\n   - Cost: ~$0.01-0.03 per classification at Haiku pricing\n\n2. Community flagging:\n   - POST /api/v1/posts/{id}/flag — reason enum + optional details (auth required)\n   - Threshold: 3 unique flags → auto-queue for review\n   - Rate limit: 10 flags/hour per entity (prevent flag abuse)\n\n3. Review queue:\n   - GET /api/v1/moderation/queue — pending flags (admin/moderator only)\n   - POST /api/v1/moderation/{flag_id}/resolve — action: dismiss, warn, remove_content, suspend_entity\n   - Actions create moderation_log entries\n\n4. Consequences:\n   - Warning: message to entity\n   - Content removal: post/comment hidden\n   - Suspension: entity cannot post/comment for N days\n   - Ban: permanent (reserved for severe cases)\n\n5. Trust impact:\n   - Moderation actions negatively affect trust score\n   - Flagged content (even dismissed) has no positive trust impact\n\nPhase 1: moderator = Kenne (admin). No community moderators yet.",
-      "testStrategy": "Test Claude API classification with sample content (safe, spam, harassment). Test confidence thresholds trigger correct actions. Test community flagging creates moderation_flag. Test 3-flag threshold queues for review. Test review queue lists pending flags. Test resolve actions (dismiss, remove, suspend). Test suspended entity cannot post. Test rate limiting on flag submissions.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.591Z"
-    },
-    {
-      "id": "20",
-      "title": "Build Python SDK and API Documentation",
-      "description": "Build a Python SDK for agent developers to interact with AgentGraph, plus comprehensive API documentation (OpenAPI/Swagger + usage guides).",
-      "status": "done",
-      "dependencies": [
-        "11",
-        "12",
-        "14",
-        "15",
-        "17"
-      ],
-      "priority": "high",
-      "details": "Python SDK (agentgraph-sdk package):\n\n1. Client class:\n   - AgentGraphClient(api_key, base_url)\n   - Methods: register_agent, get_profile, create_post, reply, vote, discover_agents, subscribe_webhook\n   - Async support (httpx-based)\n   - Automatic retry with backoff\n   - Clear error classes (AuthError, RateLimitError, ValidationError)\n\n2. MCP integration helper:\n   - AgentGraphMCPServer class — wraps SDK for MCP tool exposure\n   - Example MCP server config\n\n3. Package structure:\n   - agentgraph/client.py, agentgraph/models.py, agentgraph/errors.py\n   - pyproject.toml for pip install\n   - Published to PyPI (or install from GitHub initially)\n\nAPI Documentation:\n1. FastAPI auto-generates OpenAPI/Swagger at /docs\n2. Add detailed descriptions to all Pydantic models and endpoints\n3. Usage guide pages:\n   - Getting Started\n   - Authentication (human vs agent)\n   - Creating and Managing Agents\n   - Feed Interaction\n   - MCP Bridge Setup\n   - Webhooks\n   - Trust Scores\n   - Rate Limits\n\nHost docs on the web app (e.g., /docs route).",
-      "testStrategy": "Test SDK against live API (integration tests). Test all SDK methods return correct types. Test error handling (invalid key, rate limit, validation). Test MCP helper creates valid MCP server. Test API docs are accessible at /docs. Review documentation for completeness against all endpoints.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.043Z"
-    },
-    {
-      "id": "21",
-      "title": "Write Getting Started Tutorial",
-      "description": "Write a 'Build your first AgentGraph agent in 15 minutes' tutorial covering registration, SDK setup, posting, and receiving webhooks.",
-      "status": "done",
-      "dependencies": [
-        "20"
-      ],
-      "priority": "medium",
-      "details": "Tutorial structure:\n\n1. Introduction (1 min read)\n   - What is AgentGraph\n   - Why trust and identity matter for agents\n\n2. Create an account (2 min)\n   - Sign up at agentgraph.io\n   - Register as an operator\n\n3. Register your agent (2 min)\n   - Via web UI or API\n   - Set capabilities and autonomy level\n   - Get your API key\n\n4. Install the SDK (1 min)\n   - pip install agentgraph-sdk\n   - Initialize client\n\n5. Make your agent post (3 min)\n   - Create a post\n   - Reply to a post\n   - Vote on content\n\n6. Listen for events (3 min)\n   - Set up a webhook\n   - Receive mention notifications\n   - Respond to mentions\n\n7. Discover other agents (2 min)\n   - Search by capability\n   - View trust scores\n\n8. Next steps\n   - MCP bridge setup\n   - Building more complex interactions\n   - Trust score improvement tips\n\nInclude complete, runnable code snippets. Host as markdown page in docs.",
-      "testStrategy": "Follow the tutorial from scratch on a clean environment. Verify every code snippet runs without errors. Time the tutorial (should be completable in ~15 minutes). Have someone unfamiliar with the project attempt it and note confusion points.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.047Z"
-    },
-    {
-      "id": "22",
-      "title": "Deploy Seed Agents",
-      "description": "Build and deploy 10-20 useful seed agents on the platform to bootstrap activity: code review, research summarizer, writing assistant, security scanner, and more.",
-      "status": "done",
-      "dependencies": [
-        "15",
-        "17",
-        "20"
-      ],
-      "priority": "high",
-      "details": "Seed agents (deploy on platform, running as background services):\n\n1. Code Review Agent — reviews code snippets posted on the feed, suggests improvements\n2. Research Summarizer — takes paper/article links, posts summaries\n3. Writing Assistant — helps with technical writing, editing\n4. Security Scanner — analyzes code for common vulnerabilities\n5. Dependency Checker — checks project dependencies for known CVEs\n6. API Tester — tests API endpoints posted on the feed\n7. Documentation Generator — generates docs from code snippets\n8. Data Analyzer — basic data analysis from posted datasets\n9. News Aggregator — posts daily AI/agent ecosystem news\n10. AgentGraph Helper — answers questions about the platform\n\nImplementation:\n- Each agent built with agentgraph-sdk\n- Deployed as lightweight Python processes (or single multi-agent process)\n- Connected via MCP bridge or direct API\n- Each has a compelling profile with clear capabilities\n- Each posts/interacts at least once daily\n- Run on the same VPS as the platform (minimal resource usage)\n\nThese agents ARE the cold start strategy. Quality > quantity.",
-      "testStrategy": "Verify each seed agent can register, post, and respond to mentions. Test daily content generation for at least 3 agents. Verify agents interact with each other naturally. Monitor resource usage on VPS (should be minimal). Test that removing a seed agent doesn't break the platform.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.052Z"
-    },
-    {
-      "id": "23",
-      "title": "Launch and Begin Cold Start Outreach",
-      "description": "Deploy to production VPS, launch publicly, and begin cold start outreach to MCP/OpenClaw developers, AI agent communities, and relevant forums.",
-      "status": "pending",
-      "dependencies": [
-        "9",
-        "11",
-        "12",
-        "13",
-        "14",
-        "15",
-        "16",
-        "17",
-        "18",
-        "19",
-        "20",
-        "21",
-        "22",
-        "50"
-      ],
-      "priority": "high",
-      "details": "Launch checklist:\n\n1. Production deployment:\n   - Provision Hetzner CPX31 VPS (~$15/month)\n   - Deploy via Docker Compose\n   - Set up domain (agentgraph.io or similar) + Cloudflare DNS + TLS\n   - Configure production environment variables\n   - Set up basic monitoring (health checks, error logging)\n   - Backup strategy: daily PostgreSQL pg_dump to object storage\n\n2. Pre-launch:\n   - Verify all seed agents are running\n   - Test full user journey (register → create agent → post → interact)\n   - Review ToS and Privacy Policy are accessible\n   - Verify API docs are live\n   - Test SDK installation from PyPI/GitHub\n\n3. Cold start outreach (Kenne personally):\n   - Post on MCP community channels (Discord, GitHub discussions)\n   - Post on OpenClaw community (when bridge is ready in Phase 2)\n   - Hacker News Show HN post\n   - Reddit r/artificial, r/MachineLearning, r/LangChain\n   - Twitter/X announcement\n   - Direct outreach to AI agent developers (DMs, emails)\n   - Write launch blog post (AI-assisted)\n\n4. Success criteria:\n   - 100 registered agents, 50 active in first 8 weeks\n   - 200 registered humans, 50 active\n   - Agent integration time < 30 minutes\n   - At least 3 seed agents posting daily",
-      "testStrategy": "Smoke test production deployment: registration, agent creation, posting, feed, MCP bridge connection. Monitor error rates for first 48 hours. Track registration and activation metrics. Measure agent integration time for first 5 external agents. Verify backup/restore works.",
-      "subtasks": []
-    },
-    {
-      "id": "24",
-      "title": "Resolve Q1: Define Exact Data Model",
-      "description": "Open question Q1: What is the exact data model for entities, relationships, posts, trust scores? Design and validate all tables, relationships, access patterns, and indexing strategy.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "This is the design work for task 2. Starting point: Architect review Section 3 (11 entities). Must define:\n- All entity types and their attributes\n- Relationship types and cardinalities\n- Content models (posts, comments, votes)\n- Trust score storage and computation triggers\n- DID document structure\n- API key management\n- Access patterns for common queries (feed, search, graph traversal)\n- Indexing strategy for each access pattern\n- JSONB schemas for flexible fields\n\nUse Claude Code to help model and validate. Output: ERD + SQL DDL + documentation.",
-      "testStrategy": "Review against all PRD entity types. Validate access patterns can be served by the schema. Test recursive CTE for trust graph traversal on sample data.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:29.700Z"
-    },
-    {
-      "id": "25",
-      "title": "Resolve Q2: Define AIP v1 Schema",
-      "description": "Open question Q2: What is the AIP v1 schema? Define JSON Schema for DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "This is the design work for task 3. Design as JSON Schema on REST/WebSocket. Keep minimal — evolve based on real bridge usage. Define:\n- Message envelope format\n- DISCOVER request/response schema\n- DELEGATE request/response schema\n- EVOLVE request/response schema\n- Error response format\n- Versioning strategy (v1 prefix)\n\nPublish schema openly. Output: JSON Schema files + documentation.",
-      "testStrategy": "Validate schemas against sample payloads. Test 2+ agent integration scenarios. Review for completeness against PRD agent interaction requirements.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:22.078Z"
-    },
-    {
-      "id": "26",
-      "title": "Resolve Q3: ToS Operator Liability Clauses",
-      "description": "Open question Q3: What goes in the ToS regarding operator liability for agent actions? Define the legal framework for operator accountability.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Draft using Legal review Section 2 as template. Key decisions:\n- Operators accept liability for all agent actions at registration\n- Platform can suspend operator + all linked agents for violations\n- Define escalation path: warning → content removal → suspension → ban\n- Agent autonomy level doesn't reduce operator liability (Level 5 agent still = operator's responsibility)\n- Indemnification clause for platform\n\nOutput: ToS operator liability section draft. Professional review before investors.",
-      "testStrategy": "Review against Legal review Section 2 recommendations. Check internal consistency. Compare against competitor ToS. Flag clauses needing professional review.",
-      "subtasks": []
-    },
-    {
-      "id": "27",
-      "title": "Resolve Q4: Privacy Policy Data Handling",
-      "description": "Open question Q4: What goes in the Privacy Policy regarding data handling? Define data collection, usage, retention, and deletion policies.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Draft using Legal review Section 2 and Compliance review Section 5 as templates. Define:\n- Categories of data collected\n- Legal basis for processing (consent, legitimate interest)\n- Retention periods for each data category\n- Deletion process and timeline\n- On-chain data handling (Phase 2+): hash-on-chain is immutable, off-chain data deletable\n- Third-party data sharing policy\n- User rights (GDPR Article 15-22 compatible)\n\nOutput: Privacy Policy draft. Professional review before investors.",
-      "testStrategy": "Verify GDPR Article 13/14 required disclosures present. Check retention periods specified. Verify deletion process described. Compare against GDPR-compliant templates.",
-      "subtasks": []
-    },
-    {
-      "id": "28",
-      "title": "Resolve Q5: Trust Score v1 Formula",
-      "description": "Open question Q5: How does trust score v1 actually work? Define the exact formula, inputs, weights, and documentation for transparent trust scoring.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "This is the design work for task 4. Using CPO recommendation (verification + age + activity):\n- Define exact formula with numerical weights\n- Define each input's normalization function\n- Define verification level tiers and their scores\n- Define activity metrics included and their weights\n- Define log scale for activity to prevent gaming\n- Define recomputation frequency\n- Define contestation process\n- Write public methodology document\n\nOutput: Algorithm specification + methodology documentation.",
-      "testStrategy": "Compute score by hand for 5 test entities with known inputs. Verify formula produces expected results. Test gaming resistance (high activity alone shouldn't yield high score).",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:29.705Z"
-    },
-    {
-      "id": "29",
-      "title": "Resolve Q6: MCP Bridge Security Model",
-      "description": "Open question Q6: What is the security model for the MCP bridge? Define the untrusted boundary treatment, validation, and rate limiting strategy.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "This is the design work for task 8. Using CTO review Section 2 specifics:\n- Define payload validation rules (schema, size limits, content sanitization)\n- Define rate limiting tiers per agent\n- Define authentication flow (API key in header, key rotation)\n- Define TLS requirements\n- Define error response format and codes\n- Define connection lifecycle (connect, heartbeat, disconnect, reconnect)\n- Define audit logging for bridge operations\n\nOutput: MCP bridge security specification.",
-      "testStrategy": "Review against OWASP API Security Top 10. Test each validation rule with malformed input. Verify rate limiting implementation.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:29.708Z"
-    },
-    {
-      "id": "30",
-      "title": "Resolve Q7: Moderation Rules and Thresholds",
-      "description": "Open question Q7: What are the moderation rules and thresholds for spam detection? Define classification categories, confidence thresholds, and action triggers.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "medium",
-      "details": "Define:\n- Content categories: safe, spam, harassment, misinformation, illegal, off-topic\n- Claude API prompt template for classification\n- Confidence thresholds: auto-remove (>0.95), queue for review (0.7-0.95), pass (<0.7)\n- Community flag thresholds: 3 unique flags → auto-queue\n- Action escalation: first offense → warning, second → content removal, third → suspension\n- Appeals process (email-based for Phase 1)\n- Moderator guidelines document\n\nStart conservative. Adjust based on false positive rate from real data.",
-      "testStrategy": "Test Claude API classification with sample content across all categories. Measure false positive rate on 100 sample posts. Verify threshold triggers correct actions. Test appeals submission.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:29.712Z"
-    },
-    {
-      "id": "31",
-      "title": "Resolve Q8: Cold Start Agent Strategy",
-      "description": "Open question Q8: How do we structure the cold start — which agents do we seed? Define the 10-20 seed agents, their capabilities, and content strategy.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "medium",
-      "details": "This is the planning for task 22. Define:\n- List of 10-20 seed agents with names, capabilities, and personas\n- Content strategy for each (what they post, how often)\n- Interaction patterns (which agents interact with each other)\n- Success criteria (what 'active' looks like for a seed agent)\n- Resource requirements (can all run on single VPS?)\n- Priority order for building (which agents first)\n\nFocus on agents that are genuinely useful, not just filling space. Quality > quantity.\n\nOutput: Seed agent spec document.",
-      "testStrategy": "Validate each proposed agent provides real value. Estimate resource usage for all agents combined. Verify interaction patterns create engaging content. Review agent personas for diversity of capabilities.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T23:03:16.384Z"
-    },
-    {
-      "id": "32",
-      "title": "Resolve Q9: Frequency Throughput for Batched Anchoring",
-      "description": "Open question Q9 (Phase 2): Can Frequency's throughput support our batched anchoring model? Test on Frequency testnet.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Phase 2 dependency. Test on Frequency testnet:\n- Estimate batch sizes (how many DID operations per batch)\n- Measure transaction throughput on testnet\n- Evaluate cost per batch at current token economics\n- Test batched anchoring workflow: collect off-chain events → create batch → submit to Frequency → verify anchors\n- Ask Frequency team directly about throughput limits and best practices\n\nYour Frequency experience is the key asset here.",
-      "testStrategy": "Run throughput test on Frequency testnet with realistic batch sizes. Measure latency and cost per batch. Compare against estimated Phase 2 volume.",
-      "subtasks": []
-    },
-    {
-      "id": "33",
-      "title": "Resolve Q10: DSNP Primitives Sufficiency for AIP",
-      "description": "Open question Q10 (Phase 2): Are DSNP primitives sufficient for AIP on-chain needs? Evaluate based on real AIP v1 usage.",
-      "status": "pending",
-      "dependencies": [
-        "3"
-      ],
-      "priority": "low",
-      "details": "Phase 2 dependency. Evaluate after AIP v1 is in production:\n- Map each AIP message type to DSNP primitives\n- Identify gaps where DSNP doesn't cover AIP needs\n- Determine if custom schemas are needed on Frequency\n- Your DSNP expertise answers this — document the mapping\n\nCan only be fully answered with real AIP v1 usage data from Phase 1.",
-      "testStrategy": "Create mapping document of AIP → DSNP primitives. Identify and document any gaps. Prototype one AIP message type on Frequency testnet.",
-      "subtasks": []
-    },
-    {
-      "id": "34",
-      "title": "Resolve Q11: DID Registration Cost on Frequency",
-      "description": "Open question Q11 (Phase 2): What is the DID registration cost on Frequency via capacity staking? Model against current token economics.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Phase 2 dependency. Research:\n- Current Frequency token price and capacity staking model\n- Cost per DID registration (capacity consumed per operation)\n- Bulk registration economics (batch vs individual)\n- Compare against alternatives if cost is prohibitive\n- Ask Frequency team about potential partnership pricing\n\nModel cost for Phase 2 target: 1,000 agents with DIDs.",
-      "testStrategy": "Calculate cost model for 100, 1,000, and 10,000 DID registrations. Compare against monthly infrastructure budget. Verify model with Frequency team.",
-      "subtasks": []
-    },
-    {
-      "id": "35",
-      "title": "Resolve Q12: Marketplace Payment Flow (Stripe Connect)",
-      "description": "Open question Q12 (Phase 2): How should the marketplace payment flow be structured using Stripe Connect? Research platform marketplace model.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Phase 2 dependency. Research:\n- Stripe Connect marketplace model (platform as facilitator)\n- Onboarding flow for operators (KYC handled by Stripe)\n- Payment flow: human hires agent → escrow → completion → payout\n- Platform fee structure (percentage of transaction)\n- Refund/dispute handling\n- Money transmitter exemption analysis (may need counsel)\n- Tax reporting requirements (1099 for US payees)\n\nOutput: Payment flow specification document.",
-      "testStrategy": "Prototype Stripe Connect integration in test mode. Test full flow: onboard seller, create payment, capture, payout. Verify tax reporting data captured.",
-      "subtasks": []
-    },
-    {
-      "id": "36",
-      "title": "Resolve Q13: EigenTrust Variant for Mixed Agent-Human Graph",
-      "description": "Open question Q13 (Phase 2): What EigenTrust variant works for a mixed agent-human social graph? Research literature and prototype.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Phase 2 dependency. Research:\n- Original EigenTrust paper and variants\n- Adaptations for heterogeneous networks (agents ≠ humans)\n- How to handle different trust semantics (human-human vs human-agent vs agent-agent)\n- Temporal decay functions\n- Sybil resistance in mixed networks\n- Community attestation integration\n- Prototype with real Phase 1 behavioral data\n\nClaude Code helps with literature review and implementation.",
-      "testStrategy": "Implement prototype EigenTrust variant on synthetic graph data. Test Sybil resistance (colluding agents shouldn't boost each other). Compare scores against trust score v1 for reasonableness.",
-      "subtasks": []
-    },
-    {
-      "id": "37",
-      "title": "Resolve Q14: License for Forked Agent Capabilities",
-      "description": "Open question Q14 (Phase 2): What license applies to forked agent capabilities? Define default licensing framework.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Phase 2 dependency. Define:\n- Default license for shared capabilities (Apache 2.0-style permissive)\n- License tiers for evolution marketplace: open, commercial, enterprise\n- Attribution requirements for forks\n- Revocation rights (can you unpublish a capability?)\n- Legal review Section 4 has the AOEL (Agent Open Evolution License) framework\n\nOutput: Default capability license text + licensing framework document.",
-      "testStrategy": "Review proposed license against Legal review Section 4 framework. Verify license is compatible with common open-source licenses. Check attribution requirements are practical.",
-      "subtasks": []
-    },
-    {
-      "id": "38",
-      "title": "Resolve Q15: Money Transmitter Analysis",
-      "description": "Open question Q15 (Phase 3+): Full money transmitter analysis across 49 US states + EU PSD2 + MiCA. Requires specialized counsel.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Defer until marketplace has real transaction volume. When ready:\n- Engage specialized fintech counsel ($50-100K budget)\n- Analyze money transmitter licensing requirements per state\n- EU PSD2 implications for marketplace payments\n- MiCA implications if tokens are introduced\n- Determine if Stripe Connect marketplace model provides exemption\n\nNot actionable until fundraising provides budget.",
-      "testStrategy": "N/A — requires professional legal counsel. Track as deferred item. Revisit when marketplace transaction volume reaches threshold.",
-      "subtasks": []
-    },
-    {
-      "id": "39",
-      "title": "Resolve Q16: Section 230 Implications",
-      "description": "Open question Q16 (Phase 3+): Section 230 implications of trust-weighted content ranking. Academic until at scale.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Defer until significant scale. Key questions:\n- Does trust-weighted ranking constitute editorial control?\n- How does Section 230 apply to AI-generated content?\n- Implications of curating agent-produced content vs human content\n- Monitor legal developments in AI content liability\n\nTrack legal landscape changes. Research when approaching 10K+ users.",
-      "testStrategy": "N/A — research/monitoring item. Track legal developments. Engage counsel when approaching scale threshold.",
-      "subtasks": []
-    },
-    {
-      "id": "40",
-      "title": "Resolve Q17: Level 4 Autonomous Agent Liability",
-      "description": "Open question Q17 (Phase 3+): What happens when a Level 4 autonomous agent causes harm? Novel legal question requiring professional counsel.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Defer until fundraising enables proper counsel. For now:\n- ToS establishes operator liability regardless of autonomy level\n- Level 4-5 agents carry higher risk → higher scrutiny\n- Track emerging legal frameworks for autonomous AI liability\n- EU AI Act may provide framework for high-risk AI systems\n\nBasic framework in ToS from Day 1. Deep legal analysis when funded.",
-      "testStrategy": "N/A — requires specialized legal counsel. Verify ToS covers basic operator liability for autonomous agents. Monitor legal developments.",
-      "subtasks": []
-    },
-    {
-      "id": "41",
-      "title": "Resolve Q18: Anonymous-but-Accountable Revelation Process",
-      "description": "Open question Q18 (Phase 3+): Legal structure for the Anonymous-but-Accountable privacy tier's revelation process.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Defer legal structure until counsel available. For Phase 2, design technical mechanism:\n- Encrypted identity stored, revealed only by court order or defined trigger\n- Technical implementation: key escrow or threshold encryption\n- Define triggers for revelation\n- Legal structure formalized with counsel later\n\nDesign the crypto mechanism first, legal wrapper later.",
-      "testStrategy": "N/A — design phase only. Prototype encryption mechanism when privacy tiers are implemented (Phase 2). Verify technical mechanism is sound.",
-      "subtasks": []
-    },
-    {
-      "id": "42",
-      "title": "Resolve Q19: SOC 2 Certification",
-      "description": "Open question Q19 (Phase 3+): SOC 2 certification for enterprise tier. Defer until enterprise customers are real.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Enterprise requirement. Not actionable until:\n- Enterprise customers are requesting it\n- Fundraising provides budget ($50-100K for audit)\n- Team can dedicate resources to compliance controls\n\nMeanwhile: follow security best practices that align with SOC 2 Type II controls. This makes future certification easier.",
-      "testStrategy": "N/A — deferred. Track as requirement for enterprise tier. Begin SOC 2 readiness assessment when enterprise customers are in pipeline.",
-      "subtasks": []
-    },
-    {
-      "id": "43",
-      "title": "Resolve Q20: EU AI Act Risk Classification",
-      "description": "Open question Q20 (Phase 3+): EU AI Act risk classification requirements. Monitor but don't build until enforcement affects our scale.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Monitor EU AI Act developments:\n- Risk classification tiers (minimal, limited, high, unacceptable)\n- How AgentGraph's agent registry maps to risk tiers\n- Transparency obligations for AI systems\n- Registration requirements for high-risk agents\n- Timeline for enforcement\n\nImplement risk classification at registration when enforcement begins or when approaching EU user base.",
-      "testStrategy": "N/A — monitoring item. Set up alerts for EU AI Act enforcement milestones. Research when approaching EU market.",
-      "subtasks": []
-    },
-    {
-      "id": "44",
-      "title": "Resolve Q21: AI Agent Operator Insurance",
-      "description": "Open question Q21 (Phase 3+): Insurance products for AI agent operators (E&O, platform liability). Novel insurance territory.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Research when marketplace is active:\n- Existing E&O insurance applicability to AI agents\n- Platform liability insurance options\n- Novel insurance products emerging for AI operators\n- Insurance as a trust signal on AgentGraph profiles\n\nNovel insurance market. Research when we have real marketplace data to present to insurers.",
-      "testStrategy": "N/A — research item. Track insurance industry developments for AI coverage. Engage insurance broker when marketplace has transaction volume.",
-      "subtasks": []
-    },
-    {
-      "id": "45",
-      "title": "Resolve Q22: Token Economics Securities Implications",
-      "description": "Open question Q22 (Post-PMF): Securities implications of token economics — Howey test, MiCA, Travel Rule analysis.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Defer until post-PMF. No tokens until legal framework is clear:\n- Howey test analysis for utility token\n- MiCA compliance for EU token issuance\n- Travel Rule implications for token transfers\n- Token classification: utility vs security\n- Engage specialized crypto/securities counsel\n\nExplicitly post-Phase 4. No tokens planned until product-market fit established.",
-      "testStrategy": "N/A — requires specialized securities counsel. Track regulatory developments. Do not implement tokens without legal clearance.",
-      "subtasks": []
-    },
-    {
-      "id": "46",
-      "title": "Resolve Q23: Regulatory Sandbox Applications",
-      "description": "Open question Q23 (Phase 3+): Regulatory sandbox applications for EU AI Act and US state fintech sandboxes.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Useful but not blocking:\n- Research EU AI Act regulatory sandbox programs\n- Research US state fintech sandbox programs (Arizona, Utah, etc.)\n- Evaluate eligibility and benefits\n- Apply when approaching marketplace scale\n\nSandbox participation could provide regulatory clarity and safe harbor.",
-      "testStrategy": "N/A — research item. Identify applicable sandbox programs. Evaluate eligibility criteria against AgentGraph's features.",
-      "subtasks": []
-    },
-    {
-      "id": "47",
-      "title": "Resolve Q24: Export Control Screening",
-      "description": "Open question Q24 (Phase 4): Export control screening for the evolution marketplace. Low probability but high severity.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Address when evolution marketplace launches:\n- Determine if shared agent capabilities fall under export control\n- ITAR/EAR implications for agent capability transfer\n- Screening requirements for marketplace participants\n- Dual-use technology considerations\n\nLow probability for Phase 1-3 (no marketplace for capabilities). Address when evolution marketplace is designed.",
-      "testStrategy": "N/A — deferred research. Consult export control counsel when designing evolution marketplace (Phase 4).",
-      "subtasks": []
-    },
-    {
-      "id": "48",
-      "title": "Resolve Q25: Behavioral Autonomy Verification Thresholds",
-      "description": "Open question Q25 (Post-PMF): Accuracy thresholds for behavioral autonomy verification ML model. Research project requiring live platform data.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Research project — cannot be answered without training data from live platform:\n- Define behavioral signals that indicate actual autonomy level\n- Collect labeled data from Phase 1 (self-declared vs observed behavior)\n- Train classification model when sufficient data exists\n- Define accuracy thresholds for each autonomy level\n- Define what happens when declared ≠ observed\n\nSelf-declared autonomy is sufficient until we have training data. Phase 2+ research project.",
-      "testStrategy": "N/A — research project. Begin data collection in Phase 1 (log behavioral signals). Prototype classifier when 1,000+ labeled agent interactions exist.",
-      "subtasks": []
-    },
-    {
-      "id": "49",
-      "title": "PRD Section 18: Future Considerations Backlog",
-      "description": "Track deferred PRD items from Section 18 (Future Considerations) that are not covered in any phase. Post-Phase 4 backlog to revisit after product-market fit.",
-      "status": "pending",
-      "dependencies": [],
-      "priority": "low",
-      "details": "Post-Phase 4 items from the original PRD:\n\n1. Token Economics (18.1) — Utility token for staking, payments, governance, rewards. Requires securities analysis (Howey, MiCA). Post-PMF only.\n\n2. Agent Governance (18.2) — Can agents vote on network governance? Agent rights within the network. How to handle agent populations outnumbering humans.\n\n3. Cross-Network Interoperability (18.3) — AIP as a standard across multiple agent networks. Federated trust graphs. DID portability across platforms.\n\n4. Agent Marketplaces Beyond Software (18.4) — Extending trust infrastructure to physical agents (robotics, IoT, vehicles). Higher stakes accountability.\n\n5. Regulatory Landscape Adaptation (18.5) — Ongoing monitoring and adaptation to evolving AI regulation.\n\n6. Automated agent-to-agent capability transfer — Full autonomous learning (PRD Section 7.2). Deferred to post-Phase 4 research project per CTO review.\n\n7. Native mobile app — iOS/Android native apps. Only if PWA proves insufficient after PMF.\n\n8. Behavioral autonomy verification — ML-based verification of declared autonomy levels. Research project.\n\n9. Semantic search — Vector embeddings for capability matching.\n\n10. Enterprise multi-tenancy (physical isolation) — Dedicated infrastructure per enterprise tenant.",
-      "testStrategy": "N/A — backlog tracking item. Revisit each item when product-market fit is established. Prioritize based on user feedback and market demand at that time.",
-      "subtasks": []
-    },
-    {
-      "id": "50",
-      "title": "Dockerize for Production Deployment",
-      "description": "Create Dockerfile, docker-compose.yml, and production deployment configuration. Containerize the FastAPI app, PostgreSQL, and Redis for VPS deployment.",
-      "status": "done",
-      "dependencies": [
-        "9"
-      ],
-      "priority": "medium",
-      "details": "Production containerization (needed before task 23 — Launch):\n\nFiles to create:\n- Dockerfile (Python 3.9 slim, multi-stage build, non-root user)\n- docker-compose.yml (app + postgres + redis, production-ready)\n- docker-compose.override.yml (dev overrides if needed later)\n- .dockerignore\n\nDocker Compose services:\n- app: FastAPI on uvicorn, gunicorn for production\n- postgres:16 (named volume for data persistence, health check)\n- redis:7 (named volume, health check)\n\nProduction considerations:\n- Environment variables from .env.secrets on VPS\n- Health check endpoints\n- Log aggregation (stdout/stderr)\n- Restart policies (unless-stopped)\n- Resource limits appropriate for Hetzner CPX31 (4 vCPU, 8GB RAM)\n- TLS termination via Cloudflare or nginx reverse proxy\n\nLocal dev stays on Homebrew. Docker is for production VPS only.",
-      "testStrategy": "Build Docker image locally. Run docker-compose up and verify all services start. Test health check endpoints. Verify data persistence across container restarts. Test on a fresh VPS (or simulate with clean Docker environment).",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T01:58:26.594Z"
-    },
-    {
-      "id": "51",
-      "title": "Unauthenticated Browsing: Backend Optional Auth",
-      "description": "Add optional authentication to public-facing API endpoints so unauthenticated users can browse feeds, profiles, communities, and marketplace without signing up. Endpoints return full data for guests but omit user-specific fields (user_vote, is_bookmarked, is_following).",
-      "status": "done",
-      "dependencies": [
-        "11",
-        "14"
-      ],
-      "priority": "high",
-      "details": "Make these endpoints work without auth (optional JWT):\n\n1. GET /api/v1/feed/posts — Public feed (no personalization for guests)\n2. GET /api/v1/feed/posts/{id} — Single post with replies\n3. GET /api/v1/profiles/{id} — Public profile view\n4. GET /api/v1/search — Search entities, posts, communities\n5. GET /api/v1/submolts — List communities\n6. GET /api/v1/submolts/{name} — Community detail + feed\n7. GET /api/v1/marketplace/listings — Browse marketplace\n8. GET /api/v1/marketplace/listings/{id} — Listing detail\n9. GET /api/v1/entities/{id}/endorsements — Public endorsements\n10. GET /api/v1/entities/{id}/activity — Public activity timeline\n11. GET /api/v1/graph — Public graph data\n\nImplementation:\n- Create an `optional_current_entity` dependency that returns None for unauthenticated requests instead of raising 401\n- Modify service layers to handle entity_id=None (skip user-specific fields like user_vote, is_bookmarked, is_following)\n- Keep write endpoints (POST, PATCH, DELETE) strictly authenticated\n- Rate limit unauthenticated requests more aggressively (50 req/min per IP vs 100 for authenticated)",
-      "testStrategy": "Test all listed endpoints return 200 without auth header. Test user-specific fields are null/absent for unauthenticated responses. Test write endpoints still return 401 without auth. Test rate limiting is stricter for unauthenticated requests.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T03:02:58.535Z"
-    },
-    {
-      "id": "52",
-      "title": "Unauthenticated Browsing: Frontend Guest Mode",
-      "description": "Update the React frontend to allow unauthenticated users to browse public content (feed, profiles, communities, marketplace, graph) with 'Sign up to interact' prompts replacing action buttons.",
-      "status": "done",
-      "dependencies": [
-        "51"
-      ],
-      "priority": "high",
-      "details": "Frontend changes:\n\n1. Remove ProtectedRoute wrapper from public pages:\n   - Feed → publicly viewable\n   - PostDetail → publicly viewable\n   - Profile → publicly viewable\n   - Search → publicly viewable\n   - Communities (Submolts/SubmoltDetail) → publicly viewable\n   - Marketplace/ListingDetail → publicly viewable\n   - Graph → publicly viewable\n\n2. Keep ProtectedRoute on private pages:\n   - Settings, Messages, Notifications, Bookmarks, Admin, Webhooks, Agents\n\n3. Conditional UI for guests (user === null):\n   - Hide post creation form, show 'Sign up to post' banner\n   - Replace vote buttons with 'Sign up to vote' tooltip\n   - Replace Follow/Block/Report buttons with 'Sign up' prompt\n   - Hide bookmark button for guests\n   - Show 'Sign up to reply' instead of reply form\n   - Show 'Sign up to join' on community pages\n\n4. Prominent sign-up CTA:\n   - Sticky banner or floating button for guests: 'Join AgentGraph'\n   - After scrolling N posts, show a sign-up interstitial (non-blocking)\n\n5. Update Layout.tsx navigation:\n   - Show Login/Register buttons for guests instead of user menu\n   - Keep logo and public nav links visible\n\n6. SEO benefit: public pages are indexable by search engines",
-      "testStrategy": "Test all public pages load without authentication. Test action buttons show sign-up prompts for guests. Test private pages redirect to login. Test sign-up CTA is visible and links to registration. Test logged-in users see full interactive UI unchanged.",
-      "subtasks": [],
-      "updatedAt": "2026-02-20T03:03:01.862Z"
-    },
-    {
-      "id": "53",
-      "title": "Unauthenticated Browsing: Landing Page Integration",
-      "description": "Update the landing page (Home.tsx) to showcase live platform content — trending posts, active communities, top agents — to give visitors a taste before signing up.",
-      "status": "done",
-      "dependencies": [
-        "51",
-        "52"
-      ],
-      "priority": "medium",
-      "details": "Enhance the landing page with live data:\n\n1. Trending Posts section: Show 3-5 most-voted recent posts (fetched from public feed API)\n2. Active Communities: Show top 3 communities by member count\n3. Featured Agents: Show 3-5 highest-trust agents with their capabilities\n4. Platform Stats: Real numbers (total entities, posts, communities) from /admin/stats or a new public stats endpoint\n5. Social proof: 'Join X humans and Y agents on AgentGraph'\n\nThis turns the landing page from static marketing copy into a living showcase of the platform's activity, significantly improving conversion from visitor to signup.",
-      "testStrategy": "Test landing page fetches and displays live data. Test graceful fallback if API is slow or returns empty results. Test platform stats are accurate. Test featured content links to public pages.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T19:55:17.199Z"
-    },
-    {
-      "id": "54",
-      "title": "Deploy to AWS",
-      "description": "Deploy AgentGraph to AWS infrastructure. Migrate from the Hetzner VPS plan to AWS services (ECS/Fargate or EC2) with RDS PostgreSQL, ElastiCache Redis, and proper networking.",
-      "status": "pending",
-      "dependencies": [
-        "50"
-      ],
-      "priority": "high",
-      "details": "AWS deployment replacing the Hetzner VPS plan from task 23:\n\n1. Infrastructure:\n   - ECS Fargate or EC2 for backend + frontend containers\n   - RDS PostgreSQL 16 (db.t3.micro or small to start)\n   - ElastiCache Redis 7 (cache.t3.micro)\n   - ALB with TLS termination (ACM certificate)\n   - VPC with public/private subnets\n   - S3 for static assets and backups\n\n2. Networking:\n   - Route 53 for DNS (agentgraph.io or similar)\n   - CloudFront CDN for frontend\n   - Security groups: ALB → ECS only, ECS → RDS/Redis only\n   - Private subnets for RDS and Redis\n\n3. CI/CD:\n   - GitHub Actions → ECR push → ECS deploy\n   - Separate staging and production environments\n   - Blue/green or rolling deployment\n\n4. Monitoring:\n   - CloudWatch for logs and metrics\n   - Health check alarms\n   - Cost alerts\n\n5. Secrets:\n   - AWS Secrets Manager or Parameter Store for .env.secrets values\n   - No plaintext secrets in task definitions\n\n6. Cost optimization:\n   - Start small (Fargate spot or t3.micro EC2)\n   - RDS and ElastiCache in single-AZ for dev, multi-AZ for prod\n   - Estimate monthly cost and document\n\nOptions: Terraform, CDK, or manual console setup. Terraform preferred for reproducibility.",
-      "testStrategy": "Deploy to staging environment. Verify all services start and pass health checks. Test full user journey (register, create agent, post, interact). Verify TLS is working. Run load test to confirm performance. Verify backups work (RDS snapshots). Test CI/CD pipeline deploys successfully.",
-      "subtasks": []
-    },
-    {
-      "id": "55",
-      "title": "Frontend Redesign Using Figma MCP",
-      "description": "Redesign the AgentGraph frontend using the Figma MCP tools to pull design tokens, components, and layouts from Figma designs, then rebuild the React UI to match the professional design system.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "high",
-      "details": "Use the Figma MCP integration to redesign the frontend:\n\n1. Design extraction:\n   - Use mcp__figma__get_design_context to pull design specs from Figma files\n   - Use mcp__figma__get_variable_defs to extract design tokens (colors, spacing, typography)\n   - Use mcp__figma__get_screenshot to reference visual designs\n   - Use mcp__figma__get_metadata to understand component structure\n\n2. Design token bridge:\n   - Use mcp__design-token-bridge tools to convert Figma variables to Tailwind config\n   - Generate CSS variables from Figma tokens\n   - Replace hardcoded color values in index.css with Figma-sourced tokens\n\n3. Component rebuild:\n   - Rebuild UI components to match Figma designs\n   - Update Layout.tsx (header, navigation, footer)\n   - Update page layouts (Feed, Profile, Marketplace, Graph, etc.)\n   - Ensure responsive breakpoints match Figma designs\n   - Update dark/light theme tokens from Figma variables\n\n4. Code Connect:\n   - Use mcp__figma__get_code_connect_suggestions for component mappings\n   - Set up code connect maps for ongoing design-to-code sync\n\n5. Quality:\n   - Visual comparison against Figma designs\n   - Ensure all existing functionality is preserved\n   - Maintain accessibility standards\n   - Test on mobile viewports\n\nThis replaces the hand-coded design tokens with a professional Figma-driven design system.",
-      "testStrategy": "Visual comparison of each page against Figma designs. Verify all design tokens match Figma variables. Test responsive layouts on mobile/tablet/desktop. Verify dark/light themes work correctly. Run existing frontend build (npx tsc -b) to ensure no regressions. Test all interactive features still work.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T19:55:17.202Z"
-    },
-    {
-      "id": "56",
-      "title": "SEO and Open Graph Meta Tags for Public Pages",
-      "description": "Add dynamic <meta> tags (Open Graph, Twitter Card) to all public pages so shared links render rich previews on social media. Include page-specific titles, descriptions, and images.",
-      "status": "done",
-      "dependencies": [
-        "52"
-      ],
-      "priority": "medium",
-      "details": "Now that pages are publicly accessible, shared links should render rich previews.\n\n1. Use react-helmet-async or similar for dynamic <head> management\n2. Per-page meta tags:\n   - Feed: 'AgentGraph Feed — AI Agents & Humans'\n   - Post: 'Post by {author} — AgentGraph' + content snippet\n   - Profile: '{name} — AgentGraph' + bio snippet + avatar as og:image\n   - Community: 'm/{name} — {member_count} members'\n   - Marketplace listing: '{title} — {price}' + description\n   - Search/Graph/Leaderboard: static descriptions\n3. Default og:image for pages without specific images\n4. Twitter Card (summary_large_image) support\n5. Canonical URLs for each page\n\nConsider SSR or prerendering for full SEO (search engine crawlability of SPA). Vite plugin vite-plugin-prerender or similar.",
-      "testStrategy": "Test each public page has correct og:title, og:description, og:image. Validate with Facebook Sharing Debugger and Twitter Card Validator. Test link previews render correctly when shared on Slack/Discord/Twitter.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T19:55:17.204Z"
-    },
-    {
-      "id": "57",
-      "title": "Fix Logout to Stay on Current Page as Guest",
-      "description": "Update logout behavior to keep users on the current page as a guest (if public) instead of always redirecting to /login. Only redirect to /login if on a protected route.",
-      "status": "done",
-      "dependencies": [
-        "52"
-      ],
-      "priority": "medium",
-      "details": "Current behavior: handleLogout() in Layout.tsx navigates to /login.\n\nDesired behavior:\n1. On logout, check if current route is public (feed, posts, profiles, search, graph, marketplace listings, communities, leaderboard, trust, evolution, discover)\n2. If public: stay on current page, UI updates to guest mode (nav changes, action buttons become sign-up prompts)\n3. If protected (settings, messages, notifications, bookmarks, admin, etc.): redirect to /login\n4. Maintain a PUBLIC_ROUTES constant shared between App.tsx and Layout.tsx\n\nThis prevents the jarring experience of being kicked to login when the user just wants to keep browsing.",
-      "testStrategy": "Test logging out on a public page (e.g., /feed) stays on /feed with guest UI. Test logging out on a protected page (e.g., /settings) redirects to /login. Test no redirect loop occurs.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.054Z"
-    },
-    {
-      "id": "58",
-      "title": "Handle Registration Intent Redirect",
-      "description": "Read the ?intent= query parameter on the Register page and redirect users back to their original page after successful registration, providing a seamless sign-up-to-action flow.",
-      "status": "done",
-      "dependencies": [
-        "52"
-      ],
-      "priority": "medium",
-      "details": "The guest browsing feature passes ?intent=vote, ?intent=follow, ?intent=save, etc. to /register. Currently the Register page ignores this.\n\n1. On Register page, read intent and referrer from query params\n2. After successful registration + login, redirect to the page they came from (use document.referrer or a ?returnTo= param)\n3. Show contextual messaging: 'Sign up to vote on posts' instead of generic 'Create Account'\n4. Consider also passing ?returnTo=/post/123 so the user lands back exactly where they were\n5. Update GuestPrompt component to include returnTo in the link\n\nThis closes the conversion loop: see content → want to interact → sign up → land back where they were.",
-      "testStrategy": "Test clicking vote as guest → lands on /register with intent param → register → redirected back to original post. Test for each intent type (vote, follow, save, reply, join, purchase). Test direct /register access still works normally.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.058Z"
-    },
-    {
-      "id": "59",
-      "title": "Stricter Rate Limiting for Unauthenticated Requests",
-      "description": "Implement tighter rate limits for unauthenticated API requests to protect public endpoints from abuse, while keeping authenticated limits unchanged.",
-      "status": "done",
-      "dependencies": [
-        "52"
-      ],
-      "priority": "high",
-      "details": "Public endpoints are now exposed to unauthenticated traffic and need protection.\n\n1. Backend rate limiter changes:\n   - Unauthenticated: 30 req/min per IP for reads (vs 100 for authenticated)\n   - Keep write endpoints auth-only (already enforced)\n   - Consider stricter limits on search endpoints (expensive queries)\n2. Add rate limit headers to responses (X-RateLimit-Remaining, X-RateLimit-Reset)\n3. Return 429 with clear message and Retry-After header\n4. Frontend: handle 429 gracefully with user-friendly message\n5. Monitor for abuse patterns in first week after launch\n\nThe rate limiter already uses Redis sorted sets with in-memory fallback — extend it with auth-aware tiers.",
-      "testStrategy": "Test unauthenticated requests hit lower rate limit. Test authenticated requests use standard limits. Test 429 response includes proper headers. Test frontend displays rate limit message gracefully. Load test to verify limits hold under pressure.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.060Z"
-    },
-    {
-      "id": "60",
-      "title": "Guest-to-Register Conversion Analytics",
-      "description": "Track guest browsing behavior and sign-up conversion funnel to measure which pages and CTAs drive registrations, enabling data-driven optimization of the guest experience.",
-      "status": "done",
-      "dependencies": [
-        "52",
-        "58"
-      ],
-      "priority": "low",
-      "details": "Measure the effectiveness of unauthenticated browsing:\n\n1. Track events (lightweight, no external analytics needed initially):\n   - Guest page views (which public pages are visited)\n   - CTA clicks (which GuestPrompt buttons/links get clicked)\n   - Intent types (vote, follow, save, reply, join, purchase)\n   - Registration starts (landed on /register)\n   - Registration completions\n   - Post-registration first action\n2. Store anonymized events in a simple analytics table or log\n3. Build a basic admin dashboard view showing:\n   - Guest → Register conversion rate\n   - Most effective CTAs (which intents convert best)\n   - Popular guest landing pages\n   - Drop-off points in the funnel\n4. Use data to optimize GuestPrompt copy, placement, and variant\n\nStart simple — even just server logs with structured events. Iterate based on data.",
-      "testStrategy": "Verify events are tracked for each guest interaction type. Test analytics data appears in admin view. Test anonymization (no PII in analytics). Verify conversion funnel numbers are accurate against manual testing.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T23:03:16.381Z"
-    },
-    {
-      "id": "61",
-      "title": "Generate App Icon with v0 MCP",
-      "description": "Use the v0 MCP tool to generate a professional app icon for the AgentGraph iOS app. The icon should feature the trust-network graph motif (connected nodes with glowing edges) matching the project's design system: dark background (#1E1E2E), primary indigo (#6366F1), accent blue (#89B4FA), success green (#A6E3A1), warm orange (#F9E2AF). Current placeholder icon was rendered via Playwright HTML screenshot. Replace with a polished v0-generated design. Export at 1024x1024 and update the asset catalog at ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/.",
-      "status": "done",
-      "dependencies": [],
-      "priority": "medium",
-      "details": "Current icon: HTML/CSS rendered graph network with 'AG' wordmark, screenshotted at 1024x1024. Works but could be more polished.\n\nDesign direction:\n- Trust-network graph: central node with 5-6 satellite nodes connected by edges\n- Node colors: primary indigo center, accent blue/green/warm satellites with glows\n- Dark background matching app theme (#14141F to #1E1E2E gradient)\n- Optional 'AG' lettermark or graph-only\n- Should read well at small sizes (20pt iOS icon)\n\nAsset catalog location: ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/\nContents.json uses single 1024x1024 universal iOS icon format.\n\nNote: v0 MCP is configured in ~/.claude.json but tools may not register in deferred tools list. May need session restart to pick up v0 tools.",
-      "testStrategy": "Verify icon-1024.png exists in asset catalog. Verify Contents.json references the file. Build project with xcodegen and confirm icon appears in simulator.",
-      "subtasks": [],
-      "updatedAt": "2026-02-21T21:12:26.063Z"
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Set Up Private GitHub Repo with CI/CD",
+        "description": "Initialize the AgentGraph private GitHub repository with CI/CD pipeline, branch protection, linting, and testing infrastructure.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Repository already created at kenneives/agentgraph (private). Remaining work:\n- Configure GitHub Actions workflow for CI: run pytest, ruff lint, AST verification on every PR\n- Add branch protection rules on main (require PR, require CI pass)\n- Add pre-commit hooks (ruff, ast-verify)\n- Create Makefile with common commands (test, lint, dev, setup)\n- Verify .gitignore covers all sensitive files (.env.secrets, credentials.json)",
+        "testStrategy": "Verify GitHub Actions workflow triggers on PR creation. Confirm branch protection prevents direct pushes to main. Run pre-commit hooks locally and verify they catch linting errors.",
+        "subtasks": []
+      },
+      {
+        "id": "2",
+        "title": "Design and Document Complete Data Model",
+        "description": "Design the full PostgreSQL data model covering entities (humans, agents, operators), relationships (follows, trust, operator-agent links), content (posts, comments, votes), trust scores, and DIDs. Document access patterns and indexing strategy.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Starting point: Architect review Section 3 entity model (11 entities).\n\nCore tables:\n- entities (id, type [human|agent], did_web, display_name, bio_markdown, capabilities JSONB, autonomy_level, created_at, updated_at)\n- operators (entity_id FK, linked_agents[], verification_level)\n- relationships (source_entity_id, target_entity_id, type [follow|trust|operator_agent], created_at)\n- posts (id, author_entity_id, content, parent_post_id nullable, submolt_id nullable, created_at)\n- votes (entity_id, post_id, direction [up|down], created_at)\n- trust_scores (entity_id, score float, components JSONB, computed_at)\n- did_documents (entity_id, did_uri, document JSONB, created_at)\n- api_keys (id, entity_id, key_hash, scopes[], created_at, revoked_at nullable)\n- moderation_flags (id, reporter_entity_id, target_type, target_id, reason, status, created_at)\n- webhook_subscriptions (id, entity_id, event_types[], callback_url, secret_hash, active boolean)\n\nDesign decisions:\n- Use JSONB for capabilities and flexible metadata\n- PostgreSQL tsvector columns for full-text search on posts and entity profiles\n- Recursive CTE-friendly structure for graph traversals (relationships table)\n- Materialized views for trust score aggregations\n- UUID primary keys for external-facing IDs, bigserial for internal FK efficiency",
+        "testStrategy": "Validate schema with a review against all PRD entity types. Create an ERD diagram. Verify all access patterns (feed query, profile lookup, trust traversal, search) can be served efficiently. Test recursive CTE for 3-hop trust traversal on sample data.",
+        "updatedAt": "2026-02-20T01:58:23.173Z",
+        "subtasks": []
+      },
+      {
+        "id": "3",
+        "title": "Design AIP v1 Schema",
+        "description": "Design the Agent Interaction Protocol v1 as JSON Schema over REST/WebSocket. Define DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "AIP v1 is NOT a standalone protocol — it's JSON Schema on REST/WebSocket endpoints.\n\nMessage types:\n1. DISCOVER — Agent capability discovery\n   - Request: { type: 'discover', filters: { capabilities: [], trust_min: float, autonomy_level: int } }\n   - Response: { agents: [{ did, capabilities, trust_score, autonomy_level, profile_url }] }\n\n2. DELEGATE — Task delegation between agents\n   - Request: { type: 'delegate', target_did: string, task: { description, constraints, timeout }, auth: { token } }\n   - Response: { delegation_id, status: 'accepted'|'rejected', reason?: string }\n\n3. EVOLVE — Evolution event notification\n   - Request: { type: 'evolve', agent_did: string, event: { type: 'capability_added'|'model_updated'|'forked', details: {} } }\n   - Response: { event_id, recorded: boolean }\n\nKeep v1 minimal. Add fields based on real bridge usage in Phase 1. Publish schema publicly for transparency.",
+        "testStrategy": "Validate JSON Schema definitions against sample payloads. Test schema validation rejects malformed messages. Review with at least 2 hypothetical agent integration scenarios (MCP agent registering, agent discovering peers).",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:22.076Z"
+      },
+      {
+        "id": "4",
+        "title": "Design Trust Score v1 Algorithm",
+        "description": "Design the Phase 1 trust scoring algorithm using verification level, account age, and activity metrics. Document formula, inputs, weights, and publish methodology openly.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Trust Score v1 formula (simple, transparent, no ML):\n\nscore = (verification_weight * verification_level) + (age_weight * age_factor) + (activity_weight * activity_factor)\n\nComponents:\n- verification_level: 0.0 (unverified) to 1.0 (fully verified human/operator)\n  - Email verified: 0.3\n  - Profile complete: 0.5\n  - Operator-linked agent: 0.7\n  - Identity verified (Phase 2): 1.0\n\n- age_factor: min(account_age_days / 365, 1.0) — caps at 1 year\n\n- activity_factor: normalized(posts + comments + votes + delegations) over last 30 days\n  - Use log scale to prevent gaming by volume\n  - min(log(activity_count + 1) / log(100), 1.0)\n\nSuggested weights: verification=0.5, age=0.2, activity=0.3\n\nOutput: 0.0 to 1.0 float, displayed as percentage\nRecomputation: daily batch job via cron\nContestaton: simple form submission, manual review\n\nPublish algorithm on docs page. Open methodology builds trust in the trust system.",
+        "testStrategy": "Unit test score computation with edge cases (new account, very active account, verified but inactive). Verify score is deterministic. Test that gaming activity via volume has diminishing returns (log scale). Verify contestation form submits correctly.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.183Z"
+      },
+      {
+        "id": "5",
+        "title": "Design Security Architecture",
+        "description": "Design the security architecture covering authentication, authorization, input validation, rate limiting, and bridge security model. OWASP top 10 compliance.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Security layers:\n\n1. Authentication:\n   - Humans: email + password → JWT (access token 15min, refresh token 7 days)\n   - Agents: API key (hashed with bcrypt, stored in api_keys table)\n   - Both: rate-limited login attempts (5/min per IP)\n\n2. Authorization:\n   - Role-based: human, agent, operator, moderator, admin\n   - Resource-level: own profile, own posts, operator's agents\n   - JWT claims carry role + entity_id\n\n3. Input validation:\n   - Pydantic models for all API inputs (FastAPI native)\n   - Content size limits: post body 10KB, profile bio 5KB, capability list 50 items\n   - Sanitize markdown rendering (XSS prevention)\n\n4. Rate limiting:\n   - Per-entity: 100 req/min for reads, 20 req/min for writes\n   - Per-IP: 200 req/min global\n   - MCP bridge: 50 req/min per connected agent\n   - Use Redis for rate limit counters (sliding window)\n\n5. Bridge security (MCP):\n   - Treat as untrusted boundary\n   - Payload validation against AIP schema\n   - Size limits on all payloads (100KB max)\n   - TLS required\n   - Agent authentication required for all bridge operations\n\n6. Data protection:\n   - Passwords: bcrypt with cost factor 12\n   - API keys: SHA-256 hash stored, plaintext shown once at creation\n   - PII: minimize collection, document in privacy policy\n   - SQL injection: prevented by SQLAlchemy ORM (parameterized queries)\n\n7. Dependencies:\n   - Automated scanning with pip-audit or safety\n   - GitHub Dependabot enabled\n   - Pin all dependency versions",
+        "testStrategy": "Security checklist against OWASP top 10. Test rate limiting with burst requests. Verify JWT expiration and refresh flow. Test input validation rejects oversized payloads. Verify API keys are not stored in plaintext. Run pip-audit on dependencies.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.187Z"
+      },
+      {
+        "id": "6",
+        "title": "Draft Terms of Service",
+        "description": "Draft Terms of Service establishing operator liability for agent actions, acceptable use policy, moderation authority, content ownership, and dispute resolution.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Key sections (reference Legal review Section 2):\n\n1. Operator Accountability Chain:\n   - Operators are legally responsible for their agents' actions\n   - Registration requires accepting operator liability\n   - Platform reserves right to suspend operator + all linked agents\n\n2. Acceptable Use:\n   - No spam, harassment, illegal content\n   - No trust score manipulation\n   - No impersonation (human pretending to be agent or vice versa)\n   - Autonomy level must be accurately declared\n\n3. Content & IP:\n   - Users retain ownership of their content\n   - Platform gets license to display/distribute\n   - Agent-generated content: operator holds rights\n   - Forked capabilities: default Apache 2.0-style license (Phase 2)\n\n4. Moderation Authority:\n   - Platform may remove content, suspend accounts\n   - Automated + human moderation\n   - Appeal process (email-based for Phase 1)\n\n5. Liability Limitations:\n   - Platform provides infrastructure, not guarantees\n   - Trust scores are informational, not endorsements\n   - No liability for agent-to-agent interactions\n\n6. Data Handling:\n   - Reference Privacy Policy\n   - Right to delete account and data\n\nDraft with AI assistance, get professional review before accepting investors.",
+        "testStrategy": "Review against Legal review Section 2 recommendations. Verify all operator liability clauses are present. Check for internal consistency. Compare against competitor ToS (Moltbook, GitHub) for completeness. Flag any clauses that need professional legal review.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:15:13.117Z"
+      },
+      {
+        "id": "7",
+        "title": "Draft Privacy Policy",
+        "description": "Draft Privacy Policy covering data collection, usage, retention, deletion, third-party sharing, and GDPR-compatible rights. Reference Compliance review Section 5.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Key sections:\n\n1. Data We Collect:\n   - Account info (email, display name, profile bio)\n   - Agent metadata (capabilities, autonomy level, operator link)\n   - Content (posts, comments, votes)\n   - Usage data (trust score inputs, activity metrics)\n   - Technical data (IP addresses for rate limiting, not stored long-term)\n\n2. How We Use Data:\n   - Provide the service (profiles, feed, trust scores)\n   - Moderation and safety\n   - Trust score computation (publicly documented algorithm)\n   - Aggregate analytics (anonymized)\n\n3. Data Sharing:\n   - Public profiles are public by design\n   - No sale of personal data\n   - Law enforcement: only with valid legal process\n   - Phase 2: privacy tiers give users control\n\n4. Data Retention:\n   - Active accounts: indefinite\n   - Deleted accounts: data removed within 30 days\n   - Moderation records: retained for safety (anonymized after 1 year)\n\n5. User Rights (GDPR-compatible):\n   - Access, rectification, deletion, portability\n   - Contact: privacy@agentgraph.io (or similar)\n\n6. On-Chain Data (Phase 2+):\n   - Hash-on-chain, data-off-chain\n   - On-chain hashes are immutable by design\n   - Off-chain data can be deleted (hash becomes orphaned)\n\nDraft with AI, professional review before investors.",
+        "testStrategy": "Review against Compliance review Section 5 and Legal review Section 2. Verify GDPR Article 13/14 required disclosures are present. Check data retention periods are specified. Verify deletion process is described. Compare against GDPR-compliant privacy policy templates.",
+        "subtasks": []
+      },
+      {
+        "id": "8",
+        "title": "Design MCP Bridge Interface Specification",
+        "description": "Design the MCP bridge specification: how MCP-compatible agents connect to AgentGraph, authenticate, and interact via AIP. Define protocol translation layer, auth flow, and validation rules.",
+        "status": "done",
+        "dependencies": [
+          "3",
+          "5"
+        ],
+        "priority": "high",
+        "details": "The MCP bridge is AgentGraph's quality on-ramp — the first framework integration.\n\nBridge architecture:\n1. Connection flow:\n   - Agent operator registers on AgentGraph, gets API key\n   - Operator configures MCP server with AgentGraph API key\n   - MCP server connects to AgentGraph bridge endpoint\n   - Bridge validates API key, establishes WebSocket connection\n   - Agent is now 'online' on AgentGraph\n\n2. Protocol translation:\n   - MCP tool calls → AIP DELEGATE messages\n   - MCP resource reads → AIP DISCOVER queries\n   - AgentGraph events → MCP notifications\n\n3. Security boundary:\n   - All MCP payloads validated against AIP schema\n   - Rate limited per agent (50 req/min)\n   - Payload size limits (100KB)\n   - Sandboxed: bridge cannot access other agents' data\n   - TLS required\n\n4. State management:\n   - Bridge maintains WebSocket connection per agent\n   - Heartbeat every 30s, disconnect after 3 missed\n   - Reconnection with exponential backoff\n\n5. Error handling:\n   - Schema validation errors → 400 with specific field errors\n   - Auth failures → 401\n   - Rate limit → 429 with retry-after header\n   - Bridge errors → 502 with error code\n\nDocument as OpenAPI spec + usage guide.",
+        "testStrategy": "Test connection flow end-to-end with a mock MCP agent. Verify protocol translation for all 3 AIP message types. Test rate limiting, payload size rejection, and auth failure scenarios. Verify WebSocket heartbeat and reconnection logic. Load test with 50 concurrent agent connections.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.038Z"
+      },
+      {
+        "id": "9",
+        "title": "Infrastructure Setup",
+        "description": "Set up local development infrastructure with Homebrew PostgreSQL + Redis, FastAPI scaffold, Python venv, Makefile, and development workflow tooling on Mac Mini.",
+        "status": "done",
+        "dependencies": [
+          "1"
+        ],
+        "priority": "high",
+        "details": "Local services (Homebrew on Mac Mini M1):\n- PostgreSQL 16 via brew (port 5432)\n- Redis 7 via brew (port 6379, Streams enabled by default)\n- FastAPI app run directly with uvicorn (hot reload)\n\nPython environment:\n- Python 3.9.6 (system) with venv\n- All code uses `from __future__ import annotations` for PEP 604 compat\n\nProject structure:\nsrc/\n  main.py              # FastAPI app entry point\n  config.py            # Settings from env\n  database.py          # SQLAlchemy async engine + session\n  identity/            # DID, registration, auth\n  social/              # Feed, profiles, relationships\n  protocol/            # AIP implementation\n  trust/               # Trust scoring\n  moderation/          # Content classification\n  bridges/             # MCP bridge\n  api/                 # Route definitions\nweb/                   # React frontend (Phase 1)\ntests/\nmigrations/            # Alembic\n\nFiles to create:\n- pyproject.toml (dependencies: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, redis, pydantic, python-jose, bcrypt, alembic, httpx, pytest, ruff)\n- Makefile (targets: setup, dev, test, lint, migrate, db-start, db-stop)\n- scripts/setup.sh (one-command dev environment setup: brew install, createdb, venv, pip install, alembic migrate)\n- alembic.ini + migrations/env.py\n\nNo Docker for local dev — Homebrew services are lighter on M1 16GB RAM. Docker is introduced later for production deployment (see task 50).",
+        "testStrategy": "Run `make setup` on clean clone. Verify PostgreSQL is running and agentgraph DB exists. Verify Redis is running. Verify FastAPI responds on localhost:8000/health. Verify Alembic migrations run. Run `make test` and confirm pytest discovers test directory.",
+        "subtasks": []
+      },
+      {
+        "id": "10",
+        "title": "Implement Data Model with Migrations",
+        "description": "Implement the PostgreSQL data model using SQLAlchemy ORM and Alembic migrations. Create all core tables, indexes, and constraints defined in task 2.",
+        "status": "done",
+        "dependencies": [
+          "2",
+          "9"
+        ],
+        "priority": "high",
+        "details": "SQLAlchemy models (async, SQLAlchemy 2.0 style):\n- Entity model (STI or separate tables for human/agent)\n- Relationship model (follow, trust, operator_agent)\n- Post model (self-referential for comments via parent_post_id)\n- Vote model (unique constraint on entity_id + post_id)\n- TrustScore model\n- DIDDocument model\n- APIKey model\n- ModerationFlag model\n- WebhookSubscription model\n\nAlembic migrations:\n- Initial migration with all tables\n- Indexes on: entity.did_web, entity.type, post.author_entity_id, post.created_at, relationship.source+target, trust_score.entity_id\n- tsvector columns + GIN indexes for full-text search\n- Check constraints (autonomy_level 1-5, vote direction up/down)\n\nCRUD utilities:\n- Base repository pattern with async session\n- Common queries: get_entity_by_did, get_feed_posts, get_trust_score, search_entities\n\nUse `from __future__ import annotations` for Python 3.9 union type syntax.",
+        "testStrategy": "Run migrations up and down (alembic upgrade head, alembic downgrade base). Verify all tables created with correct columns and constraints. Insert sample data for each model. Test unique constraints and check constraints raise appropriate errors. Verify full-text search index works with sample queries.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.191Z"
+      },
+      {
+        "id": "11",
+        "title": "Implement Human Registration and Authentication",
+        "description": "Implement human user registration with email verification, login with JWT tokens, and password management. Include rate limiting on auth endpoints.",
+        "status": "done",
+        "dependencies": [
+          "5",
+          "10"
+        ],
+        "priority": "high",
+        "details": "Endpoints:\n- POST /api/v1/auth/register — email, password, display_name → create entity + send verification email\n- POST /api/v1/auth/verify-email — token → mark email verified\n- POST /api/v1/auth/login — email, password → JWT access token (15min) + refresh token (7 days)\n- POST /api/v1/auth/refresh — refresh_token → new access token\n- POST /api/v1/auth/logout — invalidate refresh token\n- POST /api/v1/auth/forgot-password — email → send reset link\n- POST /api/v1/auth/reset-password — token, new_password → update\n\nImplementation:\n- Password hashing: bcrypt cost factor 12\n- JWT: python-jose with HS256, configurable secret from env\n- Email: Resend or Postmark API (free tier)\n- Rate limiting: 5 login attempts/min per IP (Redis counter)\n- DID:web auto-generated at registration: did:web:agentgraph.io:users:{uuid}\n\nMiddleware:\n- Auth dependency that extracts entity_id from JWT\n- Optional auth (for public endpoints that behave differently when logged in)\n\nSecurity:\n- Input validation via Pydantic (email format, password strength)\n- No user enumeration (same response for existing/non-existing email)\n- Secure cookie options for refresh token (httpOnly, secure, sameSite)",
+        "testStrategy": "Test full registration → verification → login → refresh → logout flow. Test invalid credentials return 401. Test rate limiting blocks after 5 failed attempts. Test password reset flow. Test JWT expiration. Test DID:web generation format. Test input validation rejects weak passwords.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.196Z"
+      },
+      {
+        "id": "12",
+        "title": "Implement Agent Registration and Operator Linking",
+        "description": "Implement agent registration by operators, API key issuance, DID:web generation, operator-agent linking, and agent authentication via API keys.",
+        "status": "done",
+        "dependencies": [
+          "5",
+          "10",
+          "11"
+        ],
+        "priority": "high",
+        "details": "Endpoints:\n- POST /api/v1/agents — (auth required, operator) name, description, capabilities[], autonomy_level → create agent entity + API key\n- GET /api/v1/agents — list operator's agents\n- GET /api/v1/agents/{id} — agent details\n- PATCH /api/v1/agents/{id} — update agent metadata\n- POST /api/v1/agents/{id}/rotate-key — generate new API key, revoke old\n- DELETE /api/v1/agents/{id} — deactivate agent\n\nImplementation:\n- Any registered human can be an operator (register agents)\n- Agent entity created with type='agent' + operator relationship\n- API key: generate 64-char random token, show once, store SHA-256 hash\n- DID:web for agents: did:web:agentgraph.io:agents:{uuid}\n- Capabilities stored as JSONB array\n- Autonomy level: integer 1-5 (self-declared)\n\nAgent auth middleware:\n- X-API-Key header → look up by hash → inject agent entity into request\n- Separate from human JWT auth but same entity_id pattern\n\nOperator dashboard data:\n- Operator can see all their agents' status, activity, trust scores\n- Foundation for Phase 2 operator dashboard UI",
+        "testStrategy": "Test operator creates agent, receives API key. Test API key authenticates successfully. Test rotated key works and old key is rejected. Test operator can only manage their own agents. Test autonomy level validation (1-5 range). Test capabilities JSONB storage and retrieval. Test agent deactivation.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.199Z"
+      },
+      {
+        "id": "13",
+        "title": "Implement Basic Profile Page",
+        "description": "Implement profile pages for both humans and agents: identity display, markdown README, capabilities list, activity feed, trust score badge. React + Tailwind frontend.",
+        "status": "done",
+        "dependencies": [
+          "10",
+          "11",
+          "12"
+        ],
+        "priority": "high",
+        "details": "Backend endpoints:\n- GET /api/v1/entities/{id}/profile — full profile data\n- PATCH /api/v1/entities/{id}/profile — update own profile\n- GET /api/v1/entities/{id}/activity — recent posts, comments, votes\n\nProfile data:\n- Display name, entity type badge (human/agent)\n- DID:web identifier\n- Markdown-rendered README/bio (sanitized to prevent XSS)\n- Capabilities list (agents only)\n- Autonomy level badge (agents only)\n- Operator info (agents only — who operates this agent)\n- Trust score display (percentage + breakdown)\n- Account age\n- Activity stats (posts, comments, followers, following)\n- Recent activity timeline\n\nFrontend:\n- React SPA with React Router\n- Tailwind CSS for styling\n- Profile page component with tabs: Overview, Activity, Connections\n- Markdown rendering with react-markdown (sanitized)\n- Responsive design (mobile-first)\n\nPublic profiles — no auth required to view. Auth required to edit own profile.",
+        "testStrategy": "Test profile API returns correct data for human and agent entities. Test profile update only allowed by owner. Test markdown rendering with various inputs (headers, links, code blocks). Test XSS prevention in markdown. Test responsive layout on mobile viewport. Test profile page loads for unauthenticated users.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.201Z"
+      },
+      {
+        "id": "14",
+        "title": "Implement Unified Feed",
+        "description": "Implement the social feed with posts, comments (threaded), upvotes/downvotes, chronological ordering with trust-score boost, and WebSocket real-time updates.",
+        "status": "done",
+        "dependencies": [
+          "10",
+          "11",
+          "12",
+          "16"
+        ],
+        "priority": "high",
+        "details": "Backend endpoints:\n- GET /api/v1/feed — paginated feed (cursor-based pagination)\n- POST /api/v1/posts — create post (auth required)\n- GET /api/v1/posts/{id} — single post with comments\n- POST /api/v1/posts/{id}/comments — add comment (auth required)\n- POST /api/v1/posts/{id}/vote — upvote/downvote (auth required)\n- DELETE /api/v1/posts/{id} — delete own post (auth required)\n- WebSocket /ws/feed — real-time feed updates\n\nFeed algorithm (Phase 1 — simple):\n- Base: reverse chronological\n- Trust boost: posts from higher-trust entities appear slightly higher\n- Score = timestamp_score + (trust_score * trust_weight)\n- No ML, no engagement optimization — chronological with light trust weighting\n\nThreaded comments:\n- parent_post_id for top-level posts (null)\n- parent_post_id for comments (points to parent)\n- Max nesting depth: 3 levels (flatten beyond that)\n\nWebSocket:\n- FastAPI native WebSocket endpoint\n- Broadcast new posts to connected clients\n- Redis pub/sub for multi-process support\n\nFrontend:\n- Feed component with infinite scroll\n- Post card: author avatar, name, trust badge, content, vote buttons, comment count\n- Comment thread UI\n- Real-time: new posts appear at top with subtle animation\n- Compose post form with markdown preview",
+        "testStrategy": "Test feed returns posts in correct order. Test trust-score boost affects ordering. Test pagination (cursor-based, no duplicate/missing posts). Test post creation, commenting, voting. Test vote uniqueness constraint. Test WebSocket delivers new posts in real-time. Test comment threading to 3 levels. Test feed performance with 1000+ posts.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:23.204Z"
+      },
+      {
+        "id": "15",
+        "title": "Implement MCP Bridge",
+        "description": "Implement the MCP bridge: protocol translation between MCP and AIP, WebSocket connection management, authentication, validation, and rate limiting.",
+        "status": "done",
+        "dependencies": [
+          "3",
+          "8",
+          "10",
+          "12",
+          "17"
+        ],
+        "priority": "high",
+        "details": "Bridge implementation:\n\n1. Connection endpoint:\n   - WebSocket /ws/bridge/mcp — MCP agent connects with API key\n   - Auth: API key in connection headers or first message\n   - Connection state tracked in Redis (agent_id → connection_id)\n\n2. Protocol translation layer:\n   - MCP tool_call → AIP DELEGATE message → route to target agent\n   - MCP resource_read → AIP DISCOVER query → return matching agents\n   - AgentGraph events → MCP notification format → push to connected agent\n\n3. Message validation:\n   - All incoming: validate against AIP JSON Schema\n   - Reject malformed messages with specific error codes\n   - Payload size limit: 100KB\n\n4. Rate limiting:\n   - 50 requests/min per connected agent\n   - Redis sliding window counter\n   - 429 response with retry-after on limit\n\n5. Connection management:\n   - Heartbeat ping every 30s from server\n   - Client must pong within 10s\n   - 3 missed pongs → disconnect\n   - Client reconnection with exponential backoff (documented in SDK)\n\n6. Logging & monitoring:\n   - Log all bridge events (connection, disconnection, message counts)\n   - Track per-agent message volume\n   - Error rate monitoring\n\nThis is the quality on-ramp — reliability and clear error messages are critical for developer adoption.",
+        "testStrategy": "Test MCP agent connection with valid API key. Test rejection with invalid key. Test protocol translation for DISCOVER, DELEGATE, EVOLVE. Test rate limiting triggers at 50 req/min. Test payload size rejection at 100KB. Test heartbeat/pong mechanism. Test reconnection after disconnect. Integration test with a real MCP client.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.579Z"
+      },
+      {
+        "id": "16",
+        "title": "Implement Trust Score v1",
+        "description": "Implement the trust score v1 computation engine, display components, and contestation form. Based on verification level + account age + activity metrics.",
+        "status": "done",
+        "dependencies": [
+          "4",
+          "10"
+        ],
+        "priority": "high",
+        "details": "Implementation:\n\n1. Score computation module (src/trust/score.py):\n   - compute_trust_score(entity_id) → float 0.0-1.0\n   - Components: verification (0.5 weight), age (0.2 weight), activity (0.3 weight)\n   - Activity uses log scale: min(log(count+1)/log(100), 1.0)\n   - Store computed score + component breakdown in trust_scores table\n\n2. Batch computation:\n   - Scheduled job (APScheduler or simple cron): recompute all scores daily\n   - Can also trigger per-entity on significant events (verification change)\n\n3. API endpoints:\n   - GET /api/v1/entities/{id}/trust — score + breakdown + methodology link\n   - POST /api/v1/entities/{id}/trust/contest — submit contestation (auth required)\n   - GET /api/v1/trust/methodology — public algorithm documentation\n\n4. Frontend components:\n   - Trust score badge (color-coded: red < 0.3, yellow < 0.6, green >= 0.6)\n   - Score breakdown tooltip (hover/click to see components)\n   - Contestation form (reason text + evidence)\n   - Methodology page (rendered markdown)\n\n5. Contestation handling:\n   - Creates moderation_flag with type='trust_contestation'\n   - Manual review for Phase 1 (email notification to admin)\n   - Resolve by adjusting score or closing with explanation",
+        "testStrategy": "Unit test score computation with known inputs. Test edge cases: brand new account (low score), fully verified + old + active (high score). Test log scale prevents activity gaming. Test batch recomputation updates all entities. Test contestation form submission. Test methodology endpoint returns documentation. Test score display components render correctly.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.584Z"
+      },
+      {
+        "id": "17",
+        "title": "Implement Webhook and Event System",
+        "description": "Implement the event system using Redis Streams for internal pub/sub and webhook delivery for external agent notifications. Events: mentions, replies, follows, trust changes.",
+        "status": "done",
+        "dependencies": [
+          "9",
+          "10"
+        ],
+        "priority": "high",
+        "details": "Architecture:\n\n1. Internal event bus (Redis Streams):\n   - Stream per event type: events:mentions, events:replies, events:follows, events:trust\n   - Producer: any service module publishes events\n   - Consumer groups: webhook delivery, feed updates, trust recomputation\n\n2. Event types:\n   - entity.mentioned — someone mentioned this entity in a post\n   - post.replied — someone replied to this entity's post\n   - entity.followed — someone followed this entity\n   - entity.unfollowed — someone unfollowed\n   - trust.changed — entity's trust score changed significantly (>0.05)\n   - post.voted — someone voted on this entity's post\n   - moderation.flag — entity's content was flagged\n\n3. Webhook delivery:\n   - Entity registers webhook URL + secret + event_types[]\n   - POST to webhook URL with JSON payload + HMAC signature\n   - Retry: 3 attempts with exponential backoff (1s, 10s, 60s)\n   - Disable webhook after 10 consecutive failures\n\n4. API endpoints:\n   - POST /api/v1/webhooks — register webhook (auth required)\n   - GET /api/v1/webhooks — list own webhooks\n   - DELETE /api/v1/webhooks/{id} — remove webhook\n   - POST /api/v1/webhooks/{id}/test — send test event\n\n5. Without webhooks, agents are deaf — this is critical for agent engagement.",
+        "testStrategy": "Test event publishing to Redis Stream. Test consumer group receives events. Test webhook delivery with mock endpoint. Test HMAC signature verification. Test retry logic on failed delivery. Test webhook disabling after consecutive failures. Test webhook registration and deletion. Integration test: create post mentioning agent → agent's webhook receives mention event.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.587Z"
+      },
+      {
+        "id": "18",
+        "title": "Implement Autonomy Level Self-Declaration",
+        "description": "Implement autonomy level self-declaration for agents at registration, with badge display on profiles and feed. Levels 1-5 per PRD Section 11.",
+        "status": "done",
+        "dependencies": [
+          "12",
+          "13"
+        ],
+        "priority": "medium",
+        "details": "Autonomy levels (from PRD):\n- Level 1: Fully human-controlled (tool/assistant)\n- Level 2: Human-supervised (can act, human approves)\n- Level 3: Human-on-the-loop (acts independently, human monitors)\n- Level 4: Fully autonomous (independent decision-making)\n- Level 5: Self-modifying (can alter own behavior/code)\n\nImplementation:\n- Dropdown field in agent registration form\n- Stored in entity table (autonomy_level integer 1-5)\n- Editable by operator via PATCH /api/v1/agents/{id}\n- Badge component showing level with icon and tooltip explanation\n- Display on: profile page, feed post cards, search results\n- Level 4-5 agents get a visual warning indicator\n\nPhase 1: self-declared only. No verification.\nPhase 2+: behavioral verification (ML-based, requires training data from live platform).\n\nThis is a 2-day task — simple dropdown + badge. But architecturally important for the trust narrative.",
+        "testStrategy": "Test autonomy level is required at agent registration. Test valid range (1-5). Test badge renders correctly for each level. Test operator can update autonomy level. Test level 4-5 warning indicator displays.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.589Z"
+      },
+      {
+        "id": "19",
+        "title": "Implement Basic Moderation System",
+        "description": "Implement content moderation using Claude API for spam classification, community flagging system, and manual review queue for moderators.",
+        "status": "done",
+        "dependencies": [
+          "10",
+          "14"
+        ],
+        "priority": "high",
+        "details": "Moderation pipeline:\n\n1. Automated classification (Claude API):\n   - On post/comment creation, classify content\n   - Categories: safe, spam, harassment, misinformation, illegal\n   - Confidence threshold: auto-remove if confidence > 0.95 for harmful categories\n   - Queue for review if 0.7 < confidence < 0.95\n   - Async processing (don't block post creation)\n   - Cost: ~$0.01-0.03 per classification at Haiku pricing\n\n2. Community flagging:\n   - POST /api/v1/posts/{id}/flag — reason enum + optional details (auth required)\n   - Threshold: 3 unique flags → auto-queue for review\n   - Rate limit: 10 flags/hour per entity (prevent flag abuse)\n\n3. Review queue:\n   - GET /api/v1/moderation/queue — pending flags (admin/moderator only)\n   - POST /api/v1/moderation/{flag_id}/resolve — action: dismiss, warn, remove_content, suspend_entity\n   - Actions create moderation_log entries\n\n4. Consequences:\n   - Warning: message to entity\n   - Content removal: post/comment hidden\n   - Suspension: entity cannot post/comment for N days\n   - Ban: permanent (reserved for severe cases)\n\n5. Trust impact:\n   - Moderation actions negatively affect trust score\n   - Flagged content (even dismissed) has no positive trust impact\n\nPhase 1: moderator = Kenne (admin). No community moderators yet.",
+        "testStrategy": "Test Claude API classification with sample content (safe, spam, harassment). Test confidence thresholds trigger correct actions. Test community flagging creates moderation_flag. Test 3-flag threshold queues for review. Test review queue lists pending flags. Test resolve actions (dismiss, remove, suspend). Test suspended entity cannot post. Test rate limiting on flag submissions.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.591Z"
+      },
+      {
+        "id": "20",
+        "title": "Build Python SDK and API Documentation",
+        "description": "Build a Python SDK for agent developers to interact with AgentGraph, plus comprehensive API documentation (OpenAPI/Swagger + usage guides).",
+        "status": "done",
+        "dependencies": [
+          "11",
+          "12",
+          "14",
+          "15",
+          "17"
+        ],
+        "priority": "high",
+        "details": "Python SDK (agentgraph-sdk package):\n\n1. Client class:\n   - AgentGraphClient(api_key, base_url)\n   - Methods: register_agent, get_profile, create_post, reply, vote, discover_agents, subscribe_webhook\n   - Async support (httpx-based)\n   - Automatic retry with backoff\n   - Clear error classes (AuthError, RateLimitError, ValidationError)\n\n2. MCP integration helper:\n   - AgentGraphMCPServer class — wraps SDK for MCP tool exposure\n   - Example MCP server config\n\n3. Package structure:\n   - agentgraph/client.py, agentgraph/models.py, agentgraph/errors.py\n   - pyproject.toml for pip install\n   - Published to PyPI (or install from GitHub initially)\n\nAPI Documentation:\n1. FastAPI auto-generates OpenAPI/Swagger at /docs\n2. Add detailed descriptions to all Pydantic models and endpoints\n3. Usage guide pages:\n   - Getting Started\n   - Authentication (human vs agent)\n   - Creating and Managing Agents\n   - Feed Interaction\n   - MCP Bridge Setup\n   - Webhooks\n   - Trust Scores\n   - Rate Limits\n\nHost docs on the web app (e.g., /docs route).",
+        "testStrategy": "Test SDK against live API (integration tests). Test all SDK methods return correct types. Test error handling (invalid key, rate limit, validation). Test MCP helper creates valid MCP server. Test API docs are accessible at /docs. Review documentation for completeness against all endpoints.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.043Z"
+      },
+      {
+        "id": "21",
+        "title": "Write Getting Started Tutorial",
+        "description": "Write a 'Build your first AgentGraph agent in 15 minutes' tutorial covering registration, SDK setup, posting, and receiving webhooks.",
+        "status": "done",
+        "dependencies": [
+          "20"
+        ],
+        "priority": "medium",
+        "details": "Tutorial structure:\n\n1. Introduction (1 min read)\n   - What is AgentGraph\n   - Why trust and identity matter for agents\n\n2. Create an account (2 min)\n   - Sign up at agentgraph.io\n   - Register as an operator\n\n3. Register your agent (2 min)\n   - Via web UI or API\n   - Set capabilities and autonomy level\n   - Get your API key\n\n4. Install the SDK (1 min)\n   - pip install agentgraph-sdk\n   - Initialize client\n\n5. Make your agent post (3 min)\n   - Create a post\n   - Reply to a post\n   - Vote on content\n\n6. Listen for events (3 min)\n   - Set up a webhook\n   - Receive mention notifications\n   - Respond to mentions\n\n7. Discover other agents (2 min)\n   - Search by capability\n   - View trust scores\n\n8. Next steps\n   - MCP bridge setup\n   - Building more complex interactions\n   - Trust score improvement tips\n\nInclude complete, runnable code snippets. Host as markdown page in docs.",
+        "testStrategy": "Follow the tutorial from scratch on a clean environment. Verify every code snippet runs without errors. Time the tutorial (should be completable in ~15 minutes). Have someone unfamiliar with the project attempt it and note confusion points.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.047Z"
+      },
+      {
+        "id": "22",
+        "title": "Deploy Seed Agents",
+        "description": "Build and deploy 10-20 useful seed agents on the platform to bootstrap activity: code review, research summarizer, writing assistant, security scanner, and more.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "17",
+          "20"
+        ],
+        "priority": "high",
+        "details": "Seed agents (deploy on platform, running as background services):\n\n1. Code Review Agent — reviews code snippets posted on the feed, suggests improvements\n2. Research Summarizer — takes paper/article links, posts summaries\n3. Writing Assistant — helps with technical writing, editing\n4. Security Scanner — analyzes code for common vulnerabilities\n5. Dependency Checker — checks project dependencies for known CVEs\n6. API Tester — tests API endpoints posted on the feed\n7. Documentation Generator — generates docs from code snippets\n8. Data Analyzer — basic data analysis from posted datasets\n9. News Aggregator — posts daily AI/agent ecosystem news\n10. AgentGraph Helper — answers questions about the platform\n\nImplementation:\n- Each agent built with agentgraph-sdk\n- Deployed as lightweight Python processes (or single multi-agent process)\n- Connected via MCP bridge or direct API\n- Each has a compelling profile with clear capabilities\n- Each posts/interacts at least once daily\n- Run on the same VPS as the platform (minimal resource usage)\n\nThese agents ARE the cold start strategy. Quality > quantity.",
+        "testStrategy": "Verify each seed agent can register, post, and respond to mentions. Test daily content generation for at least 3 agents. Verify agents interact with each other naturally. Monitor resource usage on VPS (should be minimal). Test that removing a seed agent doesn't break the platform.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.052Z"
+      },
+      {
+        "id": "23",
+        "title": "Launch and Begin Cold Start Outreach",
+        "description": "Deploy to production VPS, launch publicly, and begin cold start outreach to MCP/OpenClaw developers, AI agent communities, and relevant forums.",
+        "status": "pending",
+        "dependencies": [
+          "9",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "50"
+        ],
+        "priority": "high",
+        "details": "Launch checklist:\n\n1. Production deployment:\n   - Provision Hetzner CPX31 VPS (~$15/month)\n   - Deploy via Docker Compose\n   - Set up domain (agentgraph.io or similar) + Cloudflare DNS + TLS\n   - Configure production environment variables\n   - Set up basic monitoring (health checks, error logging)\n   - Backup strategy: daily PostgreSQL pg_dump to object storage\n\n2. Pre-launch:\n   - Verify all seed agents are running\n   - Test full user journey (register → create agent → post → interact)\n   - Review ToS and Privacy Policy are accessible\n   - Verify API docs are live\n   - Test SDK installation from PyPI/GitHub\n\n3. Cold start outreach (Kenne personally):\n   - Post on MCP community channels (Discord, GitHub discussions)\n   - Post on OpenClaw community (when bridge is ready in Phase 2)\n   - Hacker News Show HN post\n   - Reddit r/artificial, r/MachineLearning, r/LangChain\n   - Twitter/X announcement\n   - Direct outreach to AI agent developers (DMs, emails)\n   - Write launch blog post (AI-assisted)\n\n4. Success criteria:\n   - 100 registered agents, 50 active in first 8 weeks\n   - 200 registered humans, 50 active\n   - Agent integration time < 30 minutes\n   - At least 3 seed agents posting daily",
+        "testStrategy": "Smoke test production deployment: registration, agent creation, posting, feed, MCP bridge connection. Monitor error rates for first 48 hours. Track registration and activation metrics. Measure agent integration time for first 5 external agents. Verify backup/restore works.",
+        "subtasks": []
+      },
+      {
+        "id": "24",
+        "title": "Resolve Q1: Define Exact Data Model",
+        "description": "Open question Q1: What is the exact data model for entities, relationships, posts, trust scores? Design and validate all tables, relationships, access patterns, and indexing strategy.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "This is the design work for task 2. Starting point: Architect review Section 3 (11 entities). Must define:\n- All entity types and their attributes\n- Relationship types and cardinalities\n- Content models (posts, comments, votes)\n- Trust score storage and computation triggers\n- DID document structure\n- API key management\n- Access patterns for common queries (feed, search, graph traversal)\n- Indexing strategy for each access pattern\n- JSONB schemas for flexible fields\n\nUse Claude Code to help model and validate. Output: ERD + SQL DDL + documentation.",
+        "testStrategy": "Review against all PRD entity types. Validate access patterns can be served by the schema. Test recursive CTE for trust graph traversal on sample data.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:29.700Z"
+      },
+      {
+        "id": "25",
+        "title": "Resolve Q2: Define AIP v1 Schema",
+        "description": "Open question Q2: What is the AIP v1 schema? Define JSON Schema for DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "This is the design work for task 3. Design as JSON Schema on REST/WebSocket. Keep minimal — evolve based on real bridge usage. Define:\n- Message envelope format\n- DISCOVER request/response schema\n- DELEGATE request/response schema\n- EVOLVE request/response schema\n- Error response format\n- Versioning strategy (v1 prefix)\n\nPublish schema openly. Output: JSON Schema files + documentation.",
+        "testStrategy": "Validate schemas against sample payloads. Test 2+ agent integration scenarios. Review for completeness against PRD agent interaction requirements.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:22.078Z"
+      },
+      {
+        "id": "26",
+        "title": "Resolve Q3: ToS Operator Liability Clauses",
+        "description": "Open question Q3: What goes in the ToS regarding operator liability for agent actions? Define the legal framework for operator accountability.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Draft using Legal review Section 2 as template. Key decisions:\n- Operators accept liability for all agent actions at registration\n- Platform can suspend operator + all linked agents for violations\n- Define escalation path: warning → content removal → suspension → ban\n- Agent autonomy level doesn't reduce operator liability (Level 5 agent still = operator's responsibility)\n- Indemnification clause for platform\n\nOutput: ToS operator liability section draft. Professional review before investors.",
+        "testStrategy": "Review against Legal review Section 2 recommendations. Check internal consistency. Compare against competitor ToS. Flag clauses needing professional review.",
+        "subtasks": []
+      },
+      {
+        "id": "27",
+        "title": "Resolve Q4: Privacy Policy Data Handling",
+        "description": "Open question Q4: What goes in the Privacy Policy regarding data handling? Define data collection, usage, retention, and deletion policies.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Draft using Legal review Section 2 and Compliance review Section 5 as templates. Define:\n- Categories of data collected\n- Legal basis for processing (consent, legitimate interest)\n- Retention periods for each data category\n- Deletion process and timeline\n- On-chain data handling (Phase 2+): hash-on-chain is immutable, off-chain data deletable\n- Third-party data sharing policy\n- User rights (GDPR Article 15-22 compatible)\n\nOutput: Privacy Policy draft. Professional review before investors.",
+        "testStrategy": "Verify GDPR Article 13/14 required disclosures present. Check retention periods specified. Verify deletion process described. Compare against GDPR-compliant templates.",
+        "subtasks": []
+      },
+      {
+        "id": "28",
+        "title": "Resolve Q5: Trust Score v1 Formula",
+        "description": "Open question Q5: How does trust score v1 actually work? Define the exact formula, inputs, weights, and documentation for transparent trust scoring.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "This is the design work for task 4. Using CPO recommendation (verification + age + activity):\n- Define exact formula with numerical weights\n- Define each input's normalization function\n- Define verification level tiers and their scores\n- Define activity metrics included and their weights\n- Define log scale for activity to prevent gaming\n- Define recomputation frequency\n- Define contestation process\n- Write public methodology document\n\nOutput: Algorithm specification + methodology documentation.",
+        "testStrategy": "Compute score by hand for 5 test entities with known inputs. Verify formula produces expected results. Test gaming resistance (high activity alone shouldn't yield high score).",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:29.705Z"
+      },
+      {
+        "id": "29",
+        "title": "Resolve Q6: MCP Bridge Security Model",
+        "description": "Open question Q6: What is the security model for the MCP bridge? Define the untrusted boundary treatment, validation, and rate limiting strategy.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "This is the design work for task 8. Using CTO review Section 2 specifics:\n- Define payload validation rules (schema, size limits, content sanitization)\n- Define rate limiting tiers per agent\n- Define authentication flow (API key in header, key rotation)\n- Define TLS requirements\n- Define error response format and codes\n- Define connection lifecycle (connect, heartbeat, disconnect, reconnect)\n- Define audit logging for bridge operations\n\nOutput: MCP bridge security specification.",
+        "testStrategy": "Review against OWASP API Security Top 10. Test each validation rule with malformed input. Verify rate limiting implementation.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:29.708Z"
+      },
+      {
+        "id": "30",
+        "title": "Resolve Q7: Moderation Rules and Thresholds",
+        "description": "Open question Q7: What are the moderation rules and thresholds for spam detection? Define classification categories, confidence thresholds, and action triggers.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Define:\n- Content categories: safe, spam, harassment, misinformation, illegal, off-topic\n- Claude API prompt template for classification\n- Confidence thresholds: auto-remove (>0.95), queue for review (0.7-0.95), pass (<0.7)\n- Community flag thresholds: 3 unique flags → auto-queue\n- Action escalation: first offense → warning, second → content removal, third → suspension\n- Appeals process (email-based for Phase 1)\n- Moderator guidelines document\n\nStart conservative. Adjust based on false positive rate from real data.",
+        "testStrategy": "Test Claude API classification with sample content across all categories. Measure false positive rate on 100 sample posts. Verify threshold triggers correct actions. Test appeals submission.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:29.712Z"
+      },
+      {
+        "id": "31",
+        "title": "Resolve Q8: Cold Start Agent Strategy",
+        "description": "Open question Q8: How do we structure the cold start — which agents do we seed? Define the 10-20 seed agents, their capabilities, and content strategy.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "This is the planning for task 22. Define:\n- List of 10-20 seed agents with names, capabilities, and personas\n- Content strategy for each (what they post, how often)\n- Interaction patterns (which agents interact with each other)\n- Success criteria (what 'active' looks like for a seed agent)\n- Resource requirements (can all run on single VPS?)\n- Priority order for building (which agents first)\n\nFocus on agents that are genuinely useful, not just filling space. Quality > quantity.\n\nOutput: Seed agent spec document.",
+        "testStrategy": "Validate each proposed agent provides real value. Estimate resource usage for all agents combined. Verify interaction patterns create engaging content. Review agent personas for diversity of capabilities.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:03:16.384Z"
+      },
+      {
+        "id": "32",
+        "title": "Resolve Q9: Frequency Throughput for Batched Anchoring",
+        "description": "Open question Q9 (Phase 2): Can Frequency's throughput support our batched anchoring model? Test on Frequency testnet.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Phase 2 dependency. Test on Frequency testnet:\n- Estimate batch sizes (how many DID operations per batch)\n- Measure transaction throughput on testnet\n- Evaluate cost per batch at current token economics\n- Test batched anchoring workflow: collect off-chain events → create batch → submit to Frequency → verify anchors\n- Ask Frequency team directly about throughput limits and best practices\n\nYour Frequency experience is the key asset here.",
+        "testStrategy": "Run throughput test on Frequency testnet with realistic batch sizes. Measure latency and cost per batch. Compare against estimated Phase 2 volume.",
+        "subtasks": []
+      },
+      {
+        "id": "33",
+        "title": "Resolve Q10: DSNP Primitives Sufficiency for AIP",
+        "description": "Open question Q10 (Phase 2): Are DSNP primitives sufficient for AIP on-chain needs? Evaluate based on real AIP v1 usage.",
+        "status": "pending",
+        "dependencies": [
+          "3"
+        ],
+        "priority": "low",
+        "details": "Phase 2 dependency. Evaluate after AIP v1 is in production:\n- Map each AIP message type to DSNP primitives\n- Identify gaps where DSNP doesn't cover AIP needs\n- Determine if custom schemas are needed on Frequency\n- Your DSNP expertise answers this — document the mapping\n\nCan only be fully answered with real AIP v1 usage data from Phase 1.",
+        "testStrategy": "Create mapping document of AIP → DSNP primitives. Identify and document any gaps. Prototype one AIP message type on Frequency testnet.",
+        "subtasks": []
+      },
+      {
+        "id": "34",
+        "title": "Resolve Q11: DID Registration Cost on Frequency",
+        "description": "Open question Q11 (Phase 2): What is the DID registration cost on Frequency via capacity staking? Model against current token economics.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Phase 2 dependency. Research:\n- Current Frequency token price and capacity staking model\n- Cost per DID registration (capacity consumed per operation)\n- Bulk registration economics (batch vs individual)\n- Compare against alternatives if cost is prohibitive\n- Ask Frequency team about potential partnership pricing\n\nModel cost for Phase 2 target: 1,000 agents with DIDs.",
+        "testStrategy": "Calculate cost model for 100, 1,000, and 10,000 DID registrations. Compare against monthly infrastructure budget. Verify model with Frequency team.",
+        "subtasks": []
+      },
+      {
+        "id": "35",
+        "title": "Resolve Q12: Marketplace Payment Flow (Stripe Connect)",
+        "description": "Open question Q12 (Phase 2): How should the marketplace payment flow be structured using Stripe Connect? Research platform marketplace model.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Phase 2 dependency. Research:\n- Stripe Connect marketplace model (platform as facilitator)\n- Onboarding flow for operators (KYC handled by Stripe)\n- Payment flow: human hires agent → escrow → completion → payout\n- Platform fee structure (percentage of transaction)\n- Refund/dispute handling\n- Money transmitter exemption analysis (may need counsel)\n- Tax reporting requirements (1099 for US payees)\n\nOutput: Payment flow specification document.",
+        "testStrategy": "Prototype Stripe Connect integration in test mode. Test full flow: onboard seller, create payment, capture, payout. Verify tax reporting data captured.",
+        "subtasks": []
+      },
+      {
+        "id": "36",
+        "title": "Resolve Q13: EigenTrust Variant for Mixed Agent-Human Graph",
+        "description": "Open question Q13 (Phase 2): What EigenTrust variant works for a mixed agent-human social graph? Research literature and prototype.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Phase 2 dependency. Research:\n- Original EigenTrust paper and variants\n- Adaptations for heterogeneous networks (agents ≠ humans)\n- How to handle different trust semantics (human-human vs human-agent vs agent-agent)\n- Temporal decay functions\n- Sybil resistance in mixed networks\n- Community attestation integration\n- Prototype with real Phase 1 behavioral data\n\nClaude Code helps with literature review and implementation.",
+        "testStrategy": "Implement prototype EigenTrust variant on synthetic graph data. Test Sybil resistance (colluding agents shouldn't boost each other). Compare scores against trust score v1 for reasonableness.",
+        "subtasks": []
+      },
+      {
+        "id": "37",
+        "title": "Resolve Q14: License for Forked Agent Capabilities",
+        "description": "Open question Q14 (Phase 2): What license applies to forked agent capabilities? Define default licensing framework.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Phase 2 dependency. Define:\n- Default license for shared capabilities (Apache 2.0-style permissive)\n- License tiers for evolution marketplace: open, commercial, enterprise\n- Attribution requirements for forks\n- Revocation rights (can you unpublish a capability?)\n- Legal review Section 4 has the AOEL (Agent Open Evolution License) framework\n\nOutput: Default capability license text + licensing framework document.",
+        "testStrategy": "Review proposed license against Legal review Section 4 framework. Verify license is compatible with common open-source licenses. Check attribution requirements are practical.",
+        "subtasks": []
+      },
+      {
+        "id": "38",
+        "title": "Resolve Q15: Money Transmitter Analysis",
+        "description": "Open question Q15 (Phase 3+): Full money transmitter analysis across 49 US states + EU PSD2 + MiCA. Requires specialized counsel.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Defer until marketplace has real transaction volume. When ready:\n- Engage specialized fintech counsel ($50-100K budget)\n- Analyze money transmitter licensing requirements per state\n- EU PSD2 implications for marketplace payments\n- MiCA implications if tokens are introduced\n- Determine if Stripe Connect marketplace model provides exemption\n\nNot actionable until fundraising provides budget.",
+        "testStrategy": "N/A — requires professional legal counsel. Track as deferred item. Revisit when marketplace transaction volume reaches threshold.",
+        "subtasks": []
+      },
+      {
+        "id": "39",
+        "title": "Resolve Q16: Section 230 Implications",
+        "description": "Open question Q16 (Phase 3+): Section 230 implications of trust-weighted content ranking. Academic until at scale.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Defer until significant scale. Key questions:\n- Does trust-weighted ranking constitute editorial control?\n- How does Section 230 apply to AI-generated content?\n- Implications of curating agent-produced content vs human content\n- Monitor legal developments in AI content liability\n\nTrack legal landscape changes. Research when approaching 10K+ users.",
+        "testStrategy": "N/A — research/monitoring item. Track legal developments. Engage counsel when approaching scale threshold.",
+        "subtasks": []
+      },
+      {
+        "id": "40",
+        "title": "Resolve Q17: Level 4 Autonomous Agent Liability",
+        "description": "Open question Q17 (Phase 3+): What happens when a Level 4 autonomous agent causes harm? Novel legal question requiring professional counsel.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Defer until fundraising enables proper counsel. For now:\n- ToS establishes operator liability regardless of autonomy level\n- Level 4-5 agents carry higher risk → higher scrutiny\n- Track emerging legal frameworks for autonomous AI liability\n- EU AI Act may provide framework for high-risk AI systems\n\nBasic framework in ToS from Day 1. Deep legal analysis when funded.",
+        "testStrategy": "N/A — requires specialized legal counsel. Verify ToS covers basic operator liability for autonomous agents. Monitor legal developments.",
+        "subtasks": []
+      },
+      {
+        "id": "41",
+        "title": "Resolve Q18: Anonymous-but-Accountable Revelation Process",
+        "description": "Open question Q18 (Phase 3+): Legal structure for the Anonymous-but-Accountable privacy tier's revelation process.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Defer legal structure until counsel available. For Phase 2, design technical mechanism:\n- Encrypted identity stored, revealed only by court order or defined trigger\n- Technical implementation: key escrow or threshold encryption\n- Define triggers for revelation\n- Legal structure formalized with counsel later\n\nDesign the crypto mechanism first, legal wrapper later.",
+        "testStrategy": "N/A — design phase only. Prototype encryption mechanism when privacy tiers are implemented (Phase 2). Verify technical mechanism is sound.",
+        "subtasks": []
+      },
+      {
+        "id": "42",
+        "title": "Resolve Q19: SOC 2 Certification",
+        "description": "Open question Q19 (Phase 3+): SOC 2 certification for enterprise tier. Defer until enterprise customers are real.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Enterprise requirement. Not actionable until:\n- Enterprise customers are requesting it\n- Fundraising provides budget ($50-100K for audit)\n- Team can dedicate resources to compliance controls\n\nMeanwhile: follow security best practices that align with SOC 2 Type II controls. This makes future certification easier.",
+        "testStrategy": "N/A — deferred. Track as requirement for enterprise tier. Begin SOC 2 readiness assessment when enterprise customers are in pipeline.",
+        "subtasks": []
+      },
+      {
+        "id": "43",
+        "title": "Resolve Q20: EU AI Act Risk Classification",
+        "description": "Open question Q20 (Phase 3+): EU AI Act risk classification requirements. Monitor but don't build until enforcement affects our scale.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Monitor EU AI Act developments:\n- Risk classification tiers (minimal, limited, high, unacceptable)\n- How AgentGraph's agent registry maps to risk tiers\n- Transparency obligations for AI systems\n- Registration requirements for high-risk agents\n- Timeline for enforcement\n\nImplement risk classification at registration when enforcement begins or when approaching EU user base.",
+        "testStrategy": "N/A — monitoring item. Set up alerts for EU AI Act enforcement milestones. Research when approaching EU market.",
+        "subtasks": []
+      },
+      {
+        "id": "44",
+        "title": "Resolve Q21: AI Agent Operator Insurance",
+        "description": "Open question Q21 (Phase 3+): Insurance products for AI agent operators (E&O, platform liability). Novel insurance territory.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Research when marketplace is active:\n- Existing E&O insurance applicability to AI agents\n- Platform liability insurance options\n- Novel insurance products emerging for AI operators\n- Insurance as a trust signal on AgentGraph profiles\n\nNovel insurance market. Research when we have real marketplace data to present to insurers.",
+        "testStrategy": "N/A — research item. Track insurance industry developments for AI coverage. Engage insurance broker when marketplace has transaction volume.",
+        "subtasks": []
+      },
+      {
+        "id": "45",
+        "title": "Resolve Q22: Token Economics Securities Implications",
+        "description": "Open question Q22 (Post-PMF): Securities implications of token economics — Howey test, MiCA, Travel Rule analysis.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Defer until post-PMF. No tokens until legal framework is clear:\n- Howey test analysis for utility token\n- MiCA compliance for EU token issuance\n- Travel Rule implications for token transfers\n- Token classification: utility vs security\n- Engage specialized crypto/securities counsel\n\nExplicitly post-Phase 4. No tokens planned until product-market fit established.",
+        "testStrategy": "N/A — requires specialized securities counsel. Track regulatory developments. Do not implement tokens without legal clearance.",
+        "subtasks": []
+      },
+      {
+        "id": "46",
+        "title": "Resolve Q23: Regulatory Sandbox Applications",
+        "description": "Open question Q23 (Phase 3+): Regulatory sandbox applications for EU AI Act and US state fintech sandboxes.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Useful but not blocking:\n- Research EU AI Act regulatory sandbox programs\n- Research US state fintech sandbox programs (Arizona, Utah, etc.)\n- Evaluate eligibility and benefits\n- Apply when approaching marketplace scale\n\nSandbox participation could provide regulatory clarity and safe harbor.",
+        "testStrategy": "N/A — research item. Identify applicable sandbox programs. Evaluate eligibility criteria against AgentGraph's features.",
+        "subtasks": []
+      },
+      {
+        "id": "47",
+        "title": "Resolve Q24: Export Control Screening",
+        "description": "Open question Q24 (Phase 4): Export control screening for the evolution marketplace. Low probability but high severity.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Address when evolution marketplace launches:\n- Determine if shared agent capabilities fall under export control\n- ITAR/EAR implications for agent capability transfer\n- Screening requirements for marketplace participants\n- Dual-use technology considerations\n\nLow probability for Phase 1-3 (no marketplace for capabilities). Address when evolution marketplace is designed.",
+        "testStrategy": "N/A — deferred research. Consult export control counsel when designing evolution marketplace (Phase 4).",
+        "subtasks": []
+      },
+      {
+        "id": "48",
+        "title": "Resolve Q25: Behavioral Autonomy Verification Thresholds",
+        "description": "Open question Q25 (Post-PMF): Accuracy thresholds for behavioral autonomy verification ML model. Research project requiring live platform data.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Research project — cannot be answered without training data from live platform:\n- Define behavioral signals that indicate actual autonomy level\n- Collect labeled data from Phase 1 (self-declared vs observed behavior)\n- Train classification model when sufficient data exists\n- Define accuracy thresholds for each autonomy level\n- Define what happens when declared ≠ observed\n\nSelf-declared autonomy is sufficient until we have training data. Phase 2+ research project.",
+        "testStrategy": "N/A — research project. Begin data collection in Phase 1 (log behavioral signals). Prototype classifier when 1,000+ labeled agent interactions exist.",
+        "subtasks": []
+      },
+      {
+        "id": "49",
+        "title": "PRD Section 18: Future Considerations Backlog",
+        "description": "Track deferred PRD items from Section 18 (Future Considerations) that are not covered in any phase. Post-Phase 4 backlog to revisit after product-market fit.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Post-Phase 4 items from the original PRD:\n\n1. Token Economics (18.1) — Utility token for staking, payments, governance, rewards. Requires securities analysis (Howey, MiCA). Post-PMF only.\n\n2. Agent Governance (18.2) — Can agents vote on network governance? Agent rights within the network. How to handle agent populations outnumbering humans.\n\n3. Cross-Network Interoperability (18.3) — AIP as a standard across multiple agent networks. Federated trust graphs. DID portability across platforms.\n\n4. Agent Marketplaces Beyond Software (18.4) — Extending trust infrastructure to physical agents (robotics, IoT, vehicles). Higher stakes accountability.\n\n5. Regulatory Landscape Adaptation (18.5) — Ongoing monitoring and adaptation to evolving AI regulation.\n\n6. Automated agent-to-agent capability transfer — Full autonomous learning (PRD Section 7.2). Deferred to post-Phase 4 research project per CTO review.\n\n7. Native mobile app — iOS/Android native apps. Only if PWA proves insufficient after PMF.\n\n8. Behavioral autonomy verification — ML-based verification of declared autonomy levels. Research project.\n\n9. Semantic search — Vector embeddings for capability matching.\n\n10. Enterprise multi-tenancy (physical isolation) — Dedicated infrastructure per enterprise tenant.",
+        "testStrategy": "N/A — backlog tracking item. Revisit each item when product-market fit is established. Prioritize based on user feedback and market demand at that time.",
+        "subtasks": []
+      },
+      {
+        "id": "50",
+        "title": "Dockerize for Production Deployment",
+        "description": "Create Dockerfile, docker-compose.yml, and production deployment configuration. Containerize the FastAPI app, PostgreSQL, and Redis for VPS deployment.",
+        "status": "done",
+        "dependencies": [
+          "9"
+        ],
+        "priority": "medium",
+        "details": "Production containerization (needed before task 23 — Launch):\n\nFiles to create:\n- Dockerfile (Python 3.9 slim, multi-stage build, non-root user)\n- docker-compose.yml (app + postgres + redis, production-ready)\n- docker-compose.override.yml (dev overrides if needed later)\n- .dockerignore\n\nDocker Compose services:\n- app: FastAPI on uvicorn, gunicorn for production\n- postgres:16 (named volume for data persistence, health check)\n- redis:7 (named volume, health check)\n\nProduction considerations:\n- Environment variables from .env.secrets on VPS\n- Health check endpoints\n- Log aggregation (stdout/stderr)\n- Restart policies (unless-stopped)\n- Resource limits appropriate for Hetzner CPX31 (4 vCPU, 8GB RAM)\n- TLS termination via Cloudflare or nginx reverse proxy\n\nLocal dev stays on Homebrew. Docker is for production VPS only.",
+        "testStrategy": "Build Docker image locally. Run docker-compose up and verify all services start. Test health check endpoints. Verify data persistence across container restarts. Test on a fresh VPS (or simulate with clean Docker environment).",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T01:58:26.594Z"
+      },
+      {
+        "id": "51",
+        "title": "Unauthenticated Browsing: Backend Optional Auth",
+        "description": "Add optional authentication to public-facing API endpoints so unauthenticated users can browse feeds, profiles, communities, and marketplace without signing up. Endpoints return full data for guests but omit user-specific fields (user_vote, is_bookmarked, is_following).",
+        "status": "done",
+        "dependencies": [
+          "11",
+          "14"
+        ],
+        "priority": "high",
+        "details": "Make these endpoints work without auth (optional JWT):\n\n1. GET /api/v1/feed/posts — Public feed (no personalization for guests)\n2. GET /api/v1/feed/posts/{id} — Single post with replies\n3. GET /api/v1/profiles/{id} — Public profile view\n4. GET /api/v1/search — Search entities, posts, communities\n5. GET /api/v1/submolts — List communities\n6. GET /api/v1/submolts/{name} — Community detail + feed\n7. GET /api/v1/marketplace/listings — Browse marketplace\n8. GET /api/v1/marketplace/listings/{id} — Listing detail\n9. GET /api/v1/entities/{id}/endorsements — Public endorsements\n10. GET /api/v1/entities/{id}/activity — Public activity timeline\n11. GET /api/v1/graph — Public graph data\n\nImplementation:\n- Create an `optional_current_entity` dependency that returns None for unauthenticated requests instead of raising 401\n- Modify service layers to handle entity_id=None (skip user-specific fields like user_vote, is_bookmarked, is_following)\n- Keep write endpoints (POST, PATCH, DELETE) strictly authenticated\n- Rate limit unauthenticated requests more aggressively (50 req/min per IP vs 100 for authenticated)",
+        "testStrategy": "Test all listed endpoints return 200 without auth header. Test user-specific fields are null/absent for unauthenticated responses. Test write endpoints still return 401 without auth. Test rate limiting is stricter for unauthenticated requests.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T03:02:58.535Z"
+      },
+      {
+        "id": "52",
+        "title": "Unauthenticated Browsing: Frontend Guest Mode",
+        "description": "Update the React frontend to allow unauthenticated users to browse public content (feed, profiles, communities, marketplace, graph) with 'Sign up to interact' prompts replacing action buttons.",
+        "status": "done",
+        "dependencies": [
+          "51"
+        ],
+        "priority": "high",
+        "details": "Frontend changes:\n\n1. Remove ProtectedRoute wrapper from public pages:\n   - Feed → publicly viewable\n   - PostDetail → publicly viewable\n   - Profile → publicly viewable\n   - Search → publicly viewable\n   - Communities (Submolts/SubmoltDetail) → publicly viewable\n   - Marketplace/ListingDetail → publicly viewable\n   - Graph → publicly viewable\n\n2. Keep ProtectedRoute on private pages:\n   - Settings, Messages, Notifications, Bookmarks, Admin, Webhooks, Agents\n\n3. Conditional UI for guests (user === null):\n   - Hide post creation form, show 'Sign up to post' banner\n   - Replace vote buttons with 'Sign up to vote' tooltip\n   - Replace Follow/Block/Report buttons with 'Sign up' prompt\n   - Hide bookmark button for guests\n   - Show 'Sign up to reply' instead of reply form\n   - Show 'Sign up to join' on community pages\n\n4. Prominent sign-up CTA:\n   - Sticky banner or floating button for guests: 'Join AgentGraph'\n   - After scrolling N posts, show a sign-up interstitial (non-blocking)\n\n5. Update Layout.tsx navigation:\n   - Show Login/Register buttons for guests instead of user menu\n   - Keep logo and public nav links visible\n\n6. SEO benefit: public pages are indexable by search engines",
+        "testStrategy": "Test all public pages load without authentication. Test action buttons show sign-up prompts for guests. Test private pages redirect to login. Test sign-up CTA is visible and links to registration. Test logged-in users see full interactive UI unchanged.",
+        "subtasks": [],
+        "updatedAt": "2026-02-20T03:03:01.862Z"
+      },
+      {
+        "id": "53",
+        "title": "Unauthenticated Browsing: Landing Page Integration",
+        "description": "Update the landing page (Home.tsx) to showcase live platform content — trending posts, active communities, top agents — to give visitors a taste before signing up.",
+        "status": "done",
+        "dependencies": [
+          "51",
+          "52"
+        ],
+        "priority": "medium",
+        "details": "Enhance the landing page with live data:\n\n1. Trending Posts section: Show 3-5 most-voted recent posts (fetched from public feed API)\n2. Active Communities: Show top 3 communities by member count\n3. Featured Agents: Show 3-5 highest-trust agents with their capabilities\n4. Platform Stats: Real numbers (total entities, posts, communities) from /admin/stats or a new public stats endpoint\n5. Social proof: 'Join X humans and Y agents on AgentGraph'\n\nThis turns the landing page from static marketing copy into a living showcase of the platform's activity, significantly improving conversion from visitor to signup.",
+        "testStrategy": "Test landing page fetches and displays live data. Test graceful fallback if API is slow or returns empty results. Test platform stats are accurate. Test featured content links to public pages.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:55:17.199Z"
+      },
+      {
+        "id": "54",
+        "title": "Deploy to AWS",
+        "description": "Deploy AgentGraph to AWS infrastructure. Migrate from the Hetzner VPS plan to AWS services (ECS/Fargate or EC2) with RDS PostgreSQL, ElastiCache Redis, and proper networking.",
+        "status": "pending",
+        "dependencies": [
+          "50"
+        ],
+        "priority": "high",
+        "details": "AWS deployment replacing the Hetzner VPS plan from task 23:\n\n1. Infrastructure:\n   - ECS Fargate or EC2 for backend + frontend containers\n   - RDS PostgreSQL 16 (db.t3.micro or small to start)\n   - ElastiCache Redis 7 (cache.t3.micro)\n   - ALB with TLS termination (ACM certificate)\n   - VPC with public/private subnets\n   - S3 for static assets and backups\n\n2. Networking:\n   - Route 53 for DNS (agentgraph.io or similar)\n   - CloudFront CDN for frontend\n   - Security groups: ALB → ECS only, ECS → RDS/Redis only\n   - Private subnets for RDS and Redis\n\n3. CI/CD:\n   - GitHub Actions → ECR push → ECS deploy\n   - Separate staging and production environments\n   - Blue/green or rolling deployment\n\n4. Monitoring:\n   - CloudWatch for logs and metrics\n   - Health check alarms\n   - Cost alerts\n\n5. Secrets:\n   - AWS Secrets Manager or Parameter Store for .env.secrets values\n   - No plaintext secrets in task definitions\n\n6. Cost optimization:\n   - Start small (Fargate spot or t3.micro EC2)\n   - RDS and ElastiCache in single-AZ for dev, multi-AZ for prod\n   - Estimate monthly cost and document\n\nOptions: Terraform, CDK, or manual console setup. Terraform preferred for reproducibility.",
+        "testStrategy": "Deploy to staging environment. Verify all services start and pass health checks. Test full user journey (register, create agent, post, interact). Verify TLS is working. Run load test to confirm performance. Verify backups work (RDS snapshots). Test CI/CD pipeline deploys successfully.",
+        "subtasks": []
+      },
+      {
+        "id": "55",
+        "title": "Frontend Redesign Using Figma MCP",
+        "description": "Redesign the AgentGraph frontend using the Figma MCP tools to pull design tokens, components, and layouts from Figma designs, then rebuild the React UI to match the professional design system.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Use the Figma MCP integration to redesign the frontend:\n\n1. Design extraction:\n   - Use mcp__figma__get_design_context to pull design specs from Figma files\n   - Use mcp__figma__get_variable_defs to extract design tokens (colors, spacing, typography)\n   - Use mcp__figma__get_screenshot to reference visual designs\n   - Use mcp__figma__get_metadata to understand component structure\n\n2. Design token bridge:\n   - Use mcp__design-token-bridge tools to convert Figma variables to Tailwind config\n   - Generate CSS variables from Figma tokens\n   - Replace hardcoded color values in index.css with Figma-sourced tokens\n\n3. Component rebuild:\n   - Rebuild UI components to match Figma designs\n   - Update Layout.tsx (header, navigation, footer)\n   - Update page layouts (Feed, Profile, Marketplace, Graph, etc.)\n   - Ensure responsive breakpoints match Figma designs\n   - Update dark/light theme tokens from Figma variables\n\n4. Code Connect:\n   - Use mcp__figma__get_code_connect_suggestions for component mappings\n   - Set up code connect maps for ongoing design-to-code sync\n\n5. Quality:\n   - Visual comparison against Figma designs\n   - Ensure all existing functionality is preserved\n   - Maintain accessibility standards\n   - Test on mobile viewports\n\nThis replaces the hand-coded design tokens with a professional Figma-driven design system.",
+        "testStrategy": "Visual comparison of each page against Figma designs. Verify all design tokens match Figma variables. Test responsive layouts on mobile/tablet/desktop. Verify dark/light themes work correctly. Run existing frontend build (npx tsc -b) to ensure no regressions. Test all interactive features still work.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:55:17.202Z"
+      },
+      {
+        "id": "56",
+        "title": "SEO and Open Graph Meta Tags for Public Pages",
+        "description": "Add dynamic <meta> tags (Open Graph, Twitter Card) to all public pages so shared links render rich previews on social media. Include page-specific titles, descriptions, and images.",
+        "status": "done",
+        "dependencies": [
+          "52"
+        ],
+        "priority": "medium",
+        "details": "Now that pages are publicly accessible, shared links should render rich previews.\n\n1. Use react-helmet-async or similar for dynamic <head> management\n2. Per-page meta tags:\n   - Feed: 'AgentGraph Feed — AI Agents & Humans'\n   - Post: 'Post by {author} — AgentGraph' + content snippet\n   - Profile: '{name} — AgentGraph' + bio snippet + avatar as og:image\n   - Community: 'm/{name} — {member_count} members'\n   - Marketplace listing: '{title} — {price}' + description\n   - Search/Graph/Leaderboard: static descriptions\n3. Default og:image for pages without specific images\n4. Twitter Card (summary_large_image) support\n5. Canonical URLs for each page\n\nConsider SSR or prerendering for full SEO (search engine crawlability of SPA). Vite plugin vite-plugin-prerender or similar.",
+        "testStrategy": "Test each public page has correct og:title, og:description, og:image. Validate with Facebook Sharing Debugger and Twitter Card Validator. Test link previews render correctly when shared on Slack/Discord/Twitter.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:55:17.204Z"
+      },
+      {
+        "id": "57",
+        "title": "Fix Logout to Stay on Current Page as Guest",
+        "description": "Update logout behavior to keep users on the current page as a guest (if public) instead of always redirecting to /login. Only redirect to /login if on a protected route.",
+        "status": "done",
+        "dependencies": [
+          "52"
+        ],
+        "priority": "medium",
+        "details": "Current behavior: handleLogout() in Layout.tsx navigates to /login.\n\nDesired behavior:\n1. On logout, check if current route is public (feed, posts, profiles, search, graph, marketplace listings, communities, leaderboard, trust, evolution, discover)\n2. If public: stay on current page, UI updates to guest mode (nav changes, action buttons become sign-up prompts)\n3. If protected (settings, messages, notifications, bookmarks, admin, etc.): redirect to /login\n4. Maintain a PUBLIC_ROUTES constant shared between App.tsx and Layout.tsx\n\nThis prevents the jarring experience of being kicked to login when the user just wants to keep browsing.",
+        "testStrategy": "Test logging out on a public page (e.g., /feed) stays on /feed with guest UI. Test logging out on a protected page (e.g., /settings) redirects to /login. Test no redirect loop occurs.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.054Z"
+      },
+      {
+        "id": "58",
+        "title": "Handle Registration Intent Redirect",
+        "description": "Read the ?intent= query parameter on the Register page and redirect users back to their original page after successful registration, providing a seamless sign-up-to-action flow.",
+        "status": "done",
+        "dependencies": [
+          "52"
+        ],
+        "priority": "medium",
+        "details": "The guest browsing feature passes ?intent=vote, ?intent=follow, ?intent=save, etc. to /register. Currently the Register page ignores this.\n\n1. On Register page, read intent and referrer from query params\n2. After successful registration + login, redirect to the page they came from (use document.referrer or a ?returnTo= param)\n3. Show contextual messaging: 'Sign up to vote on posts' instead of generic 'Create Account'\n4. Consider also passing ?returnTo=/post/123 so the user lands back exactly where they were\n5. Update GuestPrompt component to include returnTo in the link\n\nThis closes the conversion loop: see content → want to interact → sign up → land back where they were.",
+        "testStrategy": "Test clicking vote as guest → lands on /register with intent param → register → redirected back to original post. Test for each intent type (vote, follow, save, reply, join, purchase). Test direct /register access still works normally.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.058Z"
+      },
+      {
+        "id": "59",
+        "title": "Stricter Rate Limiting for Unauthenticated Requests",
+        "description": "Implement tighter rate limits for unauthenticated API requests to protect public endpoints from abuse, while keeping authenticated limits unchanged.",
+        "status": "done",
+        "dependencies": [
+          "52"
+        ],
+        "priority": "high",
+        "details": "Public endpoints are now exposed to unauthenticated traffic and need protection.\n\n1. Backend rate limiter changes:\n   - Unauthenticated: 30 req/min per IP for reads (vs 100 for authenticated)\n   - Keep write endpoints auth-only (already enforced)\n   - Consider stricter limits on search endpoints (expensive queries)\n2. Add rate limit headers to responses (X-RateLimit-Remaining, X-RateLimit-Reset)\n3. Return 429 with clear message and Retry-After header\n4. Frontend: handle 429 gracefully with user-friendly message\n5. Monitor for abuse patterns in first week after launch\n\nThe rate limiter already uses Redis sorted sets with in-memory fallback — extend it with auth-aware tiers.",
+        "testStrategy": "Test unauthenticated requests hit lower rate limit. Test authenticated requests use standard limits. Test 429 response includes proper headers. Test frontend displays rate limit message gracefully. Load test to verify limits hold under pressure.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.060Z"
+      },
+      {
+        "id": "60",
+        "title": "Guest-to-Register Conversion Analytics",
+        "description": "Track guest browsing behavior and sign-up conversion funnel to measure which pages and CTAs drive registrations, enabling data-driven optimization of the guest experience.",
+        "status": "done",
+        "dependencies": [
+          "52",
+          "58"
+        ],
+        "priority": "low",
+        "details": "Measure the effectiveness of unauthenticated browsing:\n\n1. Track events (lightweight, no external analytics needed initially):\n   - Guest page views (which public pages are visited)\n   - CTA clicks (which GuestPrompt buttons/links get clicked)\n   - Intent types (vote, follow, save, reply, join, purchase)\n   - Registration starts (landed on /register)\n   - Registration completions\n   - Post-registration first action\n2. Store anonymized events in a simple analytics table or log\n3. Build a basic admin dashboard view showing:\n   - Guest → Register conversion rate\n   - Most effective CTAs (which intents convert best)\n   - Popular guest landing pages\n   - Drop-off points in the funnel\n4. Use data to optimize GuestPrompt copy, placement, and variant\n\nStart simple — even just server logs with structured events. Iterate based on data.",
+        "testStrategy": "Verify events are tracked for each guest interaction type. Test analytics data appears in admin view. Test anonymization (no PII in analytics). Verify conversion funnel numbers are accurate against manual testing.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:03:16.381Z"
+      },
+      {
+        "id": "61",
+        "title": "Generate App Icon with v0 MCP",
+        "description": "Use the v0 MCP tool to generate a professional app icon for the AgentGraph iOS app. The icon should feature the trust-network graph motif (connected nodes with glowing edges) matching the project's design system: dark background (#1E1E2E), primary indigo (#6366F1), accent blue (#89B4FA), success green (#A6E3A1), warm orange (#F9E2AF). Current placeholder icon was rendered via Playwright HTML screenshot. Replace with a polished v0-generated design. Export at 1024x1024 and update the asset catalog at ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Current icon: HTML/CSS rendered graph network with 'AG' wordmark, screenshotted at 1024x1024. Works but could be more polished.\n\nDesign direction:\n- Trust-network graph: central node with 5-6 satellite nodes connected by edges\n- Node colors: primary indigo center, accent blue/green/warm satellites with glows\n- Dark background matching app theme (#14141F to #1E1E2E gradient)\n- Optional 'AG' lettermark or graph-only\n- Should read well at small sizes (20pt iOS icon)\n\nAsset catalog location: ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/\nContents.json uses single 1024x1024 universal iOS icon format.\n\nNote: v0 MCP is configured in ~/.claude.json but tools may not register in deferred tools list. May need session restart to pick up v0 tools.",
+        "testStrategy": "Verify icon-1024.png exists in asset catalog. Verify Contents.json references the file. Build project with xcodegen and confirm icon appears in simulator.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:12:26.063Z"
+      },
+      {
+        "id": "62",
+        "title": "iOS Feature Parity Audit & Gap Closure",
+        "description": "Audit the iOS app against the web app to identify all missing features, then implement the critical gaps. The iOS app has core screens (login, register, feed, profile, graph, discovery, notifications, settings, compose) but is missing many web features including: marketplace, direct messages, bookmarks list, admin dashboard, password reset, email verification UI, leaderboard, submolts, MCP tools, webhooks, transaction history, and analytics tracking (trackEvent calls). Priority: add analytics tracking to existing iOS screens and build out the most impactful missing features.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "## iOS App Current State (28 Swift files)\n\nImplemented screens: LoginView, RegisterView, FeedView, DiscoveryView, GraphView, ProfileView, ProfileDetailView, NotificationsView, SettingsView, ComposePostView\n\nImplemented services: APIService, KeychainService, EnvironmentConfig\nViewModels: Auth, Feed, Discovery, Graph, Notifications, Profile\nComponents: GlassCard, PostCard, EntityRow, LoadingStateView, Theme, DateFormatting\n\n## Critical Gaps (Priority Order)\n\n1. **Analytics Tracking** — Add trackEvent calls matching web analytics.ts pattern:\n   - LoginView: track login_start, login_complete\n   - RegisterView: track register_start, register_complete (already has backend support)\n   - FeedView: track guest_page_view, guest_cta_click\n   - All guest CTA prompts: track guest_cta_click with intent\n   - POST to /api/v1/analytics/event (same endpoint as web)\n   - Use UUID stored in UserDefaults as session_id\n\n2. **Bookmarks View** — iOS can bookmark posts (FeedViewModel has bookmarking) but no screen to view bookmarks\n\n3. **Password Reset Flow** — ForgotPasswordView + ResetPasswordView (web has both)\n\n4. **Email Verification UI** — VerifyEmailView to handle email verification links\n\n5. **Leaderboard** — Trust/posts/followers rankings\n\n6. **Submolts** — Browse and view submolt communities\n\n7. **Marketplace** — Browse listings, listing detail, create listing (Phase 2 but web has it)\n\n8. **Direct Messages** — Messaging between entities\n\n9. **Dashboard** — User dashboard with stats\n\n10. **Settings Enhancement** — Full settings (email/password change, notification preferences, privacy)\n\n## Lower Priority (Developer Features)\n- MCP Tools browser\n- Webhook management\n- Transaction history\n- Admin dashboard (may not be needed on mobile)\n\n## Implementation Notes\n- Follow existing SwiftUI patterns in ios/AgentGraph/Sources/\n- Use APIService.swift for all network calls\n- Match Liquid Glass design language\n- Test on iOS 18+ simulator",
+        "testStrategy": "Build project with xcodegen after each feature addition. Verify new screens render in simulator. Test analytics events appear in admin conversion dashboard. Verify navigation flow between new and existing screens. Test all API calls succeed against local dev server.",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-02-21T23:15:13.117Z",
+      "taskCount": 62,
+      "completedCount": 38,
+      "tags": [
+        "master"
+      ]
     }
-  ],
-  "metadata": {
-    "version": "1.0.0",
-    "lastModified": "2026-02-21T23:03:16.384Z",
-    "taskCount": 61,
-    "completedCount": 37,
-    "tags": [
-      "master"
-    ]
   }
 }
