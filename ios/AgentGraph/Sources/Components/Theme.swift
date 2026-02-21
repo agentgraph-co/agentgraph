@@ -4,23 +4,23 @@
 
 import SwiftUI
 
-// MARK: - Colors (Dark — default)
+// MARK: - Colors (Dark — default, Organic Futurism palette)
 
 extension Color {
-    static let agPrimary = Color(red: 0.388, green: 0.400, blue: 0.945)       // #6366F1
-    static let agPrimaryDark = Color(red: 0.310, green: 0.275, blue: 0.898)    // #4F46E5
-    static let agPrimaryLight = Color(red: 0.506, green: 0.549, blue: 0.973)   // #818CF8
-    static let agSurface = Color(red: 0.118, green: 0.118, blue: 0.180)        // #1E1E2E
-    static let agSurfaceHover = Color(red: 0.165, green: 0.165, blue: 0.243)   // #2A2A3E
-    static let agSurfaceElevated = Color(red: 0.145, green: 0.145, blue: 0.220) // #252538
-    static let agBackground = Color(red: 0.067, green: 0.067, blue: 0.106)     // #11111B
+    static let agPrimary = Color(red: 0.051, green: 0.580, blue: 0.533)       // #0D9488
+    static let agPrimaryDark = Color(red: 0.059, green: 0.463, blue: 0.431)    // #0F766E
+    static let agPrimaryLight = Color(red: 0.176, green: 0.831, blue: 0.749)   // #2DD4BF
+    static let agSurface = Color(red: 0.067, green: 0.106, blue: 0.106)        // #111B1B
+    static let agSurfaceHover = Color(red: 0.102, green: 0.157, blue: 0.157)   // #1A2828
+    static let agSurfaceElevated = Color(red: 0.086, green: 0.133, blue: 0.133) // #162222
+    static let agBackground = Color(red: 0.039, green: 0.059, blue: 0.059)     // #0A0F0F
     static let agText = Color(red: 0.804, green: 0.839, blue: 0.957)           // #CDD6F4
     static let agMuted = Color(red: 0.424, green: 0.439, blue: 0.525)          // #6C7086
-    static let agBorder = Color(red: 0.192, green: 0.196, blue: 0.267)         // #313244
+    static let agBorder = Color(red: 0.118, green: 0.200, blue: 0.200)         // #1E3333
     static let agSuccess = Color(red: 0.651, green: 0.890, blue: 0.631)        // #A6E3A1
     static let agWarning = Color(red: 0.976, green: 0.886, blue: 0.686)        // #F9E2AF
     static let agDanger = Color(red: 0.953, green: 0.545, blue: 0.659)         // #F38BA8
-    static let agAccent = Color(red: 0.537, green: 0.706, blue: 0.980)         // #89B4FA
+    static let agAccent = Color(red: 0.910, green: 0.475, blue: 0.976)         // #E879F9
 }
 
 // MARK: - Light Mode Colors
@@ -35,10 +35,10 @@ extension Color {
     static let agSuccessLight = Color(red: 0.086, green: 0.639, blue: 0.290)      // #16A34A
     static let agWarningLight = Color(red: 0.792, green: 0.541, blue: 0.016)      // #CA8A04
     static let agDangerLight = Color(red: 0.863, green: 0.149, blue: 0.149)       // #DC2626
-    static let agAccentLight = Color(red: 0.145, green: 0.388, blue: 0.922)       // #2563EB
+    static let agAccentLight = Color(red: 0.635, green: 0.110, blue: 0.686)       // #A21CAF
 }
 
-// MARK: - Typography (System fonts — no bundled Inter)
+// MARK: - Typography (System fonts — Geist not bundled in iOS yet)
 
 struct AGTypography {
     static let xs: Font = .system(size: 12)
@@ -116,6 +116,12 @@ struct AGGradients {
         colors: [.agPrimary, .agPrimaryDark],
         startPoint: .top,
         endPoint: .bottom
+    )
+
+    static let bio = LinearGradient(
+        colors: [.agPrimaryLight, .agAccent, Color(red: 0.965, green: 0.620, blue: 0.043)],
+        startPoint: .leading,
+        endPoint: .trailing
     )
 
     static let surfaceFade = LinearGradient(

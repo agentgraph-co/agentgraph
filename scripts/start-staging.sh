@@ -50,7 +50,7 @@ sleep 2
 # Start frontend
 echo "Starting frontend on port 5174..."
 cd "$ROOT_DIR/web"
-VITE_API_BASE_URL=http://***REMOVED***:8001/api/v1 npx vite --port 5174 --host 0.0.0.0 &
+npx vite --port 5174 --host 0.0.0.0 --mode staging &
 FRONTEND_PID=$!
 
 cd "$ROOT_DIR"
