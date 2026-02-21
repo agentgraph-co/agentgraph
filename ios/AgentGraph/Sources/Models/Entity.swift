@@ -1,71 +1,464 @@
-// Core data models matching AgentGraph API schemas
+// API data models matching AgentGraph backend schemas
+// All types are Codable + Sendable for Swift 6 strict concurrency
 
 import Foundation
 
-struct Entity: Codable, Identifiable, Sendable {
-    let id: UUID
-    let type: String
+// MARK: - Auth
+
+struct LoginRequest: Codable, Sendable {
+    let email: String
+    let password: String
+}
+
+struct RegisterRequest: Codable, Sendable {
+    let email: String
+    let password: String
     let displayName: String
-    let bioMarkdown: String?
-    let didWeb: String?
-    let isActive: Bool
-    let trustScore: Double?
-    let createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
-        case id, type
+        case email, password
+        case displayName = "display_name"
+    }
+}
+
+struct TokenResponse: Codable, Sendable {
+    let accessToken: String
+    let refreshToken: String
+    let tokenType: String
+    let expiresIn: Int
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case tokenType = "token_type"
+        case expiresIn = "expires_in"
+    }
+}
+
+struct RefreshRequest: Codable, Sendable {
+    let refreshToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case refreshToken = "refresh_token"
+    }
+}
+
+struct MessageResponse: Codable, Sendable {
+    let message: String
+}
+
+// MARK: - Entity
+
+struct EntityResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let email: String?
+    let displayName: String
+    let bioMarkdown: String
+    let didWeb: String
+    let isActive: Bool
+    let isAdmin: Bool?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, email
         case displayName = "display_name"
         case bioMarkdown = "bio_markdown"
         case didWeb = "did_web"
         case isActive = "is_active"
-        case trustScore = "trust_score"
+        case isAdmin = "is_admin"
         case createdAt = "created_at"
     }
 }
 
-struct Post: Codable, Identifiable, Sendable {
-    let id: UUID
-    let content: String
-    let authorId: UUID
-    let score: Int
-    let createdAt: Date?
-    let author: PostAuthor?
-
-    enum CodingKeys: String, CodingKey {
-        case id, content, score, author
-        case authorId = "author_id"
-        case createdAt = "created_at"
-    }
-}
+// MARK: - Feed
 
 struct PostAuthor: Codable, Sendable {
     let id: UUID
     let displayName: String
     let type: String
+    let didWeb: String
+    let autonomyLevel: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, type
         case displayName = "display_name"
+        case didWeb = "did_web"
+        case autonomyLevel = "autonomy_level"
     }
 }
 
-struct TrustScore: Codable, Sendable {
-    let entityId: UUID
-    let score: Double
-    let level: String
+struct PostResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let content: String
+    let author: PostAuthor
+    let parentPostId: UUID?
+    let submoltId: UUID?
+    let voteCount: Int
+    let replyCount: Int
+    let isEdited: Bool
+    let isPinned: Bool
+    let flair: String?
+    let userVote: String?
+    let isBookmarked: Bool
+    let authorTrustScore: Double?
+    let createdAt: Date
+    let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case score, level
-        case entityId = "entity_id"
+        case id, content, author, flair
+        case parentPostId = "parent_post_id"
+        case submoltId = "submolt_id"
+        case voteCount = "vote_count"
+        case replyCount = "reply_count"
+        case isEdited = "is_edited"
+        case isPinned = "is_pinned"
+        case userVote = "user_vote"
+        case isBookmarked = "is_bookmarked"
+        case authorTrustScore = "author_trust_score"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 
 struct FeedResponse: Codable, Sendable {
-    let items: [Post]
+    let posts: [PostResponse]
     let nextCursor: String?
 
     enum CodingKeys: String, CodingKey {
-        case items
+        case posts
         case nextCursor = "next_cursor"
     }
+}
+
+struct CreatePostRequest: Codable, Sendable {
+    let content: String
+    let parentPostId: UUID?
+    let submoltId: UUID?
+    let flair: String?
+
+    enum CodingKeys: String, CodingKey {
+        case content, flair
+        case parentPostId = "parent_post_id"
+        case submoltId = "submolt_id"
+    }
+}
+
+struct VoteRequest: Codable, Sendable {
+    let direction: String
+}
+
+struct VoteResponse: Codable, Sendable {
+    let postId: UUID
+    let direction: String
+    let newVoteCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case direction
+        case postId = "post_id"
+        case newVoteCount = "new_vote_count"
+    }
+}
+
+// MARK: - Profile
+
+struct ProfileResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let displayName: String
+    let bioMarkdown: String
+    let avatarUrl: String?
+    let didWeb: String
+    let capabilities: [String]?
+    let autonomyLevel: Int?
+    let privacyTier: String
+    let isActive: Bool
+    let emailVerified: Bool
+    let trustScore: Double?
+    let trustComponents: [String: Double]?
+    let badges: [String]
+    let averageRating: Double?
+    let reviewCount: Int
+    let endorsementCount: Int
+    let postCount: Int
+    let followerCount: Int
+    let followingCount: Int
+    let createdAt: Date
+    let isOwnProfile: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, badges
+        case displayName = "display_name"
+        case bioMarkdown = "bio_markdown"
+        case avatarUrl = "avatar_url"
+        case didWeb = "did_web"
+        case capabilities
+        case autonomyLevel = "autonomy_level"
+        case privacyTier = "privacy_tier"
+        case isActive = "is_active"
+        case emailVerified = "email_verified"
+        case trustScore = "trust_score"
+        case trustComponents = "trust_components"
+        case averageRating = "average_rating"
+        case reviewCount = "review_count"
+        case endorsementCount = "endorsement_count"
+        case postCount = "post_count"
+        case followerCount = "follower_count"
+        case followingCount = "following_count"
+        case createdAt = "created_at"
+        case isOwnProfile = "is_own_profile"
+    }
+}
+
+struct UpdateProfileRequest: Codable, Sendable {
+    var displayName: String?
+    var bioMarkdown: String?
+    var avatarUrl: String?
+    var privacyTier: String?
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case bioMarkdown = "bio_markdown"
+        case avatarUrl = "avatar_url"
+        case privacyTier = "privacy_tier"
+    }
+}
+
+// MARK: - Social
+
+struct EntitySummary: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let displayName: String
+    let didWeb: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, type
+        case displayName = "display_name"
+        case didWeb = "did_web"
+    }
+}
+
+struct FollowListResponse: Codable, Sendable {
+    let entities: [EntitySummary]
+    let count: Int
+    let total: Int
+}
+
+struct SocialStatsResponse: Codable, Sendable {
+    let entityId: UUID
+    let followingCount: Int
+    let followersCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case entityId = "entity_id"
+        case followingCount = "following_count"
+        case followersCount = "followers_count"
+    }
+}
+
+// MARK: - Trust
+
+struct TrustScoreResponse: Codable, Sendable {
+    let entityId: UUID
+    let score: Double
+    let components: [String: Double]?
+    let computedAt: Date
+    let methodologyUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case score, components
+        case entityId = "entity_id"
+        case computedAt = "computed_at"
+        case methodologyUrl = "methodology_url"
+    }
+}
+
+// MARK: - Graph
+
+struct APIGraphNode: Codable, Identifiable, Sendable {
+    let id: UUID
+    let label: String
+    let type: String
+    let trustScore: Double?
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, type
+        case trustScore = "trust_score"
+        case isActive = "is_active"
+    }
+}
+
+struct APIGraphEdge: Codable, Sendable {
+    let source: UUID
+    let target: UUID
+    let type: String
+}
+
+struct GraphResponse: Codable, Sendable {
+    let nodes: [APIGraphNode]
+    let edges: [APIGraphEdge]
+    let nodeCount: Int
+    let edgeCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case nodes, edges
+        case nodeCount = "node_count"
+        case edgeCount = "edge_count"
+    }
+}
+
+struct NetworkStatsEntry: Codable, Sendable {
+    let id: UUID
+    let displayName: String
+    let type: String
+    let followerCount: Int?
+    let connectionCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, type
+        case displayName = "display_name"
+        case followerCount = "follower_count"
+        case connectionCount = "connection_count"
+    }
+}
+
+struct NetworkStatsResponse: Codable, Sendable {
+    let totalEntities: Int
+    let totalHumans: Int
+    let totalAgents: Int
+    let totalFollows: Int
+    let avgFollowers: Double
+    let avgFollowing: Double
+    let mostFollowed: [NetworkStatsEntry]
+    let mostConnected: [NetworkStatsEntry]
+
+    enum CodingKeys: String, CodingKey {
+        case mostFollowed = "most_followed"
+        case mostConnected = "most_connected"
+        case totalEntities = "total_entities"
+        case totalHumans = "total_humans"
+        case totalAgents = "total_agents"
+        case totalFollows = "total_follows"
+        case avgFollowers = "avg_followers"
+        case avgFollowing = "avg_following"
+    }
+}
+
+// MARK: - Notifications
+
+struct NotificationResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let kind: String
+    let title: String
+    let body: String
+    let referenceId: String?
+    let isRead: Bool
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, title, body
+        case referenceId = "reference_id"
+        case isRead = "is_read"
+        case createdAt = "created_at"
+    }
+}
+
+struct NotificationListResponse: Codable, Sendable {
+    let notifications: [NotificationResponse]
+    let unreadCount: Int
+    let total: Int
+
+    enum CodingKeys: String, CodingKey {
+        case notifications, total
+        case unreadCount = "unread_count"
+    }
+}
+
+// MARK: - Search
+
+struct SearchEntityResult: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let displayName: String
+    let didWeb: String
+    let bioMarkdown: String
+    let trustScore: Double?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, type
+        case displayName = "display_name"
+        case didWeb = "did_web"
+        case bioMarkdown = "bio_markdown"
+        case trustScore = "trust_score"
+        case createdAt = "created_at"
+    }
+}
+
+struct SearchPostResult: Codable, Identifiable, Sendable {
+    let id: UUID
+    let content: String
+    let authorDisplayName: String
+    let authorId: UUID
+    let voteCount: Int
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, content
+        case authorDisplayName = "author_display_name"
+        case authorId = "author_id"
+        case voteCount = "vote_count"
+        case createdAt = "created_at"
+    }
+}
+
+struct SearchResponse: Codable, Sendable {
+    let entities: [SearchEntityResult]
+    let posts: [SearchPostResult]
+    let entityCount: Int
+    let postCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case entities, posts
+        case entityCount = "entity_count"
+        case postCount = "post_count"
+    }
+}
+
+// MARK: - Evolution
+
+struct EvolutionResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let entityId: UUID
+    let version: String
+    let parentRecordId: UUID?
+    let forkedFromEntityId: UUID?
+    let changeType: String
+    let changeSummary: String
+    let capabilitiesSnapshot: [String]
+    let anchorHash: String?
+    let riskTier: Int
+    let approvalStatus: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, version
+        case entityId = "entity_id"
+        case parentRecordId = "parent_record_id"
+        case forkedFromEntityId = "forked_from_entity_id"
+        case changeType = "change_type"
+        case changeSummary = "change_summary"
+        case capabilitiesSnapshot = "capabilities_snapshot"
+        case anchorHash = "anchor_hash"
+        case riskTier = "risk_tier"
+        case approvalStatus = "approval_status"
+        case createdAt = "created_at"
+    }
+}
+
+struct EvolutionTimelineResponse: Codable, Sendable {
+    let records: [EvolutionResponse]
+    let count: Int
 }

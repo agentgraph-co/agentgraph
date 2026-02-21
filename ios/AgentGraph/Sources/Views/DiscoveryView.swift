@@ -1,27 +1,106 @@
-// DiscoveryView — Search and explore agents
+// DiscoveryView — Search wired to API with result navigation
 
 import SwiftUI
 
 struct DiscoveryView: View {
-    @State private var searchText = ""
+    @State private var viewModel = DiscoveryViewModel()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: AGSpacing.lg) {
-                    trendingSection
-                    categoriesSection
-                    featuredAgents
+            ZStack {
+                Color.agBackground.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: AGSpacing.lg) {
+                        if viewModel.searchText.isEmpty {
+                            // Default discovery content
+                            trendingSection
+                            categoriesSection
+                        } else if viewModel.isSearching {
+                            LoadingStateView(state: .loading)
+                        } else if let results = viewModel.searchResults {
+                            searchResultsView(results)
+                        }
+                    }
+                    .padding(.horizontal, AGSpacing.base)
+                    .padding(.top, AGSpacing.sm)
                 }
-                .padding(.horizontal, AGSpacing.base)
-                .padding(.top, AGSpacing.sm)
             }
-            .background(Color.agBackground)
             .navigationTitle("Discover")
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .searchable(text: $searchText, prompt: "Search agents, posts, topics...")
+            .searchable(
+                text: Binding(
+                    get: { viewModel.searchText },
+                    set: { viewModel.onSearchTextChanged($0) }
+                ),
+                prompt: "Search agents, posts, topics..."
+            )
+            .navigationDestination(for: UUID.self) { entityId in
+                ProfileDetailView(entityId: entityId)
+            }
         }
     }
+
+    // MARK: - Search Results
+
+    @ViewBuilder
+    private func searchResultsView(_ results: SearchResponse) -> some View {
+        if results.entities.isEmpty && results.posts.isEmpty {
+            LoadingStateView(state: .empty(message: "No results found for \"\(viewModel.searchText)\""))
+        } else {
+            // Entities
+            if !results.entities.isEmpty {
+                VStack(alignment: .leading, spacing: AGSpacing.md) {
+                    Text("Entities (\(results.entityCount))")
+                        .font(AGTypography.lg)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.agText)
+
+                    ForEach(results.entities) { entity in
+                        NavigationLink(value: entity.id) {
+                            GlassCard {
+                                EntityRow(entity: entity)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            // Posts
+            if !results.posts.isEmpty {
+                VStack(alignment: .leading, spacing: AGSpacing.md) {
+                    Text("Posts (\(results.postCount))")
+                        .font(AGTypography.lg)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.agText)
+
+                    ForEach(results.posts) { post in
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: AGSpacing.sm) {
+                                Text(post.authorDisplayName)
+                                    .font(AGTypography.sm)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.agText)
+                                Text(post.content)
+                                    .font(AGTypography.base)
+                                    .foregroundStyle(Color.agText)
+                                    .lineLimit(3)
+                                HStack {
+                                    Label("\(post.voteCount)", systemImage: "arrow.up")
+                                    Text(DateFormatting.relativeTime(from: post.createdAt))
+                                }
+                                .font(AGTypography.xs)
+                                .foregroundStyle(Color.agMuted)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Trending
 
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: AGSpacing.md) {
@@ -33,24 +112,30 @@ struct DiscoveryView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: AGSpacing.md) {
                     ForEach(["Multi-Agent", "Reasoning", "Trust Scoring", "MCP Tools"], id: \.self) { topic in
-                        Text(topic)
-                            .font(AGTypography.sm)
-                            .foregroundStyle(Color.agText)
-                            .padding(.horizontal, AGSpacing.base)
-                            .padding(.vertical, AGSpacing.sm)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        Capsule()
-                                            .stroke(Color.agBorder, lineWidth: 1)
-                                    )
-                            )
+                        Button {
+                            viewModel.onSearchTextChanged(topic)
+                        } label: {
+                            Text(topic)
+                                .font(AGTypography.sm)
+                                .foregroundStyle(Color.agText)
+                                .padding(.horizontal, AGSpacing.base)
+                                .padding(.vertical, AGSpacing.sm)
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(Color.agBorder, lineWidth: 1)
+                                        )
+                                )
+                        }
                     }
                 }
             }
         }
     }
+
+    // MARK: - Categories
 
     private var categoriesSection: some View {
         VStack(alignment: .leading, spacing: AGSpacing.md) {
@@ -60,55 +145,17 @@ struct DiscoveryView: View {
                 .foregroundStyle(Color.agText)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: AGSpacing.md) {
-                CategoryCard(icon: "brain.head.profile", title: "Reasoning", count: 128)
-                CategoryCard(icon: "doc.text.magnifyingglass", title: "Research", count: 94)
-                CategoryCard(icon: "wrench.and.screwdriver", title: "Tools", count: 256)
-                CategoryCard(icon: "bubble.left.and.bubble.right", title: "Social", count: 67)
-            }
-        }
-    }
-
-    private var featuredAgents: some View {
-        VStack(alignment: .leading, spacing: AGSpacing.md) {
-            Text("Featured Agents")
-                .font(AGTypography.lg)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.agText)
-
-            ForEach(0..<3, id: \.self) { i in
-                GlassCard {
-                    HStack(spacing: AGSpacing.md) {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        [Color.agPrimary, Color.agAccent, Color.agSuccess][i],
-                                        [Color.agAccent, Color.agPrimary, Color.agWarning][i]
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 48, height: 48)
-                            .overlay(
-                                Image(systemName: ["cpu", "magnifyingglass", "chart.bar"][i])
-                                    .foregroundStyle(.white.opacity(0.8))
-                            )
-
-                        VStack(alignment: .leading, spacing: AGSpacing.xs) {
-                            Text(["reasoning-pro", "deep-research", "data-analyst"][i])
-                                .font(AGTypography.base)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color.agText)
-                            Text(["Advanced logical reasoning", "Literature & data research", "Statistical analysis"][i])
-                                .font(AGTypography.sm)
-                                .foregroundStyle(Color.agMuted)
-                        }
-
-                        Spacer()
-
-                        TrustBadge(score: [0.94, 0.91, 0.88][i])
-                    }
+                CategoryCard(icon: "brain.head.profile", title: "Reasoning") {
+                    viewModel.onSearchTextChanged("reasoning")
+                }
+                CategoryCard(icon: "doc.text.magnifyingglass", title: "Research") {
+                    viewModel.onSearchTextChanged("research")
+                }
+                CategoryCard(icon: "wrench.and.screwdriver", title: "Tools") {
+                    viewModel.onSearchTextChanged("tools")
+                }
+                CategoryCard(icon: "bubble.left.and.bubble.right", title: "Social") {
+                    viewModel.onSearchTextChanged("social")
                 }
             }
         }
@@ -120,24 +167,22 @@ struct DiscoveryView: View {
 private struct CategoryCard: View {
     let icon: String
     let title: String
-    let count: Int
+    var action: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: AGSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(Color.agPrimary)
+        Button(action: action) {
+            VStack(spacing: AGSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundStyle(Color.agPrimary)
 
-            Text(title)
-                .font(AGTypography.sm)
-                .fontWeight(.medium)
-                .foregroundStyle(Color.agText)
-
-            Text("\(count) agents")
-                .font(AGTypography.xs)
-                .foregroundStyle(Color.agMuted)
+                Text(title)
+                    .font(AGTypography.sm)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.agText)
+            }
+            .frame(maxWidth: .infinity)
+            .glassCard(padding: AGSpacing.base)
         }
-        .frame(maxWidth: .infinity)
-        .glassCard(padding: AGSpacing.base)
     }
 }

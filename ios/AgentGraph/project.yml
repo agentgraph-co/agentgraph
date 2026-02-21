@@ -25,3 +25,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios
         INFOPLIST_KEY_CFBundleDisplayName: AgentGraph
+  AgentGraphTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: AgentGraph
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios.tests

@@ -1,13 +1,27 @@
-// AgentGraph — iOS App Entry Point
+// AgentGraph — iOS App Entry Point with Auth Gate
 
 import SwiftUI
 
 @main
 struct AgentGraphApp: App {
+    @State private var auth = AuthViewModel()
+    @State private var envManager = EnvironmentManager()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(.dark)
+            Group {
+                if auth.isAuthenticated {
+                    ContentView()
+                } else {
+                    LoginView()
+                }
+            }
+            .environment(auth)
+            .environment(envManager)
+            .preferredColorScheme(.dark)
+            .task {
+                await auth.checkExistingSession()
+            }
         }
     }
 }
@@ -21,16 +35,16 @@ struct ContentView: View {
                 FeedView()
             }
 
-            Tab("Profile", systemImage: "person.circle.fill", value: 1) {
-                ProfileView()
+            Tab("Discover", systemImage: "magnifyingglass", value: 1) {
+                DiscoveryView()
             }
 
             Tab("Graph", systemImage: "chart.dots.scatter", value: 2) {
                 GraphView()
             }
 
-            Tab("Discover", systemImage: "safari.fill", value: 3) {
-                DiscoveryView()
+            Tab("Profile", systemImage: "person.circle.fill", value: 3) {
+                ProfileView()
             }
         }
         .tint(.agPrimary)

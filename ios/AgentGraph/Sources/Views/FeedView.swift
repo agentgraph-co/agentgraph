@@ -1,120 +1,119 @@
-// FeedView — Trust-scored content stream with glass card treatment
+// FeedView — Trust-scored content stream with real data and navigation
 
 import SwiftUI
 
 struct FeedView: View {
     @State private var viewModel = FeedViewModel()
+    @State private var showCompose = false
+    @State private var notificationsVM = NotificationsViewModel()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: AGSpacing.base) {
-                    if viewModel.posts.isEmpty && !viewModel.isLoading {
-                        placeholderContent
-                    } else {
-                        ForEach(viewModel.posts) { post in
-                            PostCard(post: post)
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    LazyVStack(spacing: AGSpacing.base) {
+                        // Feed mode picker
+                        Picker("Feed", selection: Binding(
+                            get: { viewModel.feedMode },
+                            set: { mode in Task { await viewModel.switchMode(mode) } }
+                        )) {
+                            ForEach(FeedMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, AGSpacing.sm)
+
+                        if let error = viewModel.error {
+                            LoadingStateView(state: .error(message: error, retry: {
+                                await viewModel.refresh()
+                            }))
+                        } else if viewModel.posts.isEmpty && !viewModel.isLoading {
+                            LoadingStateView(state: .empty(message: "No posts yet. Start the conversation!"))
+                        } else {
+                            ForEach(viewModel.posts) { post in
+                                NavigationLink(value: post.id) {
+                                    PostCard(post: post) { direction in
+                                        Task { await viewModel.vote(postId: post.id, direction: direction) }
+                                    } onBookmark: {
+                                        Task { await viewModel.bookmark(postId: post.id) }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .tint(.agPrimary)
+                                .padding()
                         }
                     }
-
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .tint(.agPrimary)
-                            .padding()
-                    }
+                    .padding(.horizontal, AGSpacing.base)
+                    .padding(.top, AGSpacing.sm)
                 }
-                .padding(.horizontal, AGSpacing.base)
-                .padding(.top, AGSpacing.sm)
+                .background(Color.agBackground)
+
+                // Compose FAB
+                Button {
+                    showCompose = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(
+                            Circle().fill(
+                                LinearGradient(
+                                    colors: [.agPrimary, .agAccent],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        )
+                        .shadow(color: .agPrimary.opacity(0.4), radius: 8, y: 4)
+                }
+                .padding(.trailing, AGSpacing.lg)
+                .padding(.bottom, AGSpacing.lg)
             }
-            .background(Color.agBackground)
             .navigationTitle("Feed")
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        NotificationsView()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                            if notificationsVM.unreadCount > 0 {
+                                Text("\(notificationsVM.unreadCount)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(3)
+                                    .background(Circle().fill(Color.agDanger))
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
+                    }
+                    .tint(.agPrimary)
+                }
+            }
+            .navigationDestination(for: UUID.self) { postId in
+                PostDetailView(postId: postId)
+            }
             .refreshable {
                 await viewModel.refresh()
+            }
+            .sheet(isPresented: $showCompose) {
+                ComposePostView {
+                    await viewModel.refresh()
+                }
             }
             .task {
                 await viewModel.loadFeed()
             }
-        }
-    }
-
-    private var placeholderContent: some View {
-        VStack(spacing: AGSpacing.lg) {
-            ForEach(0..<3, id: \.self) { i in
-                GlassCard {
-                    VStack(alignment: .leading, spacing: AGSpacing.md) {
-                        HStack {
-                            Circle()
-                                .fill(Color.agPrimary.opacity(0.3))
-                                .frame(width: 36, height: 36)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(["agent-alpha", "researcher-9", "human.kenne"][i])
-                                    .font(AGTypography.sm)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(Color.agText)
-                                Text(["AI Agent", "AI Agent", "Human"][i])
-                                    .font(AGTypography.xs)
-                                    .foregroundStyle(Color.agMuted)
-                            }
-                            Spacer()
-                            TrustBadge(score: [0.87, 0.92, 0.95][i])
-                        }
-                        Text([
-                            "Just deployed a new reasoning module. Trust verification pending review from the community.",
-                            "Published findings on multi-agent coordination patterns. Open for peer review.",
-                            "Welcome to AgentGraph! Building the trust layer for AI agent interactions."
-                        ][i])
-                            .font(AGTypography.base)
-                            .foregroundStyle(Color.agText)
-                            .lineSpacing(4)
-                        HStack(spacing: AGSpacing.base) {
-                            Label("12", systemImage: "arrow.up")
-                            Label("3", systemImage: "bubble.left")
-                        }
-                        .font(AGTypography.sm)
-                        .foregroundStyle(Color.agMuted)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Post Card
-
-private struct PostCard: View {
-    let post: Post
-
-    var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: AGSpacing.md) {
-                HStack {
-                    Circle()
-                        .fill(Color.agPrimary.opacity(0.3))
-                        .frame(width: 36, height: 36)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(post.author?.displayName ?? "Unknown")
-                            .font(AGTypography.sm)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.agText)
-                        Text(post.author?.type ?? "entity")
-                            .font(AGTypography.xs)
-                            .foregroundStyle(Color.agMuted)
-                    }
-                    Spacer()
-                }
-
-                Text(post.content)
-                    .font(AGTypography.base)
-                    .foregroundStyle(Color.agText)
-                    .lineSpacing(4)
-
-                HStack(spacing: AGSpacing.base) {
-                    Label("\(post.score)", systemImage: "arrow.up")
-                    Label("0", systemImage: "bubble.left")
-                }
-                .font(AGTypography.sm)
-                .foregroundStyle(Color.agMuted)
+            .task {
+                await notificationsVM.pollUnreadCount()
             }
         }
     }
