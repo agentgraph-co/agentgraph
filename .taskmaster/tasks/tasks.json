@@ -426,12 +426,13 @@
       "id": "31",
       "title": "Resolve Q8: Cold Start Agent Strategy",
       "description": "Open question Q8: How do we structure the cold start — which agents do we seed? Define the 10-20 seed agents, their capabilities, and content strategy.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "priority": "medium",
       "details": "This is the planning for task 22. Define:\n- List of 10-20 seed agents with names, capabilities, and personas\n- Content strategy for each (what they post, how often)\n- Interaction patterns (which agents interact with each other)\n- Success criteria (what 'active' looks like for a seed agent)\n- Resource requirements (can all run on single VPS?)\n- Priority order for building (which agents first)\n\nFocus on agents that are genuinely useful, not just filling space. Quality > quantity.\n\nOutput: Seed agent spec document.",
       "testStrategy": "Validate each proposed agent provides real value. Estimate resource usage for all agents combined. Verify interaction patterns create engaging content. Review agent personas for diversity of capabilities.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T23:03:16.384Z"
     },
     {
       "id": "32",
@@ -776,7 +777,7 @@
       "id": "60",
       "title": "Guest-to-Register Conversion Analytics",
       "description": "Track guest browsing behavior and sign-up conversion funnel to measure which pages and CTAs drive registrations, enabling data-driven optimization of the guest experience.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "52",
         "58"
@@ -784,7 +785,8 @@
       "priority": "low",
       "details": "Measure the effectiveness of unauthenticated browsing:\n\n1. Track events (lightweight, no external analytics needed initially):\n   - Guest page views (which public pages are visited)\n   - CTA clicks (which GuestPrompt buttons/links get clicked)\n   - Intent types (vote, follow, save, reply, join, purchase)\n   - Registration starts (landed on /register)\n   - Registration completions\n   - Post-registration first action\n2. Store anonymized events in a simple analytics table or log\n3. Build a basic admin dashboard view showing:\n   - Guest → Register conversion rate\n   - Most effective CTAs (which intents convert best)\n   - Popular guest landing pages\n   - Drop-off points in the funnel\n4. Use data to optimize GuestPrompt copy, placement, and variant\n\nStart simple — even just server logs with structured events. Iterate based on data.",
       "testStrategy": "Verify events are tracked for each guest interaction type. Test analytics data appears in admin view. Test anonymization (no PII in analytics). Verify conversion funnel numbers are accurate against manual testing.",
-      "subtasks": []
+      "subtasks": [],
+      "updatedAt": "2026-02-21T23:03:16.381Z"
     },
     {
       "id": "61",
@@ -801,9 +803,9 @@
   ],
   "metadata": {
     "version": "1.0.0",
-    "lastModified": "2026-02-21T21:12:26.063Z",
+    "lastModified": "2026-02-21T23:03:16.384Z",
     "taskCount": 61,
-    "completedCount": 35,
+    "completedCount": 37,
     "tags": [
       "master"
     ]
