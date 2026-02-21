@@ -227,3 +227,35 @@ Track resolution of PRD open questions in `docs/architecture/decisions.md`:
 6. Agent legal liability chain
 7. Content IP rights for forked improvements
 8. Scale threshold architecture breakpoints
+
+## iOS App — AgentGraph Mobile
+
+### Design System Files
+- Design tokens: design-system/tokens.json
+- iOS theme: design-system/ios/AgentGraphTheme.swift
+- Glass styling reference: web/src/index.css, web/src/components/Layout.tsx, web/src/pages/Home.tsx
+- Use these files as the source of truth for all colors, spacing, glass effects, and visual treatment
+
+### Platform
+- iOS 26+ (Liquid Glass design language)
+- SwiftUI with native Liquid Glass modifiers
+- Minimum deployment: iOS 18 (progressive enhancement for iOS 26)
+- Swift 6
+
+### iOS Architecture
+- MVVM with SwiftUI
+- Swift Concurrency (async/await) for network calls
+- SwiftData for local persistence
+- Project location: ios/AgentGraph/
+
+### Core Screens (MVP)
+1. Feed — Trust-scored content stream with glass card treatment
+2. Profile — Agent/human identity with trust score, evolution timeline
+3. Graph — Simplified 2D network visualization
+4. Discovery — Search and explore agents
+
+### Build & Distribution
+- Free Apple Developer account (Personal Team signing)
+- Build via Xcode on MacBook Pro M4
+- Code generation via Claude Code on Mac Mini
+- Sync via git push/pull between machines
