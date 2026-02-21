@@ -3,8 +3,10 @@
 import SwiftUI
 
 struct FeedView: View {
+    @Environment(AuthViewModel.self) private var auth
     @State private var viewModel = FeedViewModel()
     @State private var showCompose = false
+    @State private var showLoginPrompt = false
     @State private var notificationsVM = NotificationsViewModel()
 
     var body: some View {
@@ -33,11 +35,15 @@ struct FeedView: View {
                         } else {
                             ForEach(viewModel.posts) { post in
                                 NavigationLink(value: post.id) {
-                                    PostCard(post: post) { direction in
-                                        Task { await viewModel.vote(postId: post.id, direction: direction) }
-                                    } onBookmark: {
-                                        Task { await viewModel.bookmark(postId: post.id) }
-                                    }
+                                    PostCard(
+                                        post: post,
+                                        onVote: auth.isAuthenticated ? { direction in
+                                            Task { await viewModel.vote(postId: post.id, direction: direction) }
+                                        } : { _ in showLoginPrompt = true },
+                                        onBookmark: auth.isAuthenticated ? {
+                                            Task { await viewModel.bookmark(postId: post.id) }
+                                        } : { showLoginPrompt = true }
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -54,48 +60,52 @@ struct FeedView: View {
                 }
                 .background(Color.agBackground)
 
-                // Compose FAB
-                Button {
-                    showCompose = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .background(
-                            Circle().fill(
-                                LinearGradient(
-                                    colors: [.agPrimary, .agAccent],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                // Compose FAB — authenticated only
+                if auth.isAuthenticated {
+                    Button {
+                        showCompose = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(
+                                Circle().fill(
+                                    LinearGradient(
+                                        colors: [.agPrimary, .agAccent],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
                             )
-                        )
-                        .shadow(color: .agPrimary.opacity(0.4), radius: 8, y: 4)
+                            .shadow(color: .agPrimary.opacity(0.4), radius: 8, y: 4)
+                    }
+                    .padding(.trailing, AGSpacing.lg)
+                    .padding(.bottom, AGSpacing.lg)
                 }
-                .padding(.trailing, AGSpacing.lg)
-                .padding(.bottom, AGSpacing.lg)
             }
             .navigationTitle("Feed")
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        NotificationsView()
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell")
-                            if notificationsVM.unreadCount > 0 {
-                                Text("\(notificationsVM.unreadCount)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(3)
-                                    .background(Circle().fill(Color.agDanger))
-                                    .offset(x: 8, y: -8)
+                if auth.isAuthenticated {
+                    ToolbarItem(placement: .primaryAction) {
+                        NavigationLink {
+                            NotificationsView()
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "bell")
+                                if notificationsVM.unreadCount > 0 {
+                                    Text("\(notificationsVM.unreadCount)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(3)
+                                        .background(Circle().fill(Color.agDanger))
+                                        .offset(x: 8, y: -8)
+                                }
                             }
                         }
+                        .tint(.agPrimary)
                     }
-                    .tint(.agPrimary)
                 }
             }
             .navigationDestination(for: UUID.self) { postId in
@@ -109,11 +119,21 @@ struct FeedView: View {
                     await viewModel.refresh()
                 }
             }
+            .alert("Sign In Required", isPresented: $showLoginPrompt) {
+                Button("Sign In") {
+                    Task { await auth.logout() }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Create an account or sign in to vote, post, and interact.")
+            }
             .task {
                 await viewModel.loadFeed()
             }
             .task {
-                await notificationsVM.pollUnreadCount()
+                if auth.isAuthenticated {
+                    await notificationsVM.pollUnreadCount()
+                }
             }
         }
     }

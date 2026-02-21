@@ -76,12 +76,12 @@ actor APIService {
 
     func login(email: String, password: String) async throws -> TokenResponse {
         let body = LoginRequest(email: email, password: password)
-        return try await post(path: "auth/login", body: body)
+        return try await post(path: "auth/login", body: body, authenticate: false)
     }
 
     func register(email: String, password: String, displayName: String) async throws -> MessageResponse {
         let body = RegisterRequest(email: email, password: password, displayName: displayName)
-        return try await post(path: "auth/register", body: body)
+        return try await post(path: "auth/register", body: body, authenticate: false)
     }
 
     func refreshTokens() async throws -> TokenResponse {

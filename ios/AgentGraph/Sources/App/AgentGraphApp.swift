@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-@main
+@main @MainActor
 struct AgentGraphApp: App {
     @State private var auth = AuthViewModel()
     @State private var envManager = EnvironmentManager()
@@ -10,7 +10,7 @@ struct AgentGraphApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if auth.isAuthenticated {
+                if auth.canAccessApp {
                     ContentView()
                 } else {
                     LoginView()

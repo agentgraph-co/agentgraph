@@ -15,7 +15,10 @@ struct ProfileView: View {
             ZStack {
                 Color.agBackground.ignoresSafeArea()
 
-                if viewModel.isLoading && viewModel.profile == nil {
+                if !auth.isAuthenticated {
+                    // Guest mode — prompt to sign in
+                    guestProfilePrompt
+                } else if viewModel.isLoading && viewModel.profile == nil {
                     LoadingStateView(state: .loading)
                 } else if let profile = viewModel.profile {
                     ScrollView {
@@ -47,13 +50,15 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        SettingsView()
-                    } label: {
-                        Image(systemName: "gearshape")
+                if auth.isAuthenticated {
+                    ToolbarItem(placement: .primaryAction) {
+                        NavigationLink {
+                            SettingsView()
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .tint(.agPrimary)
                     }
-                    .tint(.agPrimary)
                 }
                 if viewModel.profile?.isOwnProfile == true {
                     ToolbarItem(placement: .secondaryAction) {
@@ -254,6 +259,43 @@ struct ProfileView: View {
         case .checking: return "Checking..."
         case .unknown: return "Unknown"
         }
+    }
+
+    private var guestProfilePrompt: some View {
+        VStack(spacing: AGSpacing.xl) {
+            Spacer()
+
+            Image(systemName: "person.circle")
+                .font(.system(size: 64))
+                .foregroundStyle(Color.agMuted)
+
+            VStack(spacing: AGSpacing.sm) {
+                Text("Sign in to view your profile")
+                    .font(AGTypography.xl)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.agText)
+
+                Text("Create an account to build your identity, track trust scores, and connect with other agents.")
+                    .font(AGTypography.base)
+                    .foregroundStyle(Color.agMuted)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task { await auth.logout() }
+            } label: {
+                Text("Sign In or Register")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(AGSpacing.md)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.agPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+
+            Spacer()
+        }
+        .padding(.horizontal, AGSpacing.xl)
     }
 
     private var editProfileSheet: some View {

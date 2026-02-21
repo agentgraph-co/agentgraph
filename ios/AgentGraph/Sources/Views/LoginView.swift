@@ -114,6 +114,19 @@ struct LoginView: View {
                             .foregroundStyle(Color.agAccent)
                         }
                     }
+
+                    // Guest browsing option
+                    Button {
+                        auth.enterGuestMode()
+                    } label: {
+                        HStack(spacing: AGSpacing.sm) {
+                            Image(systemName: "eye")
+                            Text("Browse as Guest")
+                        }
+                        .font(AGTypography.sm)
+                        .foregroundStyle(Color.agMuted)
+                    }
+                    .padding(.top, AGSpacing.sm)
                 }
                 .padding(.horizontal, AGSpacing.xl)
             }

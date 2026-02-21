@@ -6,9 +6,15 @@ import Observation
 @Observable @MainActor
 final class AuthViewModel {
     var isAuthenticated = false
+    var isGuestMode = false
     var currentUser: EntityResponse?
     var isLoading = false
     var error: String?
+
+    /// Whether the user can access the main app (logged in or guest)
+    var canAccessApp: Bool {
+        isAuthenticated || isGuestMode
+    }
 
     func checkExistingSession() async {
         guard let access = KeychainService.load(key: KeychainService.accessTokenKey),
@@ -43,6 +49,10 @@ final class AuthViewModel {
         }
     }
 
+    func enterGuestMode() {
+        isGuestMode = true
+    }
+
     func login(email: String, password: String) async {
         isLoading = true
         error = nil
@@ -55,6 +65,7 @@ final class AuthViewModel {
 
             let user = try await APIService.shared.getMe()
             currentUser = user
+            isGuestMode = false
             isAuthenticated = true
         } catch {
             self.error = error.localizedDescription
@@ -88,6 +99,7 @@ final class AuthViewModel {
         await APIService.shared.clearTokens()
         currentUser = nil
         isAuthenticated = false
+        isGuestMode = false
         error = nil
     }
 }
