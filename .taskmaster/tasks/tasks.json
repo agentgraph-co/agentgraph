@@ -76,12 +76,13 @@
         "id": "7",
         "title": "Draft Privacy Policy",
         "description": "Draft Privacy Policy covering data collection, usage, retention, deletion, third-party sharing, and GDPR-compatible rights. Reference Compliance review Section 5.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Key sections:\n\n1. Data We Collect:\n   - Account info (email, display name, profile bio)\n   - Agent metadata (capabilities, autonomy level, operator link)\n   - Content (posts, comments, votes)\n   - Usage data (trust score inputs, activity metrics)\n   - Technical data (IP addresses for rate limiting, not stored long-term)\n\n2. How We Use Data:\n   - Provide the service (profiles, feed, trust scores)\n   - Moderation and safety\n   - Trust score computation (publicly documented algorithm)\n   - Aggregate analytics (anonymized)\n\n3. Data Sharing:\n   - Public profiles are public by design\n   - No sale of personal data\n   - Law enforcement: only with valid legal process\n   - Phase 2: privacy tiers give users control\n\n4. Data Retention:\n   - Active accounts: indefinite\n   - Deleted accounts: data removed within 30 days\n   - Moderation records: retained for safety (anonymized after 1 year)\n\n5. User Rights (GDPR-compatible):\n   - Access, rectification, deletion, portability\n   - Contact: privacy@agentgraph.io (or similar)\n\n6. On-Chain Data (Phase 2+):\n   - Hash-on-chain, data-off-chain\n   - On-chain hashes are immutable by design\n   - Off-chain data can be deleted (hash becomes orphaned)\n\nDraft with AI, professional review before investors.",
         "testStrategy": "Review against Compliance review Section 5 and Legal review Section 2. Verify GDPR Article 13/14 required disclosures are present. Check data retention periods are specified. Verify deletion process is described. Compare against GDPR-compliant privacy policy templates.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:18:24.064Z"
       },
       {
         "id": "8",
@@ -370,23 +371,25 @@
         "id": "26",
         "title": "Resolve Q3: ToS Operator Liability Clauses",
         "description": "Open question Q3: What goes in the ToS regarding operator liability for agent actions? Define the legal framework for operator accountability.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Draft using Legal review Section 2 as template. Key decisions:\n- Operators accept liability for all agent actions at registration\n- Platform can suspend operator + all linked agents for violations\n- Define escalation path: warning → content removal → suspension → ban\n- Agent autonomy level doesn't reduce operator liability (Level 5 agent still = operator's responsibility)\n- Indemnification clause for platform\n\nOutput: ToS operator liability section draft. Professional review before investors.",
         "testStrategy": "Review against Legal review Section 2 recommendations. Check internal consistency. Compare against competitor ToS. Flag clauses needing professional review.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:18:32.814Z"
       },
       {
         "id": "27",
         "title": "Resolve Q4: Privacy Policy Data Handling",
         "description": "Open question Q4: What goes in the Privacy Policy regarding data handling? Define data collection, usage, retention, and deletion policies.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Draft using Legal review Section 2 and Compliance review Section 5 as templates. Define:\n- Categories of data collected\n- Legal basis for processing (consent, legitimate interest)\n- Retention periods for each data category\n- Deletion process and timeline\n- On-chain data handling (Phase 2+): hash-on-chain is immutable, off-chain data deletable\n- Third-party data sharing policy\n- User rights (GDPR Article 15-22 compatible)\n\nOutput: Privacy Policy draft. Professional review before investors.",
         "testStrategy": "Verify GDPR Article 13/14 required disclosures present. Check retention periods specified. Verify deletion process described. Compare against GDPR-compliant templates.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T23:18:32.818Z"
       },
       {
         "id": "28",
@@ -816,9 +819,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-21T23:15:13.117Z",
+      "lastModified": "2026-02-21T23:18:32.818Z",
       "taskCount": 62,
-      "completedCount": 38,
+      "completedCount": 41,
       "tags": [
         "master"
       ]
