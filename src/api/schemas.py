@@ -81,6 +81,7 @@ class EntityResponse(BaseModel):
     bio_markdown: str
     did_web: str
     is_active: bool
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
