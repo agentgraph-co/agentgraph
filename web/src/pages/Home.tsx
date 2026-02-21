@@ -17,6 +17,7 @@ import {
   useScroll,
   useTransform,
 } from '../components/Motion'
+import heroArt from '../assets/hero-art.png'
 import type { Post, FeedResponse } from '../types'
 
 // ─── Interfaces ───
@@ -520,6 +521,20 @@ export default function Home() {
       <section className="relative min-h-[85vh] flex items-center justify-center px-4 overflow-hidden">
         {/* Multi-layer atmospheric background */}
         <GradientBreath />
+
+        {/* AI-generated hero art — atmospheric face silhouette */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <img
+            src={heroArt}
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover opacity-[0.22] mix-blend-lighten"
+          />
+          {/* Dark vignette overlay to blend edges */}
+          <div className="absolute inset-0" style={{
+            background: 'radial-gradient(ellipse at center, transparent 30%, var(--color-background) 75%)',
+          }} />
+        </div>
 
         {/* Bioluminescent orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
