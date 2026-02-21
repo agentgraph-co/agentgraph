@@ -22,6 +22,9 @@
   --color-success-glow: #a6e3a140;
   --color-surface-glass: #111B1BCC;
   --color-surface-elevated: #162222;
+  --color-violet: #7C3AED;
+  --color-violet-light: #A78BFA;
+  --color-violet-glow: #7C3AED60;
 }
 
 /* ─── Base ─── */
@@ -97,6 +100,13 @@ select:focus-visible {
 
 .gradient-text-bio {
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent), #F59E0B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-violet {
+  background: linear-gradient(135deg, var(--color-violet-light), var(--color-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
