@@ -92,6 +92,24 @@ struct SettingsView: View {
                                         .foregroundStyle(Color.agText)
                                 }
                             }
+
+                            Divider().background(Color.agBorder)
+
+                            NavigationLink {
+                                BookmarksView()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "bookmark")
+                                        .foregroundStyle(Color.agPrimary)
+                                    Text("Bookmarks")
+                                        .font(AGTypography.sm)
+                                        .foregroundStyle(Color.agText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(AGTypography.xs)
+                                        .foregroundStyle(Color.agMuted)
+                                }
+                            }
                         }
                     }
 
