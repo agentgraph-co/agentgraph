@@ -4,6 +4,7 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(AuthViewModel.self) private var auth
+    @Environment(EnvironmentManager.self) private var envManager
     @State private var email = ""
     @State private var password = ""
     @State private var showRegister = false
@@ -154,6 +155,41 @@ struct LoginView: View {
                         .foregroundStyle(Color.agMuted)
                     }
                     .padding(.top, AGSpacing.sm)
+
+                    // Environment picker
+                    @Bindable var env = envManager
+                    HStack(spacing: AGSpacing.sm) {
+                        Image(systemName: "server.rack")
+                            .foregroundStyle(Color.agMuted)
+                        Picker("Server", selection: $env.current) {
+                            ForEach(ServerEnvironment.allCases, id: \.self) { environment in
+                                Text(environment.displayName).tag(environment)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: envManager.current) { _, newEnv in
+                            Task {
+                                await APIService.shared.updateEnvironment(newEnv)
+                                await envManager.checkHealth()
+                            }
+                        }
+                    }
+                    .padding(.top, AGSpacing.sm)
+
+                    // Health status indicator
+                    HStack(spacing: AGSpacing.xs) {
+                        Circle()
+                            .fill(envManager.healthStatus == .connected ? Color.agSuccess :
+                                  envManager.healthStatus == .checking ? Color.agWarning :
+                                  Color.agDanger)
+                            .frame(width: 8, height: 8)
+                        Text(envManager.current.baseURL.host ?? "")
+                            .font(AGTypography.xs)
+                            .foregroundStyle(Color.agMuted)
+                        Text(":\(envManager.current.port)")
+                            .font(AGTypography.xs)
+                            .foregroundStyle(Color.agMuted)
+                    }
                 }
                 .padding(.horizontal, AGSpacing.xl)
             }
@@ -162,6 +198,9 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showRegister) {
             RegisterView()
+        }
+        .task {
+            await envManager.checkHealth()
         }
     }
 }
