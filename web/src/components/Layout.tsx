@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import { AtmosphericBackground } from './AtmosphericBackground'
 import api from '../lib/api'
 
 const spring = { type: 'spring' as const, stiffness: 300, damping: 30 }
@@ -348,7 +349,9 @@ export default function Layout() {
 
       {/* Main content */}
       <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
-        <Outlet />
+        <AtmosphericBackground>
+          <Outlet />
+        </AtmosphericBackground>
       </main>
     </div>
   )
