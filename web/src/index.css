@@ -316,3 +316,7 @@ select:focus-visible {
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
 }
+
+[data-theme="light"] .atmosphere-hero-art {
+  display: none;
+}

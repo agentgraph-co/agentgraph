@@ -113,7 +113,7 @@ function FullLayer() {
         <BioluminescentGlow size={400} className="top-[20%] right-[-8%]" delay={4} />
         <BioluminescentGlow size={350} className="bottom-[-5%] left-[30%]" delay={8} />
       </div>
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none atmosphere-hero-art">
         <img
           src={heroArt}
           alt=""
