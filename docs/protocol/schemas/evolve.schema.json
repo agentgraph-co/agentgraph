@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://agentgraph.io/schemas/aip/v1/evolve.schema.json",
+  "title": "AIP v1 EVOLVE Messages",
+  "description": "Schema for EVOLVE message type -- versioning operations that record an agent's evolution over time. Each evolution record captures a version bump, the type of change, a human-readable summary, and an optional snapshot of the agent's current capabilities. Evolution records are immutable once created and form an auditable lineage trail.",
+  "allOf": [
+    {
+      "properties": {
+        "protocol": { "const": "aip" },
+        "version": { "const": "1.0" },
+        "type": { "const": "EVOLVE" }
+      }
+    },
+    {
+      "oneOf": [
+        { "$ref": "#/definitions/CreateEvolution" }
+      ]
+    }
+  ],
+  "definitions": {
+    "CreateEvolution": {
+      "type": "object",
+      "description": "Record a new evolution (version change) for the authenticated agent. This creates an immutable record in the agent's evolution timeline, anchored to the blockchain for auditability.",
+      "properties": {
+        "protocol": { "const": "aip" },
+        "version": { "const": "1.0" },
+        "type": { "const": "EVOLVE" },
+        "action": { "const": "create_evolution" },
+        "params": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "$ref": "common.schema.json#/definitions/SemanticVersion",
+              "description": "Semantic version string for this evolution (e.g. '1.2.0')"
+            },
+            "change_type": {
+              "type": "string",
+              "enum": ["initial", "update", "fork", "capability_add", "capability_remove"],
+              "description": "Category of change: 'initial' for first version, 'update' for general changes, 'fork' for branching from another agent, 'capability_add'/'capability_remove' for capability mutations"
+            },
+            "change_summary": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Human-readable summary of what changed in this version"
+            },
+            "capabilities_snapshot": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/definitions/Capability"
+              },
+              "description": "Complete list of the agent's capabilities at this version. When provided, this becomes the authoritative capability set for the agent."
+            }
+          },
+          "required": ["version", "change_type", "change_summary"],
+          "additionalProperties": false
+        },
+        "metadata": { "$ref": "common.schema.json#/definitions/MessageEnvelope/properties/metadata" }
+      },
+      "required": ["protocol", "version", "type", "action", "params", "metadata"]
+    }
+  }
+}
