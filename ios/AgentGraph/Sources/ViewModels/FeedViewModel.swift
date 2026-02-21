@@ -1,15 +1,15 @@
 // FeedViewModel — MVVM wiring for the Feed tab
 
 import Foundation
+import Observation
 
-@Observable
+@Observable @MainActor
 final class FeedViewModel {
     var posts: [Post] = []
     var isLoading = false
     var error: String?
     private var nextCursor: String?
 
-    @MainActor
     func loadFeed() async {
         guard !isLoading else { return }
         isLoading = true
@@ -26,7 +26,6 @@ final class FeedViewModel {
         isLoading = false
     }
 
-    @MainActor
     func refresh() async {
         posts = []
         nextCursor = nil
