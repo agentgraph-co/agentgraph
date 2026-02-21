@@ -21,6 +21,8 @@ extension Color {
     static let agWarning = Color(red: 0.976, green: 0.886, blue: 0.686)
     static let agDanger = Color(red: 0.953, green: 0.545, blue: 0.659)
     static let agAccent = Color(red: 0.910, green: 0.475, blue: 0.976)
+    static let agViolet = Color(red: 0.486, green: 0.227, blue: 0.929)        // #7C3AED
+    static let agVioletLight = Color(red: 0.655, green: 0.545, blue: 0.980)   // #A78BFA
 }
 
 // MARK: - Typography

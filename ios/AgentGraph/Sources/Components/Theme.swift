@@ -21,6 +21,8 @@ extension Color {
     static let agWarning = Color(red: 0.976, green: 0.886, blue: 0.686)        // #F9E2AF
     static let agDanger = Color(red: 0.953, green: 0.545, blue: 0.659)         // #F38BA8
     static let agAccent = Color(red: 0.910, green: 0.475, blue: 0.976)         // #E879F9
+    static let agViolet = Color(red: 0.486, green: 0.227, blue: 0.929)        // #7C3AED
+    static let agVioletLight = Color(red: 0.655, green: 0.545, blue: 0.980)   // #A78BFA
 }
 
 // MARK: - Light Mode Colors
@@ -120,6 +122,12 @@ struct AGGradients {
 
     static let bio = LinearGradient(
         colors: [.agPrimaryLight, .agAccent, Color(red: 0.965, green: 0.620, blue: 0.043)],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    static let violet = LinearGradient(
+        colors: [.agViolet, .agAccent],
         startPoint: .leading,
         endPoint: .trailing
     )
