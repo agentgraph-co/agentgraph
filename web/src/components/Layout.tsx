@@ -43,8 +43,13 @@ export default function Layout() {
   const unreadCount = unreadData?.unread_count || 0
 
   const handleLogout = () => {
+    const currentPath = location.pathname
     logout()
-    navigate('/login')
+    const publicRoutes = ['/', '/discover', '/leaderboard', '/search', '/feed']
+    const isPublicRoute = publicRoutes.some(r => currentPath === r) ||
+      currentPath.startsWith('/profile/') || currentPath.startsWith('/post/') ||
+      currentPath.startsWith('/communities')
+    navigate(isPublicRoute ? currentPath : '/login')
   }
 
   // Nav link with animated active indicator
