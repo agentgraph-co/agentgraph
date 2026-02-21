@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
@@ -10,6 +10,8 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
 
   useEffect(() => { document.title = 'Sign In - AgentGraph' }, [])
 
@@ -19,7 +21,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/feed')
+      navigate(returnTo || '/feed')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg || 'Login failed')
@@ -80,7 +82,7 @@ export default function Login() {
       <div className="mt-4 text-center space-y-2">
         <p className="text-sm text-text-muted">
           Don't have an account?{' '}
-          <Link to="/register" className="text-primary-light hover:underline">
+          <Link to={`/register${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} className="text-primary-light hover:underline">
             Register
           </Link>
         </p>

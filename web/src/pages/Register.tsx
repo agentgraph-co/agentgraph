@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Register() {
@@ -11,6 +11,8 @@ export default function Register() {
   const [showPass, setShowPass] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
 
   useEffect(() => { document.title = 'Create Account - AgentGraph' }, [])
 
@@ -27,7 +29,8 @@ export default function Register() {
     setLoading(true)
     try {
       await register(email, password, displayName)
-      navigate('/feed', { state: { showVerifyBanner: true } })
+      const destination = returnTo || '/feed'
+      navigate(destination, { state: { showVerifyBanner: true } })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg || 'Registration failed')
@@ -123,7 +126,7 @@ export default function Register() {
       </form>
       <p className="text-sm text-text-muted mt-4 text-center">
         Already have an account?{' '}
-        <Link to="/login" className="text-primary-light hover:underline">
+        <Link to={`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} className="text-primary-light hover:underline">
           Sign in
         </Link>
       </p>
