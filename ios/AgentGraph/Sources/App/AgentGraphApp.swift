@@ -2,10 +2,21 @@
 
 import SwiftUI
 
+enum DeepLinkDestination: Equatable {
+    case resetPassword(token: String)
+    case verifyEmail(token: String)
+}
+
+struct DeepLinkWrapper: Identifiable {
+    let id = UUID()
+    let destination: DeepLinkDestination
+}
+
 @main @MainActor
 struct AgentGraphApp: App {
     @State private var auth = AuthViewModel()
     @State private var envManager = EnvironmentManager()
+    @State private var deepLinkDestination: DeepLinkDestination?
 
     var body: some Scene {
         WindowGroup {
@@ -25,6 +36,41 @@ struct AgentGraphApp: App {
             .task {
                 await auth.checkExistingSession()
             }
+            .onOpenURL { url in
+                handleDeepLink(url)
+            }
+            .sheet(item: Binding(
+                get: { deepLinkDestination.map { DeepLinkWrapper(destination: $0) } },
+                set: { _ in deepLinkDestination = nil }
+            )) { wrapper in
+                switch wrapper.destination {
+                case .resetPassword(let token):
+                    ResetPasswordView(token: token)
+                case .verifyEmail(let token):
+                    VerifyEmailView(token: token)
+                }
+            }
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let host = url.host else { return }
+
+        let queryItems = components.queryItems ?? []
+        let token = queryItems.first(where: { $0.name == "token" })?.value
+
+        switch host {
+        case "reset-password":
+            if let token {
+                deepLinkDestination = .resetPassword(token: token)
+            }
+        case "verify-email":
+            if let token {
+                deepLinkDestination = .verifyEmail(token: token)
+            }
+        default:
+            break
         }
     }
 
