@@ -103,6 +103,25 @@ async def request_id_middleware(request: Request, call_next) -> Response:
 
 
 @app.middleware("http")
+async def auth_identity_middleware(request: Request, call_next) -> Response:
+    """Extract entity_id from auth token for rate-limit differentiation."""
+    try:
+        auth = request.headers.get("authorization", "")
+        if auth.startswith("Bearer "):
+            from src.api.auth_service import decode_token
+
+            payload = decode_token(auth[7:])
+            if payload and payload.get("kind") == "access":
+                request.state.entity_id = payload["sub"]
+        elif request.headers.get("x-api-key"):
+            # API key identity resolved later by dependency; mark as authenticated
+            request.state.entity_id = "apikey"
+    except Exception:
+        pass
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:
     """Add standard security headers to all responses."""
     response: Response = await call_next(request)

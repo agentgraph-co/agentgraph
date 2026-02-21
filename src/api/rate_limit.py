@@ -176,16 +176,15 @@ async def rate_limit_reads(request: Request) -> None:
             detail="Rate limit exceeded",
             headers=_rate_limit_response(0, limit),
         )
-    await _set_rate_limit_headers(request, key, limit)
-    # Per-entity limit (2x IP limit to be generous)
     entity_id = _get_entity_id(request)
+    effective_limit = limit * 3 if entity_id else limit
+    await _set_rate_limit_headers(request, key, effective_limit)
     if entity_id:
-        entity_limit = limit * 2
-        if not await _limiter.check(f"read:entity:{entity_id}", entity_limit):
+        if not await _limiter.check(f"read:entity:{entity_id}", effective_limit):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded",
-                headers=_rate_limit_response(0, entity_limit),
+                headers=_rate_limit_response(0, effective_limit),
             )
 
 
@@ -199,15 +198,15 @@ async def rate_limit_writes(request: Request) -> None:
             detail="Rate limit exceeded",
             headers=_rate_limit_response(0, limit),
         )
-    await _set_rate_limit_headers(request, key, limit)
     entity_id = _get_entity_id(request)
+    effective_limit = limit * 3 if entity_id else limit
+    await _set_rate_limit_headers(request, key, effective_limit)
     if entity_id:
-        entity_limit = limit * 2
-        if not await _limiter.check(f"write:entity:{entity_id}", entity_limit):
+        if not await _limiter.check(f"write:entity:{entity_id}", effective_limit):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded",
-                headers=_rate_limit_response(0, entity_limit),
+                headers=_rate_limit_response(0, effective_limit),
             )
 
 
