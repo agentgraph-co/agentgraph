@@ -13,8 +13,11 @@ targets:
   AgentGraph:
     type: application
     platform: iOS
-    sources: [Sources]
-    resources: [Resources]
+    sources:
+      - Sources
+      - path: Resources
+        type: folder
+        buildPhase: resources
     info:
       path: Info.plist
       properties:
