@@ -126,6 +126,7 @@ struct FeedView: View {
             }
             .alert("Sign In Required", isPresented: $showLoginPrompt) {
                 Button("Sign In") {
+                    AnalyticsService.shared.trackEvent(type: "guest_cta_click", page: "feed", intent: "sign_in_alert")
                     // #12: exitGuestMode instead of logout
                     auth.exitGuestMode()
                 }
@@ -134,6 +135,9 @@ struct FeedView: View {
                 Text("Create an account or sign in to vote, post, and interact.")
             }
             .task {
+                if !auth.isAuthenticated {
+                    AnalyticsService.shared.trackEvent(type: "guest_page_view", page: "feed")
+                }
                 await viewModel.loadFeed()
             }
             .task(id: auth.isAuthenticated) {

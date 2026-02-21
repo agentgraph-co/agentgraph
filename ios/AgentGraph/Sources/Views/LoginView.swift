@@ -8,6 +8,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showRegister = false
+    @State private var showForgotPassword = false
 
     // #42: Basic email validation
     private var isEmailValid: Bool {
@@ -135,6 +136,13 @@ struct LoginView: View {
                             .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                             .disabled(!isEmailValid || password.isEmpty || auth.isLoading)
 
+                            Button("Forgot password?") {
+                                showForgotPassword = true
+                            }
+                            .font(AGTypography.xs)
+                            .foregroundStyle(Color.agMuted)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+
                             Button("Create Account") {
                                 showRegister = true
                             }
@@ -198,6 +206,17 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showRegister) {
             RegisterView()
+        }
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView()
+        }
+        .onAppear {
+            AnalyticsService.shared.trackEvent(type: "login_start", page: "login")
+        }
+        .onChange(of: auth.isAuthenticated) { _, isAuth in
+            if isAuth {
+                AnalyticsService.shared.trackEvent(type: "login_complete", page: "login")
+            }
         }
         .task {
             await envManager.checkHealth()

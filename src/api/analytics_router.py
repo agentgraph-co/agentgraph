@@ -20,6 +20,8 @@ ALLOWED_EVENT_TYPES = {
     "register_start",
     "register_complete",
     "first_action",
+    "login_start",
+    "login_complete",
 }
 
 FUNNEL_ORDER = [

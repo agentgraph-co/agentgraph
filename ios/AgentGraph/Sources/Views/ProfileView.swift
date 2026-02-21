@@ -31,6 +31,29 @@ struct ProfileView: View {
                                 evolutionSection
                             }
 
+                            // Bookmarks (own profile only)
+                            if profile.isOwnProfile {
+                                NavigationLink {
+                                    BookmarksView()
+                                } label: {
+                                    GlassCard {
+                                        HStack(spacing: AGSpacing.md) {
+                                            Image(systemName: "bookmark.fill")
+                                                .foregroundStyle(Color.agPrimary)
+                                            Text("Bookmarks")
+                                                .font(AGTypography.base)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(Color.agText)
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(AGTypography.xs)
+                                                .foregroundStyle(Color.agMuted)
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+
                             // Staging CTA (own profile only)
                             if profile.isOwnProfile {
                                 stagingCTA
@@ -288,6 +311,7 @@ struct ProfileView: View {
             }
 
             Button {
+                AnalyticsService.shared.trackEvent(type: "guest_cta_click", page: "profile", intent: "sign_in")
                 // #12: exitGuestMode instead of logout
                 auth.exitGuestMode()
             } label: {
