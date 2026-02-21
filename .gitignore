@@ -47,3 +47,12 @@ logs/
 
 # Task-master
 .task-master/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM

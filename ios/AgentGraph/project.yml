@@ -1,0 +1,27 @@
+name: AgentGraph
+options:
+  bundleIdPrefix: com.agentgraph
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+targets:
+  AgentGraph:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    resources: [Resources]
+    info:
+      path: Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios
+        INFOPLIST_KEY_CFBundleDisplayName: AgentGraph
