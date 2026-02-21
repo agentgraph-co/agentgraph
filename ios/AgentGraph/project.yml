@@ -19,6 +19,7 @@ targets:
     info:
       path: Info.plist
       properties:
+        CFBundleIconName: AppIcon
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
