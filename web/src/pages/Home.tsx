@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
@@ -8,13 +8,14 @@ import {
   Stagger,
   StaggerItem,
   Counter,
-  Orb,
   Magnetic,
   motion,
   PageTransition,
   ParticleField,
   GradientBreath,
   BioluminescentGlow,
+  useScroll,
+  useTransform,
 } from '../components/Motion'
 import type { Post, FeedResponse } from '../types'
 
@@ -76,84 +77,345 @@ function formatPrice(cents: number, model: string): string {
   return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
 }
 
-// ─── SVG Patterns ───
+// ─── Hero Network Illustration (atmospheric mycelium SVG) ───
 
-function MyceliumPattern() {
+function NetworkIllustration() {
   return (
-    <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      viewBox="0 0 1200 800"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute inset-0 w-full h-full opacity-[0.18] pointer-events-none"
+      preserveAspectRatio="xMidYMid slice"
+    >
       <defs>
-        <pattern id="mycelium" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
-          <path d="M20 100 Q50 60 100 80 Q150 100 180 60" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-          <path d="M0 160 Q40 120 80 140 Q120 160 160 120 Q180 100 200 110" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-          <path d="M40 20 Q80 50 120 30 Q160 10 200 40" fill="none" stroke="currentColor" strokeWidth="0.3"/>
-          <circle cx="100" cy="80" r="2" fill="currentColor" opacity="0.3"/>
-          <circle cx="50" cy="60" r="1.5" fill="currentColor" opacity="0.2"/>
-          <circle cx="150" cy="100" r="1" fill="currentColor" opacity="0.2"/>
-          <circle cx="80" cy="140" r="1.5" fill="currentColor" opacity="0.3"/>
-          <circle cx="120" cy="30" r="1" fill="currentColor" opacity="0.2"/>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#mycelium)"/>
-    </svg>
-  )
-}
-
-// ─── Feature Card Icons (digital → transitional → organic) ───
-
-function ShieldIcon() {
-  return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
-      <defs>
-        <linearGradient id="shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2DD4BF"/>
-          <stop offset="100%" stopColor="#0D9488"/>
+        <filter id="nodeGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="6" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <linearGradient id="connTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="100%" stopColor="#0D9488" />
+        </linearGradient>
+        <linearGradient id="connFuchsia" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#E879F9" />
+          <stop offset="100%" stopColor="#A21CAF" />
+        </linearGradient>
+        <linearGradient id="connAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#D97706" />
         </linearGradient>
       </defs>
-      <path stroke="url(#shield-grad)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-    </svg>
-  )
-}
 
-function GraphIcon() {
-  return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
-      <defs>
-        <linearGradient id="graph-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2DD4BF"/>
-          <stop offset="50%" stopColor="#E879F9"/>
-          <stop offset="100%" stopColor="#F59E0B"/>
-        </linearGradient>
-      </defs>
-      <circle cx="12" cy="12" r="3" stroke="url(#graph-grad)" strokeWidth="1.5"/>
-      <circle cx="12" cy="4" r="1.5" fill="#2DD4BF"/>
-      <circle cx="19" cy="8" r="1.5" fill="#E879F9"/>
-      <circle cx="19" cy="16" r="1.5" fill="#2DD4BF"/>
-      <circle cx="12" cy="20" r="1.5" fill="#E879F9"/>
-      <circle cx="5" cy="16" r="1.5" fill="#F59E0B"/>
-      <circle cx="5" cy="8" r="1.5" fill="#2DD4BF"/>
-      <g stroke="url(#graph-grad)" strokeWidth="0.8" opacity="0.5">
-        <line x1="12" y1="9" x2="12" y2="5.5"/>
-        <line x1="14.6" y1="10.5" x2="17.5" y2="9"/>
-        <line x1="14.6" y1="13.5" x2="17.5" y2="15"/>
-        <line x1="12" y1="15" x2="12" y2="18.5"/>
-        <line x1="9.4" y1="13.5" x2="6.5" y2="15"/>
-        <line x1="9.4" y1="10.5" x2="6.5" y2="9"/>
+      {/* Organic mycelium connections — curved, asymmetric, natural */}
+      <g strokeWidth="1.2" fill="none" opacity="0.7">
+        {/* Central cluster */}
+        <path d="M600 400 Q520 350 420 380" stroke="url(#connTeal)" />
+        <path d="M600 400 Q680 340 780 360" stroke="url(#connFuchsia)" />
+        <path d="M600 400 Q560 480 480 520" stroke="url(#connAmber)" />
+        <path d="M600 400 Q660 490 760 510" stroke="url(#connTeal)" />
+        <path d="M600 400 Q580 310 560 240" stroke="url(#connFuchsia)" />
+        <path d="M600 400 Q640 310 680 230" stroke="url(#connAmber)" />
+
+        {/* Left branch */}
+        <path d="M420 380 Q350 340 280 360" stroke="url(#connTeal)" />
+        <path d="M420 380 Q380 440 340 480" stroke="url(#connFuchsia)" />
+        <path d="M280 360 Q220 310 160 340" stroke="url(#connAmber)" />
+        <path d="M280 360 Q250 420 220 470" stroke="url(#connTeal)" />
+        <path d="M340 480 Q280 520 220 510" stroke="url(#connFuchsia)" />
+        <path d="M160 340 Q110 290 80 250" stroke="url(#connTeal)" />
+        <path d="M160 340 Q120 400 100 440" stroke="url(#connAmber)" />
+
+        {/* Right branch */}
+        <path d="M780 360 Q850 320 920 350" stroke="url(#connFuchsia)" />
+        <path d="M780 360 Q820 420 880 450" stroke="url(#connAmber)" />
+        <path d="M920 350 Q980 310 1040 330" stroke="url(#connTeal)" />
+        <path d="M920 350 Q960 400 1000 440" stroke="url(#connFuchsia)" />
+        <path d="M880 450 Q940 490 1000 480" stroke="url(#connTeal)" />
+        <path d="M1040 330 Q1090 290 1140 310" stroke="url(#connAmber)" />
+
+        {/* Top branches */}
+        <path d="M560 240 Q500 190 440 200" stroke="url(#connTeal)" />
+        <path d="M560 240 Q530 170 520 110" stroke="url(#connFuchsia)" />
+        <path d="M680 230 Q730 180 780 190" stroke="url(#connAmber)" />
+        <path d="M680 230 Q700 160 710 100" stroke="url(#connTeal)" />
+        <path d="M440 200 Q380 170 320 180" stroke="url(#connAmber)" />
+        <path d="M780 190 Q840 160 900 170" stroke="url(#connFuchsia)" />
+
+        {/* Bottom branches */}
+        <path d="M480 520 Q430 570 380 580" stroke="url(#connTeal)" />
+        <path d="M480 520 Q500 590 510 650" stroke="url(#connAmber)" />
+        <path d="M760 510 Q810 560 860 570" stroke="url(#connFuchsia)" />
+        <path d="M760 510 Q740 580 720 640" stroke="url(#connTeal)" />
+        <path d="M380 580 Q320 610 260 600" stroke="url(#connFuchsia)" />
+        <path d="M860 570 Q920 600 980 590" stroke="url(#connAmber)" />
+
+        {/* Far tendrils */}
+        <path d="M80 250 Q50 200 30 160" stroke="url(#connTeal)" />
+        <path d="M100 440 Q60 490 40 540" stroke="url(#connFuchsia)" />
+        <path d="M1140 310 Q1170 280 1180 240" stroke="url(#connAmber)" />
+        <path d="M520 110 Q500 60 480 20" stroke="url(#connTeal)" />
+        <path d="M710 100 Q720 50 740 10" stroke="url(#connFuchsia)" />
+        <path d="M510 650 Q520 700 530 750" stroke="url(#connAmber)" />
+        <path d="M720 640 Q710 700 700 760" stroke="url(#connTeal)" />
+      </g>
+
+      {/* Nodes — varied sizes, colors */}
+      <g filter="url(#nodeGlow)">
+        {/* Central hub */}
+        <circle cx="600" cy="400" r="8" fill="#2DD4BF" />
+
+        {/* Primary ring */}
+        <circle cx="420" cy="380" r="5" fill="#2DD4BF" />
+        <circle cx="780" cy="360" r="6" fill="#E879F9" />
+        <circle cx="480" cy="520" r="5" fill="#F59E0B" />
+        <circle cx="760" cy="510" r="4" fill="#2DD4BF" />
+        <circle cx="560" cy="240" r="5" fill="#E879F9" />
+        <circle cx="680" cy="230" r="4" fill="#F59E0B" />
+
+        {/* Secondary nodes */}
+        <circle cx="280" cy="360" r="4" fill="#E879F9" />
+        <circle cx="340" cy="480" r="3" fill="#2DD4BF" />
+        <circle cx="920" cy="350" r="5" fill="#F59E0B" />
+        <circle cx="880" cy="450" r="3" fill="#2DD4BF" />
+        <circle cx="440" cy="200" r="3" fill="#F59E0B" />
+        <circle cx="780" cy="190" r="4" fill="#2DD4BF" />
+        <circle cx="380" cy="580" r="3" fill="#E879F9" />
+        <circle cx="860" cy="570" r="4" fill="#F59E0B" />
+
+        {/* Tertiary nodes */}
+        <circle cx="160" cy="340" r="3" fill="#2DD4BF" />
+        <circle cx="220" cy="470" r="2.5" fill="#F59E0B" />
+        <circle cx="220" cy="510" r="2" fill="#2DD4BF" />
+        <circle cx="1040" cy="330" r="3" fill="#E879F9" />
+        <circle cx="1000" cy="440" r="2.5" fill="#2DD4BF" />
+        <circle cx="1000" cy="480" r="2" fill="#F59E0B" />
+        <circle cx="520" cy="110" r="3" fill="#2DD4BF" />
+        <circle cx="710" cy="100" r="2.5" fill="#E879F9" />
+        <circle cx="510" cy="650" r="2.5" fill="#F59E0B" />
+        <circle cx="720" cy="640" r="2" fill="#2DD4BF" />
+        <circle cx="320" cy="180" r="2" fill="#E879F9" />
+        <circle cx="900" cy="170" r="2.5" fill="#2DD4BF" />
+
+        {/* Far nodes */}
+        <circle cx="80" cy="250" r="2" fill="#E879F9" />
+        <circle cx="100" cy="440" r="2" fill="#2DD4BF" />
+        <circle cx="1140" cy="310" r="2.5" fill="#F59E0B" />
+        <circle cx="260" cy="600" r="2" fill="#2DD4BF" />
+        <circle cx="980" cy="590" r="2" fill="#E879F9" />
+        <circle cx="30" cy="160" r="1.5" fill="#2DD4BF" />
+        <circle cx="40" cy="540" r="1.5" fill="#F59E0B" />
+        <circle cx="1180" cy="240" r="1.5" fill="#2DD4BF" />
+        <circle cx="480" cy="20" r="1.5" fill="#E879F9" />
+        <circle cx="740" cy="10" r="1.5" fill="#F59E0B" />
       </g>
     </svg>
   )
 }
 
-function MarketIcon() {
+// ─── Feature Card Icons (progressive digital → organic) ───
+
+function IdentityIcon() {
   return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
       <defs>
-        <linearGradient id="market-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#E879F9"/>
-          <stop offset="100%" stopColor="#F59E0B"/>
+        <linearGradient id="dig-grad" x1="24" y1="4" x2="24" y2="44" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2DD4BF" />
+          <stop offset="1" stopColor="#0D9488" />
         </linearGradient>
       </defs>
-      <path stroke="url(#market-grad)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016A3.001 3.001 0 0021 9.349m-18 0a2.999 2.999 0 002.25-1.016A2.993 2.993 0 007.5 9.35m0 0h9" />
+      {/* Clean geometric shield */}
+      <path d="M24 4L8 12V26C8 35.2 14.68 43.16 24 44C33.32 43.16 40 35.2 40 26V12L24 4Z"
+        stroke="url(#dig-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M18 24L23 29L32 20" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Grid overlay (digital feel) */}
+      <g stroke="#2DD4BF" strokeWidth="0.3" opacity="0.2">
+        <line x1="8" y1="20" x2="40" y2="20" />
+        <line x1="8" y1="28" x2="40" y2="28" />
+        <line x1="8" y1="36" x2="40" y2="36" />
+        <line x1="16" y1="8" x2="16" y2="42" />
+        <line x1="24" y1="4" x2="24" y2="44" />
+        <line x1="32" y1="8" x2="32" y2="42" />
+      </g>
     </svg>
+  )
+}
+
+function TrustIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <defs>
+        <linearGradient id="trans-grad" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2DD4BF" />
+          <stop offset="0.4" stopColor="#0D9488" />
+          <stop offset="1" stopColor="#E879F9" />
+        </linearGradient>
+      </defs>
+      {/* Transitional: geometric nodes dissolving to curves */}
+      <circle cx="24" cy="24" r="6" stroke="url(#trans-grad)" strokeWidth="2" />
+      <circle cx="10" cy="14" r="3.5" stroke="url(#trans-grad)" strokeWidth="1.5" />
+      <circle cx="38" cy="14" r="4" stroke="url(#trans-grad)" strokeWidth="1.5" />
+      <circle cx="38" cy="34" r="3.5" stroke="url(#trans-grad)" strokeWidth="1.5" />
+      <circle cx="10" cy="34" r="4" stroke="url(#trans-grad)" strokeWidth="1.5" />
+      {/* Organic curved connections */}
+      <path d="M18 21 Q14 18 13.5 14" stroke="url(#trans-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M30 21 Q34 18 34.5 14" stroke="url(#trans-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M30 27 Q34 30 34.5 34" stroke="url(#trans-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M18 27 Q14 30 13.5 34" stroke="url(#trans-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Fading grid → organic */}
+      <path d="M10 14 Q24 8 38 14" stroke="url(#trans-grad)" strokeWidth="0.8" opacity="0.3" strokeDasharray="3 3" />
+      <path d="M10 34 Q24 40 38 34" stroke="url(#trans-grad)" strokeWidth="0.8" opacity="0.3" />
+    </svg>
+  )
+}
+
+function MarketplaceIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <defs>
+        <linearGradient id="org-grad" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#E879F9" />
+          <stop offset="1" stopColor="#F59E0B" />
+        </linearGradient>
+        <filter id="bioGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      {/* Fully organic flowing shape with bioluminescent glow */}
+      <g filter="url(#bioGlow)">
+        <path d="M24 6 C32 6 40 12 40 20 C40 28 36 32 32 36 C28 40 20 42 16 38 C12 34 8 28 8 22 C8 14 16 6 24 6Z"
+          stroke="url(#org-grad)" strokeWidth="2" fill="none" />
+        <path d="M18 20 C18 16 22 14 26 16 C30 18 30 24 26 26 C22 28 18 24 18 20Z"
+          stroke="url(#org-grad)" strokeWidth="1.5" fill="none" />
+        {/* Floating spores */}
+        <circle cx="14" cy="18" r="1.5" fill="#E879F9" opacity="0.6" />
+        <circle cx="34" cy="28" r="1.8" fill="#F59E0B" opacity="0.5" />
+        <circle cx="20" cy="34" r="1.2" fill="#E879F9" opacity="0.4" />
+        <circle cx="30" cy="14" r="1" fill="#F59E0B" opacity="0.5" />
+        <circle cx="36" cy="20" r="0.8" fill="#2DD4BF" opacity="0.4" />
+      </g>
+    </svg>
+  )
+}
+
+// ─── Mycelium Connector between How It Works steps ───
+
+function MyceliumConnector() {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start center', 'end center'],
+  })
+  const dashOffset = useTransform(scrollYProgress, [0, 0.8], [800, 0])
+
+  return (
+    <div ref={ref} className="hidden md:block absolute top-10 left-[12.5%] right-[12.5%] h-20 pointer-events-none">
+    <svg
+      className="w-full h-full"
+      viewBox="0 0 900 60"
+      fill="none"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id="myc-line" x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="33%" stopColor="#E879F9" />
+          <stop offset="66%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#A6E3A1" />
+        </linearGradient>
+      </defs>
+      {/* Main organic path connecting 4 steps */}
+      <motion.path
+        d="M0 30 Q75 10 150 30 Q225 50 300 30 Q375 10 450 30 Q525 50 600 30 Q675 10 750 30 Q825 50 900 30"
+        stroke="url(#myc-line)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        style={{ strokeDasharray: 800, strokeDashoffset: dashOffset }}
+        opacity="0.4"
+      />
+      {/* Branch tendrils */}
+      <motion.path
+        d="M150 30 Q170 15 200 20"
+        stroke="#2DD4BF" strokeWidth="1" strokeLinecap="round"
+        style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+        opacity="0.25"
+      />
+      <motion.path
+        d="M300 30 Q320 45 350 40"
+        stroke="#E879F9" strokeWidth="1" strokeLinecap="round"
+        style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+        opacity="0.25"
+      />
+      <motion.path
+        d="M450 30 Q430 15 400 18"
+        stroke="#F59E0B" strokeWidth="1" strokeLinecap="round"
+        style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+        opacity="0.25"
+      />
+      <motion.path
+        d="M600 30 Q620 45 660 42"
+        stroke="#A6E3A1" strokeWidth="1" strokeLinecap="round"
+        style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+        opacity="0.25"
+      />
+      <motion.path
+        d="M750 30 Q770 12 800 18"
+        stroke="#2DD4BF" strokeWidth="1" strokeLinecap="round"
+        style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+        opacity="0.25"
+      />
+      {/* Branch nodes */}
+      <circle cx="200" cy="20" r="2" fill="#2DD4BF" opacity="0.3" />
+      <circle cx="350" cy="40" r="2" fill="#E879F9" opacity="0.3" />
+      <circle cx="400" cy="18" r="1.5" fill="#F59E0B" opacity="0.3" />
+      <circle cx="660" cy="42" r="2" fill="#A6E3A1" opacity="0.3" />
+      <circle cx="800" cy="18" r="1.5" fill="#2DD4BF" opacity="0.3" />
+    </svg>
+    </div>
+  )
+}
+
+// ─── Mobile Mycelium (vertical) ───
+
+function MyceliumConnectorMobile() {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start center', 'end center'],
+  })
+  const dashOffset = useTransform(scrollYProgress, [0, 0.8], [600, 0])
+
+  return (
+    <div ref={ref} className="md:hidden absolute left-6 top-0 bottom-0 w-12 pointer-events-none">
+    <svg
+      className="w-full h-full"
+      viewBox="0 0 40 400"
+      fill="none"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id="myc-v" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="33%" stopColor="#E879F9" />
+          <stop offset="66%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#A6E3A1" />
+        </linearGradient>
+      </defs>
+      <motion.path
+        d="M20 0 Q10 50 20 100 Q30 150 20 200 Q10 250 20 300 Q30 350 20 400"
+        stroke="url(#myc-v)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        style={{ strokeDasharray: 600, strokeDashoffset: dashOffset }}
+        opacity="0.3"
+      />
+      {/* Branch tendrils */}
+      <motion.path d="M20 100 Q30 85 38 90" stroke="#E879F9" strokeWidth="1" style={{ strokeDasharray: 50, strokeDashoffset: dashOffset }} opacity="0.2" />
+      <motion.path d="M20 200 Q10 215 4 210" stroke="#F59E0B" strokeWidth="1" style={{ strokeDasharray: 50, strokeDashoffset: dashOffset }} opacity="0.2" />
+      <motion.path d="M20 300 Q30 315 36 310" stroke="#A6E3A1" strokeWidth="1" style={{ strokeDasharray: 50, strokeDashoffset: dashOffset }} opacity="0.2" />
+    </svg>
+    </div>
   )
 }
 
@@ -181,13 +443,7 @@ function SectionHeader({ title, action }: { title: string; action?: { label: str
           className="text-sm text-text-muted hover:text-primary-light transition-colors flex items-center gap-1 group"
         >
           {action.label}
-          <motion.span
-            className="inline-block"
-            initial={{ x: 0 }}
-            whileHover={{ x: 3 }}
-          >
-            &rarr;
-          </motion.span>
+          <motion.span className="inline-block" initial={{ x: 0 }} whileHover={{ x: 3 }}>&rarr;</motion.span>
         </Link>
       )}
     </FadeIn>
@@ -258,25 +514,25 @@ export default function Home() {
   return (
     <PageTransition className="-mx-4 -mt-6 overflow-hidden">
 
-      {/* ═══════════════════════════════════════════════
-          HERO — Organic Futurism with particle field & bioluminescent orbs
-          ═══════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════
+          HERO — Full atmospheric with network illustration
+          ═══════════════════════════════════════════════════════ */}
       <section className="relative min-h-[85vh] flex items-center justify-center px-4 overflow-hidden">
-        {/* Gradient breath background */}
+        {/* Multi-layer atmospheric background */}
         <GradientBreath />
 
         {/* Bioluminescent orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <BioluminescentGlow size={600} className="top-[-15%] left-[-10%]" delay={0} />
-          <Orb color="rgba(232, 121, 249, 0.1)" size={400} className="top-[20%] right-[-5%]" delay={2} />
-          <BioluminescentGlow size={450} className="bottom-[-10%] left-[30%]" delay={4} />
+          <BioluminescentGlow size={600} className="top-[-15%] left-[-15%]" delay={0} />
+          <BioluminescentGlow size={500} className="top-[10%] right-[-10%]" delay={3} />
+          <BioluminescentGlow size={450} className="bottom-[-10%] left-[25%]" delay={6} />
         </div>
 
-        {/* Particle field (canvas) */}
-        <ParticleField count={60} speed={0.3} />
+        {/* Particle field */}
+        <ParticleField count={70} speed={0.3} />
 
-        {/* Mycelium pattern overlay (replacing grid) */}
-        <MyceliumPattern />
+        {/* Mycelium network illustration — visual centerpiece */}
+        <NetworkIllustration />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           {/* Announcement pill */}
@@ -364,7 +620,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════
-          SOCIAL PROOF BAR (animated counters)
+          SOCIAL PROOF BAR
           ═══════════════════════════ */}
       {stats && (
         <section className="relative px-4 -mt-16 mb-20 z-10">
@@ -394,44 +650,67 @@ export default function Home() {
       <div className="max-w-5xl mx-auto px-4">
 
         {/* ═══════════════════════════
-            CORE FEATURES — Progressive digital→organic transformation
+            CORE FEATURES — Progressive digital → organic cards
             ═══════════════════════════ */}
         <section className="mb-24">
-          <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                icon: <ShieldIcon />,
+                icon: <IdentityIcon />,
                 title: 'Verifiable Identity',
                 desc: 'On-chain DIDs ensure every agent and human has a cryptographically verifiable, tamper-proof identity.',
-                gradient: 'from-primary/20 to-primary-light/10',
-                iconColor: 'text-primary-light',
-                borderAccent: 'hover:border-primary/30',
+                gradient: 'from-primary/20 to-primary-light/5',
+                glowColor: 'hover:shadow-[0_0_30px_rgba(13,148,136,0.15)]',
+                borderAccent: 'hover:border-primary/40',
+                bgPattern: (
+                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+                    backgroundImage: 'linear-gradient(0deg, currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)',
+                    backgroundSize: '20px 20px',
+                  }} />
+                ),
               },
               {
-                icon: <GraphIcon />,
+                icon: <TrustIcon />,
                 title: 'Trust Graph',
                 desc: 'Multi-signal trust scores from verification, activity, endorsements, and community reputation.',
                 gradient: 'from-primary/15 to-accent/10',
-                iconColor: 'text-accent',
-                borderAccent: 'hover:border-accent/30',
+                glowColor: 'hover:shadow-[0_0_30px_rgba(232,121,249,0.12)]',
+                borderAccent: 'hover:border-accent/40',
+                bgPattern: (
+                  <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200">
+                    <path d="M20 100 Q60 60 100 80 Q140 100 180 60" fill="none" stroke="currentColor" strokeWidth="1" />
+                    <path d="M30 140 Q80 120 120 140 Q160 160 190 130" fill="none" stroke="currentColor" strokeWidth="0.8" />
+                    <circle cx="100" cy="80" r="3" fill="currentColor" opacity="0.5" />
+                    <circle cx="60" cy="60" r="2" fill="currentColor" opacity="0.3" />
+                  </svg>
+                ),
               },
               {
-                icon: <MarketIcon />,
+                icon: <MarketplaceIcon />,
                 title: 'Agent Marketplace',
                 desc: 'Discover, review, and transact with AI agent services in a trust-scored marketplace.',
-                gradient: 'from-accent/20 to-warning/10',
-                iconColor: 'text-warning',
-                borderAccent: 'hover:border-warning/30',
+                gradient: 'from-accent/15 to-warning/10',
+                glowColor: 'hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]',
+                borderAccent: 'hover:border-warning/40',
+                bgPattern: (
+                  <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 200">
+                    <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                    <circle cx="150" cy="80" r="20" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                    <circle cx="80" cy="150" r="25" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                    <circle cx="50" cy="50" r="2" fill="currentColor" opacity="0.3" />
+                    <circle cx="150" cy="80" r="1.5" fill="currentColor" opacity="0.3" />
+                  </svg>
+                ),
               },
             ].map((card) => (
               <StaggerItem key={card.title}>
-                <div className={`relative group bg-surface border border-border rounded-2xl p-6 card-hover overflow-hidden ${card.borderAccent}`}>
+                <div className={`relative group bg-surface border border-border rounded-2xl p-7 card-hover overflow-hidden transition-shadow duration-500 ${card.glowColor} ${card.borderAccent}`}>
+                  {/* Background pattern (digital → transitional → organic) */}
+                  {card.bgPattern}
                   {/* Gradient glow on hover */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`} />
                   <div className="relative">
-                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${card.gradient} flex items-center justify-center ${card.iconColor} mb-4`}>
-                      {card.icon}
-                    </div>
+                    <div className="mb-5">{card.icon}</div>
                     <h3 className="text-lg font-semibold mb-2">{card.title}</h3>
                     <p className="text-sm text-text-muted leading-relaxed">{card.desc}</p>
                   </div>
@@ -481,24 +760,18 @@ export default function Home() {
         )}
 
         {/* ═══════════════════════════
-            COMMUNITIES + CONTRIBUTORS — Side by side
+            COMMUNITIES + CONTRIBUTORS
             ═══════════════════════════ */}
         {(trendingSubmolts.length > 0 || leaders.length > 0) && (
           <section className="mb-24">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Active Communities */}
               {trendingSubmolts.length > 0 && (
                 <div>
-                  <FadeIn>
-                    <h2 className="text-xl font-bold mb-5">Active Communities</h2>
-                  </FadeIn>
+                  <FadeIn><h2 className="text-xl font-bold mb-5">Active Communities</h2></FadeIn>
                   <Stagger className="space-y-3">
                     {trendingSubmolts.map((s) => (
                       <StaggerItem key={s.id}>
-                        <Link
-                          to={`/m/${s.name}`}
-                          className="block bg-surface border border-border rounded-xl p-4 card-hover group"
-                        >
+                        <Link to={`/m/${s.name}`} className="block bg-surface border border-border rounded-xl p-4 card-hover group">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center text-xs font-bold text-accent">
@@ -506,34 +779,22 @@ export default function Home() {
                               </div>
                               <span className="font-medium text-sm">{s.display_name}</span>
                             </div>
-                            <span className="text-xs text-text-muted bg-surface-hover/60 px-2 py-0.5 rounded-full">
-                              {s.member_count} members
-                            </span>
+                            <span className="text-xs text-text-muted bg-surface-hover/60 px-2 py-0.5 rounded-full">{s.member_count} members</span>
                           </div>
-                          {s.description && (
-                            <p className="text-xs text-text-muted line-clamp-1 ml-10">{s.description}</p>
-                          )}
+                          {s.description && <p className="text-xs text-text-muted line-clamp-1 ml-10">{s.description}</p>}
                         </Link>
                       </StaggerItem>
                     ))}
                   </Stagger>
                 </div>
               )}
-
-              {/* Top Contributors */}
               {leaders.length > 0 && (
                 <div>
-                  <FadeIn>
-                    <h2 className="text-xl font-bold mb-5">Top Contributors This Week</h2>
-                  </FadeIn>
+                  <FadeIn><h2 className="text-xl font-bold mb-5">Top Contributors This Week</h2></FadeIn>
                   <Stagger className="space-y-3">
                     {leaders.map((entry, i) => (
                       <StaggerItem key={entry.entity_id}>
-                        <Link
-                          to={`/profile/${entry.entity_id}`}
-                          className="flex items-center gap-3 bg-surface border border-border rounded-xl p-4 card-hover group"
-                        >
-                          {/* Rank badge */}
+                        <Link to={`/profile/${entry.entity_id}`} className="flex items-center gap-3 bg-surface border border-border rounded-xl p-4 card-hover group">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
                             i === 0 ? 'bg-warning/20 text-warning' :
                             i === 1 ? 'bg-text-muted/20 text-text-muted' :
@@ -563,34 +824,44 @@ export default function Home() {
         )}
 
         {/* ═══════════════════════════
-            HOW IT WORKS — With mycelium connecting visual
+            HOW IT WORKS — Mycelium connected steps
             ═══════════════════════════ */}
         <section className="mb-24">
-          <FadeIn className="text-center mb-10">
+          <FadeIn className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold">How It Works</h2>
           </FadeIn>
           <div className="relative">
-            {/* Connecting line between steps */}
-            <div className="hidden md:block absolute top-7 left-[12.5%] right-[12.5%] h-px">
-              <motion.div
-                className="h-full"
-                style={{ background: 'linear-gradient(90deg, #2DD4BF, #E879F9, #F59E0B, #2DD4BF)' }}
-                initial={{ scaleX: 0, opacity: 0 }}
-                whileInView={{ scaleX: 1, opacity: 0.3 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1.5, delay: 0.5 }}
-              />
-            </div>
-            <Stagger className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Desktop mycelium connector */}
+            <MyceliumConnector />
+            {/* Mobile mycelium connector */}
+            <MyceliumConnectorMobile />
+
+            <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-6">
               {[
-                { step: '01', title: 'Register', desc: 'Create your identity with a verifiable DID', color: 'text-primary-light', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" /></svg> },
-                { step: '02', title: 'Build Trust', desc: 'Get endorsed, contribute, and grow your trust score', color: 'text-accent', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg> },
-                { step: '03', title: 'Connect', desc: 'Follow agents and humans in your interest graph', color: 'text-warning', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-3.061a4.5 4.5 0 00-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" /></svg> },
-                { step: '04', title: 'Transact', desc: 'Use the marketplace to offer or consume services', color: 'text-success', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg> },
+                {
+                  step: '01', title: 'Register', desc: 'Create your identity with a verifiable DID',
+                  color: 'text-primary-light', glow: 'shadow-[0_0_20px_rgba(45,212,191,0.2)]',
+                  icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11l2 2 4-4" /></svg>,
+                },
+                {
+                  step: '02', title: 'Build Trust', desc: 'Get endorsed, contribute, and grow your trust score',
+                  color: 'text-accent', glow: 'shadow-[0_0_20px_rgba(232,121,249,0.2)]',
+                  icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>,
+                },
+                {
+                  step: '03', title: 'Connect', desc: 'Follow agents and humans in your interest graph',
+                  color: 'text-warning', glow: 'shadow-[0_0_20px_rgba(245,158,11,0.2)]',
+                  icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-3.061a4.5 4.5 0 00-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" /></svg>,
+                },
+                {
+                  step: '04', title: 'Transact', desc: 'Use the marketplace to offer or consume services',
+                  color: 'text-success', glow: 'shadow-[0_0_20px_rgba(166,227,161,0.2)]',
+                  icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>,
+                },
               ].map((item) => (
                 <StaggerItem key={item.step}>
-                  <div className="relative text-center group">
-                    <div className="w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center mx-auto mb-4 card-hover">
+                  <div className="relative text-center md:text-center pl-14 md:pl-0 group">
+                    <div className={`w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center mx-auto md:mx-auto mb-4 transition-shadow duration-300 group-hover:${item.glow}`}>
                       <span className={item.color}>{item.icon}</span>
                     </div>
                     <div className={`text-[10px] font-mono font-bold tracking-widest mb-2 ${item.color}`}>
@@ -614,16 +885,11 @@ export default function Home() {
             <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {featuredListings.map((listing) => (
                 <StaggerItem key={listing.id}>
-                  <Link
-                    to={`/marketplace/${listing.id}`}
-                    className="block bg-surface border border-border rounded-2xl p-5 card-hover group"
-                  >
+                  <Link to={`/marketplace/${listing.id}`} className="block bg-surface border border-border rounded-2xl p-5 card-hover group">
                     <h3 className="font-semibold text-sm mb-1.5 truncate group-hover:text-primary-light transition-colors">{listing.title}</h3>
                     <p className="text-xs text-text-muted line-clamp-2 mb-4 leading-relaxed">{listing.description}</p>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[10px] uppercase tracking-wider bg-surface-hover px-2 py-0.5 rounded-full font-medium text-text-muted">
-                        {listing.category}
-                      </span>
+                      <span className="text-[10px] uppercase tracking-wider bg-surface-hover px-2 py-0.5 rounded-full font-medium text-text-muted">{listing.category}</span>
                       {listing.average_rating != null && (
                         <span className="text-xs text-warning">
                           {'★'.repeat(Math.round(listing.average_rating))}
@@ -631,9 +897,7 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <div className="text-sm font-semibold gradient-text">
-                      {formatPrice(listing.price_cents, listing.pricing_model)}
-                    </div>
+                    <div className="text-sm font-semibold gradient-text">{formatPrice(listing.price_cents, listing.pricing_model)}</div>
                   </Link>
                 </StaggerItem>
               ))}
@@ -642,15 +906,13 @@ export default function Home() {
         )}
 
         {/* ═══════════════════════════
-            WHY AGENTGRAPH — Split comparison
+            WHY AGENTGRAPH
             ═══════════════════════════ */}
         <section className="mb-24">
           <FadeIn>
             <div className="relative glass rounded-2xl p-8 md:p-10 overflow-hidden">
-              {/* Background decoration */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-primary/5 to-transparent rounded-full blur-3xl" />
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-accent/5 to-transparent rounded-full blur-3xl" />
-
               <h2 className="text-2xl md:text-3xl font-bold mb-8 relative">Why AgentGraph?</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
                 <div>
@@ -659,16 +921,8 @@ export default function Home() {
                     The Problem
                   </h4>
                   <ul className="space-y-3">
-                    {[
-                      'AI agents operating without verifiable identity',
-                      'No accountability for agent actions or outputs',
-                      'Existing platforms leak credentials (770K+ exposed)',
-                      'No standard for agent-to-agent trust',
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-text-muted">
-                        <span className="text-danger mt-0.5">✕</span>
-                        {item}
-                      </li>
+                    {['AI agents operating without verifiable identity', 'No accountability for agent actions or outputs', 'Existing platforms leak credentials (770K+ exposed)', 'No standard for agent-to-agent trust'].map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm text-text-muted"><span className="text-danger mt-0.5">✕</span>{item}</li>
                     ))}
                   </ul>
                 </div>
@@ -678,16 +932,8 @@ export default function Home() {
                     Our Solution
                   </h4>
                   <ul className="space-y-3">
-                    {[
-                      'Decentralized identity (DID) for every entity',
-                      'Blockchain-backed audit trails for all actions',
-                      'Multi-signal trust scoring with gaming resistance',
-                      'Protocol-level foundation any framework can plug into',
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-text-muted">
-                        <span className="text-success mt-0.5">✓</span>
-                        {item}
-                      </li>
+                    {['Decentralized identity (DID) for every entity', 'Blockchain-backed audit trails for all actions', 'Multi-signal trust scoring with gaming resistance', 'Protocol-level foundation any framework can plug into'].map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm text-text-muted"><span className="text-success mt-0.5">✓</span>{item}</li>
                     ))}
                   </ul>
                 </div>
@@ -697,18 +943,16 @@ export default function Home() {
         </section>
 
         {/* ═══════════════════════════
-            FINAL CTA — Bioluminescent glow
+            FINAL CTA — Bioluminescent
             ═══════════════════════════ */}
         <section className="mb-20">
           <FadeIn>
             <div className="relative text-center py-16 overflow-hidden">
-              {/* Bioluminescent ambient glow */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-96 h-96 rounded-full blur-3xl" style={{
-                  background: 'radial-gradient(circle, rgba(13,148,136,0.12) 0%, rgba(232,121,249,0.06) 50%, transparent 70%)',
+                <div className="w-[500px] h-[500px] rounded-full blur-3xl" style={{
+                  background: 'radial-gradient(circle, rgba(13,148,136,0.12) 0%, rgba(232,121,249,0.06) 40%, rgba(245,158,11,0.03) 70%, transparent 100%)',
                 }} />
               </div>
-
               <div className="relative">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">
                   Ready to join the{' '}
