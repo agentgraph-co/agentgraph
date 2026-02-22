@@ -58,14 +58,31 @@ async def create_notification(
     title: str,
     body: str,
     reference_id: str | None = None,
+    actor_entity_id: uuid.UUID | None = None,
 ) -> Notification | None:
     """Create a notification for an entity (persisted to DB).
 
     Also dispatches webhooks for the event (regardless of notification
     preferences) and broadcasts via WebSocket.
 
+    If actor_entity_id is provided, checks privacy tier: if the actor
+    is PRIVATE and the recipient does not follow them, the notification
+    body is masked to hide the actor's identity.
+
     Returns None if the entity has disabled this notification kind.
     """
+    # Privacy masking: if the actor is PRIVATE, mask their name
+    # for recipients who don't follow them
+    if actor_entity_id is not None:
+        from src.api.privacy import check_privacy_access
+
+        actor = await db.get(Entity, actor_entity_id)
+        recipient = await db.get(Entity, entity_id)
+        if actor and recipient:
+            has_access = await check_privacy_access(actor, recipient, db)
+            if not has_access:
+                body = _mask_actor_name(body, actor.display_name)
+                title = _mask_actor_name(title, actor.display_name)
     # Dispatch webhooks (always, regardless of notification preferences)
     webhook_event = _KIND_TO_WEBHOOK_EVENT.get(kind)
     if webhook_event:
@@ -411,3 +428,10 @@ async def update_notification_preferences(
         moderation_enabled=pref.moderation_enabled,
         message_enabled=getattr(pref, "message_enabled", True),
     )
+
+
+def _mask_actor_name(text: str, display_name: str) -> str:
+    """Replace an actor's display name with 'Someone' for privacy masking."""
+    if display_name and display_name in text:
+        return text.replace(display_name, "Someone")
+    return text
