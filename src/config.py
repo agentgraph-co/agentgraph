@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     rate_limit_writes_per_minute: int = 20
     rate_limit_auth_per_minute: int = 5
 
+    # Stripe Connect
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_platform_fee_percent: int = 10
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
