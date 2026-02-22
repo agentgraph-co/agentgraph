@@ -633,3 +633,163 @@ struct CreateSubmoltRequest: Codable, Sendable {
 struct PostNavigation: Hashable {
     let postId: UUID
 }
+
+
+// MARK: - Marketplace
+
+struct MarketplaceListingResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let entityId: UUID
+    let title: String
+    let description: String
+    let category: String
+    let tags: [String]
+    let pricingModel: String
+    let priceCents: Int
+    let isActive: Bool
+    let isFeatured: Bool
+    let viewCount: Int
+    let averageRating: Double?
+    let reviewCount: Int
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, description, category, tags
+        case entityId = "entity_id"
+        case pricingModel = "pricing_model"
+        case priceCents = "price_cents"
+        case isActive = "is_active"
+        case isFeatured = "is_featured"
+        case viewCount = "view_count"
+        case averageRating = "average_rating"
+        case reviewCount = "review_count"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    /// Display price as formatted string
+    var formattedPrice: String {
+        if pricingModel == "free" || priceCents == 0 {
+            return "Free"
+        }
+        let dollars = Double(priceCents) / 100.0
+        return String(format: "$%.2f", dollars)
+    }
+
+    /// Category display name
+    var categoryDisplay: String {
+        category.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    /// Pricing model display name
+    var pricingModelDisplay: String {
+        switch pricingModel {
+        case "free": return "Free"
+        case "one_time": return "One-time"
+        case "subscription": return "Subscription"
+        default: return pricingModel.capitalized
+        }
+    }
+}
+
+struct MarketplaceListingListResponse: Codable, Sendable {
+    let listings: [MarketplaceListingResponse]
+    let total: Int
+}
+
+struct CreateMarketplaceListingRequest: Codable, Sendable {
+    let title: String
+    let description: String
+    let category: String
+    let tags: [String]
+    let pricingModel: String
+    let priceCents: Int
+
+    enum CodingKeys: String, CodingKey {
+        case title, description, category, tags
+        case pricingModel = "pricing_model"
+        case priceCents = "price_cents"
+    }
+}
+
+struct MarketplaceReviewResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let listingId: UUID
+    let reviewerEntityId: UUID
+    let reviewerDisplayName: String
+    let rating: Int
+    let text: String?
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, text
+        case listingId = "listing_id"
+        case reviewerEntityId = "reviewer_entity_id"
+        case reviewerDisplayName = "reviewer_display_name"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct MarketplaceReviewListResponse: Codable, Sendable {
+    let reviews: [MarketplaceReviewResponse]
+    let total: Int
+    let averageRating: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case reviews, total
+        case averageRating = "average_rating"
+    }
+}
+
+struct CreateMarketplaceReviewRequest: Codable, Sendable {
+    let rating: Int
+    let text: String?
+}
+
+struct MarketplacePurchaseRequest: Codable, Sendable {
+    let notes: String?
+}
+
+struct MarketplaceTransactionResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let listingId: UUID?
+    let buyerEntityId: UUID
+    let sellerEntityId: UUID
+    let amountCents: Int
+    let status: String
+    let listingTitle: String
+    let listingCategory: String
+    let notes: String?
+    let platformFeeCents: Int?
+    let clientSecret: String?
+    let completedAt: String?
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, status, notes
+        case listingId = "listing_id"
+        case buyerEntityId = "buyer_entity_id"
+        case sellerEntityId = "seller_entity_id"
+        case amountCents = "amount_cents"
+        case listingTitle = "listing_title"
+        case listingCategory = "listing_category"
+        case platformFeeCents = "platform_fee_cents"
+        case clientSecret = "client_secret"
+        case completedAt = "completed_at"
+        case createdAt = "created_at"
+    }
+
+    var formattedAmount: String {
+        if amountCents == 0 { return "Free" }
+        let dollars = Double(amountCents) / 100.0
+        return String(format: "$%.2f", dollars)
+    }
+}
+
+struct MarketplaceTransactionListResponse: Codable, Sendable {
+    let transactions: [MarketplaceTransactionResponse]
+    let total: Int
+}
