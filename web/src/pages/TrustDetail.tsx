@@ -48,13 +48,6 @@ interface AttestationListData {
   count: number
 }
 
-interface ContextualTrustData {
-  entity_id: string
-  context: string
-  score: number | null
-  attestation_count: number
-}
-
 const COMPONENT_INFO: Record<string, { label: string; description: string; color: string }> = {
   verification: {
     label: 'Verification',
