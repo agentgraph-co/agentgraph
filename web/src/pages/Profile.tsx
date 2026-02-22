@@ -7,13 +7,14 @@ import type { Post, Profile as ProfileType } from '../types'
 import { formatDate } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
+import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'badges'
 
 interface ActivityItem {
   type: string
@@ -55,6 +56,31 @@ interface FollowEntity {
   display_name: string
   type: string
   did_web: string
+}
+
+
+interface VerificationBadge {
+  id: string
+  entity_id: string
+  badge_type: string
+  issued_by: string | null
+  issued_by_display_name: string | null
+  proof_url: string | null
+  expires_at: string | null
+  is_active: boolean
+  created_at: string
+}
+
+interface AuditRecordItem {
+  id: string
+  target_entity_id: string
+  auditor_entity_id: string
+  auditor_display_name: string
+  audit_type: string
+  result: string
+  findings: Record<string, unknown> | null
+  report_url: string | null
+  created_at: string
 }
 
 interface ProfileListing {
@@ -747,7 +773,7 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4 overflow-x-auto">
-        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity'] as ProfileTab[]).map((tab) => (
+        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity', 'badges', 'badges'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1125,6 +1151,15 @@ export default function Profile() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === "badges" && entityId && (
+        <div className="mt-3 space-y-3">
+          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Verification Badges</h3>
+          <BadgesSection entityId={entityId} />
+          <h3 className="mt-4 text-sm font-semibold text-text-muted uppercase tracking-wider">Audit History</h3>
+          <AuditHistorySection entityId={entityId} />
         </div>
       )}
 
