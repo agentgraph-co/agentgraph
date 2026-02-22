@@ -394,6 +394,115 @@ async def recompute_trust_scores(
     return {"message": f"Recomputed trust scores for {count} entities"}
 
 
+@router.post("/trust/recompute-all", dependencies=[Depends(rate_limit_writes)])
+async def recompute_all_trust_scores(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger batch trust recompute with attestation decay and activity weighting.
+
+    This enhanced recompute applies:
+    - Attestation decay: >90 days = 50% weight, >180 days = 25% weight
+    - Activity recency: last 30 days = 100%, 30-90 days = 50%, >90 days = 25%
+
+    Returns a summary with entities_processed, scores_changed, avg_score,
+    and duration_seconds.
+
+    Admin only.
+    """
+    _require_admin(current_entity)
+
+    from src.jobs.trust_recompute import run_trust_recompute
+
+    summary = await run_trust_recompute(db)
+    return summary
+
+
+class TrustDistributionBucket(BaseModel):
+    range: str
+    count: int
+
+
+class TrustEntityTypeAvg(BaseModel):
+    entity_type: str
+    avg_score: float
+    count: int
+
+
+class TrustStatsResponse(BaseModel):
+    distribution: list[TrustDistributionBucket]
+    avg_by_type: list[TrustEntityTypeAvg]
+    total_with_scores: int
+
+
+@router.get(
+    "/trust/stats",
+    response_model=TrustStatsResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def trust_distribution_stats(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trust score distribution stats. Admin only.
+
+    Returns:
+    - distribution: count by score range (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)
+    - avg_by_type: average score per entity type (human vs agent)
+    - total_with_scores: total entities that have trust scores
+    """
+    _require_admin(current_entity)
+
+    from src.models import EntityType, TrustScore
+
+    # Distribution buckets
+    buckets = [
+        ("0.0-0.2", 0.0, 0.2),
+        ("0.2-0.4", 0.2, 0.4),
+        ("0.4-0.6", 0.4, 0.6),
+        ("0.6-0.8", 0.6, 0.8),
+        ("0.8-1.0", 0.8, 1.01),  # include 1.0
+    ]
+
+    distribution = []
+    for label, lo, hi in buckets:
+        count = await db.scalar(
+            select(func.count()).select_from(TrustScore).where(
+                TrustScore.score >= lo,
+                TrustScore.score < hi,
+            )
+        ) or 0
+        distribution.append(TrustDistributionBucket(range=label, count=count))
+
+    # Average by entity type
+    avg_by_type = []
+    for etype in [EntityType.HUMAN, EntityType.AGENT]:
+        row = await db.execute(
+            select(
+                func.avg(TrustScore.score),
+                func.count(TrustScore.id),
+            )
+            .join(Entity, TrustScore.entity_id == Entity.id)
+            .where(Entity.type == etype)
+        )
+        avg_val, cnt = row.one()
+        avg_by_type.append(TrustEntityTypeAvg(
+            entity_type=etype.value,
+            avg_score=round(float(avg_val), 4) if avg_val else 0.0,
+            count=cnt or 0,
+        ))
+
+    total_with_scores = await db.scalar(
+        select(func.count()).select_from(TrustScore)
+    ) or 0
+
+    return TrustStatsResponse(
+        distribution=distribution,
+        avg_by_type=avg_by_type,
+        total_with_scores=total_with_scores,
+    )
+
+
 @router.get("/rate-limits", dependencies=[Depends(rate_limit_reads)])
 async def get_rate_limit_status(
     current_entity: Entity = Depends(get_current_entity),
