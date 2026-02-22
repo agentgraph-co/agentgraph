@@ -702,14 +702,15 @@
         "id": "54",
         "title": "Deploy to AWS",
         "description": "Deploy AgentGraph to AWS infrastructure. Migrate from the Hetzner VPS plan to AWS services (ECS/Fargate or EC2) with RDS PostgreSQL, ElastiCache Redis, and proper networking.",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": [
           "50"
         ],
         "priority": "high",
         "details": "AWS deployment replacing the Hetzner VPS plan from task 23:\n\n1. Infrastructure:\n   - ECS Fargate or EC2 for backend + frontend containers\n   - RDS PostgreSQL 16 (db.t3.micro or small to start)\n   - ElastiCache Redis 7 (cache.t3.micro)\n   - ALB with TLS termination (ACM certificate)\n   - VPC with public/private subnets\n   - S3 for static assets and backups\n\n2. Networking:\n   - Route 53 for DNS (agentgraph.io or similar)\n   - CloudFront CDN for frontend\n   - Security groups: ALB → ECS only, ECS → RDS/Redis only\n   - Private subnets for RDS and Redis\n\n3. CI/CD:\n   - GitHub Actions → ECR push → ECS deploy\n   - Separate staging and production environments\n   - Blue/green or rolling deployment\n\n4. Monitoring:\n   - CloudWatch for logs and metrics\n   - Health check alarms\n   - Cost alerts\n\n5. Secrets:\n   - AWS Secrets Manager or Parameter Store for .env.secrets values\n   - No plaintext secrets in task definitions\n\n6. Cost optimization:\n   - Start small (Fargate spot or t3.micro EC2)\n   - RDS and ElastiCache in single-AZ for dev, multi-AZ for prod\n   - Estimate monthly cost and document\n\nOptions: Terraform, CDK, or manual console setup. Terraform preferred for reproducibility.",
         "testStrategy": "Deploy to staging environment. Verify all services start and pass health checks. Test full user journey (register, create agent, post, interact). Verify TLS is working. Run load test to confirm performance. Verify backups work (RDS snapshots). Test CI/CD pipeline deploys successfully.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T07:51:26.772Z"
       },
       {
         "id": "55",
@@ -939,30 +940,31 @@
       },
       {
         "id": "72",
-        "title": "PRD Reconciliation — Audit Coverage, Plan Skipped Phases, Validate Persona Feedback",
-        "description": "Go back to the original PRD, persona review feedback, and phase planning documents. Audit what was captured vs skipped. Validate persona recommendations were addressed. Plan Phase 3 (Graph & Scale) and Phase 4 (Marketplace & Ecosystem) implementation tasks.",
+        "title": "PRD Reconciliation — Post-Implementation Audit of All Phases Against PRD & Persona Feedback",
+        "description": "After ALL phases (1-4) are complete, go back to the original PRD, persona review feedback, and phase planning documents. Audit what was captured vs skipped across the entire project. Validate persona recommendations were addressed. Identify gaps, missed items, and new requirements that emerged during implementation.",
         "status": "pending",
-        "dependencies": [
-          "63",
-          "64",
-          "65",
-          "66",
-          "67",
-          "68",
-          "69",
-          "70",
-          "71"
-        ],
+        "dependencies": [],
+        "priority": "medium",
+        "details": "This is a POST-COMPLETION reconciliation task — run AFTER all four phases are done.\n\n1. PRD Coverage Audit:\n   - Re-read docs/AgentGraph_PRD.md\n   - Compare every PRD section against implemented features across ALL phases\n   - Flag any items that were skipped or partially implemented\n   - Document coverage percentage per PRD section\n\n2. Persona Feedback Validation:\n   - Re-read docs/reviews/ (CPO, CTO, Architect, Legal, Compliance, CEO reviews)\n   - Check each recommendation: implemented, deferred, or dropped\n   - Flag any critical recommendations that were ignored\n   - Update synthesis.md with resolution status\n\n3. Gap Analysis:\n   - What open questions (Q9-Q25) are now answerable with implementation data?\n   - What deferred items (Task 49) should be promoted?\n   - What new requirements emerged during implementation?\n   - What technical debt accumulated?\n\n4. Post-Launch Backlog:\n   - Create prioritized backlog of missed/deferred items\n   - Categorize: must-fix vs nice-to-have vs future consideration\n\nOutput: Updated PRD coverage matrix, gap analysis document, post-launch backlog, revised open questions tracker.",
+        "testStrategy": "Review output documents for completeness. Verify every PRD section has a status (implemented/deferred/skipped). Verify every persona recommendation has a resolution.",
+        "subtasks": []
+      },
+      {
+        "id": "73",
+        "title": "Populate Staging Environment with Comprehensive Test Data",
+        "description": "Create a staging data seeding script that populates the staging database with realistic test data including marketplace listings, DMs/messages, graph relationships (follows, trust attestations, operator links), agents, trust scores, evolution records, and community activity. Run against the staging backend at http://***REMOVED***:8000.",
+        "status": "pending",
+        "dependencies": [],
         "priority": "high",
-        "details": "After all Phase 2 tasks are complete, perform a full reconciliation:\n\n1. PRD Coverage Audit:\n   - Re-read docs/AgentGraph_PRD.md (or reconstruct from CLAUDE.md)\n   - Compare every PRD section against implemented features\n   - Flag any Phase 1 or Phase 2 items that were skipped or partially implemented\n   - Document coverage percentage per PRD section\n\n2. Persona Feedback Validation:\n   - Re-read docs/reviews/ (CPO, CTO, Architect, Legal, Compliance, CEO reviews)\n   - Check each recommendation: implemented, deferred, or dropped\n   - Flag any critical recommendations that were ignored\n   - Update synthesis.md with resolution status\n\n3. Phase 3 Planning (Graph & Scale, Months 7-9):\n   - Graph visualization (Three.js/WebGL 3D + D3 2D fallback)\n   - Propagation safety mechanisms\n   - Enterprise tier\n   - Mobile app enhancements\n   - Scale architecture (caching, CDN, read replicas)\n   - Create implementation tasks 73+\n\n4. Phase 4 Planning (Marketplace & Ecosystem, Months 10-12):\n   - Full marketplace with escrow and dispute resolution\n   - Data products and analytics marketplace\n   - AIP v2 (agent-to-agent direct communication)\n   - Protocol ecosystem (third-party integrations)\n   - Create implementation tasks\n\n5. Gap Analysis:\n   - What open questions (Q9-Q25) are now answerable with Phase 1-2 data?\n   - What deferred items (Task 49) should be promoted?\n   - What new requirements emerged during implementation?\n\nOutput: Updated PRD coverage matrix, Phase 3 + Phase 4 task lists, revised open questions tracker.",
-        "testStrategy": "Review output documents for completeness. Verify every PRD section has a status (implemented/deferred/skipped). Verify every persona recommendation has a resolution. Verify Phase 3 and Phase 4 tasks have clear dependencies and are actionable.",
+        "details": "After DB reset, staging lost all test data. Need a comprehensive seed script.\n\nData to populate:\n1. Users: 15-20 human accounts with varied trust scores and profiles\n2. Agents: 30-40 agents across multiple operators with capabilities, autonomy levels 1-5\n3. Relationships: 100+ follow relationships creating a realistic social graph\n4. Trust: Trust scores for all entities, 20+ attestations between entities\n5. Posts: 50+ feed posts with comments, votes, and threaded discussions\n6. Marketplace: 20+ listings (tools, services, data products) with varied categories and prices\n7. Evolution: 10+ evolution records showing agent version history and forks\n8. Graph data: Enough interconnections for the graph visualization to look impressive (clusters, multi-hop paths)\n9. Notifications: Sample notifications for the admin user\n10. DID documents: W3C DID docs for all entities\n\nAdmin account: kenne@agentgraph.io (already exists, entity ID 824b5642-5604-4df8-bf1b-583a2f18a8d5)\n\nApproach: Python script using httpx to call API endpoints directly, or direct DB inserts via SQLAlchemy. API approach preferred for data integrity.\n\nVerification: Login as admin, check feed has posts, graph shows connections, marketplace has listings, profiles show trust scores.",
+        "testStrategy": "Run seed script against staging. Verify via API: GET /feed returns posts, GET /graph returns nodes+edges, GET /marketplace/listings returns listings, GET /profiles/{id} shows trust scores. Visual check: load web app at ***REMOVED***:5174 and verify feed, graph, marketplace pages have data.",
         "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-22T01:19:21.426Z",
-      "taskCount": 72,
+      "lastModified": "2026-02-22T07:51:26.772Z",
+      "taskCount": 73,
       "completedCount": 52,
       "tags": [
         "master"
