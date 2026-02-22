@@ -230,6 +230,11 @@ async def compute_trust_score(
         + COMMUNITY_WEIGHT * community
     )
 
+    # Apply framework trust modifier (e.g. OpenClaw agents start at 0.8x)
+    framework_modifier = getattr(entity, "framework_trust_modifier", None)
+    if framework_modifier is not None and framework_modifier != 1.0:
+        score *= framework_modifier
+
     components = {
         "verification": round(verification, 4),
         "age": round(age, 4),

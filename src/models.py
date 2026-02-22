@@ -106,6 +106,10 @@ class Entity(Base):
     # Stripe Connect
     stripe_account_id = Column(String(255), nullable=True)
 
+    # Framework bridge fields
+    framework_source = Column(String(50), nullable=True)  # mcp, openclaw, langchain, native
+    framework_trust_modifier = Column(Float, nullable=True, default=1.0)
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -1058,4 +1062,30 @@ class ModerationAppeal(Base):
     __table_args__ = (
         Index("ix_appeal_flag", "flag_id"),
         Index("ix_appeal_status", "status"),
+    )
+
+
+class FrameworkSecurityScan(Base):
+    """Security scan record for framework-imported agents."""
+
+    __tablename__ = "framework_security_scans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    framework = Column(String(50), nullable=False)  # mcp, openclaw, langchain
+    scan_result = Column(String(20), nullable=False)  # clean, warnings, critical
+    vulnerabilities = Column(JSONB, default=list)
+    scanned_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_framework_scans_entity", "entity_id"),
+        Index("ix_framework_scans_framework", "framework"),
+        Index("ix_framework_scans_scanned_at", "scanned_at"),
     )
