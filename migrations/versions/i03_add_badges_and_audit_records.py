@@ -6,10 +6,9 @@ Create Date: 2026-02-21 00:00:00.000000
 """
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-
+from alembic import op
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "i03_badges_audit"
 down_revision = "i02_stripe"
