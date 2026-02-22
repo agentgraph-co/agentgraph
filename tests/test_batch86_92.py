@@ -2,6 +2,8 @@
 admin post hide, notification kind filter, profile browse privacy."""
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -171,9 +173,27 @@ async def test_admin_entity_search(client: AsyncClient, db):
 # --- Transaction Cancel/Refund (Task #88) ---
 
 
+def _stripe_mocks():
+    """Context manager to mock Stripe for paid purchases."""
+    mock_status = {
+        "charges_enabled": True,
+        "payouts_enabled": True,
+        "details_submitted": True,
+    }
+    mock_intent = {
+        "client_secret": "pi_test_secret",
+        "payment_intent_id": "pi_test_123",
+    }
+    return (
+        patch("src.config.settings.stripe_secret_key", "sk_test_fake"),
+        patch("src.payments.stripe_service.get_account_status", return_value=mock_status),
+        patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent),
+    )
+
+
 @pytest.mark.asyncio
-async def test_cancel_pending_transaction(client: AsyncClient):
-    seller_token, _ = await _setup_user(client, USER_A)
+async def test_cancel_pending_transaction(client: AsyncClient, db):
+    seller_token, seller_id = await _setup_user(client, USER_A)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     # Create paid listing
@@ -190,12 +210,21 @@ async def test_cancel_pending_transaction(client: AsyncClient):
     )
     listing_id = listing_resp.json()["id"]
 
+    # Set up seller's Stripe account
+    import uuid
+    from src.models import Entity
+    seller = await db.get(Entity, uuid.UUID(seller_id))
+    seller.stripe_account_id = "acct_test_cancel"
+    await db.flush()
+
     # Purchase (pending because non-free)
-    purchase_resp = await client.post(
-        f"{MARKET_URL}/{listing_id}/purchase",
-        json={},
-        headers=_auth(buyer_token),
-    )
+    p1, p2, p3 = _stripe_mocks()
+    with p1, p2, p3:
+        purchase_resp = await client.post(
+            f"{MARKET_URL}/{listing_id}/purchase",
+            json={},
+            headers=_auth(buyer_token),
+        )
     txn_id = purchase_resp.json()["id"]
     assert purchase_resp.json()["status"] == "pending"
 
@@ -209,8 +238,8 @@ async def test_cancel_pending_transaction(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_cancel_not_buyer_fails(client: AsyncClient):
-    seller_token, _ = await _setup_user(client, USER_A)
+async def test_cancel_not_buyer_fails(client: AsyncClient, db):
+    seller_token, seller_id = await _setup_user(client, USER_A)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     listing_resp = await client.post(
@@ -226,11 +255,20 @@ async def test_cancel_not_buyer_fails(client: AsyncClient):
     )
     listing_id = listing_resp.json()["id"]
 
-    purchase_resp = await client.post(
-        f"{MARKET_URL}/{listing_id}/purchase",
-        json={},
-        headers=_auth(buyer_token),
-    )
+    # Set up seller's Stripe account
+    import uuid
+    from src.models import Entity
+    seller = await db.get(Entity, uuid.UUID(seller_id))
+    seller.stripe_account_id = "acct_test_cancel2"
+    await db.flush()
+
+    p1, p2, p3 = _stripe_mocks()
+    with p1, p2, p3:
+        purchase_resp = await client.post(
+            f"{MARKET_URL}/{listing_id}/purchase",
+            json={},
+            headers=_auth(buyer_token),
+        )
     txn_id = purchase_resp.json()["id"]
 
     # Seller tries to cancel — should fail
@@ -277,8 +315,8 @@ async def test_refund_completed_transaction(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_refund_pending_fails(client: AsyncClient):
-    seller_token, _ = await _setup_user(client, USER_A)
+async def test_refund_pending_fails(client: AsyncClient, db):
+    seller_token, seller_id = await _setup_user(client, USER_A)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     listing_resp = await client.post(
@@ -294,11 +332,20 @@ async def test_refund_pending_fails(client: AsyncClient):
     )
     listing_id = listing_resp.json()["id"]
 
-    purchase_resp = await client.post(
-        f"{MARKET_URL}/{listing_id}/purchase",
-        json={},
-        headers=_auth(buyer_token),
-    )
+    # Set up seller's Stripe account
+    import uuid
+    from src.models import Entity
+    seller = await db.get(Entity, uuid.UUID(seller_id))
+    seller.stripe_account_id = "acct_test_refund"
+    await db.flush()
+
+    p1, p2, p3 = _stripe_mocks()
+    with p1, p2, p3:
+        purchase_resp = await client.post(
+            f"{MARKET_URL}/{listing_id}/purchase",
+            json={},
+            headers=_auth(buyer_token),
+        )
     txn_id = purchase_resp.json()["id"]
 
     # Try to refund a pending transaction

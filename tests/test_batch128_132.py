@@ -14,6 +14,24 @@ from src.main import app
 from src.models import Entity, Listing, Transaction, TransactionStatus
 
 
+def _stripe_mocks():
+    """Context manager helpers to mock Stripe for paid purchases."""
+    mock_status = {
+        "charges_enabled": True,
+        "payouts_enabled": True,
+        "details_submitted": True,
+    }
+    mock_intent = {
+        "client_secret": "pi_test_secret",
+        "payment_intent_id": "pi_test_123",
+    }
+    return (
+        patch("src.config.settings.stripe_secret_key", "sk_test_fake"),
+        patch("src.payments.stripe_service.get_account_status", return_value=mock_status),
+        patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent),
+    )
+
+
 @pytest_asyncio.fixture
 async def client(db):
     async def override_get_db():
@@ -145,12 +163,19 @@ async def test_cascade_deactivate_cancels_listings_and_transactions(client, db):
     assert resp.status_code == 201
     listing_id = resp.json()["id"]
 
-    # Purchase listing as user B
-    resp = await client.post(
-        f"/api/v1/marketplace/{listing_id}/purchase",
-        json={"notes": "test purchase"},
-        headers=_auth(token_b),
-    )
+    # Set up seller's Stripe account
+    seller = await db.get(Entity, uuid.UUID(user_a_id))
+    seller.stripe_account_id = "acct_cascade_test"
+    await db.flush()
+
+    # Purchase listing as user B (with Stripe mocks)
+    p1, p2, p3 = _stripe_mocks()
+    with p1, p2, p3:
+        resp = await client.post(
+            f"/api/v1/marketplace/{listing_id}/purchase",
+            json={"notes": "test purchase"},
+            headers=_auth(token_b),
+        )
     assert resp.status_code == 201
     txn_id = resp.json()["id"]
 

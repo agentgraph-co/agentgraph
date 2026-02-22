@@ -85,6 +85,7 @@ async def get_fleet_dashboard(db: AsyncSession, org_id: UUID) -> dict:
     # Build agent list
     agent_list = []
     active_count = 0
+    quarantine_count = 0
     trust_scores: list[float] = []
 
     for agent in agents:
@@ -92,12 +93,15 @@ async def get_fleet_dashboard(db: AsyncSession, org_id: UUID) -> dict:
         trust_scores.append(score)
         if agent.is_active:
             active_count += 1
+        if getattr(agent, 'is_quarantined', False):
+            quarantine_count += 1
         agent_list.append({
             "id": str(agent.id),
             "name": agent.display_name,
             "trust_score": score,
             "framework_source": agent.framework_source,
             "is_active": agent.is_active,
+            "is_quarantined": getattr(agent, 'is_quarantined', False),
             "last_evolution": evo_map.get(agent.id),
         })
 
@@ -106,7 +110,7 @@ async def get_fleet_dashboard(db: AsyncSession, org_id: UUID) -> dict:
     return {
         "total_agents": len(agents),
         "active_agents": active_count,
-        "quarantined_agents": 0,  # quarantine not yet implemented
+        "quarantined_agents": quarantine_count,
         "agents": agent_list,
         "total_trust_avg": round(total_trust_avg, 4),
     }

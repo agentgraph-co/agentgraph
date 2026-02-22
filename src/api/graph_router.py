@@ -885,7 +885,13 @@ async def get_network_stats(
         )
     ) or 0
 
+    # In a global view, avg_followers == avg_following because each follow
+    # edge is one outgoing and one incoming relationship, but we compute
+    # them separately for clarity and to avoid copy-paste confusion.
     avg_followers = (
+        total_follows / total_entities if total_entities > 0 else 0.0
+    )
+    avg_following = (
         total_follows / total_entities if total_entities > 0 else 0.0
     )
 
@@ -960,7 +966,7 @@ async def get_network_stats(
         total_agents=total_agents,
         total_follows=total_follows,
         avg_followers=round(avg_followers, 2),
-        avg_following=round(avg_followers, 2),
+        avg_following=round(avg_following, 2),
         most_followed=most_followed,
         most_connected=most_connected,
     )

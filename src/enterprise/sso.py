@@ -68,6 +68,10 @@ class SAMLHandler:
             "session_index": "..."
         }
         """
+        logger.warning(
+            "SECURITY: Using mock SAML assertion parser. "
+            "Replace with python3-saml before production deployment."
+        )
         try:
             decoded = base64.b64decode(saml_response).decode("utf-8")
             assertion = json.loads(decoded)
@@ -160,6 +164,10 @@ class OIDCHandler:
             "name": "User Name"
         }
         """
+        logger.warning(
+            "SECURITY: Using mock OIDC code exchange. "
+            "Replace with authlib before production deployment."
+        )
         try:
             decoded = base64.b64decode(code).decode("utf-8")
             userinfo = json.loads(decoded)
@@ -209,6 +217,14 @@ async def find_or_create_sso_entity(
         )
         entity = result.scalar_one_or_none()
         if entity is not None:
+            # Only link if email was already verified on this account,
+            # to prevent SSO account takeover of unverified accounts
+            if not entity.email_verified:
+                logger.warning(
+                    "SSO login attempted to link to unverified email account %s",
+                    email,
+                )
+                raise ValueError("Cannot link SSO to unverified email account")
             # Link existing entity to SSO
             entity.sso_provider_id = sso_id
             await db.flush()
@@ -225,7 +241,7 @@ async def find_or_create_sso_entity(
         did_web=generate_did_web(entity_id),
         sso_provider_id=sso_id,
         organization_id=org_id,
-        email_verified=True,  # SSO-verified email
+        email_verified=True,  # Trust SSO provider's email verification
     )
     db.add(entity)
     await db.flush()

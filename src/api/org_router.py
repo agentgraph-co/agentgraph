@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     Entity,
@@ -85,6 +86,7 @@ async def create_organization(
     body: CreateOrgRequest,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     if not _NAME_RE.match(body.name):
         raise HTTPException(
@@ -131,6 +133,7 @@ async def get_organization(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Get organization details with member count."""
     org = await db.get(Organization, org_id)
@@ -157,6 +160,7 @@ async def update_organization(
     body: UpdateOrgRequest,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Update organization settings. Only owner/admin."""
     org = await db.get(Organization, org_id)
@@ -194,6 +198,7 @@ async def add_member(
     body: AddMemberRequest,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Add a member to the organization. Only owner/admin."""
     org = await db.get(Organization, org_id)
@@ -232,6 +237,7 @@ async def remove_member(
     entity_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Remove a member. Owner cannot be removed."""
     org = await db.get(Organization, org_id)
@@ -259,6 +265,7 @@ async def list_members(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """List all members of an organization."""
     org = await db.get(Organization, org_id)
@@ -287,6 +294,7 @@ async def fleet_dashboard(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Agent fleet dashboard. Only org members."""
     org = await db.get(Organization, org_id)
@@ -304,6 +312,7 @@ async def fleet_bulk_action(
     body: BulkActionRequest,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Bulk enable/disable agents. Only owner/admin."""
     org = await db.get(Organization, org_id)
@@ -320,6 +329,7 @@ async def compliance_report(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Generate compliance report. Only owner/admin."""
     org = await db.get(Organization, org_id)
@@ -336,6 +346,7 @@ async def org_stats(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Organization analytics. Only org members."""
     org = await db.get(Organization, org_id)

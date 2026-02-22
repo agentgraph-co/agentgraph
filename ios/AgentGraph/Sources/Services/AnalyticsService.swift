@@ -26,7 +26,9 @@ actor AnalyticsService {
     ) {
         Task.detached { [sessionId, encoder] in
             do {
-                let baseURL = ServerEnvironment.development.baseURL
+                let saved = UserDefaults.standard.string(forKey: "server_environment") ?? "dev"
+                let environment = ServerEnvironment(rawValue: saved) ?? .development
+                let baseURL = environment.baseURL
                 let url = baseURL.appendingPathComponent("analytics/event")
 
                 var request = URLRequest(url: url)
