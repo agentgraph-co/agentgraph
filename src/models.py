@@ -296,6 +296,10 @@ class APIKey(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
 
+    organization_id = Column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+    )
+
     entity = relationship("Entity", back_populates="api_keys")
 
     __table_args__ = (Index("ix_api_keys_hash", "key_hash"),)
@@ -1330,6 +1334,33 @@ class OrganizationMembership(Base):
         UniqueConstraint("organization_id", "entity_id", name="uq_org_membership"),
         Index("ix_org_memberships_org", "organization_id"),
         Index("ix_org_memberships_entity", "entity_id"),
+    )
+
+
+class OrgUsageRecord(Base):
+    """Usage metering record for enterprise organizations."""
+
+    __tablename__ = "org_usage_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
+    api_calls = Column(Integer, default=0)
+    storage_bytes = Column(Integer, default=0)
+    active_agents = Column(Integer, default=0)
+    active_members = Column(Integer, default=0)
+    extra_metadata = Column(JSONB, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    organization = relationship("Organization")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "period_start", name="uq_org_usage_period"),
+        Index("ix_usage_org", "organization_id"),
+        Index("ix_usage_period", "period_start", "period_end"),
     )
 
 

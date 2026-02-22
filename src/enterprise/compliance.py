@@ -68,6 +68,12 @@ async def generate_compliance_report(db: AsyncSession, org_id: UUID) -> dict:
                 "pending_approvals": 0,
                 "risk_tier_distribution": {},
             },
+            "audit_export": {
+                "available": True,
+                "endpoint": f"/api/v1/organizations/{org_id}/audit-export",
+                "formats": ["json", "csv"],
+                "note": "Full audit log export available for compliance review.",
+            },
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -148,6 +154,12 @@ async def generate_compliance_report(db: AsyncSession, org_id: UUID) -> dict:
             "total_records": len(evos),
             "pending_approvals": pending_approvals,
             "risk_tier_distribution": risk_dist,
+        },
+        "audit_export": {
+            "available": True,
+            "endpoint": f"/api/v1/organizations/{org_id}/audit-export",
+            "formats": ["json", "csv"],
+            "note": "Full audit log export available for compliance review.",
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
