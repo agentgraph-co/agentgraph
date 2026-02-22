@@ -1,7 +1,7 @@
 """Add AIP protocol tables: delegations and agent_capability_registry
 
 Revision ID: j03_aip_tables
-Revises: i09_sso_config
+Revises: j01_disputes_escrow
 Create Date: 2026-02-22 00:00:00.000000
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "j03_aip_tables"
-down_revision = "i09_sso_config"
+down_revision = "j01_disputes_escrow"
 branch_labels = None
 depends_on = None
 
