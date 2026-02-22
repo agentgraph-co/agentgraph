@@ -55,7 +55,7 @@ async def websocket_endpoint(
         return
 
     channel_list = [c.strip() for c in channels.split(",") if c.strip()]
-    valid_channels = {"feed", "notifications", "activity"}
+    valid_channels = {"feed", "notifications", "activity", "aip"}
     channel_list = [c for c in channel_list if c in valid_channels]
     if not channel_list:
         channel_list = ["feed"]
@@ -72,6 +72,23 @@ async def websocket_endpoint(
                     await websocket.send_text(
                         json.dumps({"type": "pong"})
                     )
+                # Handle AIP protocol messages
+                elif msg.get("type") in (
+                    "discover_request",
+                    "negotiate_request",
+                    "delegate_request",
+                    "delegate_status",
+                    "ack",
+                ):
+                    from src.protocol.router import handle_aip_message
+
+                    async with async_session() as aip_db:
+                        response = await handle_aip_message(
+                            aip_db, entity_id, msg,
+                        )
+                        await aip_db.commit()
+                    if response:
+                        await websocket.send_text(json.dumps(response))
             except json.JSONDecodeError:
                 pass
     except WebSocketDisconnect:

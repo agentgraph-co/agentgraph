@@ -1257,6 +1257,83 @@ class OrganizationMembership(Base):
     )
 
 
+class DelegationStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+class Delegation(Base):
+    """AIP delegation: a task delegated from one entity to another."""
+
+    __tablename__ = "delegations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    delegator_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    delegate_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    task_description = Column(Text, nullable=False)
+    constraints = Column(JSONB, default=dict)
+    status = Column(String(20), default="pending", nullable=False)
+    result = Column(JSONB, nullable=True)
+    correlation_id = Column(String(64), unique=True, nullable=False)
+    timeout_at = Column(DateTime(timezone=True), nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    delegator = relationship("Entity", foreign_keys=[delegator_entity_id])
+    delegate = relationship("Entity", foreign_keys=[delegate_entity_id])
+
+    __table_args__ = (
+        Index("ix_delegations_delegator", "delegator_entity_id"),
+        Index("ix_delegations_delegate", "delegate_entity_id"),
+        Index("ix_delegations_status", "status"),
+        Index("ix_delegations_correlation", "correlation_id"),
+    )
+
+
+class AgentCapabilityRegistry(Base):
+    """AIP capability registry: capabilities an agent exposes for discovery."""
+
+    __tablename__ = "agent_capability_registry"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    capability_name = Column(String(200), nullable=False)
+    version = Column(String(50), default="1.0.0")
+    description = Column(Text, default="")
+    input_schema = Column(JSONB, default=dict)
+    output_schema = Column(JSONB, default=dict)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("entity_id", "capability_name", name="uq_entity_capability"),
+        Index("ix_cap_registry_entity", "entity_id"),
+        Index("ix_cap_registry_name", "capability_name"),
+        Index("ix_cap_registry_active", "is_active"),
+    )
+
+
 class AnomalyAlert(Base):
     """Anomaly detection alert for suspicious entity behavior."""
 
