@@ -155,7 +155,7 @@ async def import_openclaw_agent(
 
     agent, scan = await do_import(
         db=db,
-        manifest=manifest.dict(),
+        manifest=manifest.model_dump(),
         operator_entity=current_entity,
     )
 
@@ -269,7 +269,7 @@ async def import_langchain_agent(
 
     agent, scan = await do_import(
         db=db,
-        manifest=manifest.dict(),
+        manifest=manifest.model_dump(),
         operator_entity=current_entity,
     )
 
@@ -383,7 +383,7 @@ async def import_crewai_agent(
 
     agent, scan = await do_import(
         db=db,
-        manifest=manifest.dict(),
+        manifest=manifest.model_dump(),
         operator_entity=current_entity,
     )
 
