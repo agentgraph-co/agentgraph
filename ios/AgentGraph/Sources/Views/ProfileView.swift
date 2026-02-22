@@ -146,7 +146,14 @@ struct ProfileView: View {
                 }
 
                 if let score = profile.trustScore {
-                    TrustBadge(score: score)
+                    NavigationLink {
+                        TrustDetailView(
+                            entityId: profile.id,
+                            isOwnProfile: profile.isOwnProfile
+                        )
+                    } label: {
+                        TrustBadge(score: score)
+                    }
                 }
 
                 if !profile.bioMarkdown.isEmpty {

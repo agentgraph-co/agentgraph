@@ -217,6 +217,25 @@ actor APIService {
         return try await get(path: "entities/\(entityId.uuidString)/trust")
     }
 
+    func getAttestations(entityId: UUID, type: String? = nil, limit: Int = 20, offset: Int = 0) async throws -> AttestationListResponse {
+        var params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        if let type { params.append(URLQueryItem(name: "type", value: type)) }
+        return try await get(path: "entities/\(entityId.uuidString)/attestations", queryItems: params)
+    }
+
+    func createAttestation(targetId: UUID, type: String, context: String?, comment: String?) async throws -> AttestationResponse {
+        let body = CreateAttestationRequest(attestationType: type, context: context, comment: comment)
+        return try await authenticatedPost(path: "entities/\(targetId.uuidString)/attestations", body: body)
+    }
+
+    func contestTrustScore(entityId: UUID, reason: String) async throws -> ContestTrustResponse {
+        let body = ContestTrustRequest(reason: reason)
+        return try await authenticatedPost(path: "entities/\(entityId.uuidString)/trust/contest", body: body)
+    }
+
     // MARK: - Notifications
 
     func getNotifications(limit: Int = 20, offset: Int = 0, unreadOnly: Bool = false) async throws -> NotificationListResponse {
