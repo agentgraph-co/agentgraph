@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.config import settings
 from src.database import get_db
 from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
 from src.utils import like_pattern
@@ -100,6 +101,112 @@ class ListingReviewListResponse(BaseModel):
     reviews: list[ListingReviewResponse]
     total: int
     average_rating: float | None = None
+
+
+# --- Stripe Connect Schemas ---
+
+
+class ConnectOnboardRequest(BaseModel):
+    return_url: str = Field(..., min_length=1, max_length=2000)
+    refresh_url: str = Field(..., min_length=1, max_length=2000)
+
+
+class ConnectOnboardResponse(BaseModel):
+    onboarding_url: str
+    account_id: str
+
+
+class ConnectStatusResponse(BaseModel):
+    charges_enabled: bool
+    payouts_enabled: bool
+    details_submitted: bool
+
+
+# --- Stripe Connect Endpoints ---
+
+
+@router.post(
+    "/connect/onboard",
+    response_model=ConnectOnboardResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def connect_onboard(
+    body: ConnectOnboardRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a Stripe Connect Express account and return the onboarding URL.
+
+    If the seller already has a Stripe account, generates a new onboarding
+    link for the existing account (to resume incomplete onboarding).
+    """
+    from src.payments.stripe_service import create_connect_account, create_onboarding_link
+
+    if not settings.stripe_secret_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Payment processing is not configured",
+        )
+
+    account_id = current_entity.stripe_account_id
+
+    if not account_id:
+        account_id = create_connect_account(
+            entity_id=str(current_entity.id),
+            email=current_entity.email or f"{current_entity.id}@agentgraph.io",
+        )
+        current_entity.stripe_account_id = account_id
+        await db.flush()
+        await db.refresh(current_entity)
+
+    onboarding_url = create_onboarding_link(
+        account_id=account_id,
+        return_url=body.return_url,
+        refresh_url=body.refresh_url,
+    )
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.connect_onboard",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=current_entity.id,
+        details={"stripe_account_id": account_id},
+    )
+
+    return ConnectOnboardResponse(
+        onboarding_url=onboarding_url,
+        account_id=account_id,
+    )
+
+
+@router.get(
+    "/connect/status",
+    response_model=ConnectStatusResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def connect_status(
+    current_entity: Entity = Depends(get_current_entity),
+):
+    """Get the Stripe Connect account status for the current seller."""
+    from src.payments.stripe_service import get_account_status
+
+    if not settings.stripe_secret_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Payment processing is not configured",
+        )
+
+    if not current_entity.stripe_account_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No Stripe account found. Set up payments first.",
+        )
+
+    status_info = get_account_status(current_entity.stripe_account_id)
+    return ConnectStatusResponse(**status_info)
 
 
 # --- Endpoints ---
@@ -739,6 +846,8 @@ class TransactionResponse(BaseModel):
     listing_title: str
     listing_category: str
     notes: str | None = None
+    platform_fee_cents: int | None = None
+    client_secret: str | None = None
     completed_at: str | None = None
     created_at: str
 
@@ -748,7 +857,9 @@ class TransactionListResponse(BaseModel):
     total: int
 
 
-def _txn_response(txn: Transaction) -> TransactionResponse:
+def _txn_response(
+    txn: Transaction, client_secret: str | None = None,
+) -> TransactionResponse:
     return TransactionResponse(
         id=txn.id,
         listing_id=txn.listing_id,
@@ -759,6 +870,8 @@ def _txn_response(txn: Transaction) -> TransactionResponse:
         listing_title=txn.listing_title,
         listing_category=txn.listing_category,
         notes=txn.notes,
+        platform_fee_cents=txn.platform_fee_cents,
+        client_secret=client_secret,
         completed_at=txn.completed_at.isoformat() if txn.completed_at else None,
         created_at=txn.created_at.isoformat(),
     )
@@ -800,6 +913,71 @@ async def purchase_listing(
     # For free listings, auto-complete
     is_free = listing.pricing_model == "free" or listing.price_cents == 0
 
+    # Check for duplicate pending purchase
+    existing_pending = await db.scalar(
+        select(Transaction).where(
+            Transaction.listing_id == listing.id,
+            Transaction.buyer_entity_id == current_entity.id,
+            Transaction.status == TransactionStatus.PENDING,
+        )
+    )
+    if existing_pending:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a pending purchase for this listing",
+        )
+
+    # For paid listings, validate seller Stripe account and create PaymentIntent
+    client_secret = None
+    stripe_payment_intent_id = None
+    platform_fee_cents = None
+
+    if not is_free:
+        if not settings.stripe_secret_key:
+            raise HTTPException(
+                status_code=503,
+                detail="Payment processing is not configured",
+            )
+
+        # Look up the seller entity to check Stripe account
+        seller = await db.get(Entity, listing.entity_id)
+        if not seller or not seller.stripe_account_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Seller has not set up payment processing",
+            )
+
+        # Verify seller can accept charges
+        from src.payments.stripe_service import get_account_status
+
+        seller_status = get_account_status(seller.stripe_account_id)
+        if not seller_status["charges_enabled"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Seller payment account is not fully activated",
+            )
+
+        # Calculate platform fee
+        platform_fee_cents = (
+            (listing.price_cents or 0) * settings.stripe_platform_fee_percent // 100
+        )
+
+        # Create PaymentIntent
+        from src.payments.stripe_service import create_payment_intent
+
+        intent_data = create_payment_intent(
+            amount_cents=listing.price_cents or 0,
+            seller_account_id=seller.stripe_account_id,
+            platform_fee_cents=platform_fee_cents,
+            metadata={
+                "listing_id": str(listing.id),
+                "buyer_entity_id": str(current_entity.id),
+                "seller_entity_id": str(listing.entity_id),
+            },
+        )
+        client_secret = intent_data["client_secret"]
+        stripe_payment_intent_id = intent_data["payment_intent_id"]
+
     from datetime import datetime, timezone
     txn = Transaction(
         id=uuid.uuid4(),
@@ -811,6 +989,8 @@ async def purchase_listing(
         listing_title=listing.title,
         listing_category=listing.category,
         notes=body.notes,
+        stripe_payment_intent_id=stripe_payment_intent_id,
+        platform_fee_cents=platform_fee_cents,
         completed_at=datetime.now(timezone.utc) if is_free else None,
     )
     db.add(txn)
@@ -828,6 +1008,7 @@ async def purchase_listing(
             "listing_id": str(listing.id),
             "amount_cents": txn.amount_cents,
             "seller_id": str(listing.entity_id),
+            "stripe_payment_intent_id": stripe_payment_intent_id,
         },
     )
 
@@ -875,7 +1056,7 @@ async def purchase_listing(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
-    return _txn_response(txn)
+    return _txn_response(txn, client_secret=client_secret)
 
 
 @router.get(
@@ -1057,3 +1238,85 @@ async def refund_transaction(
         logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _txn_response(txn)
+
+
+# --- Stripe Webhook ---
+
+
+@router.post("/stripe/webhook")
+async def stripe_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle Stripe webhook events (no auth -- Stripe calls this directly).
+
+    Verifies the webhook signature, then processes:
+    - payment_intent.succeeded: marks the transaction COMPLETED
+    - charge.refunded: marks the transaction REFUNDED
+    """
+    import stripe as stripe_mod
+
+    from src.payments.stripe_service import verify_webhook_signature
+
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        event = verify_webhook_signature(payload, sig_header)
+    except stripe_mod.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    except Exception:
+        logger.exception("Stripe webhook verification failed")
+        raise HTTPException(status_code=400, detail="Webhook verification failed")
+
+    event_type = event.get("type", "") if isinstance(event, dict) else event.type
+    event_data = (
+        event.get("data", {}).get("object", {})
+        if isinstance(event, dict)
+        else event.data.object
+    )
+
+    if event_type == "payment_intent.succeeded":
+        pi_id = event_data.get("id") if isinstance(event_data, dict) else event_data.id
+        txn = await db.scalar(
+            select(Transaction).where(
+                Transaction.stripe_payment_intent_id == pi_id,
+            )
+        )
+        if txn and txn.status == TransactionStatus.PENDING:
+            from datetime import datetime, timezone
+
+            txn.status = TransactionStatus.COMPLETED
+            txn.completed_at = datetime.now(timezone.utc)
+            await db.flush()
+
+            logger.info(
+                "Transaction %s completed via Stripe webhook (PI: %s)",
+                txn.id, pi_id,
+            )
+
+    elif event_type == "charge.refunded":
+        pi_id = (
+            event_data.get("payment_intent")
+            if isinstance(event_data, dict)
+            else event_data.payment_intent
+        )
+        if pi_id:
+            txn = await db.scalar(
+                select(Transaction).where(
+                    Transaction.stripe_payment_intent_id == pi_id,
+                )
+            )
+            if txn and txn.status == TransactionStatus.COMPLETED:
+                txn.status = TransactionStatus.REFUNDED
+                await db.flush()
+
+                logger.info(
+                    "Transaction %s refunded via Stripe webhook (PI: %s)",
+                    txn.id, pi_id,
+                )
+
+    return {"status": "ok"}

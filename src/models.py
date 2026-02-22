@@ -103,6 +103,9 @@ class Entity(Base):
         Enum(PrivacyTier), default=PrivacyTier.PUBLIC, nullable=False
     )
 
+    # Stripe Connect
+    stripe_account_id = Column(String(255), nullable=True)
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -558,6 +561,12 @@ class Transaction(Base):
     listing_title = Column(String(200), nullable=False)
     listing_category = Column(String(50), nullable=False)
     notes = Column(Text, nullable=True)
+
+    # Stripe payment fields
+    stripe_payment_intent_id = Column(String(255), nullable=True)
+    stripe_transfer_id = Column(String(255), nullable=True)
+    platform_fee_cents = Column(Integer, nullable=True)
+
     completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
@@ -572,6 +581,7 @@ class Transaction(Base):
         Index("ix_transactions_seller", "seller_entity_id"),
         Index("ix_transactions_listing", "listing_id"),
         Index("ix_transactions_status", "status"),
+        Index("ix_transactions_stripe_pi", "stripe_payment_intent_id"),
     )
 
 

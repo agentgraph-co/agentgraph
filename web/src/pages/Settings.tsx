@@ -67,6 +67,93 @@ const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
   message_enabled: 'Direct messages',
 }
 
+function SellerAccountSection() {
+  const { data: connectStatus, isLoading, isError } = useQuery<{
+    charges_enabled: boolean
+    payouts_enabled: boolean
+    details_submitted: boolean
+  }>({
+    queryKey: ['connect-status'],
+    queryFn: async () => {
+      const { data } = await api.get('/marketplace/connect/status')
+      return data
+    },
+    retry: false,
+  })
+
+  const onboardMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/marketplace/connect/onboard', {
+        return_url: `${window.location.origin}/settings`,
+        refresh_url: `${window.location.origin}/settings?refresh=1`,
+      })
+      return data
+    },
+    onSuccess: (data: { onboarding_url: string }) => {
+      window.location.href = data.onboarding_url
+    },
+  })
+
+  if (isLoading) {
+    return <p className="text-xs text-text-muted">Loading payment status...</p>
+  }
+
+  if (isError || !connectStatus) {
+    return (
+      <div>
+        <p className="text-xs text-text-muted mb-3">
+          You have not set up payment processing yet. Connect your account to
+          start receiving payments for your marketplace listings.
+        </p>
+        <button
+          onClick={() => onboardMutation.mutate()}
+          disabled={onboardMutation.isPending}
+          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+        >
+          {onboardMutation.isPending ? 'Setting up...' : 'Set Up Payments'}
+        </button>
+        {onboardMutation.isError && (
+          <p className="text-xs text-danger mt-2">
+            Failed to set up payments. Please try again.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex justify-between">
+        <span className="text-text-muted">Charges Enabled</span>
+        <span className={connectStatus.charges_enabled ? 'text-success' : 'text-warning'}>
+          {connectStatus.charges_enabled ? 'Yes' : 'No'}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-text-muted">Payouts Enabled</span>
+        <span className={connectStatus.payouts_enabled ? 'text-success' : 'text-warning'}>
+          {connectStatus.payouts_enabled ? 'Yes' : 'No'}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-text-muted">Details Submitted</span>
+        <span className={connectStatus.details_submitted ? 'text-success' : 'text-warning'}>
+          {connectStatus.details_submitted ? 'Yes' : 'No'}
+        </span>
+      </div>
+      {!connectStatus.charges_enabled && (
+        <button
+          onClick={() => onboardMutation.mutate()}
+          disabled={onboardMutation.isPending}
+          className="bg-warning/20 text-warning px-4 py-2 rounded-md text-sm hover:bg-warning/30 transition-colors cursor-pointer mt-2"
+        >
+          {onboardMutation.isPending ? 'Loading...' : 'Complete Setup'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -522,6 +609,17 @@ export default function Settings() {
               Manage
             </Link>
           </div>
+        </section>
+
+        {/* Seller Account (Stripe Connect) */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Seller Account
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            Set up payment processing to receive payments for your marketplace listings.
+          </p>
+          <SellerAccountSection />
         </section>
 
         {/* Data Export */}

@@ -110,18 +110,30 @@ export default function ListingDetail() {
 
   const purchaseMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/marketplace/${listingId}/purchase`, {
+      const { data } = await api.post(`/marketplace/${listingId}/purchase`, {
         notes: purchaseNotes || null,
       })
+      return data
     },
-    onSuccess: () => {
-      setPurchaseSuccess(true)
-      setShowPurchase(false)
-      setPurchaseNotes('')
+    onSuccess: (data: { status: string; client_secret: string | null }) => {
+      if (data.client_secret) {
+        // Paid listing: redirect to Stripe or show payment UI
+        // For now, store the client_secret and show instructions
+        setPurchaseSuccess(true)
+        setShowPurchase(false)
+        setPurchaseNotes('')
+        addToast('Payment initiated. Complete payment with Stripe.', 'success')
+      } else {
+        // Free listing: auto-completed
+        setPurchaseSuccess(true)
+        setShowPurchase(false)
+        setPurchaseNotes('')
+      }
       queryClient.invalidateQueries({ queryKey: ['listing', listingId] })
     },
-    onError: () => {
-      addToast('Failed to complete purchase', 'error')
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      addToast(msg || 'Failed to complete purchase', 'error')
     },
   })
 
