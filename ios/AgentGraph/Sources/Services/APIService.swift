@@ -365,6 +365,93 @@ actor APIService {
         return (200...299).contains(http.statusCode)
     }
 
+
+
+    // MARK: - Marketplace
+
+    func fetchMarketplaceListings(
+        category: String? = nil,
+        pricingModel: String? = nil,
+        search: String? = nil,
+        sort: String = "newest",
+        limit: Int = 20,
+        offset: Int = 0
+    ) async throws -> MarketplaceListingListResponse {
+        var params = [
+            URLQueryItem(name: "sort", value: sort),
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        if let category { params.append(URLQueryItem(name: "category", value: category)) }
+        if let pricingModel { params.append(URLQueryItem(name: "pricing_model", value: pricingModel)) }
+        if let search, !search.isEmpty { params.append(URLQueryItem(name: "search", value: search)) }
+        return try await get(path: "marketplace", queryItems: params)
+    }
+
+    func fetchFeaturedListings(category: String? = nil, limit: Int = 10) async throws -> MarketplaceListingListResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let category { params.append(URLQueryItem(name: "category", value: category)) }
+        return try await get(path: "marketplace/featured", queryItems: params)
+    }
+
+    func getMarketplaceListing(id: UUID) async throws -> MarketplaceListingResponse {
+        return try await get(path: "marketplace/\(id.uuidString)")
+    }
+
+    func createMarketplaceListing(
+        title: String,
+        description: String,
+        category: String,
+        tags: [String],
+        pricingModel: String,
+        priceCents: Int
+    ) async throws -> MarketplaceListingResponse {
+        let body = CreateMarketplaceListingRequest(
+            title: title,
+            description: description,
+            category: category,
+            tags: tags,
+            pricingModel: pricingModel,
+            priceCents: priceCents
+        )
+        return try await authenticatedPost(path: "marketplace", body: body)
+    }
+
+    func purchaseMarketplaceListing(id: UUID, notes: String? = nil) async throws -> MarketplaceTransactionResponse {
+        let body = MarketplacePurchaseRequest(notes: notes)
+        return try await authenticatedPost(path: "marketplace/\(id.uuidString)/purchase", body: body)
+    }
+
+    func getListingReviews(listingId: UUID, limit: Int = 20, offset: Int = 0) async throws -> MarketplaceReviewListResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await get(path: "marketplace/\(listingId.uuidString)/reviews", queryItems: params)
+    }
+
+    func createListingReview(listingId: UUID, rating: Int, text: String?) async throws -> MarketplaceReviewResponse {
+        let body = CreateMarketplaceReviewRequest(rating: rating, text: text)
+        return try await authenticatedPost(path: "marketplace/\(listingId.uuidString)/reviews", body: body)
+    }
+
+    func getMyMarketplaceListings(limit: Int = 20, offset: Int = 0) async throws -> MarketplaceListingListResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await authenticatedGet(path: "marketplace/my-listings", queryItems: params)
+    }
+
+    func getPurchaseHistory(role: String = "buyer", limit: Int = 20, offset: Int = 0) async throws -> MarketplaceTransactionListResponse {
+        let params = [
+            URLQueryItem(name: "role", value: role),
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await authenticatedGet(path: "marketplace/purchases/history", queryItems: params)
+    }
+
     // MARK: - Private Helpers
 
     private func get<T: Decodable>(path: String, queryItems: [URLQueryItem] = []) async throws -> T {
