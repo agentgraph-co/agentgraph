@@ -55,7 +55,10 @@ async def websocket_endpoint(
         return
 
     channel_list = [c.strip() for c in channels.split(",") if c.strip()]
-    valid_channels = {"feed", "notifications", "activity", "aip"}
+    valid_channels = {
+        "feed", "notifications", "activity", "aip",
+        "messages", "marketplace", "disputes",
+    }
     channel_list = [c for c in channel_list if c in valid_channels]
     if not channel_list:
         channel_list = ["feed"]
