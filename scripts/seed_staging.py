@@ -27,14 +27,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.api.auth_service import hash_password
 from src.database import Base
 from src.models import (
+    AgentCapabilityRegistry,
     AnomalyAlert,
     APIKey,
     AuditLog,
     Bookmark,
     CapabilityEndorsement,
     Conversation,
+    Delegation,
+    DelegationStatus,
     DIDDocument,
     DirectMessage,
+    Dispute,
+    DisputeStatus,
     Entity,
     EntityRelationship,
     EntityType,
@@ -51,6 +56,7 @@ from src.models import (
     Organization,
     OrganizationMembership,
     OrgRole,
+    OrgUsageRecord,
     Post,
     PostEdit,
     PrivacyTier,
@@ -2096,6 +2102,357 @@ async def seed_collaboration_relationships(session: AsyncSession) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Phase 4 seed functions
+# ---------------------------------------------------------------------------
+
+
+async def seed_capability_listings(session: AsyncSession) -> list:
+    """Create capability-type marketplace listings linked to evolution records."""
+    print("  Seeding capability listings (Phase 4)...")
+
+    cap_defs = [
+        ("codereview-bot", "Code Review Capability Package", "capability",
+         "Full code review pipeline: static analysis, security scanning, and style checking. "
+         "Adopt this to give your agent code review powers.",
+         ["code-review", "security", "static-analysis"], "one_time", 9900,
+         "2.0.0", "commercial"),
+        ("securityscanner", "Vulnerability Scanning Capability", "capability",
+         "OWASP Top 10 scanning capability. Deploy on any agent for continuous security monitoring.",
+         ["security", "vulnerability", "owasp"], "one_time", 14900,
+         "2.0.0", "commercial"),
+        ("datapipeline-agent", "ETL Pipeline Capability", "capability",
+         "End-to-end ETL: ingest, transform, load. Supports CSV, JSON, SQL, and streaming sources.",
+         ["etl", "data-processing", "pipeline"], "subscription", 4900,
+         "2.0.0", "attribution"),
+        ("analyticsengine", "Real-time Analytics Capability", "capability",
+         "Plug-and-play analytics: dashboards, KPI tracking, anomaly detection on any data stream.",
+         ["analytics", "dashboards", "reporting"], "subscription", 3900,
+         "2.0.0", "open"),
+        ("docwriter", "Documentation Generation Capability", "capability",
+         "Auto-generate API docs, changelogs, and READMEs from code and commit history.",
+         ["documentation", "api-docs", "changelog"], "free", 0,
+         "2.0.0", "open"),
+    ]
+
+    listing_objs = []
+    count = 0
+    for slug, title, category, description, tags, pricing, price, version, license_type in cap_defs:
+        lid = make_uuid("caplisting", f"{slug}-{category}")
+        evo_id = make_uuid("evo", f"{slug}-{version}")
+        listing = Listing(
+            id=lid,
+            entity_id=AGENT_IDS[slug],
+            title=title,
+            description=description,
+            category=category,
+            tags=tags,
+            pricing_model=pricing,
+            price_cents=price,
+            is_active=True,
+            is_featured=count < 2,
+            view_count=random.randint(100, 3000),
+            source_evolution_record_id=evo_id,
+            created_at=days_ago(random.randint(2, 12)),
+        )
+        session.add(listing)
+        listing_objs.append((lid, slug, title, price, evo_id, license_type))
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} capability listings")
+    return listing_objs
+
+
+async def seed_escrow_transactions(session: AsyncSession, cap_listings: list) -> list:
+    """Create escrow transactions for capability purchases."""
+    print("  Seeding escrow transactions (Phase 4)...")
+
+    txn_objs = []
+    buyers = [
+        ("emma", HUMAN_IDS["emma"]),
+        ("frank", HUMAN_IDS["frank"]),
+        ("grace", HUMAN_IDS["grace"]),
+        ("henry", HUMAN_IDS["henry"]),
+    ]
+    statuses_pool = [
+        TransactionStatus.ESCROW,
+        TransactionStatus.ESCROW,
+        TransactionStatus.COMPLETED,
+    ]
+
+    count = 0
+    for lid, agent_slug, title, price, evo_id, license_type in cap_listings:
+        if price == 0:
+            continue
+        buyer_slug, buyer_id = buyers[count % len(buyers)]
+        seller_id = AGENT_IDS[agent_slug]
+        status = statuses_pool[count % len(statuses_pool)]
+        completed_at = days_ago(1) if status == TransactionStatus.COMPLETED else None
+
+        txn_id = make_uuid("escrow_txn", f"{lid}-{buyer_slug}")
+        txn = Transaction(
+            id=txn_id,
+            listing_id=lid,
+            buyer_entity_id=buyer_id,
+            seller_entity_id=seller_id,
+            amount_cents=price,
+            status=status,
+            listing_title=title,
+            listing_category="capability",
+            stripe_payment_intent_id=f"pi_staging_{secrets.token_hex(8)}",
+            completed_at=completed_at,
+            created_at=days_ago(random.randint(1, 8)),
+        )
+        session.add(txn)
+        txn_objs.append((txn_id, lid, buyer_id, seller_id, status, agent_slug, evo_id, license_type))
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} escrow transactions")
+    return txn_objs
+
+
+async def seed_disputes(session: AsyncSession, txn_objs: list) -> None:
+    """Create disputes for escrow transactions."""
+    print("  Seeding disputes (Phase 4)...")
+
+    # Create one open dispute and one resolved dispute
+    dispute_defs = []
+    escrow_txns = [t for t in txn_objs if t[4] == TransactionStatus.ESCROW]
+
+    if len(escrow_txns) >= 2:
+        # Open dispute
+        txn = escrow_txns[0]
+        dispute_defs.append((
+            txn[0], txn[2],  # transaction_id, buyer_id
+            "Capability does not match description. Missing security scanning module.",
+            DisputeStatus.OPEN, None, None, None,
+            days_ago(2), 3,  # created, deadline_days_from_now
+        ))
+        # Resolved dispute
+        txn = escrow_txns[1]
+        dispute_defs.append((
+            txn[0], txn[2],
+            "Agent crashed during integration testing. Requesting refund.",
+            DisputeStatus.RESOLVED, "cancel_auth", HUMAN_IDS["kenne"],
+            "Verified: capability package was incompatible with buyer's framework version.",
+            days_ago(5), -1,
+        ))
+
+    count = 0
+    for txn_id, opener_id, reason, status, resolution, resolved_by, admin_note, created, deadline_offset in dispute_defs:
+        dispute = Dispute(
+            id=make_uuid("dispute", str(txn_id)),
+            transaction_id=txn_id,
+            opened_by=opener_id,
+            reason=reason,
+            status=status,
+            resolution=resolution,
+            resolved_by=resolved_by,
+            admin_note=admin_note,
+            deadline=NOW + timedelta(days=deadline_offset) if deadline_offset > 0 else created + timedelta(days=3),
+            created_at=created,
+            resolved_at=days_ago(3) if status == DisputeStatus.RESOLVED else None,
+        )
+        session.add(dispute)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} disputes")
+
+
+async def seed_capability_adoptions(session: AsyncSession, txn_objs: list) -> None:
+    """Create evolution records for completed capability adoptions (forks)."""
+    print("  Seeding capability adoptions (Phase 4)...")
+
+    completed = [t for t in txn_objs if t[4] == TransactionStatus.COMPLETED]
+    count = 0
+    for txn_id, lid, buyer_id, seller_id, status, agent_slug, evo_id, license_type in completed:
+        # The buyer adopts the capability — create a fork evolution record on an agent they own
+        # Find an agent owned by the buyer's "team"
+        adopter_agents = [
+            s for s, _, op, *_ in AGENT_DEFS
+            if HUMAN_IDS.get(op) == buyer_id
+        ]
+        if not adopter_agents:
+            continue
+
+        adopter_slug = adopter_agents[0]
+        adopter_id = AGENT_IDS[adopter_slug]
+
+        rec = EvolutionRecord(
+            id=make_uuid("adoption", f"{lid}-{adopter_slug}"),
+            entity_id=adopter_id,
+            version="2.1.0-adopted",
+            parent_record_id=make_uuid("evo", f"{adopter_slug}-2.0.0"),
+            change_type="fork",
+            change_summary=f"Adopted capability from {agent_slug} via marketplace",
+            capabilities_snapshot=["adopted-capability"],
+            extra_metadata={"adopted_from": agent_slug, "transaction_id": str(txn_id)},
+            risk_tier=2,
+            approval_status=EvolutionApprovalStatus.AUTO_APPROVED,
+            forked_from_entity_id=AGENT_IDS[agent_slug],
+            source_listing_id=lid,
+            license_type=license_type,
+            created_at=days_ago(1),
+        )
+        session.add(rec)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} capability adoption records")
+
+
+async def seed_delegations(session: AsyncSession) -> None:
+    """Create AIP delegation records between agents."""
+    print("  Seeding delegations (Phase 4)...")
+
+    delegation_defs = [
+        ("codereview-bot", "testrunner",
+         "Run full test suite on PR #42 changes",
+         {"max_duration_minutes": 30, "require_report": True},
+         DelegationStatus.COMPLETED,
+         {"test_count": 127, "passed": 125, "failed": 2},
+         "corr-staging-001"),
+        ("datapipeline-agent", "analyticsengine",
+         "Generate Q4 analytics dashboard from processed data",
+         {"output_format": "json", "include_charts": True},
+         DelegationStatus.COMPLETED,
+         {"dashboard_url": "/dashboards/q4-2025", "widgets": 8},
+         "corr-staging-002"),
+        ("trustguard", "securityscanner",
+         "Deep scan entity profiles flagged for anomalous trust score changes",
+         {"scan_depth": "full", "entity_ids": ["sample-1", "sample-2"]},
+         DelegationStatus.IN_PROGRESS,
+         None,
+         "corr-staging-003"),
+        ("deploybot", "testrunner",
+         "Pre-deployment smoke test for v2.3.0 release",
+         {"environment": "staging", "timeout_minutes": 15},
+         DelegationStatus.PENDING,
+         None,
+         "corr-staging-004"),
+        ("codereview-bot", "securityscanner",
+         "Security audit for dependency update PR",
+         {"focus": "dependency-audit", "severity_threshold": "medium"},
+         DelegationStatus.COMPLETED,
+         {"vulnerabilities_found": 0, "clean": True},
+         "corr-staging-005"),
+        ("marketbot", "analyticsengine",
+         "Compute pricing recommendations for Q1 capability listings",
+         {"category": "capability", "algorithm": "competitive"},
+         DelegationStatus.ACCEPTED,
+         None,
+         "corr-staging-006"),
+        ("docwriter", "codereview-bot",
+         "Review generated API docs for accuracy",
+         {"doc_format": "openapi", "strict_mode": True},
+         DelegationStatus.COMPLETED,
+         {"issues_found": 3, "auto_fixed": 2},
+         "corr-staging-007"),
+        ("chatassistant", "docwriter",
+         "Generate FAQ responses from recent support conversations",
+         {"max_faqs": 20, "language": "en"},
+         DelegationStatus.FAILED,
+         {"error": "Insufficient conversation data for meaningful FAQ generation"},
+         "corr-staging-008"),
+        ("securityscanner", "trustguard",
+         "Cross-validate trust scores for newly registered agents",
+         {"threshold": 0.3, "lookback_days": 7},
+         DelegationStatus.COMPLETED,
+         {"agents_checked": 5, "anomalies": 1},
+         "corr-staging-009"),
+        ("analyticsengine", "datapipeline-agent",
+         "Backfill missing metrics for Dec 2025 reporting period",
+         {"period": "2025-12", "metrics": ["api_calls", "active_users"]},
+         DelegationStatus.EXPIRED,
+         None,
+         "corr-staging-010"),
+    ]
+
+    count = 0
+    for delegator, delegate, task, constraints, status, result, corr_id in delegation_defs:
+        d = Delegation(
+            id=make_uuid("delegation", corr_id),
+            delegator_entity_id=AGENT_IDS[delegator],
+            delegate_entity_id=AGENT_IDS[delegate],
+            task_description=task,
+            constraints=constraints,
+            status=status,
+            result=result,
+            correlation_id=corr_id,
+            timeout_at=NOW + timedelta(hours=24),
+            accepted_at=days_ago(3) if status not in (DelegationStatus.PENDING, DelegationStatus.EXPIRED) else None,
+            completed_at=days_ago(2) if status in (DelegationStatus.COMPLETED, DelegationStatus.FAILED) else None,
+            created_at=days_ago(random.randint(2, 10)),
+        )
+        session.add(d)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} delegations")
+
+
+async def seed_capability_registry(session: AsyncSession) -> None:
+    """Register capabilities in the AIP capability registry for all agents."""
+    print("  Seeding capability registry (Phase 4)...")
+
+    count = 0
+    for slug, display_name, _, autonomy, caps, description in AGENT_DEFS:
+        eid = AGENT_IDS[slug]
+        for cap_name in caps:
+            reg = AgentCapabilityRegistry(
+                id=make_uuid("capreg", f"{slug}-{cap_name}"),
+                entity_id=eid,
+                capability_name=cap_name,
+                version="1.0.0",
+                description=f"{display_name}: {cap_name} capability",
+                input_schema={"type": "object", "properties": {"input": {"type": "string"}}},
+                output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+                is_active=True,
+                created_at=days_ago(random.randint(5, 20)),
+            )
+            session.add(reg)
+            count += 1
+
+    await session.flush()
+    print(f"    Created {count} capability registry entries")
+
+
+async def seed_org_usage_records(session: AsyncSession) -> None:
+    """Create usage metering records for organizations."""
+    print("  Seeding org usage records (Phase 4)...")
+
+    org_slugs = ["agentgraph-core", "trustlabs", "agentops"]
+    count = 0
+
+    for org_slug in org_slugs:
+        org_id = make_uuid("org", org_slug)
+        # Create usage records for last 3 months
+        for month_offset in range(3):
+            period_start = NOW.replace(day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30 * month_offset)
+            period_end = period_start + timedelta(days=30)
+
+            usage = OrgUsageRecord(
+                id=make_uuid("usage", f"{org_slug}-{month_offset}"),
+                organization_id=org_id,
+                period_start=period_start,
+                period_end=period_end,
+                api_calls=random.randint(1000, 50000),
+                storage_bytes=random.randint(100_000, 10_000_000),
+                active_agents=random.randint(2, 15),
+                active_members=random.randint(3, 10),
+                extra_metadata={"billing_tier": "enterprise" if org_slug == "agentgraph-core" else "pro"},
+                created_at=period_end,
+            )
+            session.add(usage)
+            count += 1
+
+    await session.flush()
+    print(f"    Created {count} org usage records")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -2147,6 +2504,15 @@ async def main() -> None:
         await seed_collaboration_relationships(session)
         await seed_suspended_entity(session)
 
+        # Phase 4 data
+        cap_listings = await seed_capability_listings(session)
+        escrow_txns = await seed_escrow_transactions(session, cap_listings)
+        await seed_disputes(session, escrow_txns)
+        await seed_capability_adoptions(session, escrow_txns)
+        await seed_delegations(session)
+        await seed_capability_registry(session)
+        await seed_org_usage_records(session)
+
         await session.commit()
         print()
         print("=== Seed complete! ===")
@@ -2186,6 +2552,10 @@ async def main() -> None:
             ("trust_attestations", "SELECT count(*) FROM trust_attestations"),
             ("verification_badges", "SELECT count(*) FROM verification_badges"),
             ("framework_scans", "SELECT count(*) FROM framework_security_scans"),
+            ("disputes", "SELECT count(*) FROM disputes"),
+            ("delegations", "SELECT count(*) FROM delegations"),
+            ("capability_registry", "SELECT count(*) FROM agent_capability_registry"),
+            ("org_usage_records", "SELECT count(*) FROM org_usage_records"),
         ]
 
         print()
