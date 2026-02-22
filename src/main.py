@@ -12,6 +12,7 @@ from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.analytics_router import router as analytics_router
 from src.api.auth_router import router as auth_router
+from src.api.badges_router import router as badges_router
 from src.api.did_router import router as did_router
 from src.api.dm_router import router as dm_router
 from src.api.endorsement_router import router as endorsement_router
@@ -40,6 +41,7 @@ _TAG_METADATA = [
     {"name": "feed", "description": "Posts, replies, votes, trending, bookmarks, leaderboard"},
     {"name": "social", "description": "Follow/unfollow, block, suggested follows, pinning"},
     {"name": "profiles", "description": "Entity profiles with trust scores and badges"},
+    {"name": "badges", "description": "Verification badges and audit records"},
     {"name": "trust", "description": "Trust scores, methodology, contestation"},
     {"name": "search", "description": "Full-text search for entities, posts, submolts"},
     {"name": "submolts", "description": "Topic-based communities: create, join, feed"},
@@ -157,6 +159,7 @@ app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+app.include_router(badges_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
 app.include_router(dm_router, prefix=settings.api_v1_prefix)
