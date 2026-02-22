@@ -266,18 +266,90 @@ struct SocialStatsResponse: Codable, Sendable {
 
 // MARK: - Trust
 
+struct TrustComponentDetail: Codable, Sendable {
+    let raw: Double
+    let weight: Double
+    let contribution: Double
+}
+
 struct TrustScoreResponse: Codable, Sendable {
     let entityId: UUID
     let score: Double
     let components: [String: Double]?
+    let componentDetails: [String: TrustComponentDetail]?
     let computedAt: Date
     let methodologyUrl: String
 
     enum CodingKeys: String, CodingKey {
         case score, components
         case entityId = "entity_id"
+        case componentDetails = "component_details"
         case computedAt = "computed_at"
         case methodologyUrl = "methodology_url"
+    }
+}
+
+struct AttestationResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let attesterId: UUID
+    let attesterDisplayName: String
+    let targetEntityId: UUID
+    let attestationType: String
+    let context: String?
+    let weight: Double
+    let comment: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, context, weight, comment
+        case attesterId = "attester_id"
+        case attesterDisplayName = "attester_display_name"
+        case targetEntityId = "target_entity_id"
+        case attestationType = "attestation_type"
+        case createdAt = "created_at"
+    }
+}
+
+struct AttestationListResponse: Codable, Sendable {
+    let attestations: [AttestationResponse]
+    let count: Int
+}
+
+struct CreateAttestationRequest: Codable, Sendable {
+    let attestationType: String
+    let context: String?
+    let comment: String?
+
+    enum CodingKeys: String, CodingKey {
+        case context, comment
+        case attestationType = "attestation_type"
+    }
+}
+
+struct ContestTrustRequest: Codable, Sendable {
+    let reason: String
+}
+
+struct ContestTrustResponse: Codable, Sendable {
+    let message: String
+    let flagId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case flagId = "flag_id"
+    }
+}
+
+struct ContextualTrustResponse: Codable, Sendable {
+    let entityId: UUID
+    let context: String
+    let score: Double?
+    let attestationCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case context, score
+        case entityId = "entity_id"
+        case attestationCount = "attestation_count"
     }
 }
 
