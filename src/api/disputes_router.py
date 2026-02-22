@@ -204,10 +204,12 @@ async def open_dispute(
     try:
         from src.ws import manager
 
-        await manager.send_to_entity(str(txn.seller_entity_id), "marketplace", {
+        await manager.send_to_entity(str(txn.seller_entity_id), "disputes", {
             "type": "dispute_opened",
             "dispute_id": str(dispute.id),
-            "transaction_id": str(txn.id),
+            "transaction_id": str(dispute.transaction_id),
+            "reason": dispute.reason[:100],
+            "opened_by": str(dispute.opened_by),
         })
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
@@ -405,6 +407,18 @@ async def add_dispute_message(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # WebSocket broadcast to the other party
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(recipient_id), "disputes", {
+            "type": "dispute_message",
+            "dispute_id": str(dispute.id),
+            "sender_id": str(current_entity.id),
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
     return {
         "message_id": str(dm.id),
         "dispute_id": str(dispute_id),
@@ -528,6 +542,19 @@ async def resolve_dispute(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # WebSocket broadcast to both parties
+    try:
+        from src.ws import manager
+
+        for party_id in [txn.buyer_entity_id, txn.seller_entity_id]:
+            await manager.send_to_entity(str(party_id), "disputes", {
+                "type": "dispute_resolved",
+                "dispute_id": str(dispute.id),
+                "resolution": dispute.resolution,
+            })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
     return _dispute_response(dispute)
 
 
@@ -583,6 +610,18 @@ async def escalate_dispute(
         resource_id=dispute.id,
         details={"transaction_id": str(txn.id)},
     )
+
+    # WebSocket broadcast to both parties
+    try:
+        from src.ws import manager
+
+        for party_id in [txn.buyer_entity_id, txn.seller_entity_id]:
+            await manager.send_to_entity(str(party_id), "disputes", {
+                "type": "dispute_escalated",
+                "dispute_id": str(dispute.id),
+            })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
 
     return _dispute_response(dispute)
 
@@ -733,6 +772,19 @@ async def admin_adjudicate_dispute(
                 ),
                 reference_id=str(dispute.id),
             )
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # WebSocket broadcast to both parties
+    try:
+        from src.ws import manager
+
+        for party_id in [txn.buyer_entity_id, txn.seller_entity_id]:
+            await manager.send_to_entity(str(party_id), "disputes", {
+                "type": "dispute_adjudicated",
+                "dispute_id": str(dispute.id),
+                "resolution": dispute.resolution,
+            })
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 

@@ -283,6 +283,19 @@ async def create_listing(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(current_entity.id), "marketplace", {
+            "type": "listing_created",
+            "listing_id": str(listing.id),
+            "title": listing.title,
+            "category": listing.category,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
     return _to_response(listing)
 
 
@@ -1597,6 +1610,17 @@ async def cancel_transaction(
             "listing_id": str(txn.listing_id),
             "buyer_id": str(txn.buyer_entity_id),
             "seller_id": str(txn.seller_entity_id),
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(txn.seller_entity_id), "marketplace", {
+            "type": "transaction_cancelled",
+            "transaction_id": str(txn.id),
         })
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
