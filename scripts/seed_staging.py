@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.api.auth_service import hash_password
 from src.database import Base
 from src.models import (
+    AnomalyAlert,
     APIKey,
     AuditLog,
     Bookmark,
@@ -39,6 +40,7 @@ from src.models import (
     EntityType,
     EvolutionApprovalStatus,
     EvolutionRecord,
+    FrameworkSecurityScan,
     Listing,
     ListingReview,
     ModerationAppeal,
@@ -46,16 +48,22 @@ from src.models import (
     ModerationReason,
     ModerationStatus,
     Notification,
+    Organization,
+    OrganizationMembership,
+    OrgRole,
     Post,
     PostEdit,
     PrivacyTier,
+    PropagationAlert,
     RelationshipType,
     Review,
     Submolt,
     SubmoltMembership,
     Transaction,
     TransactionStatus,
+    TrustAttestation,
     TrustScore,
+    VerificationBadge,
     Vote,
     VoteDirection,
     WebhookSubscription,
@@ -70,7 +78,7 @@ DATABASE_URL = os.environ.get(
 )
 
 NOW = datetime.now(timezone.utc)
-PASSWORD = hash_password("staging123!")  # All staging accounts use this password
+PASSWORD = hash_password("Staging123!")  # All staging accounts use this password
 
 
 def days_ago(n: int, hour: int = 12) -> datetime:
@@ -1070,6 +1078,15 @@ async def seed_trust_scores(session: AsyncSession) -> None:
         "chatassistant": (0.70, {"verification": 0.75, "activity": 0.65, "community": 0.70, "age": 0.60}),
         "deploybot": (0.83, {"verification": 0.88, "activity": 0.82, "community": 0.80, "age": 0.72}),
         "analyticsengine": (0.80, {"verification": 0.85, "activity": 0.78, "community": 0.78, "age": 0.68}),
+        # Cold start agents
+        "welcomebot": (0.72, {"verification": 0.80, "activity": 0.70, "community": 0.68, "age": 0.55, "reputation": 0.65}),
+        "discussionbot": (0.74, {"verification": 0.82, "activity": 0.75, "community": 0.70, "age": 0.52, "reputation": 0.68}),
+        "linksummarizer": (0.70, {"verification": 0.78, "activity": 0.68, "community": 0.65, "age": 0.50, "reputation": 0.62}),
+        "airesearcher": (0.82, {"verification": 0.88, "activity": 0.80, "community": 0.80, "age": 0.55, "reputation": 0.78}),
+        "devopsadvisor": (0.73, {"verification": 0.80, "activity": 0.72, "community": 0.68, "age": 0.52, "reputation": 0.65}),
+        "apidesigner": (0.71, {"verification": 0.78, "activity": 0.70, "community": 0.66, "age": 0.50, "reputation": 0.63}),
+        "newscurator": (0.76, {"verification": 0.84, "activity": 0.78, "community": 0.72, "age": 0.53, "reputation": 0.70}),
+        "platformhelper": (0.68, {"verification": 0.75, "activity": 0.65, "community": 0.62, "age": 0.48, "reputation": 0.60}),
     }
 
     count = 0
@@ -1838,6 +1855,247 @@ async def seed_suspended_entity(session: AsyncSession) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Phase 3 seed functions
+# ---------------------------------------------------------------------------
+
+
+async def seed_organizations(session: AsyncSession) -> None:
+    """Create organizations and memberships."""
+    print("  Seeding organizations...")
+
+    org_defs = [
+        ("agentgraph-core", "AgentGraph Core", "The core AgentGraph platform team.",
+         "kenne", "enterprise",
+         ["alice", "bob", "carol", "david"]),
+        ("trustlabs", "TrustLabs", "Research lab focused on AI trust and safety.",
+         "alice", "pro",
+         ["grace", "iris", "henry"]),
+        ("agentops", "AgentOps Collective", "Open-source agent operations community.",
+         "bob", "free",
+         ["frank", "kai", "emma"]),
+    ]
+
+    count = 0
+    for slug, display_name, description, owner_slug, tier, member_slugs in org_defs:
+        org_id = make_uuid("org", slug)
+        org = Organization(
+            id=org_id,
+            name=slug,
+            display_name=display_name,
+            description=description,
+            settings={"allow_agent_creation": True, "require_email_verification": True},
+            tier=tier,
+            is_active=True,
+            created_by=HUMAN_IDS[owner_slug],
+            created_at=days_ago(20),
+        )
+        session.add(org)
+
+        # Owner membership
+        session.add(OrganizationMembership(
+            id=make_uuid("orgmem", f"{slug}-{owner_slug}"),
+            organization_id=org_id,
+            entity_id=HUMAN_IDS[owner_slug],
+            role=OrgRole.OWNER,
+            joined_at=days_ago(20),
+        ))
+
+        # Member memberships
+        for ms in member_slugs:
+            role = OrgRole.ADMIN if ms == member_slugs[0] else OrgRole.MEMBER
+            session.add(OrganizationMembership(
+                id=make_uuid("orgmem", f"{slug}-{ms}"),
+                organization_id=org_id,
+                entity_id=HUMAN_IDS[ms],
+                role=role,
+                joined_at=days_ago(18),
+            ))
+
+        count += 1
+
+    # Assign some entities to organizations
+    kenne = await session.get(Entity, HUMAN_IDS["kenne"])
+    if kenne:
+        kenne.organization_id = make_uuid("org", "agentgraph-core")
+
+    await session.flush()
+    print(f"    Created {count} organizations with memberships")
+
+
+async def seed_trust_attestations(session: AsyncSession) -> None:
+    """Create trust attestations between entities."""
+    print("  Seeding trust attestations...")
+
+    attestation_defs = [
+        # (attester, target, type, context, weight, comment)
+        ("kenne", "alice", "competent", "code-review", 0.9, "Excellent code reviewer, catches subtle bugs."),
+        ("kenne", "bob", "reliable", "data-ops", 0.85, "Consistently delivers quality data pipelines."),
+        ("alice", "kenne", "competent", "architecture", 0.95, "Outstanding system architect."),
+        ("alice", "carol", "reliable", "product", 0.8, "Great product sense and market analysis."),
+        ("bob", "david", "competent", "documentation", 0.82, "Best technical writer I've worked with."),
+        ("carol", "alice", "safe", "security", 0.88, "Thorough security reviews, trustworthy."),
+        ("david", "kenne", "reliable", "leadership", 0.92, "Strong technical leadership."),
+        ("emma", "alice", "responsive", "collaboration", 0.78, "Always responsive and helpful."),
+        ("grace", "kenne", "competent", "trust-systems", 0.9, "Deep expertise in trust scoring."),
+        ("iris", "grace", "competent", "ml-security", 0.85, "Expert in ML security analysis."),
+        ("henry", "iris", "reliable", "research", 0.8, "Solid security research output."),
+        ("kai", "bob", "competent", "devops", 0.75, "Great DevOps knowledge."),
+        ("kenne", "codereview-bot", "competent", "automation", 0.92, "Most reliable code review agent on the platform."),
+        ("alice", "trustguard", "safe", "moderation", 0.95, "Critical safety infrastructure."),
+        ("bob", "datapipeline-agent", "competent", "data", 0.88, "Handles complex ETL flawlessly."),
+        ("carol", "marketbot", "reliable", "analysis", 0.8, "Good market insights."),
+        ("david", "docwriter", "competent", "docs", 0.85, "Produces excellent documentation."),
+        ("alice", "testrunner", "reliable", "testing", 0.9, "Catches regressions consistently."),
+        ("kenne", "securityscanner", "safe", "security", 0.93, "Essential security tool."),
+        ("emma", "chatassistant", "responsive", "conversation", 0.82, "Natural conversational style."),
+        ("bob", "deploybot", "reliable", "deployment", 0.87, "Zero-downtime deployments every time."),
+        ("frank", "kenne", "competent", "platform", 0.88, "Built a solid platform."),
+        ("jake", "alice", "responsive", "mentorship", 0.7, "Very helpful to newcomers."),
+        ("luna", "kenne", "reliable", "community", 0.75, "Strong community leadership."),
+        ("grace", "iris", "competent", "security", 0.82, "Sharp security instincts."),
+    ]
+
+    count = 0
+    for attester, target, atype, context, weight, comment in attestation_defs:
+        attester_id = HUMAN_IDS.get(attester) or AGENT_IDS.get(attester)
+        target_id = HUMAN_IDS.get(target) or AGENT_IDS.get(target)
+        att = TrustAttestation(
+            id=make_uuid("attestation", f"{attester}-{target}-{atype}"),
+            attester_entity_id=attester_id,
+            target_entity_id=target_id,
+            attestation_type=atype,
+            context=context,
+            weight=weight,
+            comment=comment,
+            created_at=days_ago(random.randint(2, 20)),
+        )
+        session.add(att)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} trust attestations")
+
+
+async def seed_verification_badges(session: AsyncSession) -> None:
+    """Create verification badges for high-trust entities."""
+    print("  Seeding verification badges...")
+
+    badge_defs = [
+        # (entity_slug, badge_type, issued_by_slug)
+        ("kenne", "email_verified", None),
+        ("kenne", "identity_verified", None),
+        ("kenne", "agentgraph_verified", None),
+        ("alice", "email_verified", None),
+        ("alice", "identity_verified", "kenne"),
+        ("bob", "email_verified", None),
+        ("bob", "identity_verified", "kenne"),
+        ("carol", "email_verified", None),
+        ("david", "email_verified", None),
+        ("emma", "email_verified", None),
+        ("codereview-bot", "capability_audited", "alice"),
+        ("trustguard", "capability_audited", "kenne"),
+        ("trustguard", "agentgraph_verified", "kenne"),
+        ("securityscanner", "capability_audited", "kenne"),
+        ("datapipeline-agent", "capability_audited", "bob"),
+        ("testrunner", "capability_audited", "alice"),
+    ]
+
+    count = 0
+    for entity_slug, badge_type, issued_by_slug in badge_defs:
+        eid = HUMAN_IDS.get(entity_slug) or AGENT_IDS.get(entity_slug)
+        issued_by = HUMAN_IDS.get(issued_by_slug) if issued_by_slug else None
+        badge = VerificationBadge(
+            id=make_uuid("badge", f"{entity_slug}-{badge_type}"),
+            entity_id=eid,
+            badge_type=badge_type,
+            issued_by=issued_by,
+            is_active=True,
+            created_at=days_ago(15),
+        )
+        session.add(badge)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} verification badges")
+
+
+async def seed_framework_scans(session: AsyncSession) -> None:
+    """Create framework security scan results for bridge-imported agents."""
+    print("  Seeding framework security scans...")
+
+    scan_defs = [
+        ("codereview-bot", "openclaw", "clean", []),
+        ("datapipeline-agent", "langchain", "warnings",
+         [{"type": "tool_injection", "severity": "medium", "description": "Unbounded tool input detected"}]),
+        ("trustguard", "openclaw", "clean", []),
+        ("testrunner", "crewai", "clean", []),
+        ("deploybot", "langchain", "clean", []),
+        ("securityscanner", "openclaw", "warnings",
+         [{"type": "dependency_vuln", "severity": "low", "description": "Outdated dependency with known CVE"}]),
+        ("chatassistant", "crewai", "clean", []),
+        ("analyticsengine", "langchain", "clean", []),
+    ]
+
+    count = 0
+    for slug, framework, result, vulns in scan_defs:
+        eid = AGENT_IDS[slug]
+        scan = FrameworkSecurityScan(
+            id=make_uuid("scan", f"{slug}-{framework}"),
+            entity_id=eid,
+            framework=framework,
+            scan_result=result,
+            vulnerabilities=vulns,
+            scanned_at=days_ago(5),
+        )
+        session.add(scan)
+
+        # Set framework_source on entity
+        entity = await session.get(Entity, eid)
+        if entity:
+            entity.framework_source = framework
+
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} framework security scans")
+
+
+async def seed_collaboration_relationships(session: AsyncSession) -> None:
+    """Create collaboration and service relationship types (Phase 3)."""
+    print("  Seeding collaboration/service relationships...")
+
+    collab_defs = [
+        # (source, target, type)
+        ("codereview-bot", "testrunner", "collaboration"),
+        ("securityscanner", "codereview-bot", "collaboration"),
+        ("datapipeline-agent", "analyticsengine", "collaboration"),
+        ("deploybot", "testrunner", "collaboration"),
+        ("trustguard", "securityscanner", "collaboration"),
+        ("docwriter", "codereview-bot", "service"),
+        ("chatassistant", "platformhelper", "service"),
+        ("marketbot", "analyticsengine", "service"),
+    ]
+
+    count = 0
+    for src, tgt, rtype in collab_defs:
+        src_id = HUMAN_IDS.get(src) or AGENT_IDS.get(src)
+        tgt_id = HUMAN_IDS.get(tgt) or AGENT_IDS.get(tgt)
+        rel_type = RelationshipType.COLLABORATION if rtype == "collaboration" else RelationshipType.SERVICE
+        rel = EntityRelationship(
+            id=make_uuid("collab", f"{src}-{tgt}-{rtype}"),
+            source_entity_id=src_id,
+            target_entity_id=tgt_id,
+            type=rel_type,
+            created_at=days_ago(10),
+        )
+        session.add(rel)
+        count += 1
+
+    await session.flush()
+    print(f"    Created {count} collaboration/service relationships")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1882,6 +2140,11 @@ async def main() -> None:
         await seed_endorsements(session)
         await seed_entity_reviews(session)
         await seed_audit_logs(session)
+        await seed_organizations(session)
+        await seed_trust_attestations(session)
+        await seed_verification_badges(session)
+        await seed_framework_scans(session)
+        await seed_collaboration_relationships(session)
         await seed_suspended_entity(session)
 
         await session.commit()
@@ -1918,6 +2181,11 @@ async def main() -> None:
             ("reviews", "SELECT count(*) FROM reviews"),
             ("audit_logs", "SELECT count(*) FROM audit_logs"),
             ("webhook_subscriptions", "SELECT count(*) FROM webhook_subscriptions"),
+            ("organizations", "SELECT count(*) FROM organizations"),
+            ("org_memberships", "SELECT count(*) FROM organization_memberships"),
+            ("trust_attestations", "SELECT count(*) FROM trust_attestations"),
+            ("verification_badges", "SELECT count(*) FROM verification_badges"),
+            ("framework_scans", "SELECT count(*) FROM framework_security_scans"),
         ]
 
         print()
@@ -1929,7 +2197,7 @@ async def main() -> None:
             print(f"  {label:<30} {count:>5}")
         print("-" * 40)
         print()
-        print("All staging accounts use password: staging123!")
+        print("All staging accounts use password: Staging123!")
         print("Admin account: kenne@agentgraph.io")
 
     await engine.dispose()
