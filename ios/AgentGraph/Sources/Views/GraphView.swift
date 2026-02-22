@@ -1,16 +1,11 @@
-// GraphView — Live 2D trust network visualization with pinch-to-zoom and pan
+// GraphView — SpriteKit force-directed trust network visualization
+// Upgraded from Canvas radial layout to SpriteKit force simulation
 
 import SwiftUI
 
 struct GraphView: View {
     @Environment(AuthViewModel.self) private var auth
-    @State private var viewModel = GraphViewModel()
-
-    // Gesture state
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
+    @State private var viewModel = ForceGraphViewModel()
 
     var body: some View {
         NavigationStack {
@@ -21,83 +16,49 @@ struct GraphView: View {
                     LoadingStateView(state: .loading)
                 } else if let error = viewModel.error, viewModel.nodes.isEmpty {
                     LoadingStateView(state: .error(message: error, retry: {
-                        await viewModel.loadGraph(centerId: auth.currentUser?.id)
+                        await viewModel.loadRichGraph(centerId: auth.currentUser?.id)
                     }))
                 } else {
-                    // Zoomable/pannable graph container
-                    graphContent
-                        .scaleEffect(scale)
-                        .offset(offset)
-                        // #37: Use simultaneousGesture to prevent conflicts with nav taps
-                        .simultaneousGesture(magnifyGesture)
-                        .simultaneousGesture(dragGesture)
-                        .gesture(doubleTapGesture)
-
-                    // Stats overlay (fixed, not affected by zoom)
-                    VStack {
-                        // Zoom indicator
-                        if scale != 1.0 {
-                            HStack(spacing: AGSpacing.sm) {
-                                Text(String(format: "%.0f%%", scale * 100))
-                                    .font(AGTypography.xs)
-                                    .foregroundStyle(Color.agMuted)
-                                Button {
-                                    withAnimation(.spring(duration: 0.3)) {
-                                        scale = 1.0
-                                        lastScale = 1.0
-                                        offset = .zero
-                                        lastOffset = .zero
-                                    }
-                                } label: {
-                                    Image(systemName: "arrow.counterclockwise")
-                                        .font(AGTypography.xs)
-                                        .foregroundStyle(Color.agPrimary)
-                                }
+                    // SpriteKit force-directed graph
+                    ForceGraphView(
+                        nodes: viewModel.nodes,
+                        edges: viewModel.edges,
+                        onNodeTap: { nodeId in
+                            viewModel.selectNode(nodeId)
+                        },
+                        onNodeLongPress: { nodeId in
+                            Task {
+                                await viewModel.loadTrustFlow(entityId: nodeId)
                             }
-                            .padding(.horizontal, AGSpacing.md)
-                            .padding(.vertical, AGSpacing.xs)
-                            .glassCard(padding: AGSpacing.sm)
-                            .padding(.top, AGSpacing.sm)
+                        },
+                        selectedNodeId: viewModel.selectedNodeId
+                    )
+                    .ignoresSafeArea()
+
+                    // Overlay controls
+                    VStack {
+                        // Cluster legend (top-left)
+                        HStack {
+                            ClusterLegendView(
+                                clusters: viewModel.clusters,
+                                isVisible: $viewModel.showClusters
+                            )
+                            Spacer()
                         }
+                        .padding(.horizontal, AGSpacing.sm)
+                        .padding(.top, AGSpacing.sm)
 
                         Spacer()
 
-                        GlassCard {
-                            HStack(spacing: AGSpacing.xl) {
-                                VStack(spacing: 2) {
-                                    Text("\(viewModel.nodeCount)")
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(Color.agText)
-                                    Text("Nodes")
-                                        .font(AGTypography.xs)
-                                        .foregroundStyle(Color.agMuted)
-                                }
-                                VStack(spacing: 2) {
-                                    Text("\(viewModel.edgeCount)")
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(Color.agText)
-                                    Text("Edges")
-                                        .font(AGTypography.xs)
-                                        .foregroundStyle(Color.agMuted)
-                                }
-                                VStack(spacing: 2) {
-                                    let scores = viewModel.nodes.compactMap(\.trustScore)
-                                    let avgTrust = scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
-                                    Text(String(format: "%.2f", avgTrust))
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(Color.agSuccess)
-                                    Text("Avg Trust")
-                                        .font(AGTypography.xs)
-                                        .foregroundStyle(Color.agMuted)
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
+                        // Selected node info bar
+                        if let selectedId = viewModel.selectedNodeId,
+                           let selectedNode = viewModel.nodes.first(where: { $0.id == selectedId }) {
+                            selectedNodeBar(selectedNode)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        .padding(.horizontal, AGSpacing.base)
-                        .padding(.bottom, AGSpacing.sm)
+
+                        // Stats bar
+                        statsBar
                     }
                 }
             }
@@ -107,28 +68,28 @@ struct GraphView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
-                            Task { await viewModel.loadGraph(centerId: auth.currentUser?.id) }
+                            Task { await viewModel.loadRichGraph(centerId: auth.currentUser?.id) }
                         } label: {
                             Label("Reload", systemImage: "arrow.clockwise")
                         }
                         Button {
                             Task {
                                 if let id = auth.currentUser?.id {
-                                    await viewModel.loadGraph(centerId: id)
+                                    await viewModel.loadRichGraph(centerId: id)
                                 }
                             }
                         } label: {
                             Label("Center on Me", systemImage: "person.circle")
                         }
                         Button {
-                            withAnimation(.spring(duration: 0.3)) {
-                                scale = 1.0
-                                lastScale = 1.0
-                                offset = .zero
-                                lastOffset = .zero
+                            withAnimation {
+                                viewModel.showClusters.toggle()
                             }
                         } label: {
-                            Label("Reset View", systemImage: "arrow.counterclockwise")
+                            Label(
+                                viewModel.showClusters ? "Hide Clusters" : "Show Clusters",
+                                systemImage: viewModel.showClusters ? "eye.slash" : "eye"
+                            )
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -136,168 +97,144 @@ struct GraphView: View {
                     .tint(.agPrimary)
                 }
             }
-            // Node ID is a String (lowercase UUID) — parse for profile navigation
             .navigationDestination(for: String.self) { nodeId in
                 if let uuid = UUID(uuidString: nodeId) {
                     ProfileDetailView(entityId: uuid)
                 }
             }
-            .task {
-                await viewModel.loadGraph(centerId: auth.currentUser?.id)
-            }
-        }
-    }
-
-    // MARK: - Graph Content
-
-    private var graphContent: some View {
-        ZStack {
-            // #20: Build nodeMap for O(1) lookup in Canvas
-            let nodeMap = Dictionary(uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0) })
-
-            // Canvas for edges and nodes
-            Canvas { context, size in
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-
-                // Draw edges
-                for (source, target) in viewModel.edges {
-                    guard let sourceNode = nodeMap[source],
-                          let targetNode = nodeMap[target] else {
-                        continue
-                    }
-                    let sourcePos = nodePosition(sourceNode, center: center, size: size)
-                    let targetPos = nodePosition(targetNode, center: center, size: size)
-                    var path = Path()
-                    path.move(to: sourcePos)
-                    path.addLine(to: targetPos)
-                    context.stroke(
-                        path,
-                        with: .color(.agBorder.opacity(0.5)),
-                        lineWidth: 1
-                    )
-                }
-
-                // Draw nodes
-                for node in viewModel.nodes {
-                    let pos = nodePosition(node, center: center, size: size)
-                    let radius = node.isCenter ? 20.0 : 12.0
-
-                    // Glow
-                    let glowRect = CGRect(
-                        x: pos.x - radius * 1.5,
-                        y: pos.y - radius * 1.5,
-                        width: radius * 3,
-                        height: radius * 3
-                    )
-                    context.fill(
-                        Circle().path(in: glowRect),
-                        with: .color(nodeColor(node).opacity(0.2))
-                    )
-
-                    // Node circle
-                    let nodeRect = CGRect(
-                        x: pos.x - radius,
-                        y: pos.y - radius,
-                        width: radius * 2,
-                        height: radius * 2
-                    )
-                    context.fill(
-                        Circle().path(in: nodeRect),
-                        with: .color(nodeColor(node))
-                    )
-                }
-            }
-
-            // Node labels overlay with tap targets
-            ForEach(viewModel.nodes) { node in
-                GeometryReader { geo in
-                    let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-                    let pos = nodePosition(node, center: center, size: geo.size)
-
-                    NavigationLink(value: node.id) {
-                        VStack(spacing: 2) {
-                            Circle()
-                                .fill(Color.clear)
-                                .frame(width: node.isCenter ? 44 : 32, height: node.isCenter ? 44 : 32)
-                            Text(node.label)
-                                .font(AGTypography.xs)
-                                .foregroundStyle(
-                                    // #36: selectedNode is String
-                                    viewModel.selectedNode == node.id
-                                        ? Color.agPrimary
-                                        : Color.agMuted
-                                )
+            .sheet(isPresented: $viewModel.showTrustFlow) {
+                if let trustFlow = viewModel.trustFlowResponse {
+                    TrustFlowSheet(
+                        trustFlow: trustFlow,
+                        onDismiss: {
+                            viewModel.dismissTrustFlow()
+                        },
+                        onNodeTap: { nodeId in
+                            viewModel.dismissTrustFlow()
+                            viewModel.selectNode(nodeId)
                         }
-                    }
-                    .position(x: pos.x, y: pos.y + (node.isCenter ? 8 : 4))
+                    )
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
+            }
+            .task {
+                await viewModel.loadRichGraph(centerId: auth.currentUser?.id)
             }
         }
     }
 
-    // MARK: - Gestures
+    // MARK: - Selected Node Bar
 
-    private var magnifyGesture: some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                let newScale = lastScale * value.magnification
-                scale = min(max(newScale, 0.3), 5.0)
-            }
-            .onEnded { _ in
-                lastScale = scale
-            }
-    }
+    private func selectedNodeBar(_ node: ForceNode) -> some View {
+        NavigationLink(value: node.id) {
+            HStack(spacing: AGSpacing.md) {
+                // Node icon
+                ZStack {
+                    Circle()
+                        .fill(nodeColor(node).opacity(0.2))
+                        .frame(width: 36, height: 36)
 
-    private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                offset = CGSize(
-                    width: lastOffset.width + value.translation.width,
-                    height: lastOffset.height + value.translation.height
-                )
-            }
-            .onEnded { _ in
-                lastOffset = offset
-            }
-    }
+                    Circle()
+                        .fill(nodeColor(node))
+                        .frame(width: 28, height: 28)
 
-    private var doubleTapGesture: some Gesture {
-        TapGesture(count: 2)
-            .onEnded {
-                withAnimation(.spring(duration: 0.3)) {
-                    if scale != 1.0 || offset != .zero {
-                        // Reset to default
-                        scale = 1.0
-                        lastScale = 1.0
-                        offset = .zero
-                        lastOffset = .zero
-                    } else {
-                        // Zoom in 2x
-                        scale = 2.0
-                        lastScale = 2.0
+                    Image(systemName: node.type == "human" ? "person.fill" : "cpu")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(node.label)
+                        .font(AGTypography.sm)
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color.agText)
+
+                    HStack(spacing: AGSpacing.sm) {
+                        Text(String(format: "Trust: %.2f", node.trustScore))
+                            .font(AGTypography.xs)
+                            .foregroundStyle(trustColor(node.trustScore))
+
+                        Text("\(node.connections.count) connections")
+                            .font(AGTypography.xs)
+                            .foregroundStyle(Color.agMuted)
                     }
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(AGTypography.xs)
+                    .foregroundStyle(Color.agMuted)
             }
+            .padding(AGSpacing.md)
+            .glassCard(padding: 0)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, AGSpacing.base)
+        .padding(.bottom, AGSpacing.xs)
+    }
+
+    // MARK: - Stats Bar
+
+    private var statsBar: some View {
+        GlassCard {
+            HStack(spacing: AGSpacing.xl) {
+                VStack(spacing: 2) {
+                    Text("\(viewModel.nodeCount)")
+                        .font(AGTypography.lg)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.agText)
+                    Text("Nodes")
+                        .font(AGTypography.xs)
+                        .foregroundStyle(Color.agMuted)
+                }
+                VStack(spacing: 2) {
+                    Text("\(viewModel.edgeCount)")
+                        .font(AGTypography.lg)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.agText)
+                    Text("Edges")
+                        .font(AGTypography.xs)
+                        .foregroundStyle(Color.agMuted)
+                }
+                VStack(spacing: 2) {
+                    let scores = viewModel.nodes.map(\.trustScore)
+                    let avgTrust = scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
+                    Text(String(format: "%.2f", avgTrust))
+                        .font(AGTypography.lg)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.agSuccess)
+                    Text("Avg Trust")
+                        .font(AGTypography.xs)
+                        .foregroundStyle(Color.agMuted)
+                }
+                VStack(spacing: 2) {
+                    Text("\(viewModel.clusters.count)")
+                        .font(AGTypography.lg)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.agAccent)
+                    Text("Clusters")
+                        .font(AGTypography.xs)
+                        .foregroundStyle(Color.agMuted)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, AGSpacing.base)
+        .padding(.bottom, AGSpacing.sm)
     }
 
     // MARK: - Helpers
 
-    private func nodePosition(_ node: LayoutNode, center: CGPoint, size: CGSize) -> CGPoint {
-        if node.isCenter {
-            return center
-        }
-        let scale = min(size.width, size.height) * 0.35
-        return CGPoint(
-            x: center.x + node.x * scale,
-            y: center.y + node.y * scale
-        )
+    private func nodeColor(_ node: ForceNode) -> Color {
+        let c = ForceGraphViewModel.colorForCluster(node.clusterId)
+        return Color(red: c.red, green: c.green, blue: c.blue)
     }
 
-    private func nodeColor(_ node: LayoutNode) -> Color {
-        if node.isCenter { return .agPrimary }
-        let score = node.trustScore ?? 0
-        if score >= 0.8 { return .agAccent }
-        if score >= 0.5 { return .agWarning }
-        return .agMuted
+    private func trustColor(_ trust: Double) -> Color {
+        if trust >= 0.8 { return .agSuccess }
+        if trust >= 0.5 { return .agWarning }
+        return .agDanger
     }
 }

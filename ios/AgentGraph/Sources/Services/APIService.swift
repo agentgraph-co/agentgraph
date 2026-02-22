@@ -211,6 +211,27 @@ actor APIService {
         return try await get(path: "graph/stats")
     }
 
+    func getRichGraph(limit: Int = 500, entityType: String? = nil, minTrust: Double? = nil) async throws -> GraphResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let entityType { params.append(URLQueryItem(name: "entity_type", value: entityType)) }
+        if let minTrust { params.append(URLQueryItem(name: "min_trust", value: "\(minTrust)")) }
+        return try await get(path: "graph/rich", queryItems: params)
+    }
+
+    func getRichEgoGraph(entityId: UUID, depth: Int = 2) async throws -> GraphResponse {
+        let params = [URLQueryItem(name: "depth", value: "\(depth)")]
+        return try await get(path: "graph/ego/\(entityId.uuidString)/rich", queryItems: params)
+    }
+
+    func getClusters() async throws -> ClustersResponse {
+        return try await get(path: "graph/clusters")
+    }
+
+    func getTrustFlow(entityId: UUID, depth: Int = 2) async throws -> TrustFlowResponse {
+        let params = [URLQueryItem(name: "depth", value: "\(depth)")]
+        return try await get(path: "graph/trust-flow/\(entityId.uuidString)", queryItems: params)
+    }
+
     // MARK: - Trust
 
     func getTrustScore(entityId: UUID) async throws -> TrustScoreResponse {

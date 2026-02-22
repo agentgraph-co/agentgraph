@@ -1,4 +1,6 @@
-// GraphViewModel — Fetch graph from API, compute layout
+// GraphViewModel — Fetch graph from API, compute layout (legacy radial fallback)
+// Note: The primary graph view now uses ForceGraphViewModel with SpriteKit.
+// This view model is retained for potential fallback usage.
 
 import Foundation
 import Observation
@@ -8,6 +10,7 @@ struct LayoutNode: Identifiable, Sendable {
     let label: String
     let type: String
     let trustScore: Double?
+    let clusterId: Int?
     let x: Double
     let y: Double
     let isCenter: Bool
@@ -31,9 +34,9 @@ final class GraphViewModel {
         do {
             let response: GraphResponse
             if let centerId {
-                response = try await APIService.shared.getEgoGraph(entityId: centerId, depth: 2)
+                response = try await APIService.shared.getRichEgoGraph(entityId: centerId, depth: 2)
             } else {
-                response = try await APIService.shared.getGraph(limit: 80)
+                response = try await APIService.shared.getRichGraph(limit: 500)
             }
 
             nodeCount = response.nodeCount
@@ -65,7 +68,6 @@ final class GraphViewModel {
             var layoutNodes: [LayoutNode] = []
             let nonCenter = apiNodes.filter { $0.id != centerNodeId }
             let totalNonCenter = nonCenter.count
-            // #20: Build index map for O(1) lookup instead of O(N) firstIndex
             var nonCenterIndex: [String: Int] = [:]
             for (i, node) in nonCenter.enumerated() {
                 nonCenterIndex[node.id] = i
@@ -78,6 +80,7 @@ final class GraphViewModel {
                         label: apiNode.label,
                         type: apiNode.type,
                         trustScore: apiNode.trustScore,
+                        clusterId: apiNode.clusterId,
                         x: 0, y: 0,
                         isCenter: true,
                         connections: adjacency[apiNode.id] ?? []
@@ -87,7 +90,6 @@ final class GraphViewModel {
                     let angle = totalNonCenter > 0
                         ? (2.0 * .pi * Double(idx) / Double(totalNonCenter))
                         : 0
-                    // Use variable radius based on connection count for better spread
                     let connectionCount = adjacency[apiNode.id]?.count ?? 0
                     let radius = connectionCount > 2 ? 0.55 : 0.75
                     layoutNodes.append(LayoutNode(
@@ -95,6 +97,7 @@ final class GraphViewModel {
                         label: apiNode.label,
                         type: apiNode.type,
                         trustScore: apiNode.trustScore,
+                        clusterId: apiNode.clusterId,
                         x: cos(angle) * radius,
                         y: sin(angle) * radius,
                         isCenter: false,
