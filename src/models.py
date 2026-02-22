@@ -75,6 +75,12 @@ class ModerationReason(str, enum.Enum):
     OTHER = "other"
 
 
+class OrgRole(str, enum.Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+
+
 # --- Models ---
 
 
@@ -111,6 +117,12 @@ class Entity(Base):
     # Framework bridge fields
     framework_source = Column(String(50), nullable=True)  # mcp, openclaw, langchain, native
     framework_trust_modifier = Column(Float, nullable=True, default=1.0)
+
+
+    # Organization membership
+    organization_id = Column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Profile metadata
     is_active = Column(Boolean, default=True)
@@ -1184,4 +1196,59 @@ class PropagationAlert(Base):
         Index("ix_propagation_alerts_type", "alert_type"),
         Index("ix_propagation_alerts_resolved", "is_resolved"),
         Index("ix_propagation_alerts_created", "created_at"),
+    )
+
+
+class Organization(Base):
+    """Organization for grouping entities under enterprise management."""
+
+    __tablename__ = "organizations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), unique=True, nullable=False)
+    display_name = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    settings = Column(JSONB, default=dict)  # org-level config
+    tier = Column(String(20), default="free", nullable=False)  # "free", "pro", "enterprise"
+    is_active = Column(Boolean, default=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    creator = relationship("Entity", foreign_keys=[created_by])
+    memberships = relationship(
+        "OrganizationMembership", back_populates="organization", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_organizations_name", "name", unique=True),
+        Index("ix_organizations_active", "is_active"),
+        Index("ix_organizations_tier", "tier"),
+    )
+
+
+class OrganizationMembership(Base):
+    """Membership linking an entity to an organization with a specific role."""
+
+    __tablename__ = "organization_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    role = Column(Enum(OrgRole), default=OrgRole.MEMBER, nullable=False)
+    joined_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    organization = relationship("Organization", back_populates="memberships")
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "entity_id", name="uq_org_membership"),
+        Index("ix_org_memberships_org", "organization_id"),
+        Index("ix_org_memberships_entity", "entity_id"),
     )

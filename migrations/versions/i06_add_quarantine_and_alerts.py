@@ -1,7 +1,7 @@
 """Add quarantine and propagation alerts
 
-Revision ID: i05_quarantine_alerts
-Revises: i04_framework_scans
+Revision ID: i06_quarantine_alerts
+Revises: i05_collab_types
 Create Date: 2026-02-21 00:00:00.000000
 """
 from __future__ import annotations
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = "i05_quarantine_alerts"
-down_revision = "i04_framework_scans"
+revision = "i06_quarantine_alerts"
+down_revision = "i05_collab_types"
 branch_labels = None
 depends_on = None
 
