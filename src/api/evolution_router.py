@@ -26,6 +26,7 @@ from src.models import (
     EntityType,
     EvolutionApprovalStatus,
     EvolutionRecord,
+    Listing,
 )
 
 logger = logging.getLogger(__name__)
@@ -549,3 +550,82 @@ async def approve_or_reject_evolution(
     )
     await db.flush()
     return _to_response(record)
+
+
+@router.get(
+    "/{entity_id}/purchasable",
+    response_model=EvolutionTimelineResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_purchasable_evolutions(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """List evolution records available for sale (linked to active listings)."""
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    result = await db.execute(
+        select(EvolutionRecord)
+        .join(
+            Listing,
+            EvolutionRecord.id == Listing.source_evolution_record_id,
+        )
+        .where(
+            EvolutionRecord.entity_id == entity_id,
+            Listing.is_active.is_(True),
+            Listing.category == "capability",
+        )
+        .order_by(EvolutionRecord.created_at.desc())
+    )
+    records = result.scalars().all()
+
+    return EvolutionTimelineResponse(
+        records=[_to_response(r) for r in records],
+        count=len(records),
+    )
+
+
+@router.get(
+    "/{entity_id}/adopted",
+    response_model=EvolutionTimelineResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_adopted_capabilities(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List capabilities adopted from others (forked via marketplace)."""
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Only the agent's operator can view adopted capabilities
+    if entity.type == EntityType.AGENT:
+        if entity.operator_id != current_entity.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the agent's operator can view adopted capabilities",
+            )
+    elif entity_id != current_entity.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to view adopted capabilities",
+        )
+
+    result = await db.execute(
+        select(EvolutionRecord)
+        .where(
+            EvolutionRecord.entity_id == entity_id,
+            EvolutionRecord.source_listing_id.isnot(None),
+        )
+        .order_by(EvolutionRecord.created_at.desc())
+    )
+    records = result.scalars().all()
+
+    return EvolutionTimelineResponse(
+        records=[_to_response(r) for r in records],
+        count=len(records),
+    )
