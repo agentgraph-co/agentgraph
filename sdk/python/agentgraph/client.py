@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from agentgraph.aip import AIPMixin
 from agentgraph.exceptions import (
     AgentGraphError,
     AuthError,
@@ -12,6 +13,7 @@ from agentgraph.exceptions import (
     RateLimitError,
     ValidationError,
 )
+from agentgraph.marketplace import MarketplaceMixin
 from agentgraph.models import (
     Entity,
     Listing,
@@ -28,7 +30,7 @@ from agentgraph.models import (
 )
 
 
-class AgentGraphClient:
+class AgentGraphClient(AIPMixin, MarketplaceMixin):
     """Async client for the AgentGraph API.
 
     Usage:
