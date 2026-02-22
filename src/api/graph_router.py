@@ -26,6 +26,7 @@ from src.models import (
     PrivacyTier,
     RelationshipType,
     Submolt,
+    TrustAttestation,
     TrustScore,
 )
 
@@ -38,12 +39,16 @@ class GraphNode(BaseModel):
     type: str
     trust_score: float | None = None
     is_active: bool = True
+    cluster_id: int | None = None
+    avatar_url: str | None = None
 
 
 class GraphEdge(BaseModel):
     source: str
     target: str
     type: str
+    weight: float | None = None
+    attestation_type: str | None = None
 
 
 class GraphResponse(BaseModel):
@@ -70,6 +75,61 @@ class PublicPlatformStats(BaseModel):
     total_posts: int
     total_communities: int
     total_listings: int
+
+
+class ClusterInfo(BaseModel):
+    cluster_id: int
+    size: int
+    avg_trust: float
+    member_count: int
+    dominant_type: str
+
+
+class ClustersResponse(BaseModel):
+    clusters: list[ClusterInfo]
+    total_clusters: int
+
+
+class ClusterDetailResponse(BaseModel):
+    cluster_id: int
+    members: list[GraphNode]
+    edges: list[GraphEdge]
+    size: int
+    avg_trust: float
+    dominant_type: str
+
+
+
+# --- Helper: build privacy filter ---
+
+
+def _build_privacy_filter(current_entity):
+    """Build an SQLAlchemy privacy filter clause."""
+    from sqlalchemy import or_
+
+    if current_entity is None:
+        return Entity.privacy_tier == PrivacyTier.PUBLIC
+
+    following_subq = (
+        select(EntityRelationship.target_entity_id)
+        .where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    privacy_filter = or_(
+        Entity.privacy_tier == PrivacyTier.PUBLIC,
+        Entity.id == current_entity.id,
+    )
+    if current_entity.email_verified:
+        privacy_filter = privacy_filter | (
+            Entity.privacy_tier == PrivacyTier.VERIFIED
+        )
+    privacy_filter = privacy_filter | (
+        (Entity.privacy_tier == PrivacyTier.PRIVATE)
+        & Entity.id.in_(following_subq)
+    )
+    return privacy_filter
 
 
 @router.get(
@@ -317,6 +377,367 @@ async def get_ego_graph(
         node_count=len(nodes),
         edge_count=len(edges),
     )
+
+
+# --- NEW: Cluster endpoints ---
+
+
+@router.get(
+    "/clusters", response_model=ClustersResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_clusters(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get community clusters with metadata from Louvain detection."""
+    from src.graph.community import get_cached_clusters
+
+    data = await get_cached_clusters(db)
+    clusters_list = []
+    for cid_str, info in data.get("clusters", {}).items():
+        clusters_list.append(
+            ClusterInfo(
+                cluster_id=int(cid_str),
+                size=info["size"],
+                avg_trust=info["avg_trust"],
+                member_count=info["member_count"],
+                dominant_type=info["dominant_type"],
+            )
+        )
+
+    return ClustersResponse(
+        clusters=clusters_list,
+        total_clusters=data.get("total_clusters", 0),
+    )
+
+
+@router.get(
+    "/clusters/{cluster_id}", response_model=ClusterDetailResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_cluster_detail(
+    cluster_id: int,
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single cluster's members and inter-cluster edges."""
+    from src.graph.community import get_cached_clusters
+
+    data = await get_cached_clusters(db)
+    cid_str = str(cluster_id)
+
+    if cid_str not in data.get("clusters", {}):
+        raise HTTPException(status_code=404, detail="Cluster not found")
+
+    cluster_info = data["clusters"][cid_str]
+    member_id_strs = cluster_info["members"]
+
+    member_uuids = []
+    for mid_str in member_id_strs:
+        try:
+            member_uuids.append(uuid.UUID(mid_str))
+        except ValueError:
+            continue
+
+    if not member_uuids:
+        return ClusterDetailResponse(
+            cluster_id=cluster_id,
+            members=[],
+            edges=[],
+            size=0,
+            avg_trust=cluster_info["avg_trust"],
+            dominant_type=cluster_info["dominant_type"],
+        )
+
+    entity_result = await db.execute(
+        select(Entity).where(
+            Entity.id.in_(member_uuids),
+            Entity.is_active.is_(True),
+        )
+    )
+    entities = entity_result.scalars().all()
+    entity_ids = {e.id for e in entities}
+
+    trust_result = await db.execute(
+        select(TrustScore).where(TrustScore.entity_id.in_(entity_ids))
+    )
+    trust_map = {ts.entity_id: ts.score for ts in trust_result.scalars().all()}
+
+    rel_result = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id.in_(entity_ids),
+            EntityRelationship.target_entity_id.in_(entity_ids),
+            EntityRelationship.type == RelationshipType.FOLLOW,
+        )
+    )
+    relationships = rel_result.scalars().all()
+
+    nodes = [
+        GraphNode(
+            id=str(e.id),
+            label=e.display_name,
+            type=e.type.value,
+            trust_score=trust_map.get(e.id),
+            is_active=e.is_active,
+            cluster_id=cluster_id,
+            avatar_url=e.avatar_url,
+        )
+        for e in entities
+    ]
+    edges = [
+        GraphEdge(
+            source=str(r.source_entity_id),
+            target=str(r.target_entity_id),
+            type=r.type.value,
+        )
+        for r in relationships
+    ]
+
+    return ClusterDetailResponse(
+        cluster_id=cluster_id,
+        members=nodes,
+        edges=edges,
+        size=len(nodes),
+        avg_trust=cluster_info["avg_trust"],
+        dominant_type=cluster_info["dominant_type"],
+    )
+
+
+# --- NEW: Trust flow endpoint ---
+
+
+@router.get(
+    "/trust-flow/{entity_id}",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_trust_flow(
+    entity_id: uuid.UUID,
+    depth: int = Query(2, ge=1, le=5),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the trust attestation chain for an entity."""
+    target = await db.get(Entity, entity_id)
+    if target is None or not target.is_active:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    if not await check_privacy_access(target, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's trust data is private",
+        )
+
+    from src.graph.trust_flow import compute_trust_flow
+
+    result = await compute_trust_flow(db, entity_id, max_depth=depth)
+    return result
+
+
+# --- NEW: Lineage tree endpoint ---
+
+
+@router.get(
+    "/lineage-tree/{entity_id}",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_lineage_tree(
+    entity_id: uuid.UUID,
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the evolution fork tree for an entity."""
+    target = await db.get(Entity, entity_id)
+    if target is None or not target.is_active:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    if not await check_privacy_access(target, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's lineage data is private",
+        )
+
+    from src.graph.lineage import compute_lineage_tree
+
+    result = await compute_lineage_tree(db, entity_id)
+    return result
+
+
+# --- NEW: Rich graph helper ---
+
+
+async def _build_rich_graph(
+    db: AsyncSession,
+    entity_ids: set,
+    entities: list,
+    current_entity: Entity | None,
+) -> GraphResponse:
+    """Build a rich graph response with multi-edge types and cluster IDs."""
+    from src.graph.community import get_cached_clusters
+
+    trust_result = await db.execute(
+        select(TrustScore).where(TrustScore.entity_id.in_(entity_ids))
+    )
+    trust_map = {ts.entity_id: ts.score for ts in trust_result.scalars().all()}
+
+    cluster_data = await get_cached_clusters(db)
+    node_cluster_map: dict[str, int] = {}
+    for cid_str, info in cluster_data.get("clusters", {}).items():
+        for mid_str in info.get("members", []):
+            node_cluster_map[mid_str] = int(cid_str)
+
+    all_rel_types = [
+        RelationshipType.FOLLOW,
+        RelationshipType.OPERATOR_AGENT,
+        RelationshipType.COLLABORATION,
+        RelationshipType.SERVICE,
+    ]
+    rel_result = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id.in_(entity_ids),
+            EntityRelationship.target_entity_id.in_(entity_ids),
+            EntityRelationship.type.in_(all_rel_types),
+        )
+    )
+    relationships = rel_result.scalars().all()
+
+    att_result = await db.execute(
+        select(TrustAttestation).where(
+            TrustAttestation.attester_entity_id.in_(entity_ids),
+            TrustAttestation.target_entity_id.in_(entity_ids),
+        )
+    )
+    attestations = att_result.scalars().all()
+
+    nodes = [
+        GraphNode(
+            id=str(e.id),
+            label=e.display_name,
+            type=e.type.value,
+            trust_score=trust_map.get(e.id),
+            is_active=e.is_active,
+            cluster_id=node_cluster_map.get(str(e.id)),
+            avatar_url=e.avatar_url,
+        )
+        for e in entities
+    ]
+
+    edges: list[GraphEdge] = [
+        GraphEdge(
+            source=str(r.source_entity_id),
+            target=str(r.target_entity_id),
+            type=r.type.value,
+        )
+        for r in relationships
+    ]
+    for att in attestations:
+        edges.append(
+            GraphEdge(
+                source=str(att.attester_entity_id),
+                target=str(att.target_entity_id),
+                type="attestation",
+                weight=att.weight,
+                attestation_type=att.attestation_type,
+            )
+        )
+
+    return GraphResponse(
+        nodes=nodes, edges=edges,
+        node_count=len(nodes), edge_count=len(edges),
+    )
+
+
+@router.get(
+    "/rich", response_model=GraphResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_rich_graph(
+    limit: int = Query(500, ge=1, le=2000),
+    entity_type: str | None = Query(None, pattern="^(human|agent)"),
+    min_trust: float | None = Query(None, ge=0.0, le=1.0),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Full graph with multi-edge types, cluster IDs, and avatar_url."""
+    entity_query = select(Entity).where(
+        Entity.is_active.is_(True),
+    ).where(_build_privacy_filter(current_entity))
+    if entity_type:
+        entity_query = entity_query.where(Entity.type == entity_type)
+    entity_query = entity_query.limit(limit)
+    result = await db.execute(entity_query)
+    entities = result.scalars().all()
+    entity_ids = {e.id for e in entities}
+    if min_trust is not None:
+        trust_result = await db.execute(
+            select(TrustScore).where(TrustScore.entity_id.in_(entity_ids))
+        )
+        trust_map = {
+            ts.entity_id: ts.score for ts in trust_result.scalars().all()
+        }
+        entities = [
+            e for e in entities if trust_map.get(e.id, 0.0) >= min_trust
+        ]
+        entity_ids = {e.id for e in entities}
+    return await _build_rich_graph(db, entity_ids, entities, current_entity)
+
+
+@router.get(
+    "/ego/{entity_id}/rich", response_model=GraphResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_rich_ego_graph(
+    entity_id: uuid.UUID,
+    depth: int = Query(1, ge=1, le=3),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enhanced ego graph with multi-edge types and cluster IDs."""
+    center = await db.get(Entity, entity_id)
+    if center is None or not center.is_active:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    if not await check_privacy_access(center, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's graph is private",
+        )
+
+    visited = {entity_id}
+    frontier = {entity_id}
+
+    for _ in range(depth):
+        if not frontier:
+            break
+        outgoing = await db.execute(
+            select(EntityRelationship).where(
+                EntityRelationship.source_entity_id.in_(frontier),
+            )
+        )
+        incoming = await db.execute(
+            select(EntityRelationship).where(
+                EntityRelationship.target_entity_id.in_(frontier),
+            )
+        )
+
+        new_ids = set()
+        for r in outgoing.scalars().all():
+            new_ids.add(r.target_entity_id)
+        for r in incoming.scalars().all():
+            new_ids.add(r.source_entity_id)
+
+        frontier = new_ids - visited
+        visited |= frontier
+
+    entity_fetch_query = select(Entity).where(
+        Entity.id.in_(visited),
+        Entity.is_active.is_(True),
+    ).where(_build_privacy_filter(current_entity))
+
+    result = await db.execute(entity_fetch_query)
+    entities = result.scalars().all()
+    entity_ids = {e.id for e in entities}
+
+    return await _build_rich_graph(db, entity_ids, entities, current_entity)
 
 
 @router.get(

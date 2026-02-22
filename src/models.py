@@ -34,6 +34,8 @@ class EntityType(str, enum.Enum):
 class RelationshipType(str, enum.Enum):
     FOLLOW = "follow"
     OPERATOR_AGENT = "operator_agent"
+    COLLABORATION = "collaboration"
+    SERVICE = "service"
 
 
 class VoteDirection(str, enum.Enum):
