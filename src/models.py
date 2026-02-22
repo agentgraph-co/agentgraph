@@ -350,6 +350,13 @@ class EvolutionRecord(Base):
     extra_metadata = Column(JSONB, default=dict)  # arbitrary version metadata
     anchor_hash = Column(String(64), nullable=True)  # future: on-chain anchor
 
+    # Capability marketplace: link to source listing
+    source_listing_id = Column(
+        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    license_type = Column(String(30), nullable=True)  # "open", "commercial", "attribution"
+
     # Approval workflow
     risk_tier = Column(
         Integer, default=1, nullable=False,
@@ -371,11 +378,13 @@ class EvolutionRecord(Base):
     parent_record = relationship("EvolutionRecord", remote_side=[id])
     forked_from = relationship("Entity", foreign_keys=[forked_from_entity_id])
     approver = relationship("Entity", foreign_keys=[approved_by])
+    source_listing = relationship("Listing", foreign_keys=[source_listing_id])
 
     __table_args__ = (
         Index("ix_evolution_entity", "entity_id"),
         Index("ix_evolution_entity_version", "entity_id", "version", unique=True),
         Index("ix_evolution_forked_from", "forked_from_entity_id"),
+        Index("ix_evolution_source_listing", "source_listing_id"),
     )
 
 
@@ -494,7 +503,16 @@ class Listing(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    # Capability marketplace: link to evolution record
+    source_evolution_record_id = Column(
+        UUID(as_uuid=True), ForeignKey("evolution_records.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     entity = relationship("Entity")
+    source_evolution_record = relationship(
+        "EvolutionRecord", foreign_keys=[source_evolution_record_id],
+    )
     reviews = relationship(
         "ListingReview", back_populates="listing",
         cascade="all, delete-orphan",
@@ -505,6 +523,7 @@ class Listing(Base):
         Index("ix_listings_category", "category"),
         Index("ix_listings_active", "is_active"),
         Index("ix_listings_view_count", "view_count"),
+        Index("ix_listings_source_evo", "source_evolution_record_id"),
     )
 
 
