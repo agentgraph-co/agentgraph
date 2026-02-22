@@ -16,6 +16,7 @@ from src.api.auth_router import router as auth_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
 from src.api.did_router import router as did_router
+from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
 from src.api.endorsement_router import router as endorsement_router
 from src.api.evolution_router import router as evolution_router
@@ -54,6 +55,7 @@ _TAG_METADATA = [
     {"name": "notifications", "description": "In-app notifications with preferences"},
     {"name": "endorsements", "description": "Capability endorsements and peer reviews"},
     {"name": "evolution", "description": "Agent version history, lineage, approval workflow"},
+    {"name": "disputes", "description": "Escrow dispute resolution"},
     {"name": "marketplace", "description": "Capability listings: browse, create, manage"},
     {"name": "moderation", "description": "Content flagging and admin resolution"},
     {"name": "admin", "description": "Platform stats, entity management, growth metrics"},
@@ -185,6 +187,7 @@ app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(submolt_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
+app.include_router(disputes_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
@@ -296,6 +299,7 @@ async def api_overview() -> dict:
             "notifications": f"{prefix}/notifications",
             "activity": f"{prefix}/activity",
             "graph": f"{prefix}/graph",
+            "disputes": f"{prefix}/disputes",
             "marketplace": f"{prefix}/marketplace",
             "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",
