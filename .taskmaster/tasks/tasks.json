@@ -478,12 +478,13 @@
         "id": "35",
         "title": "Resolve Q12: Marketplace Payment Flow (Stripe Connect)",
         "description": "Open question Q12 (Phase 2): How should the marketplace payment flow be structured using Stripe Connect? Research platform marketplace model.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Phase 2 dependency. Research:\n- Stripe Connect marketplace model (platform as facilitator)\n- Onboarding flow for operators (KYC handled by Stripe)\n- Payment flow: human hires agent → escrow → completion → payout\n- Platform fee structure (percentage of transaction)\n- Refund/dispute handling\n- Money transmitter exemption analysis (may need counsel)\n- Tax reporting requirements (1099 for US payees)\n\nOutput: Payment flow specification document.",
         "testStrategy": "Prototype Stripe Connect integration in test mode. Test full flow: onboard seller, create payment, capture, payout. Verify tax reporting data captured.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:19:21.426Z"
       },
       {
         "id": "36",
@@ -821,67 +822,69 @@
         "id": "63",
         "title": "Trust Score v2 — Community Attestations & Contextual Trust",
         "description": "Enhance trust scoring with community attestations, contextual trust scores, and gaming prevention. Add TrustAttestation model, update algorithm to 5 components (community 20%), add per-context scores, attestation CRUD endpoints, and decay/cap mechanisms.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Backend:\n1. New TrustAttestation model (src/models.py): id, attester_entity_id, target_entity_id, attestation_type (competent|reliable|safe|responsive), context (string), weight (float 0-1 from attester trust), comment, created_at. Unique on (attester, target, type).\n2. Update trust algorithm (src/trust/score.py): add 5th component 'community' (20% weight). New weights: verification 35%, activity 20%, reputation 15%, community 20%, age 10%. Community = avg attestation weight from other entities.\n3. Add contextual_scores JSONB to trust_scores table — per-context scores (e.g. {\"code_review\": 0.85}).\n4. Gaming prevention: cap 10 attestations per attester per target, decay >90 days (50% weight), >180 days (25% weight).\n5. New endpoints in trust_router.py:\n   - POST /entities/{id}/attestations — create (can't self-attest)\n   - GET /entities/{id}/attestations — list received\n   - GET /entities/{id}/trust/contextual?context=X — contextual score\n   - DELETE /entities/{id}/attestations/{att_id} — revoke\n6. Alembic migration: trust_attestations table + contextual_scores column\n7. MCP tools: agentgraph_attest_entity, agentgraph_list_attestations\n8. Web: update TrustDetail.tsx with community component + contextual scores + attestation list\n9. iOS: add attestation list to ProfileDetailView trust section\n10. Tests: attestation CRUD, contextual scoring, gaming cap, decay, v2 weights",
         "testStrategy": "Unit test attestation model constraints (unique, no self-attest). Test v2 algorithm produces expected scores with attestation data. Test gaming cap (11th attestation rejected). Test decay (verify 91-day-old attestation weighted at 50%). Test contextual scoring filters correctly. Integration test full flow: create attestation → recompute trust → verify score increased.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T00:22:23.271Z"
+        "updatedAt": "2026-02-22T01:17:16.039Z"
       },
       {
         "id": "64",
         "title": "Privacy Tier Enforcement on Feed, Posts, Evolution & Graph",
         "description": "Extend privacy tier enforcement beyond profiles/search to cover feed posts, replies, evolution records, trust scores, and graph data. PRIVATE-tier entities should be invisible to non-followers across all surfaces.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Backend:\n1. Feed privacy (src/api/feed_router.py):\n   - GET /feed/posts: exclude posts from PRIVATE-tier authors unless requester follows them\n   - GET /feed/posts/{id}: check author privacy tier, return 403 for PRIVATE if not follower\n   - GET /feed/posts/{id}/replies: filter replies from PRIVATE authors\n2. Evolution privacy (src/api/evolution_router.py):\n   - GET /evolution/{entity_id}: check entity privacy tier before returning timeline\n3. Trust privacy (src/api/trust_router.py):\n   - GET /entities/{id}/trust: respect privacy tier (PRIVATE = 403 unless follower)\n4. Graph privacy (src/api/graph_router.py):\n   - Exclude PRIVATE entities from graph export and ego-graph unless requester is connected\n5. Notification privacy:\n   - Don't reveal PRIVATE entity display names in notification titles to non-followers\n6. Helper function: _check_privacy_access(target_entity, requester_entity, db) → bool\n   - PUBLIC: always True\n   - VERIFIED: requester email_verified or has DID\n   - PRIVATE: requester follows target (check entity_relationships)\n7. No migration needed (privacy_tier column exists)\n8. Web: add privacy tier selector to Settings page\n9. iOS: add privacy tier picker to SettingsView\n10. Tests: 15+ new tests covering feed filtering, post access, evolution access, graph exclusion, notification masking",
         "testStrategy": "Create PRIVATE entity with posts. Verify unauthenticated user cannot see posts in feed. Verify non-follower gets 403 on direct post access. Verify follower CAN see posts. Test evolution endpoint returns 403 for PRIVATE entity. Test graph export excludes PRIVATE nodes. Test notification title shows \"Someone\" instead of display name for PRIVATE entities.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T00:22:23.275Z"
+        "updatedAt": "2026-02-22T01:17:16.044Z"
       },
       {
         "id": "65",
         "title": "Marketplace Payment Integration — Stripe Connect",
         "description": "Integrate Stripe Connect for marketplace payments. Sellers onboard via Stripe Connect, buyers pay via PaymentIntents, platform takes 10% fee. Handle webhooks for payment confirmation and refunds.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Backend:\n1. New service: src/payments/stripe_service.py\n   - create_connect_account(entity_id) — create Stripe Connect Express account\n   - create_onboarding_link(account_id, return_url) — return onboarding URL\n   - create_payment_intent(amount_cents, seller_account_id, platform_fee_cents) — create PI with transfer\n   - handle_webhook(payload, signature) — process Stripe webhook events\n   - get_account_status(account_id) — check if seller can accept payments\n2. Model changes:\n   - Entity: add stripe_account_id (String, nullable)\n   - Transaction: add stripe_payment_intent_id, stripe_transfer_id, platform_fee_cents\n3. Updated/new endpoints (marketplace_router.py):\n   - POST /marketplace/connect/onboard — initiate seller onboarding, return URL\n   - GET /marketplace/connect/status — seller's Stripe account status\n   - POST /marketplace/{id}/purchase — UPDATED: create PaymentIntent for paid listings, return client_secret\n   - POST /marketplace/stripe/webhook — handle payment_intent.succeeded, charge.refunded events\n4. Payment flow: buyer calls purchase → gets client_secret → Stripe.js confirms → webhook marks transaction COMPLETED → platform fee split\n5. Free listings: continue auto-completing (no Stripe needed)\n6. Alembic migration: add stripe columns\n7. pip install stripe\n8. Web: Stripe Elements on ListingDetail for checkout, seller onboarding in Settings\n9. iOS: web-based checkout sheet (SFSafariViewController) or Stripe iOS SDK\n\n.env.secrets (REQUIRED):\nSTRIPE_SECRET_KEY=sk_test_xxx\nSTRIPE_WEBHOOK_SECRET=whsec_xxx\n\n.env (OPTIONAL):\nSTRIPE_PLATFORM_FEE_PERCENT=10",
         "testStrategy": "Mock Stripe API with unittest.mock. Test Connect account creation. Test PaymentIntent creation with correct amount and fee split. Test webhook signature verification. Test payment_intent.succeeded webhook marks transaction COMPLETED. Test charge.refunded webhook marks transaction REFUNDED. Test free listings still auto-complete without Stripe. Test seller without Stripe account gets 400 on paid listing creation.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T00:22:23.278Z"
+        "updatedAt": "2026-02-22T01:17:16.048Z"
       },
       {
         "id": "66",
         "title": "Formal Attestation & Verification Badge Framework",
         "description": "Add structured verification badges (email_verified, identity_verified, capability_audited, agentgraph_verified) and formal audit records. Auto-issue system badges on verification events. Enforce endorsement tier requirements.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "63"
         ],
         "priority": "medium",
         "details": "Backend:\n1. New VerificationBadge model (src/models.py): id, entity_id, badge_type (email_verified|identity_verified|capability_audited|agentgraph_verified), issued_by (entity_id nullable for system), proof_url (nullable), expires_at (nullable), is_active, created_at\n2. New AuditRecord model: id, target_entity_id, auditor_entity_id, audit_type (security|capability|compliance), result (pass|fail|partial), findings (JSONB), report_url, created_at\n3. Auto-issue system badges:\n   - email_verified badge auto-created when email verification succeeds (update auth router)\n   - identity_verified badge when DID document is registered\n4. Endorsement tier enforcement (update CapabilityEndorsement logic):\n   - community_verified: requires 3+ attestations from entities with trust > 0.5\n   - formally_audited: requires AuditRecord with result=pass for that capability\n5. New endpoints:\n   - GET /entities/{id}/badges — list verification badges\n   - POST /entities/{id}/badges (admin only) — manually issue badge\n   - POST /entities/{id}/audit — submit audit record (verified auditors only)\n   - GET /entities/{id}/audit-history — audit trail\n6. Migration: verification_badges + audit_records tables\n7. Web: badge icons on profiles, audit history section\n8. iOS: badge icons row on ProfileDetailView",
         "testStrategy": "Test auto-badge on email verification. Test admin badge issuance. Test non-admin cannot issue badges. Test endorsement tier enforcement (community_verified requires 3 attestations from high-trust entities). Test audit record creation and linkage. Test badge expiry (expired badge excluded from active list). Test badge display in profile response.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.052Z"
       },
       {
         "id": "67",
         "title": "OpenClaw Bridge — Second Framework Adapter with Security Scanning",
         "description": "Build OpenClaw framework bridge following MCP bridge pattern. Add security scanning for imported agents, malicious pattern detection, framework trust modifier, and vulnerability database checking.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Backend:\n1. New module: src/bridges/openclaw/\n   - adapter.py — translate OpenClaw skill definitions to AgentGraph capability format\n   - security.py — scan skill code for malicious patterns (prompt injection regex, command injection, known CVE patterns)\n   - registry.py — import OpenClaw agent manifest → create Entity + capabilities + evolution record\n2. New FrameworkSecurityScan model (src/models.py): id, entity_id, framework (mcp|openclaw|langchain), scan_result (clean|warnings|critical), vulnerabilities (JSONB array), scanned_at\n3. Entity model additions: framework_source (nullable string: mcp|openclaw|langchain), framework_trust_modifier (float, default 1.0)\n4. Security scanning logic:\n   - Regex patterns for prompt injection, command injection, eval/exec usage\n   - Check against known malicious skill hashes (configurable blocklist)\n   - Severity classification: info, warning, critical\n   - Block import if any critical findings\n5. Framework trust modifier:\n   - OpenClaw agents start with 0.8x trust modifier (due to ecosystem CVE history)\n   - Clean security scan removes penalty (1.0x)\n   - Critical scan drops to 0.5x\n   - Modifier applied in trust score computation\n6. New endpoints (src/api/bridges_router.py):\n   - POST /bridges/openclaw/import — scan + register agent\n   - GET /bridges/openclaw/scan/{entity_id} — latest scan result\n   - POST /bridges/openclaw/rescan/{entity_id} — trigger rescan\n   - GET /bridges/status — supported frameworks + agent counts per framework\n7. Migration: framework_security_scans table + entity columns\n8. Tests: import flow, scan with clean fixture, scan with vulnerable fixture, trust modifier, rescan",
         "testStrategy": "Test clean agent import (no vulnerabilities). Test vulnerable agent blocked on import (critical finding). Test warning-level findings allow import with reduced trust. Test trust modifier applied correctly in score computation. Test rescan updates scan result and trust modifier. Test /bridges/status returns correct counts. Mock OpenClaw manifest format for import tests.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.055Z"
       },
       {
         "id": "68",
         "title": "Enhanced Profiles — Reviews UI, Attestations, Fork Lineage Tree",
         "description": "Build rich profile views with reviews tab, attestation display, verification badges, and fork lineage visualization on both web and iOS.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "63",
           "66"
@@ -889,46 +892,50 @@
         "priority": "medium",
         "details": "Web (web/src/pages/):\n1. ProfileDetail.tsx enhancements:\n   - Reviews tab: list reviews with star ratings, reviewer avatar/name, date, text\n   - Write review form (1-5 stars + text, authenticated, can't review self)\n   - Attestations tab: received attestations grouped by type (competent/reliable/safe/responsive)\n   - Badges section: verification badges with icons + expiry dates\n   - Fork lineage section (agents only)\n2. New component: ForkLineageTree.tsx\n   - Fetch from GET /evolution/{id}/lineage\n   - Render tree: parent → forks with version labels\n   - Click node → navigate to agent profile\n3. Update API calls for reviews, attestations, badges\n\niOS:\n4. ProfileDetailView.swift enhancements:\n   - Reviews section with star display and reviewer info\n   - Attestation pills grouped by type\n   - Badge icons row (email_verified, identity_verified, etc.)\n   - Fork lineage simple list (full tree deferred)\n5. New API methods in APIService.swift:\n   - getReviews(entityId:) → GET /profiles/{id}/reviews\n   - createReview(entityId:rating:text:) → POST /profiles/{id}/reviews\n   - getAttestations(entityId:) → GET /entities/{id}/attestations\n   - getBadges(entityId:) → GET /entities/{id}/badges\n6. New models in Entity.swift: ReviewResponse, BadgeResponse, AttestationResponse",
         "testStrategy": "Web: verify reviews tab renders with mock data. Verify write review form validates (1-5 stars required, text optional). Verify attestations grouped correctly by type. Verify badges show with correct icons. Verify fork lineage tree renders parent-child relationships. iOS: xcodegen build succeeds. Verify new API methods compile. Verify profile detail shows new sections.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.058Z"
       },
       {
         "id": "69",
         "title": "Scheduled Trust Recomputation & Attestation Decay",
         "description": "Add daily background job for batch trust recomputation with attestation decay, activity recency weighting, and admin stats endpoint.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "63"
         ],
         "priority": "medium",
         "details": "Backend:\n1. New module: src/jobs/trust_recompute.py\n   - async def recompute_all_trust_scores(db): iterate all active entities, recompute trust\n   - Apply attestation decay: >90 days = 50% weight, >180 days = 25% weight, >365 days = 10%\n   - Apply activity recency weighting: last 30 days = 100%, 30-90 days = 50%, >90 days = 25%\n   - Log stats: entities_processed, scores_changed (delta > 0.1), avg_score, computation_time_ms\n2. Scheduler integration:\n   - Option A: APScheduler (pip install apscheduler) with daily trigger\n   - Option B: FastAPI lifespan + asyncio.create_task with sleep loop\n   - Run at 3:00 AM UTC daily\n3. Admin endpoints:\n   - POST /admin/trust/recompute-all — trigger manual batch recompute (already partially exists, enhance)\n   - GET /admin/trust/stats — trust distribution: histogram (0-0.2, 0.2-0.4, etc.), avg by entity type, total entities scored\n4. Update batch_recompute() in trust/score.py to use decay + recency\n5. Tests: verify decay calculation at 91 days, 181 days. Verify recency weighting. Verify batch processes all entities. Verify stats endpoint returns correct histogram.",
         "testStrategy": "Create entities with attestations at various ages (30, 91, 181 days ago). Run batch recompute. Verify 91-day attestation weighted at 50%. Create entities with old-only activity vs recent activity. Verify recent activity scored higher. Test admin stats returns correct histogram buckets. Test manual trigger via POST /admin/trust/recompute-all.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.061Z"
       },
       {
         "id": "70",
         "title": "iOS Marketplace — Browse, Listing Detail, Purchase Flow",
         "description": "Build iOS marketplace with listing browsing, category filter, search, listing detail with reviews, and purchase flow (Stripe checkout via web view for paid, direct for free).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "65"
         ],
         "priority": "medium",
         "details": "iOS new files (all under ios/AgentGraph/):\n1. Sources/ViewModels/MarketplaceViewModel.swift\n   - Browse listings with category filter (service|skill|integration|tool|data), sort (newest|popular|price_asc|price_desc), search text\n   - Cursor-based pagination\n   - Featured listings section\n2. Sources/ViewModels/ListingDetailViewModel.swift\n   - Load single listing + reviews\n   - Purchase action (free = direct, paid = Stripe web checkout)\n3. Sources/Views/MarketplaceView.swift\n   - Category filter chips, sort picker, search bar\n   - Featured listings horizontal scroll\n   - Grid/list of listing cards (title, price, category, rating, view count)\n4. Sources/Views/ListingDetailView.swift\n   - Full listing info, seller profile link, reviews list, purchase button\n   - Price display: Free / .XX / .XX/mo\n5. Sources/Views/CreateListingView.swift\n   - Form: title, description, category picker, tags, pricing model, price\n   - Authenticated only\n6. Models in Entity.swift:\n   - ListingResponse, ListingListResponse, CreateListingRequest\n   - ListingReviewResponse, ListingReviewListResponse\n   - PurchaseResponse, PurchaseHistoryResponse\n7. API methods in APIService.swift:\n   - fetchListings, fetchFeaturedListings, getListing, createListing, purchaseListing\n   - getListingReviews, createListingReview, getPurchaseHistory\n8. Navigation: add Marketplace card to DiscoveryView featured section",
         "testStrategy": "xcodegen generate succeeds. xcodebuild clean build succeeds. Verify listing cards display with mock data. Verify category filter updates listing list. Verify purchase flow for free listing auto-completes. Verify paid listing shows Stripe checkout. Verify create listing form validates required fields.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.065Z"
       },
       {
         "id": "71",
         "title": "iOS Trust Detail & Attestation Views",
         "description": "Build iOS trust detail screen showing full 5-component breakdown, contextual scores, attestation list, and trust contestation form. Accessible by tapping trust badge on any profile.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "63"
         ],
         "priority": "low",
         "details": "iOS new files:\n1. Sources/Views/TrustDetailView.swift\n   - Trust score hero (large percentage, colored ring)\n   - 5-component breakdown bars (verification, activity, reputation, community, age)\n   - Contextual scores section (per-context trust if available)\n   - Attestation list: received attestations with attester name, type badge, context, date\n   - Create attestation button (for other profiles, not self)\n   - Contest form (text area + submit, visible on other profiles)\n   - Methodology link (opens methodology endpoint)\n2. Sources/ViewModels/TrustDetailViewModel.swift\n   - Fetch trust score, attestations, contextual scores\n   - Submit attestation, submit contestation\n3. API methods in APIService.swift:\n   - getTrustScore(entityId:) — already exists\n   - getAttestations(entityId:) → GET /entities/{id}/attestations\n   - createAttestation(targetId:type:context:comment:) → POST /entities/{id}/attestations\n   - getContextualTrust(entityId:context:) → GET /entities/{id}/trust/contextual\n   - contestTrust(entityId:reason:) → POST /entities/{id}/trust/contest\n4. Models in Entity.swift: AttestationResponse (if not already added by task 68)\n5. Navigation: tap TrustBadge on ProfileView/ProfileDetailView → push TrustDetailView",
         "testStrategy": "xcodegen generate succeeds. xcodebuild clean build. Verify trust breakdown renders 5 components. Verify attestation list populates. Verify create attestation form submits. Verify contest form submits. Verify navigation from trust badge works.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T01:17:16.068Z"
       },
       {
         "id": "72",
@@ -954,9 +961,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-22T00:22:23.278Z",
+      "lastModified": "2026-02-22T01:19:21.426Z",
       "taskCount": 72,
-      "completedCount": 42,
+      "completedCount": 52,
       "tags": [
         "master"
       ]
