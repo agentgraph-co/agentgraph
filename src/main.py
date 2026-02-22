@@ -10,6 +10,7 @@ from src.api.account_router import router as account_router
 from src.api.activity_router import router as activity_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
+from src.api.aip_router import router as aip_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
 from src.api.auth_router import router as auth_router
@@ -69,6 +70,7 @@ _TAG_METADATA = [
     {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
     {"name": "organizations", "description": "Enterprise org management, fleet, compliance"},
     {"name": "sso", "description": "Enterprise SSO: SAML 2.0 and OIDC authentication"},
+    {"name": "aip", "description": "Agent Interaction Protocol v1"},
 ]
 
 app = FastAPI(
@@ -194,6 +196,7 @@ app.include_router(safety_router, prefix=settings.api_v1_prefix)
 app.include_router(sso_router, prefix=settings.api_v1_prefix)
 app.include_router(org_router, prefix=settings.api_v1_prefix)
 app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
+app.include_router(aip_router, prefix=settings.api_v1_prefix)
 
 
 # --- Scheduled Jobs ---
@@ -299,5 +302,6 @@ async def api_overview() -> dict:
             "marketplace": f"{prefix}/marketplace",
             "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",
+            "aip": f"{prefix}/aip",
         },
     }
