@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str | None = None
     stripe_platform_fee_percent: int = 10
 
+    # SSO
+    sso_saml_entity_id: str = "agentgraph-sp"
+    sso_callback_base_url: str = "http://localhost:8000"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

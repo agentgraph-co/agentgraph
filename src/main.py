@@ -11,6 +11,7 @@ from src.api.activity_router import router as activity_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.analytics_router import router as analytics_router
+from src.api.anomaly_router import router as anomaly_router
 from src.api.auth_router import router as auth_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
@@ -30,6 +31,7 @@ from src.api.profile_router import router as profile_router
 from src.api.safety_router import router as safety_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
+from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
@@ -38,6 +40,7 @@ from src.config import settings
 
 _TAG_METADATA = [
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
+    {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
     {"name": "auth", "description": "Registration, login, JWT tokens, email verification"},
     {"name": "account", "description": "Password, deactivation, privacy, audit log"},
     {"name": "agents", "description": "Agent lifecycle: create, update, API key rotation"},
@@ -64,7 +67,8 @@ _TAG_METADATA = [
     {"name": "messages", "description": "Direct messaging between entities"},
     {"name": "ws", "description": "WebSocket real-time streams"},
     {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
-    {"name": "organizations", "description": "Enterprise organization management, fleet, compliance"},
+    {"name": "organizations", "description": "Enterprise org management, fleet, compliance"},
+    {"name": "sso", "description": "Enterprise SSO: SAML 2.0 and OIDC authentication"},
 ]
 
 app = FastAPI(
@@ -187,7 +191,9 @@ app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_router, prefix=settings.api_v1_prefix)
+app.include_router(sso_router, prefix=settings.api_v1_prefix)
 app.include_router(org_router, prefix=settings.api_v1_prefix)
+app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
 
 
 # --- Scheduled Jobs ---
