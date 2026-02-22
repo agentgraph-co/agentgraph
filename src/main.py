@@ -178,6 +178,34 @@ app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
 
+# --- Scheduled Jobs ---
+# TODO: Add APScheduler for daily trust recompute cron job.
+# When ready, install apscheduler and wire like this:
+#
+#   from apscheduler.schedulers.asyncio import AsyncIOScheduler
+#   from apscheduler.triggers.cron import CronTrigger
+#   from src.database import async_session
+#   from src.jobs.trust_recompute import run_trust_recompute
+#
+#   scheduler = AsyncIOScheduler()
+#
+#   async def daily_trust_recompute():
+#       async with async_session() as db:
+#           summary = await run_trust_recompute(db)
+#           await db.commit()
+#           logging.getLogger(__name__).info("Daily trust recompute: %s", summary)
+#
+#   scheduler.add_job(
+#       daily_trust_recompute,
+#       CronTrigger(hour=3, minute=0),  # 3:00 AM UTC daily
+#       id="trust_recompute",
+#       replace_existing=True,
+#   )
+#   scheduler.start()
+#
+# For now, trust recompute is triggered manually via POST /admin/trust/recompute-all
+
+
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Clean up Redis connections on shutdown."""
