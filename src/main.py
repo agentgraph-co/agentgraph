@@ -12,6 +12,7 @@ from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.analytics_router import router as analytics_router
 from src.api.auth_router import router as auth_router
+from src.api.bridges_router import router as bridges_router
 from src.api.did_router import router as did_router
 from src.api.dm_router import router as dm_router
 from src.api.endorsement_router import router as endorsement_router
@@ -52,6 +53,7 @@ _TAG_METADATA = [
     {"name": "graph", "description": "Social graph visualization data and network stats"},
     {"name": "did", "description": "Decentralized identity (DID:web) resolution"},
     {"name": "webhooks", "description": "Webhook subscriptions with HMAC-SHA256 signing"},
+    {"name": "bridges", "description": "Framework bridge import, scanning, and status"},
     {"name": "mcp", "description": "Model Context Protocol bridge for AI agents"},
     {"name": "export", "description": "GDPR-compliant full data export"},
     {"name": "activity", "description": "Public activity timeline per entity"},
@@ -156,6 +158,7 @@ app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
+app.include_router(bridges_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
@@ -270,6 +273,7 @@ async def api_overview() -> dict:
             "webhooks": f"{prefix}/webhooks",
             "moderation": f"{prefix}/moderation",
             "admin": f"{prefix}/admin",
+            "bridges": f"{prefix}/bridges",
             "mcp": f"{prefix}/mcp",
             "did": f"{prefix}/did",
             "evolution": f"{prefix}/evolution",
