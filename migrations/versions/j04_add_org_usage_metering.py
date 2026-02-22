@@ -1,7 +1,7 @@
 """Add org_usage_records table and organization_id to api_keys
 
 Revision ID: j04_org_usage_metering
-Revises: j03_aip_tables
+Revises: j02_capability_marketplace
 Create Date: 2026-02-22 12:00:00.000000
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "j04_org_usage_metering"
-down_revision = "j03_aip_tables"
+down_revision = "j02_capability_marketplace"
 branch_labels = None
 depends_on = None
 
