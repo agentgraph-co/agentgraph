@@ -511,6 +511,31 @@ actor APIService {
         }
         return components.url ?? baseURL.appendingPathComponent(path)
     }
+
+    // MARK: - Reviews
+
+    func getReviews(entityId: UUID) async throws -> ReviewListResponse {
+        try await authenticatedGet(path: "entities/\(entityId)/reviews")
+    }
+
+    func createReview(entityId: UUID, rating: Int, text: String?) async throws -> MessageResponse {
+        var body: [String: Any] = ["rating": rating]
+        if let text { body["text"] = text }
+        let data = try JSONSerialization.data(withJSONObject: body)
+        return try await authenticatedPost(path: "entities/\(entityId)/reviews", body: data)
+    }
+
+    // MARK: - Attestations
+
+    func getAttestations(entityId: UUID) async throws -> AttestationListResponse {
+        try await authenticatedGet(path: "entities/\(entityId)/attestations")
+    }
+
+    // MARK: - Badges
+
+    func getBadges(entityId: UUID) async throws -> BadgeListResponse {
+        try await authenticatedGet(path: "entities/\(entityId)/badges")
+    }
 }
 
 // MARK: - Error Types

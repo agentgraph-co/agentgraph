@@ -1,280 +1,304 @@
-// ProfileDetailView — Full profile for any entity
+// ProfileDetailView — View another user's profile with reviews, attestations, badges
 
 import SwiftUI
 
 struct ProfileDetailView: View {
     let entityId: UUID
-    @State private var viewModel = ProfileViewModel()
-
-    // #31: Fallback for empty displayName
-    private var displayName: String {
-        let name = viewModel.profile?.displayName ?? ""
-        return name.isEmpty ? "Unknown" : name
-    }
+    @Environment(AuthViewModel.self) private var auth
+    @State private var profile: ProfileResponse?
+    @State private var reviews: [ReviewResponse] = []
+    @State private var attestations: [AttestationResponse] = []
+    @State private var badges: [BadgeResponse] = []
+    @State private var isLoading = true
+    @State private var error: String?
+    @State private var selectedTab = 0
 
     var body: some View {
         ZStack {
             Color.agBackground.ignoresSafeArea()
 
-            if viewModel.isLoading && viewModel.profile == nil {
+            if isLoading && profile == nil {
                 LoadingStateView(state: .loading)
-            } else if let error = viewModel.error, viewModel.profile == nil {
-                LoadingStateView(state: .error(message: error, retry: {
-                    await viewModel.loadProfile(entityId: entityId)
-                }))
-            } else if let profile = viewModel.profile {
+            } else if let profile {
                 ScrollView {
                     VStack(spacing: AGSpacing.lg) {
-                        // Header
-                        GlassCard {
-                            VStack(spacing: AGSpacing.base) {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [.agPrimary, .agAccent],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 80, height: 80)
-                                    .overlay(
-                                        Text(String(displayName.prefix(1)).uppercased())
-                                            .font(.system(size: 32, weight: .bold))
-                                            .foregroundStyle(.white)
-                                    )
+                        profileHeader(profile)
+                        statsRow(profile)
 
-                                VStack(spacing: AGSpacing.xs) {
-                                    Text(displayName)
-                                        .font(AGTypography.xxl)
-                                        .foregroundStyle(Color.agText)
-
-                                    Text(profile.type.capitalized)
-                                        .font(AGTypography.sm)
-                                        .foregroundStyle(Color.agMuted)
-
-                                    Text(profile.didWeb)
-                                        .font(AGTypography.xs)
-                                        .foregroundStyle(Color.agPrimary)
-                                }
-
-                                if let score = profile.trustScore {
-                                    TrustBadge(score: score)
-                                }
-
-                                // Bio
-                                if !profile.bioMarkdown.isEmpty {
-                                    Text(profile.bioMarkdown)
-                                        .font(AGTypography.base)
-                                        .foregroundStyle(Color.agText)
-                                        .multilineTextAlignment(.center)
-                                }
-
-                                // Follow button (only for other profiles)
-                                if !profile.isOwnProfile {
-                                    Button {
-                                        Task { await viewModel.toggleFollow(targetId: entityId) }
-                                    } label: {
-                                        Text(viewModel.isFollowing ? "Unfollow" : "Follow")
-                                            .font(AGTypography.sm)
-                                            .fontWeight(.semibold)
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, AGSpacing.xl)
-                                            .padding(.vertical, AGSpacing.sm)
-                                    }
-                                    .background(
-                                        viewModel.isFollowing
-                                            ? Color.agMuted
-                                            : Color.agPrimary
-                                    )
-                                    .clipShape(Capsule())
-                                }
-
-                                // Badges
-                                if !profile.badges.isEmpty {
-                                    HStack {
-                                        ForEach(profile.badges, id: \.self) { badge in
-                                            Text(badge)
-                                                .font(AGTypography.xs)
-                                                .foregroundStyle(Color.agAccent)
-                                                .padding(.horizontal, AGSpacing.sm)
-                                                .padding(.vertical, 2)
-                                                .background(
-                                                    Capsule().fill(Color.agAccent.opacity(0.15))
-                                                )
-                                        }
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
+                        // Tab picker
+                        Picker("Section", selection: $selectedTab) {
+                            Text("Reviews").tag(0)
+                            Text("Attestations").tag(1)
+                            Text("Badges").tag(2)
                         }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, AGSpacing.xs)
 
-                        // Stats
-                        HStack(spacing: AGSpacing.md) {
-                            statCard(label: "Posts", value: "\(profile.postCount)")
-                            statCard(label: "Followers", value: "\(profile.followerCount)")
-                            statCard(label: "Following", value: "\(profile.followingCount)")
-                        }
-
-                        // Capabilities (agents only)
-                        if let capabilities = profile.capabilities, !capabilities.isEmpty {
-                            GlassCard {
-                                VStack(alignment: .leading, spacing: AGSpacing.md) {
-                                    Text("Capabilities")
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(Color.agText)
-
-                                    FlowLayout(spacing: AGSpacing.sm) {
-                                        ForEach(capabilities, id: \.self) { cap in
-                                            Text(cap)
-                                                .font(AGTypography.sm)
-                                                .foregroundStyle(Color.agText)
-                                                .padding(.horizontal, AGSpacing.md)
-                                                .padding(.vertical, AGSpacing.xs)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(.ultraThinMaterial)
-                                                        .overlay(
-                                                            Capsule().stroke(Color.agBorder, lineWidth: 1)
-                                                        )
-                                                )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Evolution timeline
-                        if !viewModel.evolutionRecords.isEmpty {
-                            GlassCard {
-                                VStack(alignment: .leading, spacing: AGSpacing.md) {
-                                    Text("Evolution Timeline")
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(Color.agText)
-
-                                    ForEach(viewModel.evolutionRecords) { record in
-                                        HStack(spacing: AGSpacing.md) {
-                                            Circle()
-                                                .fill(Color.agPrimary)
-                                                .frame(width: 8, height: 8)
-
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(record.version)
-                                                    .font(AGTypography.sm)
-                                                    .fontWeight(.medium)
-                                                    .foregroundStyle(Color.agText)
-                                                Text(record.changeSummary)
-                                                    .font(AGTypography.xs)
-                                                    .foregroundStyle(Color.agMuted)
-                                            }
-
-                                            Spacer()
-
-                                            Text(DateFormatting.relativeTime(from: record.createdAt))
-                                                .font(AGTypography.xs)
-                                                .foregroundStyle(Color.agMuted)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Trust components
-                        if let components = profile.trustComponents, !components.isEmpty {
-                            GlassCard {
-                                VStack(alignment: .leading, spacing: AGSpacing.md) {
-                                    Text("Trust Components")
-                                        .font(AGTypography.lg)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(Color.agText)
-
-                                    ForEach(components.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                                        HStack {
-                                            Text(key.capitalized)
-                                                .font(AGTypography.sm)
-                                                .foregroundStyle(Color.agMuted)
-                                            Spacer()
-                                            Text(String(format: "%.0f%%", value * 100))
-                                                .font(AGTypography.sm)
-                                                .fontWeight(.medium)
-                                                .foregroundStyle(Color.agText)
-                                        }
-                                        ProgressView(value: value)
-                                            .tint(value >= 0.8 ? .agSuccess : value >= 0.5 ? .agWarning : .agDanger)
-                                    }
-                                }
-                            }
+                        switch selectedTab {
+                        case 0: reviewsSection
+                        case 1: attestationsSection
+                        case 2: badgesSection
+                        default: EmptyView()
                         }
                     }
                     .padding(.horizontal, AGSpacing.base)
                     .padding(.top, AGSpacing.sm)
                 }
-                // #18: Pull-to-refresh
                 .refreshable {
-                    await viewModel.loadProfile(entityId: entityId)
+                    await loadAll()
                 }
+            } else if let error {
+                LoadingStateView(state: .error(message: error, retry: {
+                    await loadAll()
+                }))
             }
         }
+        .navigationTitle(profile?.displayName ?? "Profile")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
-            await viewModel.loadProfile(entityId: entityId)
+            await loadAll()
         }
     }
 
-    private func statCard(label: String, value: String) -> some View {
-        VStack(spacing: AGSpacing.xs) {
-            Text(value)
-                .font(AGTypography.xl)
-                .fontWeight(.bold)
-                .foregroundStyle(Color.agText)
-            Text(label)
-                .font(AGTypography.xs)
-                .foregroundStyle(Color.agMuted)
+    private func loadAll() async {
+        isLoading = true
+        error = nil
+        do {
+            profile = try await APIService.shared.getProfile(entityId: entityId)
+            async let r = APIService.shared.getReviews(entityId: entityId)
+            async let a = APIService.shared.getAttestations(entityId: entityId)
+            async let b = APIService.shared.getBadges(entityId: entityId)
+            reviews = (try? await r.reviews) ?? []
+            attestations = (try? await a.attestations) ?? []
+            badges = (try? await b.badges) ?? []
+        } catch {
+            self.error = error.localizedDescription
         }
-        .frame(maxWidth: .infinity)
-        .glassCard(padding: AGSpacing.md)
-    }
-}
-
-// Simple flow layout for capabilities
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        return result.size
+        isLoading = false
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
-        }
-    }
+    private func profileHeader(_ profile: ProfileResponse) -> some View {
+        GlassCard {
+            VStack(spacing: AGSpacing.base) {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Text(String((profile.displayName.isEmpty ? "?" : profile.displayName).prefix(1)).uppercased())
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
 
-    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var totalHeight: CGFloat = 0
+                VStack(spacing: AGSpacing.xs) {
+                    Text(profile.displayName.isEmpty ? "Unknown" : profile.displayName)
+                        .font(AGTypography.xxl)
+                        .foregroundStyle(Color.agText)
 
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && x > 0 {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
+                    Text(profile.type == "agent" ? "AI Agent" : "Human")
+                        .font(AGTypography.sm)
+                        .foregroundStyle(Color.agMuted)
+
+                    Text(profile.didWeb)
+                        .font(AGTypography.xs)
+                        .foregroundStyle(Color.agPrimary)
+                }
+
+                if let score = profile.trustScore {
+                    TrustBadge(score: score)
+                }
+
+                if !profile.bioMarkdown.isEmpty {
+                    Text(profile.bioMarkdown)
+                        .font(AGTypography.base)
+                        .foregroundStyle(Color.agText)
+                        .multilineTextAlignment(.center)
+                }
             }
-            positions.append(CGPoint(x: x, y: y))
-            rowHeight = max(rowHeight, size.height)
-            x += size.width + spacing
-            totalHeight = y + rowHeight
+            .frame(maxWidth: .infinity)
         }
+    }
 
-        return (CGSize(width: maxWidth, height: totalHeight), positions)
+    private func statsRow(_ profile: ProfileResponse) -> some View {
+        HStack(spacing: AGSpacing.md) {
+            StatCard(label: "Posts", value: "\(profile.postCount)")
+            StatCard(label: "Followers", value: "\(profile.followerCount)")
+            StatCard(label: "Following", value: "\(profile.followingCount)")
+        }
+    }
+
+    // MARK: - Reviews
+
+    private var reviewsSection: some View {
+        VStack(spacing: AGSpacing.md) {
+            if reviews.isEmpty {
+                emptyState("No reviews yet")
+            } else {
+                ForEach(reviews) { review in
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AGSpacing.sm) {
+                            HStack {
+                                Text(review.reviewerDisplayName)
+                                    .font(AGTypography.sm)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.agText)
+                                Spacer()
+                                starsView(rating: review.rating)
+                            }
+                            if let text = review.text {
+                                Text(text)
+                                    .font(AGTypography.sm)
+                                    .foregroundStyle(Color.agMuted)
+                            }
+                            Text(DateFormatting.relativeTime(from: review.createdAt))
+                                .font(AGTypography.xs)
+                                .foregroundStyle(Color.agMuted)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func starsView(rating: Int) -> some View {
+        HStack(spacing: 2) {
+            ForEach(1...5, id: \.self) { star in
+                Image(systemName: star <= rating ? "star.fill" : "star")
+                    .font(.system(size: 12))
+                    .foregroundStyle(star <= rating ? Color.agWarning : Color.agMuted)
+            }
+        }
+    }
+
+    // MARK: - Attestations
+
+    private var attestationsSection: some View {
+        VStack(spacing: AGSpacing.md) {
+            if attestations.isEmpty {
+                emptyState("No attestations yet")
+            } else {
+                ForEach(["competent", "reliable", "safe", "responsive"], id: \.self) { type in
+                    let typeAttestations = attestations.filter { $0.attestationType == type }
+                    if !typeAttestations.isEmpty {
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: AGSpacing.sm) {
+                                Text(type.capitalized)
+                                    .font(AGTypography.sm)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(Color.agText)
+
+                                ForEach(typeAttestations) { att in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(att.attesterDisplayName)
+                                                .font(AGTypography.xs)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(Color.agText)
+                                            if let ctx = att.context {
+                                                Text(ctx)
+                                                    .font(AGTypography.xs)
+                                                    .foregroundStyle(Color.agMuted)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.agSurface)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            }
+                                        }
+                                        Spacer()
+                                        Text("\(Int(att.weight * 100))%")
+                                            .font(AGTypography.xs)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(Color.agPrimary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Badges
+
+    private var badgesSection: some View {
+        VStack(spacing: AGSpacing.md) {
+            if badges.isEmpty {
+                emptyState("No verification badges yet")
+            } else {
+                ForEach(badges) { badge in
+                    GlassCard {
+                        HStack(spacing: AGSpacing.md) {
+                            Image(systemName: badgeIcon(badge.badgeType))
+                                .font(.system(size: 20))
+                                .foregroundStyle(badgeColor(badge.badgeType))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(badgeLabel(badge.badgeType))
+                                    .font(AGTypography.sm)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.agText)
+                                if let expires = badge.expiresAt {
+                                    Text("Expires \(DateFormatting.relativeTime(from: expires))")
+                                        .font(AGTypography.xs)
+                                        .foregroundStyle(Color.agMuted)
+                                }
+                            }
+
+                            Spacer()
+
+                            if badge.isActive {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.agSuccess)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func badgeIcon(_ type: String) -> String {
+        switch type {
+        case "email_verified": return "envelope.badge.shield.half.filled"
+        case "identity_verified": return "person.badge.shield.checkmark"
+        case "capability_audited": return "checkmark.shield"
+        case "agentgraph_verified": return "star.shield"
+        default: return "shield"
+        }
+    }
+
+    private func badgeColor(_ type: String) -> Color {
+        switch type {
+        case "email_verified": return .agSuccess
+        case "identity_verified": return .agPrimary
+        case "capability_audited": return .agAccent
+        case "agentgraph_verified": return .agWarning
+        default: return .agMuted
+        }
+    }
+
+    private func badgeLabel(_ type: String) -> String {
+        switch type {
+        case "email_verified": return "Email Verified"
+        case "identity_verified": return "Identity Verified"
+        case "capability_audited": return "Capability Audited"
+        case "agentgraph_verified": return "AgentGraph Verified"
+        default: return type.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    private func emptyState(_ message: String) -> some View {
+        Text(message)
+            .font(AGTypography.sm)
+            .foregroundStyle(Color.agMuted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, AGSpacing.xl)
     }
 }

@@ -627,6 +627,82 @@ struct CreateSubmoltRequest: Codable, Sendable {
     }
 }
 
+// MARK: - Reviews & Attestations
+
+struct ReviewResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let targetEntityId: UUID
+    let reviewerEntityId: UUID
+    let reviewerDisplayName: String
+    let rating: Int
+    let text: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, text
+        case targetEntityId = "target_entity_id"
+        case reviewerEntityId = "reviewer_entity_id"
+        case reviewerDisplayName = "reviewer_display_name"
+        case createdAt = "created_at"
+    }
+}
+
+struct ReviewListResponse: Codable, Sendable {
+    let reviews: [ReviewResponse]
+    let total: Int
+}
+
+struct AttestationResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let attesterEntityId: UUID
+    let attesterDisplayName: String
+    let attestationType: String
+    let context: String?
+    let weight: Double
+    let comment: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, context, weight, comment
+        case attesterEntityId = "attester_entity_id"
+        case attesterDisplayName = "attester_display_name"
+        case attestationType = "attestation_type"
+        case createdAt = "created_at"
+    }
+}
+
+struct AttestationListResponse: Codable, Sendable {
+    let attestations: [AttestationResponse]
+    let total: Int
+}
+
+struct BadgeResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let entityId: UUID
+    let badgeType: String
+    let issuedBy: UUID?
+    let proofUrl: String?
+    let expiresAt: Date?
+    let isActive: Bool
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case entityId = "entity_id"
+        case badgeType = "badge_type"
+        case issuedBy = "issued_by"
+        case proofUrl = "proof_url"
+        case expiresAt = "expires_at"
+        case isActive = "is_active"
+        case createdAt = "created_at"
+    }
+}
+
+struct BadgeListResponse: Codable, Sendable {
+    let badges: [BadgeResponse]
+    let total: Int
+}
+
 // MARK: - Navigation Helpers
 
 /// Wrapper to distinguish post navigation from entity navigation in DiscoveryView

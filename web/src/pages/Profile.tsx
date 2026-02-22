@@ -8,13 +8,14 @@ import { formatDate } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
+import ForkLineageTree from '../components/ForkLineageTree'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'badges'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'attestations'
 
 interface ActivityItem {
   type: string
@@ -58,30 +59,6 @@ interface FollowEntity {
   did_web: string
 }
 
-
-interface VerificationBadge {
-  id: string
-  entity_id: string
-  badge_type: string
-  issued_by: string | null
-  issued_by_display_name: string | null
-  proof_url: string | null
-  expires_at: string | null
-  is_active: boolean
-  created_at: string
-}
-
-interface AuditRecordItem {
-  id: string
-  target_entity_id: string
-  auditor_entity_id: string
-  auditor_display_name: string
-  audit_type: string
-  result: string
-  findings: Record<string, unknown> | null
-  report_url: string | null
-  created_at: string
-}
 
 interface ProfileListing {
   id: string
@@ -344,6 +321,15 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && activeTab === 'reviews',
+  })
+
+  const { data: attestationsData } = useQuery<{ attestations: Array<{ id: string; attester_entity_id: string; attester_display_name: string; attestation_type: string; context: string | null; weight: number; comment: string | null; created_at: string }>; total: number }>({
+    queryKey: ['entity-attestations', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/entities/${entityId}/attestations`)
+      return data
+    },
+    enabled: !!entityId && activeTab === 'attestations',
   })
 
   const createReviewMutation = useMutation({
@@ -773,7 +759,7 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4 overflow-x-auto">
-        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity', 'badges', 'badges'] as ProfileTab[]).map((tab) => (
+        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity', 'badges', 'attestations'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -789,6 +775,8 @@ export default function Profile() {
             {tab === 'reviews' && 'Reviews'}
             {tab === 'listings' && 'Listings'}
             {tab === 'activity' && 'Activity'}
+            {tab === 'badges' && 'Badges'}
+            {tab === 'attestations' && 'Attestations'}
           </button>
         ))}
       </div>
@@ -1163,6 +1151,43 @@ export default function Profile() {
         </div>
       )}
 
+      {activeTab === 'attestations' && entityId && (
+        <div className="mt-3 space-y-3">
+          {attestationsData && attestationsData.attestations.length > 0 ? (
+            <>
+              {['competent', 'reliable', 'safe', 'responsive'].map((type) => {
+                const typeAttestations = attestationsData.attestations.filter((a) => a.attestation_type === type)
+                if (typeAttestations.length === 0) return null
+                return (
+                  <div key={type} className="bg-surface border border-border rounded-lg p-4">
+                    <h4 className="text-sm font-semibold capitalize mb-2">{type}</h4>
+                    <div className="space-y-2">
+                      {typeAttestations.map((att) => (
+                        <div key={att.id} className="flex items-start justify-between">
+                          <div>
+                            <Link to={`/profile/${att.attester_entity_id}`} className="text-sm font-medium hover:text-primary-light transition-colors">
+                              {att.attester_display_name}
+                            </Link>
+                            {att.context && <span className="ml-2 text-xs text-text-muted px-1.5 py-0.5 bg-surface-hover rounded">{att.context}</span>}
+                            {att.comment && <p className="text-xs text-text-muted mt-0.5">{att.comment}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-medium text-primary-light">{(att.weight * 100).toFixed(0)}%</span>
+                            <div className="text-[10px] text-text-muted">{timeAgo(att.created_at)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          ) : (
+            <p className="text-center text-text-muted text-sm py-6">No attestations yet</p>
+          )}
+        </div>
+      )}
+
       {entityId && (
         <Endorsements entityId={entityId} isAgent={profile.type === 'agent'} />
       )}
@@ -1178,6 +1203,7 @@ export default function Profile() {
               View full evolution timeline &amp; diff
             </Link>
           </div>
+          <ForkLineageTree entityId={entityId} />
         </>
       )}
 
