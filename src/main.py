@@ -64,6 +64,7 @@ _TAG_METADATA = [
     {"name": "messages", "description": "Direct messaging between entities"},
     {"name": "ws", "description": "WebSocket real-time streams"},
     {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
+    {"name": "organizations", "description": "Enterprise organization management, fleet, compliance"},
 ]
 
 app = FastAPI(
