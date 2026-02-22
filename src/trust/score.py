@@ -2,24 +2,38 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import CapabilityEndorsement, Entity, Post, Review, TrustScore, Vote
+from src.models import (
+    CapabilityEndorsement,
+    Entity,
+    Post,
+    Review,
+    TrustAttestation,
+    TrustScore,
+    Vote,
+)
 
-# Weights for trust score components
+# Weights for trust score components (v2: 5 components)
 VERIFICATION_WEIGHT = 0.35
-AGE_WEIGHT = 0.15
-ACTIVITY_WEIGHT = 0.25
-REPUTATION_WEIGHT = 0.25
+AGE_WEIGHT = 0.10
+ACTIVITY_WEIGHT = 0.20
+REPUTATION_WEIGHT = 0.15
+COMMUNITY_WEIGHT = 0.20
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
 
 # Activity log scale denominator
 ACTIVITY_LOG_CAP = 100  # log(100) is the max normalizer
+
+# Community attestation config
+ATTESTATION_MAX_PER_ATTESTER = 10  # gaming cap
+ATTESTATION_DECAY_90_DAYS = 0.5
+ATTESTATION_DECAY_180_DAYS = 0.25
 
 
 def _verification_factor(entity: Entity) -> float:
@@ -52,8 +66,6 @@ async def _activity_factor(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> float:
     """Activity in last 30 days, log-scaled to prevent gaming."""
-    from datetime import timedelta
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
 
     # Count posts
@@ -117,6 +129,85 @@ async def _reputation_factor(
     return 0.0
 
 
+async def _community_factor(
+    db: AsyncSession, entity_id: uuid.UUID
+) -> tuple[float, dict[str, float]]:
+    """Community attestation factor based on trust attestations.
+
+    Returns (overall_community_score, contextual_scores_dict).
+
+    Attestations are weighted by the attester's trust score at creation time.
+    Decay: >90 days = 50% weight, >180 days = 25% weight.
+    Gaming cap: max 10 attestations per attester for this target.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff_90 = now - timedelta(days=90)
+    cutoff_180 = now - timedelta(days=180)
+
+    # Fetch all attestations for this entity
+    result = await db.execute(
+        select(TrustAttestation).where(
+            TrustAttestation.target_entity_id == entity_id,
+        )
+    )
+    attestations = result.scalars().all()
+
+    if not attestations:
+        return 0.0, {}
+
+    # Apply gaming cap: group by attester, keep max ATTESTATION_MAX_PER_ATTESTER per attester
+    attester_counts: dict[uuid.UUID, int] = {}
+    filtered: list[TrustAttestation] = []
+    for att in attestations:
+        count = attester_counts.get(att.attester_entity_id, 0)
+        if count < ATTESTATION_MAX_PER_ATTESTER:
+            filtered.append(att)
+            attester_counts[att.attester_entity_id] = count + 1
+
+    if not filtered:
+        return 0.0, {}
+
+    # Compute overall weighted average with decay
+    total_weight = 0.0
+    weighted_sum = 0.0
+    # Track per-context scores
+    context_weights: dict[str, float] = {}
+    context_sums: dict[str, float] = {}
+
+    for att in filtered:
+        w = att.weight or 0.5
+        created = att.created_at
+        if created and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+
+        # Apply age decay
+        if created and created < cutoff_180:
+            w *= ATTESTATION_DECAY_180_DAYS
+        elif created and created < cutoff_90:
+            w *= ATTESTATION_DECAY_90_DAYS
+
+        weighted_sum += w
+        total_weight += 1.0
+
+        # Per-context tracking
+        ctx = att.context
+        if ctx:
+            context_sums[ctx] = context_sums.get(ctx, 0.0) + w
+            context_weights[ctx] = context_weights.get(ctx, 0.0) + 1.0
+
+    overall = weighted_sum / total_weight if total_weight > 0 else 0.0
+    # Cap at 1.0
+    overall = min(overall, 1.0)
+
+    # Compute contextual scores
+    contextual_scores: dict[str, float] = {}
+    for ctx in context_sums:
+        ctx_score = context_sums[ctx] / context_weights[ctx]
+        contextual_scores[ctx] = round(min(ctx_score, 1.0), 4)
+
+    return overall, contextual_scores
+
+
 async def compute_trust_score(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> TrustScore:
@@ -129,12 +220,14 @@ async def compute_trust_score(
     age = _age_factor(entity)
     activity = await _activity_factor(db, entity_id)
     reputation = await _reputation_factor(db, entity_id)
+    community, contextual_scores = await _community_factor(db, entity_id)
 
     score = (
         VERIFICATION_WEIGHT * verification
         + AGE_WEIGHT * age
         + ACTIVITY_WEIGHT * activity
         + REPUTATION_WEIGHT * reputation
+        + COMMUNITY_WEIGHT * community
     )
 
     components = {
@@ -142,6 +235,7 @@ async def compute_trust_score(
         "age": round(age, 4),
         "activity": round(activity, 4),
         "reputation": round(reputation, 4),
+        "community": round(community, 4),
     }
 
     # Upsert trust score
@@ -151,6 +245,7 @@ async def compute_trust_score(
     if existing:
         existing.score = round(score, 4)
         existing.components = components
+        existing.contextual_scores = contextual_scores
         existing.computed_at = datetime.now(timezone.utc)
         trust_score = existing
     else:
@@ -159,6 +254,7 @@ async def compute_trust_score(
             entity_id=entity_id,
             score=round(score, 4),
             components=components,
+            contextual_scores=contextual_scores,
             computed_at=datetime.now(timezone.utc),
         )
         db.add(trust_score)

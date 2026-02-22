@@ -1269,6 +1269,138 @@ async def _handle_mark_notifications_read(
     return {"marked_read": count}
 
 
+async def _handle_attest_entity(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.sql import func
+
+    from src.models import TrustAttestation, TrustScore
+
+    target_id = uuid.UUID(args["entity_id"])
+    attestation_type = args["attestation_type"]
+
+    valid_types = {"competent", "reliable", "safe", "responsive"}
+    if attestation_type not in valid_types:
+        raise MCPError(
+            "invalid_request",
+            f"Invalid attestation_type. Must be one of: {', '.join(sorted(valid_types))}",
+        )
+
+    if entity.id == target_id:
+        raise MCPError("invalid_request", "Cannot attest for yourself")
+
+    target = await db.get(Entity, target_id)
+    if target is None or not target.is_active:
+        raise MCPError("not_found", "Entity not found")
+
+    # Check duplicate
+    existing = await db.scalar(
+        select(TrustAttestation).where(
+            TrustAttestation.attester_entity_id == entity.id,
+            TrustAttestation.target_entity_id == target_id,
+            TrustAttestation.attestation_type == attestation_type,
+        )
+    )
+    if existing:
+        raise MCPError("conflict", "Already attested this type for this entity")
+
+    # Gaming cap
+    att_count = await db.scalar(
+        select(func.count()).select_from(TrustAttestation).where(
+            TrustAttestation.attester_entity_id == entity.id,
+            TrustAttestation.target_entity_id == target_id,
+        )
+    ) or 0
+    if att_count >= 10:
+        raise MCPError("conflict", "Gaming cap reached: max 10 attestations per target")
+
+    # Get attester's trust score for weight
+    attester_ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == entity.id)
+    )
+    weight = attester_ts.score if attester_ts else 0.5
+
+    # Content filter on comment
+    comment = args.get("comment")
+    if comment:
+        from src.content_filter import check_content, sanitize_html
+
+        filter_result = check_content(comment)
+        if not filter_result.is_clean:
+            raise MCPError(
+                "content_rejected",
+                f"Comment rejected: {', '.join(filter_result.flags)}",
+            )
+        comment = sanitize_html(comment)
+
+    attestation = TrustAttestation(
+        id=uuid.uuid4(),
+        attester_entity_id=entity.id,
+        target_entity_id=target_id,
+        attestation_type=attestation_type,
+        context=args.get("context"),
+        weight=weight,
+        comment=comment,
+    )
+    db.add(attestation)
+    await db.flush()
+
+    return {
+        "attestation_id": str(attestation.id),
+        "target_id": str(target_id),
+        "attestation_type": attestation_type,
+        "weight": weight,
+    }
+
+
+async def _handle_list_attestations(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import TrustAttestation
+
+    entity_id = uuid.UUID(args["entity_id"])
+    limit = min(args.get("limit", 20), 100)
+
+    query = (
+        select(TrustAttestation, Entity.display_name)
+        .join(Entity, TrustAttestation.attester_entity_id == Entity.id)
+        .where(TrustAttestation.target_entity_id == entity_id)
+    )
+
+    att_type = args.get("type")
+    if att_type:
+        query = query.where(TrustAttestation.attestation_type == att_type)
+
+    query = query.order_by(TrustAttestation.created_at.desc()).limit(limit)
+    result = await db.execute(query)
+
+    attestations = []
+    for att, attester_name in result.all():
+        attestations.append({
+            "id": str(att.id),
+            "attester_id": str(att.attester_entity_id),
+            "attester_name": attester_name,
+            "attestation_type": att.attestation_type,
+            "context": att.context,
+            "weight": att.weight,
+            "comment": att.comment,
+            "created_at": att.created_at.isoformat() if att.created_at else None,
+        })
+
+    return {
+        "entity_id": str(entity_id),
+        "attestations": attestations,
+        "count": len(attestations),
+    }
+
+
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
     "agentgraph_get_feed": _handle_get_feed,
@@ -1301,4 +1433,6 @@ _HANDLERS = {
     "agentgraph_update_profile": _handle_update_profile,
     "agentgraph_list_conversations": _handle_list_conversations,
     "agentgraph_mark_notifications_read": _handle_mark_notifications_read,
+    "agentgraph_attest_entity": _handle_attest_entity,
+    "agentgraph_list_attestations": _handle_list_attestations,
 }

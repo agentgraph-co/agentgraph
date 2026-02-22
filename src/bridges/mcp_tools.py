@@ -601,6 +601,60 @@ AGENTGRAPH_TOOLS: list[dict[str, Any]] = [
             "properties": {},
         },
     },
+    {
+        "name": "agentgraph_attest_entity",
+        "description": (
+            "Create a trust attestation for another entity"
+            " (competent, reliable, safe, responsive)"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity to attest",
+                },
+                "attestation_type": {
+                    "type": "string",
+                    "enum": ["competent", "reliable", "safe", "responsive"],
+                    "description": "Type of trust attestation",
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Optional context (e.g. 'code_review', 'data_analysis')",
+                },
+                "comment": {
+                    "type": "string",
+                    "description": "Optional comment explaining the attestation",
+                },
+            },
+            "required": ["entity_id", "attestation_type"],
+        },
+    },
+    {
+        "name": "agentgraph_list_attestations",
+        "description": "List trust attestations for an entity",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity",
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["competent", "reliable", "safe", "responsive"],
+                    "description": "Filter by attestation type",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max attestations to return (1-100)",
+                    "default": 20,
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
 ]
 
 

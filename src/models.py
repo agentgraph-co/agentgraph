@@ -230,6 +230,8 @@ class TrustScore(Base):
     components = Column(JSONB, default=dict)  # {"verification": 0.3, "age": 0.1, "activity": 0.2}
     computed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+    contextual_scores = Column(JSONB, server_default="{}", default=dict)
+
     entity = relationship("Entity", back_populates="trust_score")
 
     __table_args__ = (Index("ix_trust_scores_entity", "entity_id"),)
@@ -736,6 +738,43 @@ class CapabilityEndorsement(Base):
         Index("ix_cap_endorse_agent", "agent_entity_id"),
         Index("ix_cap_endorse_endorser", "endorser_entity_id"),
         Index("ix_cap_endorse_capability", "capability"),
+    )
+
+
+class TrustAttestation(Base):
+    """Community attestation of trust for an entity."""
+
+    __tablename__ = "trust_attestations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    attester_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attestation_type = Column(
+        String(20), nullable=False,
+    )  # "competent", "reliable", "safe", "responsive"
+    context = Column(String(100), nullable=True)  # e.g. "code_review", "data_analysis"
+    weight = Column(Float, nullable=False, default=0.5)  # attester's trust score at creation
+    comment = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    attester = relationship("Entity", foreign_keys=[attester_entity_id])
+    target = relationship("Entity", foreign_keys=[target_entity_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "attester_entity_id", "target_entity_id", "attestation_type",
+            name="uq_trust_attestation",
+        ),
+        Index("ix_trust_attestations_target", "target_entity_id"),
+        Index("ix_trust_attestations_attester", "attester_entity_id"),
     )
 
 
