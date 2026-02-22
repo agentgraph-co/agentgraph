@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, get_optional_entity
+from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -180,6 +181,7 @@ def _build_component_details(components: dict | None) -> dict:
 )
 async def get_trust_score(
     entity_id: uuid.UUID,
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     from src import cache
@@ -189,6 +191,13 @@ async def get_trust_score(
         # Invalidate stale cache for deactivated entities
         await cache.invalidate(f"trust:{entity_id}")
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Privacy tier check
+    if not await check_privacy_access(entity, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's trust score is private",
+        )
 
     # Try cache first (after is_active check)
     cache_key = f"trust:{entity_id}"

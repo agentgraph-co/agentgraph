@@ -1,10 +1,46 @@
-// SettingsView — Environment CTA, account management, logout
+// SettingsView — Environment CTA, account management, privacy, logout
 
 import SwiftUI
+
+enum PrivacyTier: String, CaseIterable, Identifiable {
+    case publicTier = "public"
+    case verified = "verified"
+    case privateTier = "private"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .publicTier: return "Public"
+        case .verified: return "Verified Only"
+        case .privateTier: return "Private"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .publicTier: return "Anyone can view your profile and posts"
+        case .verified: return "Only verified users can view your full profile"
+        case .privateTier: return "Only your followers can view your profile and posts"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .publicTier: return "globe"
+        case .verified: return "checkmark.shield"
+        case .privateTier: return "lock.shield"
+        }
+    }
+}
 
 struct SettingsView: View {
     @Environment(AuthViewModel.self) private var auth
     @Environment(EnvironmentManager.self) private var envManager
+
+    @State private var selectedPrivacyTier: PrivacyTier = .publicTier
+    @State private var isLoadingPrivacy = false
+    @State private var privacyError: String?
 
     var body: some View {
         @Bindable var env = envManager
@@ -113,6 +149,71 @@ struct SettingsView: View {
                         }
                     }
 
+                    // Privacy section
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AGSpacing.md) {
+                            Text("Privacy")
+                                .font(AGTypography.lg)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Color.agText)
+
+                            Text("Control who can view your profile and content.")
+                                .font(AGTypography.xs)
+                                .foregroundStyle(Color.agMuted)
+
+                            ForEach(PrivacyTier.allCases) { tier in
+                                Button {
+                                    Task { await updatePrivacy(tier) }
+                                } label: {
+                                    HStack(spacing: AGSpacing.sm) {
+                                        Image(systemName: tier.iconName)
+                                            .font(AGTypography.base)
+                                            .foregroundStyle(
+                                                selectedPrivacyTier == tier
+                                                    ? Color.agPrimary
+                                                    : Color.agMuted
+                                            )
+                                            .frame(width: 24)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(tier.displayName)
+                                                .font(AGTypography.sm)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(Color.agText)
+                                            Text(tier.description)
+                                                .font(AGTypography.xs)
+                                                .foregroundStyle(Color.agMuted)
+                                        }
+
+                                        Spacer()
+
+                                        if selectedPrivacyTier == tier {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(Color.agPrimary)
+                                        }
+                                    }
+                                    .padding(AGSpacing.sm)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(
+                                                selectedPrivacyTier == tier
+                                                    ? Color.agPrimary
+                                                    : Color.agBorder,
+                                                lineWidth: 1
+                                            )
+                                    )
+                                }
+                                .disabled(isLoadingPrivacy)
+                            }
+
+                            if let error = privacyError {
+                                Text(error)
+                                    .font(AGTypography.xs)
+                                    .foregroundStyle(Color.agDanger)
+                            }
+                        }
+                    }
+
                     // Logout
                     Button {
                         Task { await auth.logout() }
@@ -150,7 +251,31 @@ struct SettingsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
             await envManager.checkHealth()
+            await loadPrivacy()
         }
+    }
+
+    private func loadPrivacy() async {
+        do {
+            let response = try await APIService.shared.getPrivacyTier()
+            if let tier = PrivacyTier(rawValue: response.tier) {
+                selectedPrivacyTier = tier
+            }
+        } catch {
+            // Non-critical — default to public
+        }
+    }
+
+    private func updatePrivacy(_ tier: PrivacyTier) async {
+        isLoadingPrivacy = true
+        privacyError = nil
+        do {
+            _ = try await APIService.shared.updatePrivacyTier(tier: tier.rawValue)
+            selectedPrivacyTier = tier
+        } catch {
+            privacyError = error.localizedDescription
+        }
+        isLoadingPrivacy = false
     }
 
     private var healthColor: Color {
