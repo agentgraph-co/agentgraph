@@ -361,11 +361,15 @@ struct APIGraphNode: Codable, Identifiable, Sendable {
     let type: String
     let trustScore: Double?
     let isActive: Bool
+    let clusterId: Int?
+    let avatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id, label, type
         case trustScore = "trust_score"
         case isActive = "is_active"
+        case clusterId = "cluster_id"
+        case avatarUrl = "avatar_url"
     }
 }
 
@@ -373,6 +377,13 @@ struct APIGraphEdge: Codable, Sendable {
     let source: String
     let target: String
     let type: String
+    let weight: Double?
+    let attestationType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case source, target, type, weight
+        case attestationType = "attestation_type"
+    }
 }
 
 struct GraphResponse: Codable, Sendable {
@@ -385,6 +396,65 @@ struct GraphResponse: Codable, Sendable {
         case nodes, edges
         case nodeCount = "node_count"
         case edgeCount = "edge_count"
+    }
+}
+
+// MARK: - Graph Clusters
+
+struct ClusterInfo: Codable, Identifiable, Sendable {
+    let clusterId: Int
+    let size: Int
+    let avgTrust: Double
+    let memberCount: Int
+    let dominantType: String
+
+    var id: Int { clusterId }
+
+    enum CodingKeys: String, CodingKey {
+        case size
+        case clusterId = "cluster_id"
+        case avgTrust = "avg_trust"
+        case memberCount = "member_count"
+        case dominantType = "dominant_type"
+    }
+}
+
+struct ClustersResponse: Codable, Sendable {
+    let clusters: [ClusterInfo]
+    let totalClusters: Int
+
+    enum CodingKeys: String, CodingKey {
+        case clusters
+        case totalClusters = "total_clusters"
+    }
+}
+
+// MARK: - Trust Flow
+
+struct TrustFlowAttestation: Codable, Sendable {
+    let attesterId: String
+    let attesterName: String
+    let attestationType: String
+    let weight: Double
+    let children: [TrustFlowAttestation]
+
+    enum CodingKeys: String, CodingKey {
+        case children, weight
+        case attesterId = "attester_id"
+        case attesterName = "attester_name"
+        case attestationType = "attestation_type"
+    }
+}
+
+struct TrustFlowResponse: Codable, Sendable {
+    let entityId: String
+    let trustScore: Double?
+    let attestations: [TrustFlowAttestation]
+
+    enum CodingKeys: String, CodingKey {
+        case attestations
+        case entityId = "entity_id"
+        case trustScore = "trust_score"
     }
 }
 
