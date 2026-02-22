@@ -913,12 +913,17 @@ async def purchase_listing(
     # For free listings, auto-complete
     is_free = listing.pricing_model == "free" or listing.price_cents == 0
 
-    # Check for duplicate pending purchase
+    # Check for duplicate pending/escrow purchase
+    from sqlalchemy import or_ as _or
+
     existing_pending = await db.scalar(
         select(Transaction).where(
             Transaction.listing_id == listing.id,
             Transaction.buyer_entity_id == current_entity.id,
-            Transaction.status == TransactionStatus.PENDING,
+            _or(
+                Transaction.status == TransactionStatus.PENDING,
+                Transaction.status == TransactionStatus.ESCROW,
+            ),
         )
     )
     if existing_pending:
@@ -985,7 +990,7 @@ async def purchase_listing(
         buyer_entity_id=current_entity.id,
         seller_entity_id=listing.entity_id,
         amount_cents=listing.price_cents or 0,
-        status=TransactionStatus.COMPLETED if is_free else TransactionStatus.PENDING,
+        status=TransactionStatus.COMPLETED if is_free else TransactionStatus.ESCROW,
         listing_title=listing.title,
         listing_category=listing.category,
         notes=body.notes,
@@ -1066,7 +1071,9 @@ async def purchase_listing(
 )
 async def get_purchase_history(
     role: str = Query("buyer", pattern="^(buyer|seller|all)$"),
-    status: str | None = Query(None, pattern="^(pending|completed|refunded|cancelled)$"),
+    status: str | None = Query(
+        None, pattern="^(pending|escrow|completed|disputed|refunded|cancelled)$",
+    ),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
@@ -1127,6 +1134,81 @@ async def get_transaction(
     return _txn_response(txn)
 
 
+@router.post(
+    "/purchases/{transaction_id}/confirm",
+    response_model=TransactionResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def confirm_purchase(
+    transaction_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buyer confirms receipt, triggering capture of escrowed funds."""
+    txn = await db.scalar(
+        select(Transaction)
+        .where(Transaction.id == transaction_id)
+        .with_for_update()
+    )
+    if txn is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.buyer_entity_id != current_entity.id:
+        raise HTTPException(status_code=403, detail="Only the buyer can confirm")
+    if txn.status != TransactionStatus.ESCROW:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot confirm a transaction with status '{txn.status.value}'",
+        )
+
+    from src.payments.escrow import release_escrow
+
+    await release_escrow(db, txn, current_entity.id)
+
+    # Notify the seller
+    from src.api.notification_router import create_notification
+
+    await create_notification(
+        db,
+        entity_id=txn.seller_entity_id,
+        kind="review",
+        title="Purchase confirmed",
+        body=(
+            f"Buyer confirmed receipt for '{txn.listing_title}'. "
+            f"Funds have been released."
+        ),
+        reference_id=str(txn.id),
+    )
+
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(txn.seller_entity_id), "marketplace", {
+            "type": "purchase_confirmed",
+            "transaction_id": str(txn.id),
+            "buyer_id": str(txn.buyer_entity_id),
+            "listing_title": txn.listing_title,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "marketplace.purchase_confirmed", {
+            "transaction_id": str(txn.id),
+            "listing_id": str(txn.listing_id),
+            "buyer_id": str(txn.buyer_entity_id),
+            "seller_id": str(txn.seller_entity_id),
+            "amount_cents": txn.amount_cents,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    return _txn_response(txn)
+
+
 @router.patch(
     "/purchases/{transaction_id}/cancel",
     response_model=TransactionResponse,
@@ -1147,25 +1229,31 @@ async def cancel_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     if txn.buyer_entity_id != current_entity.id:
         raise HTTPException(status_code=403, detail="Only the buyer can cancel")
-    if txn.status != TransactionStatus.PENDING:
+    if txn.status not in (TransactionStatus.PENDING, TransactionStatus.ESCROW):
         raise HTTPException(
             status_code=400,
             detail=f"Cannot cancel a transaction with status '{txn.status.value}'",
         )
 
-    txn.status = TransactionStatus.CANCELLED
+    # For escrow transactions, cancel the Stripe PaymentIntent hold
+    if txn.status == TransactionStatus.ESCROW and txn.stripe_payment_intent_id:
+        from src.payments.escrow import cancel_escrow
 
-    from src.audit import log_action
+        await cancel_escrow(db, txn, current_entity.id)
+    else:
+        txn.status = TransactionStatus.CANCELLED
 
-    await log_action(
-        db,
-        action="transaction.cancel",
-        entity_id=current_entity.id,
-        resource_type="transaction",
-        resource_id=txn.id,
-        details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
-    )
-    await db.flush()
+        from src.audit import log_action
+
+        await log_action(
+            db,
+            action="transaction.cancel",
+            entity_id=current_entity.id,
+            resource_type="transaction",
+            resource_id=txn.id,
+            details={"listing_id": str(txn.listing_id), "amount_cents": txn.amount_cents},
+        )
+        await db.flush()
 
     # Dispatch webhook
     try:
@@ -1286,7 +1374,9 @@ async def stripe_webhook(
                 Transaction.stripe_payment_intent_id == pi_id,
             )
         )
-        if txn and txn.status == TransactionStatus.PENDING:
+        if txn and txn.status in (
+            TransactionStatus.PENDING, TransactionStatus.ESCROW,
+        ):
             from datetime import datetime, timezone
 
             txn.status = TransactionStatus.COMPLETED
@@ -1295,6 +1385,22 @@ async def stripe_webhook(
 
             logger.info(
                 "Transaction %s completed via Stripe webhook (PI: %s)",
+                txn.id, pi_id,
+            )
+
+    elif event_type == "payment_intent.canceled":
+        pi_id = event_data.get("id") if isinstance(event_data, dict) else event_data.id
+        txn = await db.scalar(
+            select(Transaction).where(
+                Transaction.stripe_payment_intent_id == pi_id,
+            )
+        )
+        if txn and txn.status in (TransactionStatus.PENDING, TransactionStatus.ESCROW):
+            txn.status = TransactionStatus.CANCELLED
+            await db.flush()
+
+            logger.info(
+                "Transaction %s cancelled via Stripe webhook (PI: %s)",
                 txn.id, pi_id,
             )
 

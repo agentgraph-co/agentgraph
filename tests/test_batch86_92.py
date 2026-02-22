@@ -212,6 +212,7 @@ async def test_cancel_pending_transaction(client: AsyncClient, db):
 
     # Set up seller's Stripe account
     import uuid
+
     from src.models import Entity
     seller = await db.get(Entity, uuid.UUID(seller_id))
     seller.stripe_account_id = "acct_test_cancel"
@@ -226,13 +227,15 @@ async def test_cancel_pending_transaction(client: AsyncClient, db):
             headers=_auth(buyer_token),
         )
     txn_id = purchase_resp.json()["id"]
-    assert purchase_resp.json()["status"] == "pending"
+    assert purchase_resp.json()["status"] == "escrow"
 
-    # Cancel
-    cancel_resp = await client.patch(
-        f"{MARKET_URL}/purchases/{txn_id}/cancel",
-        headers=_auth(buyer_token),
-    )
+    # Cancel (must mock cancel_payment_intent since escrow cancel calls Stripe)
+    with patch("src.payments.stripe_service.cancel_payment_intent",
+               return_value={"payment_intent_id": "pi_test_123", "status": "canceled"}):
+        cancel_resp = await client.patch(
+            f"{MARKET_URL}/purchases/{txn_id}/cancel",
+            headers=_auth(buyer_token),
+        )
     assert cancel_resp.status_code == 200
     assert cancel_resp.json()["status"] == "cancelled"
 
@@ -257,6 +260,7 @@ async def test_cancel_not_buyer_fails(client: AsyncClient, db):
 
     # Set up seller's Stripe account
     import uuid
+
     from src.models import Entity
     seller = await db.get(Entity, uuid.UUID(seller_id))
     seller.stripe_account_id = "acct_test_cancel2"
@@ -334,6 +338,7 @@ async def test_refund_pending_fails(client: AsyncClient, db):
 
     # Set up seller's Stripe account
     import uuid
+
     from src.models import Entity
     seller = await db.get(Entity, uuid.UUID(seller_id))
     seller.stripe_account_id = "acct_test_refund"

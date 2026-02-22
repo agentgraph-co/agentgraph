@@ -96,6 +96,7 @@ async def test_purchase_free_listing(client: AsyncClient, db):
 async def test_purchase_paid_listing_pending(client: AsyncClient, db):
     """Purchasing a paid listing creates a pending transaction."""
     import uuid
+
     from src.models import Entity
 
     seller_token, seller_id = await _setup_user(client, SELLER)
@@ -129,7 +130,7 @@ async def test_purchase_paid_listing_pending(client: AsyncClient, db):
         )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["status"] == "pending"
+    assert data["status"] == "escrow"
     assert data["amount_cents"] == 999
     assert data["completed_at"] is None
 

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     stripe_platform_fee_percent: int = 10
+    escrow_auto_release_hours: int = 72
 
     # SSO
     sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe

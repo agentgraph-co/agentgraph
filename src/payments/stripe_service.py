@@ -65,6 +65,7 @@ def create_payment_intent(
     intent = stripe.PaymentIntent.create(
         amount=amount_cents,
         currency="usd",
+        capture_method="manual",
         application_fee_amount=platform_fee_cents,
         transfer_data={"destination": seller_account_id},
         metadata=metadata or {},
@@ -73,6 +74,27 @@ def create_payment_intent(
         "client_secret": intent.client_secret,
         "payment_intent_id": intent.id,
     }
+
+
+def capture_payment_intent(
+    payment_intent_id: str, amount_cents: int | None = None,
+) -> dict:
+    """Capture a previously authorized PaymentIntent.
+
+    If *amount_cents* is provided, only that amount is captured (partial
+    capture).  Otherwise the full authorized amount is captured.
+    """
+    kwargs: dict = {}
+    if amount_cents is not None:
+        kwargs["amount_to_capture"] = amount_cents
+    intent = stripe.PaymentIntent.capture(payment_intent_id, **kwargs)
+    return {"payment_intent_id": intent.id, "status": intent.status}
+
+
+def cancel_payment_intent(payment_intent_id: str) -> dict:
+    """Cancel an uncaptured PaymentIntent, releasing the hold."""
+    intent = stripe.PaymentIntent.cancel(payment_intent_id)
+    return {"payment_intent_id": intent.id, "status": intent.status}
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> dict:

@@ -137,8 +137,9 @@ async def test_purchase_paid_listing_creates_payment_intent(client: AsyncClient,
         "payment_intent_id": "pi_test_123",
     }
 
+    mock_acct = mock_account_status
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
-         patch("src.payments.stripe_service.get_account_status", return_value=mock_account_status), \
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_acct), \
          patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent):
         resp = await client.post(
             f"{MARKET_URL}/{listing_id}/purchase",
@@ -148,7 +149,7 @@ async def test_purchase_paid_listing_creates_payment_intent(client: AsyncClient,
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["status"] == "pending"
+    assert data["status"] == "escrow"
     assert data["client_secret"] == "pi_test_secret_abc123"
     assert data["amount_cents"] == 1000
     assert data["platform_fee_cents"] == 100  # 10% of 1000

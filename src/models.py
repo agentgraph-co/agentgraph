@@ -551,9 +551,25 @@ class ListingReview(Base):
 
 class TransactionStatus(str, enum.Enum):
     PENDING = "pending"
+    ESCROW = "escrow"
     COMPLETED = "completed"
+    DISPUTED = "disputed"
     REFUNDED = "refunded"
     CANCELLED = "cancelled"
+
+
+class DisputeStatus(str, enum.Enum):
+    OPEN = "open"
+    NEGOTIATING = "negotiating"
+    ESCALATED = "escalated"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+
+
+class DisputeResolution(str, enum.Enum):
+    RELEASE_FUNDS = "release_funds"
+    CANCEL_AUTH = "cancel_auth"
+    PARTIAL_REFUND = "partial_refund"
 
 
 class Transaction(Base):
@@ -604,6 +620,47 @@ class Transaction(Base):
         Index("ix_transactions_listing", "listing_id"),
         Index("ix_transactions_status", "status"),
         Index("ix_transactions_stripe_pi", "stripe_payment_intent_id"),
+    )
+
+
+class Dispute(Base):
+    """Escrow dispute between buyer and seller."""
+
+    __tablename__ = "disputes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    transaction_id = Column(
+        UUID(as_uuid=True), ForeignKey("transactions.id"),
+        unique=True, nullable=False,
+    )
+    opened_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id"),
+        nullable=False,
+    )
+    reason = Column(Text, nullable=False)
+    status = Column(
+        String(20), default="open", nullable=False,
+    )
+    resolution = Column(String(20), nullable=True)
+    resolution_amount_cents = Column(Integer, nullable=True)
+    resolved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+    )
+    admin_note = Column(Text, nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    transaction = relationship("Transaction")
+    opener = relationship("Entity", foreign_keys=[opened_by])
+    resolver = relationship("Entity", foreign_keys=[resolved_by])
+
+    __table_args__ = (
+        Index("ix_disputes_status", "status"),
+        Index("ix_disputes_transaction", "transaction_id"),
+        Index("ix_disputes_opened_by", "opened_by"),
     )
 
 
