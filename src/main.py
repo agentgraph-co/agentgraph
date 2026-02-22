@@ -26,6 +26,7 @@ from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
 from src.api.profile_router import router as profile_router
+from src.api.safety_router import router as safety_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
 from src.api.submolt_router import router as submolt_router
@@ -61,6 +62,7 @@ _TAG_METADATA = [
     {"name": "activity", "description": "Public activity timeline per entity"},
     {"name": "messages", "description": "Direct messaging between entities"},
     {"name": "ws", "description": "WebSocket real-time streams"},
+    {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
 ]
 
 app = FastAPI(
@@ -182,6 +184,7 @@ app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
+app.include_router(safety_router, prefix=settings.api_v1_prefix)
 
 
 # --- Scheduled Jobs ---
