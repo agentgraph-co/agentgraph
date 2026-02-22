@@ -18,7 +18,14 @@ from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.config import settings
 from src.database import get_db
-from src.models import Entity, Listing, ListingReview, Transaction, TransactionStatus
+from src.models import (
+    Entity,
+    EvolutionRecord,
+    Listing,
+    ListingReview,
+    Transaction,
+    TransactionStatus,
+)
 from src.utils import like_pattern
 
 logger = logging.getLogger(__name__)
@@ -34,7 +41,7 @@ class CreateListingRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=5000)
     category: str = Field(
         ...,
-        pattern="^(service|skill|integration|tool|data)$",
+        pattern="^(service|skill|integration|tool|data|capability)$",
     )
     tags: list[str] = Field(default_factory=list, max_length=10)
     pricing_model: str = Field(
@@ -70,6 +77,7 @@ class ListingResponse(BaseModel):
     view_count: int
     average_rating: float | None = None
     review_count: int = 0
+    source_evolution_record_id: uuid.UUID | None = None
     created_at: str
     updated_at: str
 
@@ -431,6 +439,330 @@ async def get_my_listings(
     )
 
 
+# --- Capability Marketplace Schemas ---
+
+
+class CreateCapabilityListingRequest(BaseModel):
+    evolution_record_id: uuid.UUID
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(..., min_length=1, max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=10)
+    pricing_model: str = Field(
+        ...,
+        pattern="^(free|one_time|subscription)$",
+    )
+    price_cents: int = Field(0, ge=0)
+    license_type: str = Field(
+        "commercial",
+        pattern="^(open|commercial|attribution)$",
+    )
+
+
+class AdoptCapabilityRequest(BaseModel):
+    agent_id: uuid.UUID  # buyer's agent to receive the capability
+
+
+# --- Capability Marketplace Endpoints ---
+
+
+@router.post(
+    "/capabilities",
+    response_model=ListingResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def create_capability_listing(
+    body: CreateCapabilityListingRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a capability listing linked to an evolution record."""
+    from src.content_filter import check_content, sanitize_html
+    from src.marketplace.capability_sharing import (
+        create_capability_listing as _create_cap_listing,
+    )
+
+    filter_result = check_content(body.title)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Title rejected: {', '.join(filter_result.flags)}",
+        )
+    filter_result = check_content(body.description)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Description rejected: {', '.join(filter_result.flags)}",
+        )
+
+    try:
+        listing = await _create_cap_listing(
+            db=db,
+            entity_id=current_entity.id,
+            evolution_record_id=body.evolution_record_id,
+            title=sanitize_html(body.title),
+            description=sanitize_html(body.description),
+            tags=body.tags,
+            pricing_model=body.pricing_model,
+            price_cents=body.price_cents,
+            license_type=body.license_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    await db.flush()
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.capability_listing_create",
+        entity_id=current_entity.id,
+        resource_type="listing",
+        resource_id=listing.id,
+        details={
+            "title": listing.title,
+            "evolution_record_id": str(body.evolution_record_id),
+        },
+    )
+
+    return _to_response(listing)
+
+
+@router.get(
+    "/capabilities/{listing_id}/package",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_capability_package(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get capability package details including evolution record info."""
+    listing = await db.get(Listing, listing_id)
+    if listing is None or not listing.is_active:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.category != "capability" or listing.source_evolution_record_id is None:
+        raise HTTPException(
+            status_code=400, detail="Listing is not a capability package",
+        )
+
+    record = await db.get(EvolutionRecord, listing.source_evolution_record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404, detail="Source evolution record not found",
+        )
+
+    # Get source agent info
+    source_agent = await db.get(Entity, record.entity_id)
+
+    return {
+        "listing": _to_response(listing),
+        "evolution_record": {
+            "id": str(record.id),
+            "entity_id": str(record.entity_id),
+            "version": record.version,
+            "change_type": record.change_type,
+            "change_summary": record.change_summary,
+            "capabilities_snapshot": record.capabilities_snapshot or [],
+            "license_type": record.license_type,
+            "risk_tier": record.risk_tier or 1,
+            "created_at": record.created_at.isoformat(),
+        },
+        "source_agent": {
+            "id": str(source_agent.id) if source_agent else None,
+            "display_name": source_agent.display_name if source_agent else None,
+        },
+    }
+
+
+@router.post(
+    "/capabilities/{listing_id}/adopt",
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def adopt_capability(
+    listing_id: uuid.UUID,
+    body: AdoptCapabilityRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Purchase capability and auto-fork to buyer's agent.
+
+    For free listings: auto-adopt immediately.
+    For paid listings: create transaction and adopt on completion.
+    """
+    from src.marketplace.capability_sharing import adopt_capability as _adopt
+
+    listing = await db.get(Listing, listing_id)
+    if listing is None or not listing.is_active:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.category != "capability" or listing.source_evolution_record_id is None:
+        raise HTTPException(
+            status_code=400, detail="Listing is not a capability package",
+        )
+    if listing.entity_id == current_entity.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot adopt your own capability",
+        )
+
+    is_free = listing.pricing_model == "free" or listing.price_cents == 0
+
+    if not is_free:
+        # For paid listings: create a pending transaction, then adopt
+        from datetime import datetime, timezone
+
+        from src.config import settings
+
+        if not settings.stripe_secret_key:
+            raise HTTPException(
+                status_code=503,
+                detail="Payment processing is not configured",
+            )
+
+        seller = await db.get(Entity, listing.entity_id)
+        if not seller or not seller.stripe_account_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Seller has not set up payment processing",
+            )
+
+        from src.payments.stripe_service import get_account_status
+
+        seller_status = get_account_status(seller.stripe_account_id)
+        if not seller_status["charges_enabled"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Seller payment account is not fully activated",
+            )
+
+        platform_fee_cents = (
+            (listing.price_cents or 0) * settings.stripe_platform_fee_percent // 100
+        )
+
+        from src.payments.stripe_service import create_payment_intent
+
+        intent_data = create_payment_intent(
+            amount_cents=listing.price_cents or 0,
+            seller_account_id=seller.stripe_account_id,
+            platform_fee_cents=platform_fee_cents,
+            metadata={
+                "listing_id": str(listing.id),
+                "buyer_entity_id": str(current_entity.id),
+                "seller_entity_id": str(listing.entity_id),
+                "capability_adopt": "true",
+                "agent_id": str(body.agent_id),
+            },
+        )
+
+        txn = Transaction(
+            id=uuid.uuid4(),
+            listing_id=listing.id,
+            buyer_entity_id=current_entity.id,
+            seller_entity_id=listing.entity_id,
+            amount_cents=listing.price_cents or 0,
+            status=TransactionStatus.PENDING,
+            listing_title=listing.title,
+            listing_category=listing.category,
+            notes=f"Capability adoption for agent {body.agent_id}",
+            stripe_payment_intent_id=intent_data["payment_intent_id"],
+            platform_fee_cents=platform_fee_cents,
+        )
+        db.add(txn)
+        await db.flush()
+
+        return {
+            "status": "payment_required",
+            "transaction_id": str(txn.id),
+            "client_secret": intent_data["client_secret"],
+            "amount_cents": listing.price_cents or 0,
+            "message": "Complete payment to adopt capability.",
+        }
+
+    # Free listing: adopt immediately
+    try:
+        fork_record = await _adopt(
+            db=db,
+            listing=listing,
+            buyer_agent_id=body.agent_id,
+            buyer_entity_id=current_entity.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # Create a completed transaction record for free adoption
+    from datetime import datetime, timezone
+
+    txn = Transaction(
+        id=uuid.uuid4(),
+        listing_id=listing.id,
+        buyer_entity_id=current_entity.id,
+        seller_entity_id=listing.entity_id,
+        amount_cents=0,
+        status=TransactionStatus.COMPLETED,
+        listing_title=listing.title,
+        listing_category=listing.category,
+        notes=f"Free capability adoption for agent {body.agent_id}",
+        completed_at=datetime.now(timezone.utc),
+    )
+    db.add(txn)
+    await db.flush()
+
+    from src.audit import log_action
+
+    await log_action(
+        db,
+        action="marketplace.capability_adopt",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=fork_record.id,
+        details={
+            "listing_id": str(listing.id),
+            "agent_id": str(body.agent_id),
+            "version": fork_record.version,
+        },
+    )
+
+    # Notify the seller
+    try:
+        from src.api.notification_router import create_notification
+
+        await create_notification(
+            db,
+            entity_id=listing.entity_id,
+            kind="review",
+            title="Capability adopted",
+            body=(
+                f"{current_entity.display_name} adopted capability "
+                f"from your listing '{listing.title}'"
+            ),
+            reference_id=str(fork_record.id),
+        )
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Broadcast via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(listing.entity_id), "marketplace", {
+            "type": "capability_adopted",
+            "listing_id": str(listing.id),
+            "buyer_id": str(current_entity.id),
+            "buyer_name": current_entity.display_name,
+            "listing_title": listing.title,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    return {
+        "status": "adopted",
+        "evolution_record_id": str(fork_record.id),
+        "version": fork_record.version,
+        "capabilities": fork_record.capabilities_snapshot or [],
+        "transaction_id": str(txn.id),
+    }
+
+
 @router.get(
     "/{listing_id}", response_model=ListingResponse,
     dependencies=[Depends(rate_limit_reads)],
@@ -597,6 +929,7 @@ def _to_response(
         view_count=listing.view_count or 0,
         average_rating=avg_rating,
         review_count=review_count,
+        source_evolution_record_id=listing.source_evolution_record_id,
         created_at=listing.created_at.isoformat(),
         updated_at=listing.updated_at.isoformat(),
     )
