@@ -46,7 +46,7 @@ async def _create_user(client: AsyncClient, suffix: str = "") -> tuple:
 
 async def _create_listing(client: AsyncClient, headers: dict, category: str = "service") -> dict:
     """Create a marketplace listing."""
-    resp = await client.post(f"{PREFIX}/marketplace/listings", json={
+    resp = await client.post(f"{PREFIX}/marketplace", json={
         "title": f"Test Listing {uuid.uuid4().hex[:6]}",
         "description": "A test listing for insights",
         "category": category,
@@ -54,6 +54,7 @@ async def _create_listing(client: AsyncClient, headers: dict, category: str = "s
         "price_cents": 0,
         "tags": ["test"],
     }, headers=headers)
+    assert resp.status_code == 201, f"Listing creation failed: {resp.status_code} {resp.text}"
     return resp.json()
 
 

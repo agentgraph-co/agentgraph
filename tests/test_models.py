@@ -272,6 +272,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "moderation_flags",
         "notification_preferences",
         "notifications",
+        "org_usage_records",
         "organization_memberships",
         "organizations",
         "password_reset_tokens",
