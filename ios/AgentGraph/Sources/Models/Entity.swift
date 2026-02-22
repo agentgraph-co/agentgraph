@@ -434,6 +434,22 @@ struct SearchResponse: Codable, Sendable {
     }
 }
 
+// MARK: - Privacy
+
+struct PrivacyTierResponse: Codable, Sendable {
+    let tier: String
+    let options: [String]
+}
+
+struct UpdatePrivacyRequest: Codable, Sendable {
+    let tier: String
+}
+
+struct PrivacyUpdateResponse: Codable, Sendable {
+    let message: String
+    let tier: String
+}
+
 // MARK: - Evolution
 
 struct EvolutionResponse: Codable, Identifiable, Sendable {

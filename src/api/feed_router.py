@@ -10,6 +10,7 @@ from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
+from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -155,6 +156,7 @@ async def create_post(
                     f"{snippet}"
                 ),
                 reference_id=str(post.id),
+                actor_entity_id=current_entity.id,
             )
 
     # Notify mentioned entities
@@ -186,6 +188,7 @@ async def create_post(
                     f"{current_entity.display_name} mentioned you"
                 ),
                 reference_id=str(post.id),
+                actor_entity_id=current_entity.id,
             )
 
     # Broadcast new post via WebSocket
@@ -409,6 +412,13 @@ async def get_post(
     if author is None or not author.is_active:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    # Privacy tier check
+    if not await check_privacy_access(author, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This post is not accessible due to the author's privacy settings",
+        )
+
     reply_count = await db.scalar(
         select(func.count()).select_from(Post).where(
             Post.parent_post_id == post_id,
@@ -445,6 +455,8 @@ async def get_replies(
     if parent is None:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    from sqlalchemy import or_
+
     query = (
         select(Post, Entity)
         .join(Entity, Post.author_entity_id == Entity.id)
@@ -454,6 +466,32 @@ async def get_replies(
             Entity.is_active.is_(True),
         )
     )
+
+    # Privacy tier filtering on replies
+    if current_entity is None:
+        query = query.where(Entity.privacy_tier == PrivacyTier.PUBLIC)
+    else:
+        following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+            .correlate(Entity)
+        )
+        privacy_filter = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,
+        )
+        if current_entity.email_verified:
+            privacy_filter = privacy_filter | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        privacy_filter = privacy_filter | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(following_subq)
+        )
+        query = query.where(privacy_filter)
 
     if cursor:
         cursor_id = _parse_cursor(cursor)
@@ -584,6 +622,7 @@ async def vote_on_post(
                 f"{current_entity.display_name} upvoted your post"
             ),
             reference_id=str(post_id),
+            actor_entity_id=current_entity.id,
         )
 
     await db.flush()
@@ -660,6 +699,8 @@ async def get_trending(
     """Get trending posts ranked by vote count within a time window."""
     from datetime import datetime, timedelta, timezone
 
+    from sqlalchemy import or_
+
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     query = (
@@ -672,9 +713,35 @@ async def get_trending(
             Post.created_at >= cutoff,
             Entity.is_active.is_(True),
         )
-        .order_by(Post.vote_count.desc(), Post.created_at.desc())
-        .limit(limit)
     )
+
+    # Privacy tier filtering
+    if current_entity is None:
+        query = query.where(Entity.privacy_tier == PrivacyTier.PUBLIC)
+    else:
+        following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+            .correlate(Entity)
+        )
+        privacy_filter = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,
+        )
+        if current_entity.email_verified:
+            privacy_filter = privacy_filter | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        privacy_filter = privacy_filter | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(following_subq)
+        )
+        query = query.where(privacy_filter)
+
+    query = query.order_by(Post.vote_count.desc(), Post.created_at.desc()).limit(limit)
 
     result = await db.execute(query)
     rows = result.all()
@@ -734,6 +801,8 @@ async def search_feed(
     db: AsyncSession = Depends(get_db),
 ):
     """Search posts by content with optional filters."""
+    from sqlalchemy import or_
+
     pattern = like_pattern(q)
 
     query = (
@@ -746,6 +815,32 @@ async def search_feed(
             Entity.is_active.is_(True),
         )
     )
+
+    # Privacy tier filtering
+    if current_entity is None:
+        query = query.where(Entity.privacy_tier == PrivacyTier.PUBLIC)
+    else:
+        following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+            .correlate(Entity)
+        )
+        privacy_filter = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,
+        )
+        if current_entity.email_verified:
+            privacy_filter = privacy_filter | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        privacy_filter = privacy_filter | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(following_subq)
+        )
+        query = query.where(privacy_filter)
 
     if author_id is not None:
         query = query.where(Post.author_entity_id == author_id)

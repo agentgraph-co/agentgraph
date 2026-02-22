@@ -339,6 +339,17 @@ actor APIService {
         return try await authenticatedPost(path: "submolts", body: body)
     }
 
+    // MARK: - Privacy
+
+    func getPrivacyTier() async throws -> PrivacyTierResponse {
+        return try await authenticatedGet(path: "account/privacy")
+    }
+
+    func updatePrivacyTier(tier: String) async throws -> PrivacyUpdateResponse {
+        let body = UpdatePrivacyRequest(tier: tier)
+        return try await authenticatedPut(path: "account/privacy", body: body)
+    }
+
     // MARK: - Evolution
 
     func getEvolutionTimeline(entityId: UUID, limit: Int = 20) async throws -> EvolutionTimelineResponse {
@@ -398,6 +409,16 @@ actor APIService {
         let url = buildURL(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try encoder.encode(body)
+        return try await authenticatedRequest(request)
+    }
+
+    private func authenticatedPut<T: Decodable, B: Encodable>(path: String, body: B) async throws -> T {
+        let url = buildURL(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try encoder.encode(body)

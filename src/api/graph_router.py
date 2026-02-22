@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src import cache
+from src.api.deps import get_optional_entity
+from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
@@ -21,6 +23,7 @@ from src.models import (
     EntityRelationship,
     Listing,
     Post,
+    PrivacyTier,
     RelationshipType,
     Submolt,
     TrustScore,
@@ -77,17 +80,46 @@ async def get_full_graph(
     limit: int = Query(500, ge=1, le=2000),
     entity_type: str | None = Query(None, pattern="^(human|agent)$"),
     min_trust: float | None = Query(None, ge=0.0, le=1.0),
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the social graph as nodes and edges for visualization.
 
     Returns entities as nodes and follow relationships as edges.
     Supports filtering by entity type and minimum trust score.
+    Excludes PRIVATE-tier entities unless the viewer follows them.
     """
-    # Build entity query
+    from sqlalchemy import or_
+
+    # Build entity query — exclude PRIVATE entities unless viewer follows them
     entity_query = select(Entity).where(
         Entity.is_active.is_(True),
     )
+    if current_entity is None:
+        entity_query = entity_query.where(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+        )
+    else:
+        following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        privacy_filter = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,
+        )
+        if current_entity.email_verified:
+            privacy_filter = privacy_filter | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        privacy_filter = privacy_filter | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(following_subq)
+        )
+        entity_query = entity_query.where(privacy_filter)
     if entity_type:
         entity_query = entity_query.where(Entity.type == entity_type)
 
@@ -156,6 +188,7 @@ async def get_full_graph(
 async def get_ego_graph(
     entity_id: uuid.UUID,
     depth: int = Query(1, ge=1, le=3),
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the ego graph centered on a specific entity.
@@ -166,6 +199,13 @@ async def get_ego_graph(
     center = await db.get(Entity, entity_id)
     if center is None or not center.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Privacy check on the center entity
+    if not await check_privacy_access(center, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's graph is private",
+        )
 
     # Collect entity IDs at each depth level
     visited = {entity_id}
@@ -197,13 +237,40 @@ async def get_ego_graph(
         frontier = new_ids - visited
         visited |= frontier
 
-    # Fetch all entities
-    result = await db.execute(
-        select(Entity).where(
-            Entity.id.in_(visited),
-            Entity.is_active.is_(True),
-        )
+    # Fetch all entities, filtering out PRIVATE-tier unless viewer has access
+    from sqlalchemy import or_
+
+    entity_fetch_query = select(Entity).where(
+        Entity.id.in_(visited),
+        Entity.is_active.is_(True),
     )
+    if current_entity is None:
+        entity_fetch_query = entity_fetch_query.where(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+        )
+    else:
+        ego_following_subq = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        ego_privacy = or_(
+            Entity.privacy_tier == PrivacyTier.PUBLIC,
+            Entity.id == current_entity.id,
+        )
+        if current_entity.email_verified:
+            ego_privacy = ego_privacy | (
+                Entity.privacy_tier == PrivacyTier.VERIFIED
+            )
+        ego_privacy = ego_privacy | (
+            (Entity.privacy_tier == PrivacyTier.PRIVATE)
+            & Entity.id.in_(ego_following_subq)
+        )
+        entity_fetch_query = entity_fetch_query.where(ego_privacy)
+
+    result = await db.execute(entity_fetch_query)
     entities = result.scalars().all()
     entity_ids = {e.id for e in entities}
 
@@ -364,10 +431,14 @@ async def get_shortest_path(
 async def get_network_stats(
     db: AsyncSession = Depends(get_db),
 ):
-    """Get network-level statistics for the social graph."""
+    """Get network-level statistics for the social graph.
+
+    Excludes PRIVATE-tier entities from counts.
+    """
     total_entities = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
+            Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
     ) or 0
 
@@ -375,6 +446,7 @@ async def get_network_stats(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
             Entity.type == "human",
+            Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
     ) or 0
 
@@ -382,6 +454,7 @@ async def get_network_stats(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
             Entity.type == "agent",
+            Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
     ) or 0
 
@@ -395,7 +468,7 @@ async def get_network_stats(
         total_follows / total_entities if total_entities > 0 else 0.0
     )
 
-    # Most followed entities
+    # Most followed entities (exclude PRIVATE)
     most_followed_q = (
         select(
             Entity.id,
@@ -410,6 +483,7 @@ async def get_network_stats(
         .where(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
+            Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
@@ -426,7 +500,7 @@ async def get_network_stats(
         for row in most_followed_result.fetchall()
     ]
 
-    # Most connected (followers + following)
+    # Most connected (followers + following, exclude PRIVATE)
     most_connected_q = (
         select(
             Entity.id,
@@ -442,6 +516,7 @@ async def get_network_stats(
         .where(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
+            Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
