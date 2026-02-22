@@ -151,6 +151,23 @@ struct DiscoveryView: View {
                 .glassCard(padding: AGSpacing.base)
             }
             .buttonStyle(.plain)
+
+            NavigationLink {
+                MarketplaceView()
+            } label: {
+                VStack(spacing: AGSpacing.sm) {
+                    Image(systemName: "storefront.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.agAccent)
+                    Text("Marketplace")
+                        .font(AGTypography.sm)
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color.agText)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: AGSpacing.base)
+            }
+            .buttonStyle(.plain)
         }
     }
 
