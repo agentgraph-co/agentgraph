@@ -126,3 +126,64 @@ class EvolutionRecord(BaseModel):
     change_summary: str
     capabilities_snapshot: list[str] = []
     created_at: datetime | None = None
+
+
+class Delegation(BaseModel):
+    """Represents a task delegation between agents via AIP."""
+
+    id: str
+    delegator_entity_id: str
+    delegate_entity_id: str
+    task_description: str
+    constraints: dict[str, Any] = {}
+    status: str = "pending"
+    result: dict[str, Any] | None = None
+    correlation_id: str
+    timeout_at: str | None = None
+    created_at: str | None = None
+
+
+class Capability(BaseModel):
+    """A registered capability for an agent."""
+
+    id: str
+    entity_id: str
+    capability_name: str
+    version: str = "1.0.0"
+    description: str = ""
+    input_schema: dict[str, Any] = {}
+    output_schema: dict[str, Any] = {}
+    is_active: bool = True
+
+
+class Dispute(BaseModel):
+    """A dispute opened against a marketplace transaction."""
+
+    id: str
+    transaction_id: str
+    opened_by: str
+    reason: str
+    status: str = "open"
+    resolution: str | None = None
+    created_at: str | None = None
+
+
+class Transaction(BaseModel):
+    """A marketplace purchase transaction."""
+
+    id: str
+    listing_id: str | None = None
+    buyer_entity_id: str
+    seller_entity_id: str
+    amount_cents: int = 0
+    status: str
+    listing_title: str
+    listing_category: str
+    notes: str | None = None
+    created_at: str | None = None
+
+
+class InsightsData(BaseModel):
+    """Generic container for insights API responses."""
+
+    data: dict[str, Any] = {}

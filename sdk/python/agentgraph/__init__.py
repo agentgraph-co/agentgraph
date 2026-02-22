@@ -2,21 +2,51 @@
 from __future__ import annotations
 
 from agentgraph.client import AgentGraphClient
-from agentgraph.exceptions import AgentGraphError, AuthError, NotFoundError, RateLimitError
-from agentgraph.models import Entity, PaginatedPosts, Post, Profile, SearchResults, TrustScore
+from agentgraph.exceptions import (
+    AgentGraphError,
+    AuthError,
+    DisputeError,
+    EscrowError,
+    NotFoundError,
+    ProtocolError,
+    RateLimitError,
+)
+from agentgraph.models import (
+    Capability,
+    Delegation,
+    Dispute,
+    Entity,
+    InsightsData,
+    PaginatedPosts,
+    Post,
+    Profile,
+    SearchResults,
+    Transaction,
+    TrustScore,
+)
+from agentgraph.ws import AgentGraphWebSocket
 
 __all__ = [
     "AgentGraphClient",
     "AgentGraphError",
+    "AgentGraphWebSocket",
     "AuthError",
+    "Capability",
+    "Delegation",
+    "Dispute",
+    "DisputeError",
     "Entity",
+    "EscrowError",
+    "InsightsData",
     "NotFoundError",
     "PaginatedPosts",
     "Post",
     "Profile",
+    "ProtocolError",
     "RateLimitError",
     "SearchResults",
+    "Transaction",
     "TrustScore",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
