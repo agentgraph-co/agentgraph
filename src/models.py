@@ -119,6 +119,9 @@ class Entity(Base):
     framework_trust_modifier = Column(Float, nullable=True, default=1.0)
 
 
+    # SSO provider identity
+    sso_provider_id = Column(String(255), nullable=True)
+
     # Organization membership
     organization_id = Column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
@@ -1251,4 +1254,43 @@ class OrganizationMembership(Base):
         UniqueConstraint("organization_id", "entity_id", name="uq_org_membership"),
         Index("ix_org_memberships_org", "organization_id"),
         Index("ix_org_memberships_entity", "entity_id"),
+    )
+
+
+class AnomalyAlert(Base):
+    """Anomaly detection alert for suspicious entity behavior."""
+
+    __tablename__ = "anomaly_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    alert_type = Column(
+        String(50), nullable=False,
+    )  # "trust_velocity", "relationship_churn", "cluster_anomaly"
+    severity = Column(
+        String(20), nullable=False,
+    )  # "low", "medium", "high"
+    z_score = Column(Float, nullable=False)
+    details = Column(JSONB, default=dict)
+    is_resolved = Column(Boolean, default=False)
+    resolved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity", foreign_keys=[entity_id])
+    resolver = relationship("Entity", foreign_keys=[resolved_by])
+
+    __table_args__ = (
+        Index("ix_anomaly_alerts_entity", "entity_id"),
+        Index("ix_anomaly_alerts_type", "alert_type"),
+        Index("ix_anomaly_alerts_resolved", "is_resolved"),
+        Index("ix_anomaly_alerts_created", "created_at"),
     )
