@@ -31,6 +31,30 @@ interface TrustScoreData {
   methodology_url: string
 }
 
+interface Attestation {
+  id: string
+  attester_id: string
+  attester_display_name: string
+  target_entity_id: string
+  attestation_type: string
+  context: string | null
+  weight: number
+  comment: string | null
+  created_at: string
+}
+
+interface AttestationListData {
+  attestations: Attestation[]
+  count: number
+}
+
+interface ContextualTrustData {
+  entity_id: string
+  context: string
+  score: number | null
+  attestation_count: number
+}
+
 const COMPONENT_INFO: Record<string, { label: string; description: string; color: string }> = {
   verification: {
     label: 'Verification',
@@ -52,6 +76,18 @@ const COMPONENT_INFO: Record<string, { label: string; description: string; color
     description: 'Review ratings (60%) and endorsement count (40%)',
     color: '#f38ba8',
   },
+  community: {
+    label: 'Community',
+    description: 'Trust attestations from other entities (competent, reliable, safe, responsive)',
+    color: '#cba6f7',
+  },
+}
+
+const ATTESTATION_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  competent: { label: 'Competent', color: '#2DD4BF' },
+  reliable: { label: 'Reliable', color: '#a6e3a1' },
+  safe: { label: 'Safe', color: '#f9e2af' },
+  responsive: { label: 'Responsive', color: '#89b4fa' },
 }
 
 export default function TrustDetail() {
@@ -62,6 +98,10 @@ export default function TrustDetail() {
   const [showContest, setShowContest] = useState(false)
   const [contestReason, setContestReason] = useState('')
   const [contestSuccess, setContestSuccess] = useState(false)
+  const [showAttestForm, setShowAttestForm] = useState(false)
+  const [attestType, setAttestType] = useState('competent')
+  const [attestContext, setAttestContext] = useState('')
+  const [attestComment, setAttestComment] = useState('')
 
   useEffect(() => { document.title = 'Trust Score - AgentGraph' }, [])
 
@@ -101,11 +141,38 @@ export default function TrustDetail() {
     },
   })
 
+  const attestMutation = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, string> = { attestation_type: attestType }
+      if (attestContext.trim()) body.context = attestContext.trim()
+      if (attestComment.trim()) body.comment = attestComment.trim()
+      const { data } = await api.post(`/entities/${entityId}/attestations`, body)
+      return data
+    },
+    onSuccess: () => {
+      addToast('Attestation created', 'success')
+      setShowAttestForm(false)
+      setAttestType('competent')
+      setAttestContext('')
+      setAttestComment('')
+      queryClient.invalidateQueries({ queryKey: ['attestations', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['trust-detail', entityId] })
+    },
+    onError: (err: Error) => {
+      addToast(err.message || 'Failed to create attestation', 'error')
+    },
+  })
+
   const handleContest = (e: FormEvent) => {
     e.preventDefault()
     if (contestReason.trim().length >= 10) {
       contestMutation.mutate()
     }
+  }
+
+  const handleAttest = (e: FormEvent) => {
+    e.preventDefault()
+    attestMutation.mutate()
   }
 
   const { data: trust, isLoading, isError, refetch } = useQuery<TrustScoreData>({
@@ -121,6 +188,15 @@ export default function TrustDetail() {
     queryKey: ['profile-brief', entityId],
     queryFn: async () => {
       const { data } = await api.get(`/profiles/${entityId}`)
+      return data
+    },
+    enabled: !!entityId,
+  })
+
+  const { data: attestations } = useQuery<AttestationListData>({
+    queryKey: ['attestations', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/entities/${entityId}/attestations?limit=20`)
       return data
     },
     enabled: !!entityId,
@@ -144,6 +220,7 @@ export default function TrustDetail() {
   }
 
   const overallPct = (trust.score * 100).toFixed(1)
+  const isOwnProfile = user?.id === entityId
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -177,7 +254,7 @@ export default function TrustDetail() {
             <div className="text-[10px] text-text-muted">
               Computed {timeAgo(trust.computed_at)}
             </div>
-            {user?.id === entityId && (
+            {isOwnProfile && (
               <button
                 onClick={() => refreshMutation.mutate()}
                 disabled={refreshMutation.isPending}
@@ -271,8 +348,135 @@ export default function TrustDetail() {
             })}
       </div>
 
+      {/* Community Attestations */}
+      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+        Community Attestations
+      </h2>
+
+      <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+        {attestations && attestations.attestations.length > 0 ? (
+          <div className="space-y-3">
+            {attestations.attestations.map((att) => {
+              const typeInfo = ATTESTATION_TYPE_LABELS[att.attestation_type]
+              return (
+                <div key={att.id} className="flex items-start gap-3 text-sm">
+                  <span
+                    className="mt-1 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider whitespace-nowrap"
+                    style={{ background: `${typeInfo?.color || '#585b70'}20`, color: typeInfo?.color || '#585b70' }}
+                  >
+                    {typeInfo?.label || att.attestation_type}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/profile/${att.attester_id}`}
+                        className="font-medium hover:text-primary-light transition-colors"
+                      >
+                        {att.attester_display_name}
+                      </Link>
+                      {att.context && (
+                        <span className="text-[10px] text-text-muted bg-background px-1.5 py-0.5 rounded">
+                          {att.context}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-text-muted">{timeAgo(att.created_at)}</span>
+                    </div>
+                    {att.comment && (
+                      <p className="text-xs text-text-muted mt-0.5">{att.comment}</p>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-text-muted whitespace-nowrap">
+                    weight: {(att.weight * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )
+            })}
+            {attestations.count > attestations.attestations.length && (
+              <p className="text-xs text-text-muted text-center pt-2">
+                Showing {attestations.attestations.length} of {attestations.count} attestations
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-text-muted text-center py-2">No attestations yet</p>
+        )}
+
+        {/* Create Attestation button — only if viewing someone else's profile */}
+        {user && !isOwnProfile && (
+          <div className="mt-4 pt-3 border-t border-border">
+            {showAttestForm ? (
+              <form onSubmit={handleAttest} className="space-y-3">
+                <h3 className="text-sm font-medium">Create Attestation</h3>
+                <div>
+                  <label className="text-xs text-text-muted block mb-1">Type</label>
+                  <select
+                    value={attestType}
+                    onChange={(e) => setAttestType(e.target.value)}
+                    className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text"
+                  >
+                    <option value="competent">Competent</option>
+                    <option value="reliable">Reliable</option>
+                    <option value="safe">Safe</option>
+                    <option value="responsive">Responsive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted block mb-1">Context (optional)</label>
+                  <input
+                    value={attestContext}
+                    onChange={(e) => setAttestContext(e.target.value)}
+                    placeholder="e.g. code_review, data_analysis"
+                    maxLength={100}
+                    className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted block mb-1">Comment (optional)</label>
+                  <textarea
+                    value={attestComment}
+                    onChange={(e) => setAttestComment(e.target.value)}
+                    placeholder="Why are you attesting this?"
+                    rows={2}
+                    maxLength={2000}
+                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text resize-none"
+                  />
+                </div>
+                {attestMutation.isError && (
+                  <div className="text-xs text-danger">
+                    {(attestMutation.error as Error)?.message || 'Failed to create attestation'}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={attestMutation.isPending}
+                    className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {attestMutation.isPending ? 'Creating...' : 'Submit Attestation'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAttestForm(false)}
+                    className="text-text-muted hover:text-text px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer border border-border"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                onClick={() => setShowAttestForm(true)}
+                className="text-xs text-primary-light hover:underline cursor-pointer"
+              >
+                + Create Attestation
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Contest */}
-      {user?.id === entityId && (
+      {isOwnProfile && (
         <div className="mb-6">
           {contestSuccess ? (
             <div className="bg-success/10 border border-success/30 rounded-md px-4 py-3 text-sm">
@@ -335,10 +539,11 @@ export default function TrustDetail() {
           </pre>
         ) : (
           <p className="text-xs text-text-muted leading-relaxed">
-            Trust scores are computed from four weighted components: <strong>Verification</strong> (35%) — email,
-            DID, and attestation status; <strong>Account Age</strong> (15%) — linear scale up to 365 days;{' '}
-            <strong>Activity</strong> (25%) — recent posts and votes with log-scaling to prevent gaming;{' '}
-            <strong>Reputation</strong> (25%) — review ratings and endorsement count. Scores range from 0-100%
+            Trust scores are computed from five weighted components: <strong>Verification</strong> (35%) — email,
+            DID, and attestation status; <strong>Account Age</strong> (10%) — linear scale up to 365 days;{' '}
+            <strong>Activity</strong> (20%) — recent posts and votes with log-scaling to prevent gaming;{' '}
+            <strong>Reputation</strong> (15%) — review ratings and endorsement count;{' '}
+            <strong>Community</strong> (20%) — trust attestations from other entities. Scores range from 0-100%
             and are recomputed daily.
           </p>
         )}
