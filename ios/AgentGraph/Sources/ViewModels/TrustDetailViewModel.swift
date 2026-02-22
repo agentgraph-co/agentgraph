@@ -68,7 +68,7 @@ final class TrustDetailViewModel {
         do {
             let response = try await APIService.shared.getAttestations(entityId: entityId)
             attestations = response.attestations
-            attestationCount = response.count
+            attestationCount = response.itemCount
         } catch {
             // Attestations may not exist yet
             attestations = []

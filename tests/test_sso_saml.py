@@ -9,11 +9,21 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from src.config import settings
 from src.database import get_db
 from src.main import app
 
 PREFIX = "/api/v1/sso"
 ORG_PREFIX = "/api/v1/organizations"
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _enable_sso():
+    """Enable SSO feature flag for all tests in this module."""
+    original = settings.sso_enabled
+    settings.sso_enabled = True
+    yield
+    settings.sso_enabled = original
 
 
 @pytest_asyncio.fixture

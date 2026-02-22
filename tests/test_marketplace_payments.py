@@ -137,8 +137,9 @@ async def test_purchase_paid_listing_creates_payment_intent(client: AsyncClient,
         "payment_intent_id": "pi_test_123",
     }
 
-    with patch("src.api.marketplace_router.get_account_status", return_value=mock_account_status), \
-         patch("src.api.marketplace_router.create_payment_intent", return_value=mock_intent):
+    with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_account_status), \
+         patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent):
         resp = await client.post(
             f"{MARKET_URL}/{listing_id}/purchase",
             json={"notes": "Paid purchase"},
@@ -205,7 +206,7 @@ async def test_purchase_paid_listing_seller_charges_not_enabled(
     }
 
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
-         patch("src.api.marketplace_router.get_account_status", return_value=mock_status):
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_status):
         resp = await client.post(
             f"{MARKET_URL}/{listing_id}/purchase",
             json={},
@@ -245,8 +246,8 @@ async def test_double_purchase_prevention(client: AsyncClient, db):
     }
 
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
-         patch("src.api.marketplace_router.get_account_status", return_value=mock_status), \
-         patch("src.api.marketplace_router.create_payment_intent", return_value=mock_intent):
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_status), \
+         patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent):
         # First purchase
         resp1 = await client.post(
             f"{MARKET_URL}/{listing_id}/purchase",
@@ -322,7 +323,7 @@ async def test_webhook_payment_intent_succeeded(client: AsyncClient, db):
 
     with patch("src.config.settings.stripe_webhook_secret", "whsec_test"), \
          patch(
-             "src.api.marketplace_router.verify_webhook_signature",
+             "src.payments.stripe_service.verify_webhook_signature",
              return_value=event,
          ):
         resp = await client.post(
@@ -397,7 +398,7 @@ async def test_webhook_charge_refunded(client: AsyncClient, db):
 
     with patch("src.config.settings.stripe_webhook_secret", "whsec_test"), \
          patch(
-             "src.api.marketplace_router.verify_webhook_signature",
+             "src.payments.stripe_service.verify_webhook_signature",
              return_value=event,
          ):
         resp = await client.post(
@@ -421,7 +422,7 @@ async def test_webhook_invalid_signature(client: AsyncClient):
 
     with patch("src.config.settings.stripe_webhook_secret", "whsec_test"), \
          patch(
-             "src.api.marketplace_router.verify_webhook_signature",
+             "src.payments.stripe_service.verify_webhook_signature",
              side_effect=stripe_mod.error.SignatureVerificationError(
                  "bad sig", "sig_header",
              ),
@@ -451,11 +452,11 @@ async def test_connect_onboard_creates_account(client: AsyncClient):
 
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
          patch(
-             "src.api.marketplace_router.create_connect_account",
+             "src.payments.stripe_service.create_connect_account",
              return_value="acct_new_test",
          ), \
          patch(
-             "src.api.marketplace_router.create_onboarding_link",
+             "src.payments.stripe_service.create_onboarding_link",
              return_value="https://connect.stripe.com/setup/test",
          ):
         resp = await client.post(
@@ -488,7 +489,7 @@ async def test_connect_onboard_existing_account(client: AsyncClient, db):
 
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
          patch(
-             "src.api.marketplace_router.create_onboarding_link",
+             "src.payments.stripe_service.create_onboarding_link",
              return_value="https://connect.stripe.com/setup/resume",
          ):
         resp = await client.post(
@@ -528,7 +529,7 @@ async def test_connect_status_returns_account_info(client: AsyncClient, db):
 
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
          patch(
-             "src.api.marketplace_router.get_account_status",
+             "src.payments.stripe_service.get_account_status",
              return_value=mock_status,
          ):
         resp = await client.get(
@@ -592,10 +593,10 @@ async def test_platform_fee_calculation(client: AsyncClient, db):
         "payment_intent_id": "pi_fee_123",
     }
 
-    pi_path = "src.api.marketplace_router.create_payment_intent"
+    pi_path = "src.payments.stripe_service.create_payment_intent"
     with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
          patch("src.config.settings.stripe_platform_fee_percent", 10), \
-         patch("src.api.marketplace_router.get_account_status", return_value=mock_status), \
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_status), \
          patch(pi_path, return_value=mock_intent) as mock_pi:
         resp = await client.post(
             f"{MARKET_URL}/{listing_id}/purchase",

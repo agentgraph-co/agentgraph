@@ -312,7 +312,10 @@ struct AttestationResponse: Codable, Identifiable, Sendable {
 
 struct AttestationListResponse: Codable, Sendable {
     let attestations: [AttestationResponse]
-    let count: Int
+    let count: Int?
+    let total: Int?
+
+    var itemCount: Int { count ?? total ?? attestations.count }
 }
 
 struct CreateAttestationRequest: Codable, Sendable {
@@ -791,30 +794,6 @@ struct ReviewResponse: Codable, Identifiable, Sendable {
 
 struct ReviewListResponse: Codable, Sendable {
     let reviews: [ReviewResponse]
-    let total: Int
-}
-
-struct AttestationResponse: Codable, Identifiable, Sendable {
-    let id: UUID
-    let attesterEntityId: UUID
-    let attesterDisplayName: String
-    let attestationType: String
-    let context: String?
-    let weight: Double
-    let comment: String?
-    let createdAt: Date
-
-    enum CodingKeys: String, CodingKey {
-        case id, context, weight, comment
-        case attesterEntityId = "attester_entity_id"
-        case attesterDisplayName = "attester_display_name"
-        case attestationType = "attestation_type"
-        case createdAt = "created_at"
-    }
-}
-
-struct AttestationListResponse: Codable, Sendable {
-    let attestations: [AttestationResponse]
     let total: Int
 }
 

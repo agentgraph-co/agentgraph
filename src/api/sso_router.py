@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.config import settings
 from src.database import get_db
 from src.enterprise.sso import (
     OIDCHandler,
@@ -97,6 +99,15 @@ def _get_sso_config(org: Organization) -> dict:
     return org_settings.get("sso", {})
 
 
+def _require_sso_enabled() -> None:
+    """Guard: reject all SSO requests when the feature is disabled."""
+    if not settings.sso_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="SSO is not enabled on this instance",
+        )
+
+
 # --- SAML Endpoints ---
 
 
@@ -104,11 +115,13 @@ def _get_sso_config(org: Organization) -> dict:
 async def saml_login(
     body: SAMLLoginRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Initiate SAML SSO login for an organization.
 
     Returns a redirect URL to the IdP for authentication.
     """
+    _require_sso_enabled()
     org = await _get_org_or_404(db, body.org_id)
     sso_config = _get_sso_config(org)
     if sso_config.get("provider") != "saml" or not sso_config.get("enabled", False):
@@ -120,11 +133,13 @@ async def saml_login(
 async def saml_callback(
     body: SAMLCallbackRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """SAML Assertion Consumer Service endpoint.
 
     Validates the SAML assertion and returns JWT tokens.
     """
+    _require_sso_enabled()
     org = await _get_org_or_404(db, body.org_id)
     sso_config = _get_sso_config(org)
     if sso_config.get("provider") != "saml" or not sso_config.get("enabled", False):
@@ -134,14 +149,17 @@ async def saml_callback(
     if parsed is None:
         raise HTTPException(status_code=401, detail="Invalid SAML assertion")
 
-    entity = await find_or_create_sso_entity(
-        db=db,
-        org_id=body.org_id,
-        provider="saml",
-        provider_user_id=parsed["name_id"],
-        email=parsed["email"],
-        display_name=parsed["display_name"],
-    )
+    try:
+        entity = await find_or_create_sso_entity(
+            db=db,
+            org_id=body.org_id,
+            provider="saml",
+            provider_user_id=parsed["name_id"],
+            email=parsed["email"],
+            display_name=parsed["display_name"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return create_sso_tokens(entity)
 
 
@@ -149,11 +167,13 @@ async def saml_callback(
 async def saml_metadata(
     org_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> str:
     """Return SP metadata XML for the organization.
 
     Used by IdP administrators to configure the SAML integration.
     """
+    _require_sso_enabled()
     await _get_org_or_404(db, org_id)
     return _saml_handler.generate_metadata(org_id)
 
@@ -165,16 +185,22 @@ async def saml_metadata(
 async def oidc_login(
     org_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Initiate OIDC SSO login for an organization.
 
     Returns a redirect URL to the OIDC provider for authentication.
     """
+    _require_sso_enabled()
     org = await _get_org_or_404(db, org_id)
     sso_config = _get_sso_config(org)
     if sso_config.get("provider") != "oidc" or not sso_config.get("enabled", False):
         raise HTTPException(status_code=400, detail="OIDC SSO not configured for this organization")
-    return _oidc_handler.initiate_login(org_id, sso_config)
+    result = _oidc_handler.initiate_login(org_id, sso_config)
+    # Store state for validation in callback
+    from src import cache
+    await cache.set(f"oidc_state:{result['state']}", str(org_id), ttl=600)  # 10 min expiry
+    return result
 
 
 @router.get("/oidc/callback")
@@ -183,11 +209,20 @@ async def oidc_callback(
     state: str,
     org_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """OIDC callback endpoint.
 
     Exchanges the authorization code for user info and returns JWT tokens.
     """
+    _require_sso_enabled()
+    # Validate OIDC state to prevent CSRF
+    from src import cache
+    stored_org = await cache.get(f"oidc_state:{state}")
+    if stored_org is None or stored_org != str(org_id):
+        raise HTTPException(status_code=400, detail="Invalid or expired OIDC state")
+    await cache.invalidate(f"oidc_state:{state}")  # One-time use
+
     org = await _get_org_or_404(db, org_id)
     sso_config = _get_sso_config(org)
     if sso_config.get("provider") != "oidc" or not sso_config.get("enabled", False):
@@ -197,14 +232,17 @@ async def oidc_callback(
     if userinfo is None:
         raise HTTPException(status_code=401, detail="Invalid OIDC authorization code")
 
-    entity = await find_or_create_sso_entity(
-        db=db,
-        org_id=org_id,
-        provider="oidc",
-        provider_user_id=userinfo["sub"],
-        email=userinfo["email"],
-        display_name=userinfo["display_name"],
-    )
+    try:
+        entity = await find_or_create_sso_entity(
+            db=db,
+            org_id=org_id,
+            provider="oidc",
+            provider_user_id=userinfo["sub"],
+            email=userinfo["email"],
+            display_name=userinfo["display_name"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return create_sso_tokens(entity)
 
 
@@ -220,8 +258,10 @@ async def get_sso_config(
     org_id: uuid.UUID,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
 ) -> dict:
     """Get SSO configuration for an organization. Org admin only."""
+    _require_sso_enabled()
     org = await _get_org_or_404(db, org_id)
     await _check_org_admin(db, org_id, entity.id)
     sso_config = _get_sso_config(org)
@@ -240,8 +280,10 @@ async def set_sso_config(
     body: SSOConfigUpdate,
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
 ) -> dict:
     """Set SSO configuration for an organization. Org admin only."""
+    _require_sso_enabled()
     org = await _get_org_or_404(db, org_id)
     await _check_org_admin(db, org_id, entity.id)
 

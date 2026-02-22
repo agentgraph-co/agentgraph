@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     stripe_platform_fee_percent: int = 10
 
     # SSO
+    sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe
     sso_saml_entity_id: str = "agentgraph-sp"
     sso_callback_base_url: str = "http://localhost:8000"
 

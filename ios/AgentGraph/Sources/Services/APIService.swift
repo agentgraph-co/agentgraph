@@ -646,16 +646,8 @@ actor APIService {
     }
 
     func createReview(entityId: UUID, rating: Int, text: String?) async throws -> MessageResponse {
-        var body: [String: Any] = ["rating": rating]
-        if let text { body["text"] = text }
-        let data = try JSONSerialization.data(withJSONObject: body)
-        return try await authenticatedPost(path: "entities/\(entityId)/reviews", body: data)
-    }
-
-    // MARK: - Attestations
-
-    func getAttestations(entityId: UUID) async throws -> AttestationListResponse {
-        try await authenticatedGet(path: "entities/\(entityId)/attestations")
+        let body = CreateReviewBody(rating: rating, text: text)
+        return try await authenticatedPost(path: "entities/\(entityId)/reviews", body: body)
     }
 
     // MARK: - Badges
@@ -663,6 +655,13 @@ actor APIService {
     func getBadges(entityId: UUID) async throws -> BadgeListResponse {
         try await authenticatedGet(path: "entities/\(entityId)/badges")
     }
+}
+
+// MARK: - Request Bodies
+
+private struct CreateReviewBody: Codable, Sendable {
+    let rating: Int
+    let text: String?
 }
 
 // MARK: - Error Types

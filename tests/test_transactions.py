@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -93,17 +95,38 @@ async def test_purchase_free_listing(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_purchase_paid_listing_pending(client: AsyncClient, db):
     """Purchasing a paid listing creates a pending transaction."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    import uuid
+    from src.models import Entity
+
+    seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
     listing_id = await _create_listing(
         client, seller_token, pricing_model="one_time", price_cents=999,
     )
 
-    resp = await client.post(
-        f"/api/v1/marketplace/{listing_id}/purchase",
-        json={},
-        headers=_auth(buyer_token),
-    )
+    # Set up seller's Stripe account
+    seller = await db.get(Entity, uuid.UUID(seller_id))
+    seller.stripe_account_id = "acct_test_paid"
+    await db.flush()
+
+    mock_status = {
+        "charges_enabled": True,
+        "payouts_enabled": True,
+        "details_submitted": True,
+    }
+    mock_intent = {
+        "client_secret": "pi_test_secret",
+        "payment_intent_id": "pi_test_123",
+    }
+
+    with patch("src.config.settings.stripe_secret_key", "sk_test_fake"), \
+         patch("src.payments.stripe_service.get_account_status", return_value=mock_status), \
+         patch("src.payments.stripe_service.create_payment_intent", return_value=mock_intent):
+        resp = await client.post(
+            f"/api/v1/marketplace/{listing_id}/purchase",
+            json={},
+            headers=_auth(buyer_token),
+        )
     assert resp.status_code == 201
     data = resp.json()
     assert data["status"] == "pending"
