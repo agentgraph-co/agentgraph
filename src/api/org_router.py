@@ -1,11 +1,15 @@
-"""Organization endpoints -- CRUD, membership, fleet, compliance."""
+"""Organization endpoints -- CRUD, membership, fleet, compliance, enterprise."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
+import secrets
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +17,7 @@ from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.audit import log_action
 from src.database import get_db
 from src.models import (
     Entity,
@@ -387,3 +392,186 @@ async def org_stats(
         "member_count": member_count, "agent_count": agent_count,
         "avg_trust": avg_trust, "post_count": post_count,
     }
+
+
+# --- Audit Export ---
+
+
+@router.get("/{org_id}/audit-export")
+async def export_org_audit_logs(
+    org_id: uuid.UUID,
+    format: str = Query("json", pattern="^(json|csv)$"),
+    days: int = Query(30, ge=1, le=365),
+    action_filter: str | None = Query(None),
+    entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
+):
+    """Export audit logs for the organization (owner/admin only)."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await _check_org_role(db, org_id, entity.id, [OrgRole.OWNER, OrgRole.ADMIN])
+
+    from src.enterprise.audit_export import export_audit_logs as do_export
+
+    result = await do_export(
+        db, org_id, format=format, days=days, action_filter=action_filter,
+    )
+
+    if format == "csv":
+        return PlainTextResponse(content=result, media_type="text/csv")
+    return {"logs": result, "total": len(result), "period_days": days}
+
+
+# --- Usage Metering ---
+
+
+@router.get("/{org_id}/usage")
+async def get_usage(
+    org_id: uuid.UUID,
+    days: int = Query(30, ge=1, le=365),
+    entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
+):
+    """Get API usage metrics for the organization."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await _check_org_role(db, org_id, entity.id, [OrgRole.OWNER, OrgRole.ADMIN])
+
+    from src.enterprise.usage_metering import get_usage_stats
+
+    return await get_usage_stats(db, org_id, days=days)
+
+
+# --- Org API Keys ---
+
+
+class CreateOrgApiKeyRequest(BaseModel):
+    label: str = Field(default="default", max_length=100)
+    scopes: list[str] = Field(default_factory=list)
+
+
+@router.post("/{org_id}/api-keys", status_code=201)
+async def create_org_api_key(
+    org_id: uuid.UUID,
+    body: CreateOrgApiKeyRequest,
+    entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
+):
+    """Create an org-scoped API key (owner/admin only)."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await _check_org_role(db, org_id, entity.id, [OrgRole.OWNER, OrgRole.ADMIN])
+
+    from src.models import APIKey
+
+    raw_key = f"ag_org_{secrets.token_hex(24)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+
+    api_key = APIKey(
+        entity_id=entity.id,
+        key_hash=key_hash,
+        label=body.label,
+        scopes=body.scopes,
+        organization_id=org_id,
+    )
+    db.add(api_key)
+    await db.flush()
+    await db.refresh(api_key)
+
+    await log_action(
+        db,
+        action="org.api_key_create",
+        entity_id=entity.id,
+        resource_type="api_key",
+        resource_id=api_key.id,
+        details={"org_id": str(org_id), "label": body.label},
+    )
+
+    return {
+        "id": str(api_key.id),
+        "key": raw_key,
+        "label": api_key.label,
+        "scopes": api_key.scopes or [],
+        "organization_id": str(org_id),
+        "created_at": api_key.created_at.isoformat(),
+    }
+
+
+@router.get("/{org_id}/api-keys")
+async def list_org_api_keys(
+    org_id: uuid.UUID,
+    entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_reads),
+):
+    """List org-scoped API keys (owner/admin only)."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await _check_org_role(db, org_id, entity.id, [OrgRole.OWNER, OrgRole.ADMIN])
+
+    from src.models import APIKey
+
+    result = await db.execute(
+        select(APIKey).where(
+            APIKey.organization_id == org_id,
+            APIKey.is_active.is_(True),
+        ).order_by(APIKey.created_at.desc())
+    )
+    keys = result.scalars().all()
+
+    return {
+        "api_keys": [
+            {
+                "id": str(k.id),
+                "label": k.label,
+                "scopes": k.scopes or [],
+                "entity_id": str(k.entity_id),
+                "created_at": k.created_at.isoformat(),
+            }
+            for k in keys
+        ],
+        "total": len(keys),
+    }
+
+
+@router.delete("/{org_id}/api-keys/{key_id}")
+async def revoke_org_api_key(
+    org_id: uuid.UUID,
+    key_id: uuid.UUID,
+    entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_writes),
+):
+    """Revoke an org-scoped API key (owner/admin only)."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await _check_org_role(db, org_id, entity.id, [OrgRole.OWNER, OrgRole.ADMIN])
+
+    from src.models import APIKey
+
+    key = await db.get(APIKey, key_id)
+    if key is None or key.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    key.is_active = False
+    key.revoked_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    await log_action(
+        db,
+        action="org.api_key_revoke",
+        entity_id=entity.id,
+        resource_type="api_key",
+        resource_id=key_id,
+        details={"org_id": str(org_id)},
+    )
+
+    return {"detail": "API key revoked"}
