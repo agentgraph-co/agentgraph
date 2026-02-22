@@ -16,7 +16,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, get_optional_entity
+from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -291,12 +292,20 @@ async def create_evolution_record(
 async def get_evolution_timeline(
     entity_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the evolution timeline for an agent."""
     entity = await db.get(Entity, entity_id)
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Privacy tier check
+    if not await check_privacy_access(entity, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's evolution timeline is private",
+        )
 
     result = await db.execute(
         select(EvolutionRecord)
@@ -318,12 +327,20 @@ async def get_evolution_timeline(
 )
 async def get_lineage(
     entity_id: uuid.UUID,
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get full lineage info for an agent including fork relationships."""
     entity = await db.get(Entity, entity_id)
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Privacy tier check
+    if not await check_privacy_access(entity, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's evolution timeline is private",
+        )
 
     # Get all evolution records
     result = await db.execute(
@@ -368,9 +385,20 @@ async def compare_versions(
     entity_id: uuid.UUID,
     version_a: str,
     version_b: str,
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Compare capabilities between two versions of an agent."""
+    # Privacy tier check
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if not await check_privacy_access(entity, current_entity, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This entity's evolution timeline is private",
+        )
+
     record_a = await db.scalar(
         select(EvolutionRecord).where(
             EvolutionRecord.entity_id == entity_id,

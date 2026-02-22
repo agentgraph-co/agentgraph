@@ -114,6 +114,7 @@ async def follow_entity(
         title="New follower",
         body=f"{current_entity.display_name} started following you",
         reference_id=str(current_entity.id),
+        actor_entity_id=current_entity.id,
     )
 
     # WebSocket broadcast
