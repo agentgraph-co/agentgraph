@@ -1,7 +1,7 @@
 """Bridges API router — endpoints for framework bridge operations.
 
-Supports OpenClaw, LangChain, and CrewAI agent import, security scanning,
-and framework status.
+Supports OpenClaw, LangChain, CrewAI, AutoGen, and Semantic Kernel agent
+import, security scanning, discovery, health, and framework status.
 """
 from __future__ import annotations
 
@@ -100,6 +100,70 @@ class CrewAIRescanRequest(BaseModel):
     agents: list[dict[str, Any]] = Field(default_factory=list)
     tasks: list[dict[str, Any]] = Field(default_factory=list)
     code: str = Field(default="")
+
+
+class AutoGenManifest(BaseModel):
+    """AutoGen agent manifest for import."""
+
+    name: str = Field(default="AutoGen Agent", max_length=100)
+    description: str = Field(default="", max_length=5000)
+    agents: list[dict[str, Any]] = Field(default_factory=list)
+    oai_config: dict[str, Any] = Field(default_factory=dict)
+    code_execution_config: dict[str, Any] = Field(default_factory=dict)
+    version: str = Field(default="1.0.0")
+    code: str = Field(default="")
+
+
+class AutoGenRescanRequest(BaseModel):
+    """Manifest for rescanning an AutoGen entity."""
+
+    agents: list[dict[str, Any]] = Field(default_factory=list)
+    code_execution_config: dict[str, Any] = Field(default_factory=dict)
+    code: str = Field(default="")
+
+
+class SemanticKernelManifest(BaseModel):
+    """Semantic Kernel agent manifest for import."""
+
+    name: str = Field(default="Semantic Kernel Agent", max_length=100)
+    description: str = Field(default="", max_length=5000)
+    plugins: list[dict[str, Any]] = Field(default_factory=list)
+    planner_config: dict[str, Any] = Field(default_factory=dict)
+    kernel_config: dict[str, Any] = Field(default_factory=dict)
+    version: str = Field(default="1.0.0")
+    code: str = Field(default="")
+
+
+class SemanticKernelRescanRequest(BaseModel):
+    """Manifest for rescanning a Semantic Kernel entity."""
+
+    plugins: list[dict[str, Any]] = Field(default_factory=list)
+    planner_config: dict[str, Any] = Field(default_factory=dict)
+    code: str = Field(default="")
+
+
+class BridgeCapability(BaseModel):
+    """Capability info for a single framework bridge."""
+
+    framework: str
+    capabilities: list[str]
+    import_schema: dict[str, Any]
+    status: str
+
+
+class DiscoveryResponse(BaseModel):
+    """Response for bridge discovery endpoint."""
+
+    frameworks: list[BridgeCapability]
+
+
+class BridgeHealthOut(BaseModel):
+    """Health status for a single framework bridge."""
+
+    framework: str
+    status: str
+    module_loaded: bool
+    version: str
 
 
 class FrameworkStatusOut(BaseModel):
@@ -493,5 +557,280 @@ async def bridge_status(
 
     stats = await get_framework_stats(db)
     # Ensure all frameworks are listed
-    stats["supported_frameworks"] = ["mcp", "openclaw", "langchain", "crewai"]
+    stats["supported_frameworks"] = [
+        "mcp", "openclaw", "langchain", "crewai", "autogen", "semantic_kernel",
+    ]
     return FrameworkStatusOut(**stats)
+
+
+# --- AutoGen Endpoints ---
+
+
+@router.post(
+    "/autogen/import",
+    response_model=ImportResult,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def import_autogen_agent(
+    manifest: AutoGenManifest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import an AutoGen agent manifest into AgentGraph.
+
+    Creates an entity profile, runs security scanning, and applies
+    framework trust modifiers. The importing user becomes the agent operator.
+    """
+    from src.audit import log_action
+    from src.bridges.autogen.registry import import_autogen_agent as do_import
+
+    agent, scan = await do_import(
+        db=db,
+        manifest=manifest.model_dump(),
+        operator_entity=current_entity,
+    )
+
+    await log_action(
+        db,
+        action="bridges.autogen.import",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "agent_name": agent.display_name,
+            "scan_result": scan.scan_result,
+            "framework": "autogen",
+        },
+    )
+
+    return ImportResult(
+        entity_id=str(agent.id),
+        display_name=agent.display_name,
+        framework_source=agent.framework_source or "autogen",
+        framework_trust_modifier=agent.framework_trust_modifier or 1.0,
+        scan=_scan_to_out(scan),
+    )
+
+
+@router.get(
+    "/autogen/scan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_autogen_scan(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the latest security scan result for an AutoGen entity."""
+    from src.bridges.autogen.registry import get_latest_scan
+
+    scan = await get_latest_scan(db, entity_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="No scan found for this entity")
+
+    return _scan_to_out(scan)
+
+
+@router.post(
+    "/autogen/rescan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def rescan_autogen_entity(
+    entity_id: uuid.UUID,
+    body: AutoGenRescanRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a rescan of an AutoGen entity with updated agents/code.
+
+    Only the operator or an admin can rescan an entity.
+    A clean rescan removes the trust penalty (sets modifier to 1.0).
+    """
+    from src.audit import log_action
+    from src.bridges.autogen.registry import rescan_entity as do_rescan
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Authorization: must be operator or admin
+    if entity.operator_id != current_entity.id and not current_entity.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to rescan this entity")
+
+    manifest = {
+        "agents": body.agents,
+        "code_execution_config": body.code_execution_config,
+        "code": body.code,
+    }
+    scan = await do_rescan(db, entity, manifest)
+
+    await log_action(
+        db,
+        action="bridges.autogen.rescan",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={
+            "scan_result": scan.scan_result,
+            "framework": entity.framework_source or "autogen",
+        },
+    )
+
+    return _scan_to_out(scan)
+
+
+# --- Semantic Kernel Endpoints ---
+
+
+@router.post(
+    "/semantic-kernel/import",
+    response_model=ImportResult,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def import_sk_agent(
+    manifest: SemanticKernelManifest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a Semantic Kernel agent manifest into AgentGraph.
+
+    Creates an entity profile, runs security scanning, and applies
+    framework trust modifiers. The importing user becomes the agent operator.
+    """
+    from src.audit import log_action
+    from src.bridges.semantic_kernel.registry import import_sk_agent as do_import
+
+    agent, scan = await do_import(
+        db=db,
+        manifest=manifest.model_dump(),
+        operator_entity=current_entity,
+    )
+
+    await log_action(
+        db,
+        action="bridges.semantic_kernel.import",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "agent_name": agent.display_name,
+            "scan_result": scan.scan_result,
+            "framework": "semantic_kernel",
+        },
+    )
+
+    return ImportResult(
+        entity_id=str(agent.id),
+        display_name=agent.display_name,
+        framework_source=agent.framework_source or "semantic_kernel",
+        framework_trust_modifier=agent.framework_trust_modifier or 1.0,
+        scan=_scan_to_out(scan),
+    )
+
+
+@router.get(
+    "/semantic-kernel/scan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_sk_scan(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the latest security scan result for a Semantic Kernel entity."""
+    from src.bridges.semantic_kernel.registry import get_latest_scan
+
+    scan = await get_latest_scan(db, entity_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="No scan found for this entity")
+
+    return _scan_to_out(scan)
+
+
+@router.post(
+    "/semantic-kernel/rescan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def rescan_sk_entity(
+    entity_id: uuid.UUID,
+    body: SemanticKernelRescanRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a rescan of a Semantic Kernel entity with updated plugins/code.
+
+    Only the operator or an admin can rescan an entity.
+    A clean rescan removes the trust penalty (sets modifier to 1.0).
+    """
+    from src.audit import log_action
+    from src.bridges.semantic_kernel.registry import rescan_entity as do_rescan
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Authorization: must be operator or admin
+    if entity.operator_id != current_entity.id and not current_entity.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to rescan this entity")
+
+    manifest = {
+        "plugins": body.plugins,
+        "planner_config": body.planner_config,
+        "code": body.code,
+    }
+    scan = await do_rescan(db, entity, manifest)
+
+    await log_action(
+        db,
+        action="bridges.semantic_kernel.rescan",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={
+            "scan_result": scan.scan_result,
+            "framework": entity.framework_source or "semantic_kernel",
+        },
+    )
+
+    return _scan_to_out(scan)
+
+
+# --- Discovery & Health Endpoints ---
+
+
+@router.get(
+    "/discover",
+    response_model=DiscoveryResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def bridge_discover():
+    """Discover all supported framework bridges with capabilities and import schemas.
+
+    Public endpoint — no authentication required.
+    """
+    from src.bridges.health import get_bridge_discovery
+
+    frameworks = get_bridge_discovery()
+    return DiscoveryResponse(
+        frameworks=[BridgeCapability(**f) for f in frameworks],
+    )
+
+
+@router.get(
+    "/health",
+    response_model=list[BridgeHealthOut],
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def bridge_health():
+    """Check health status of all bridge modules.
+
+    Public endpoint — no authentication required.
+    """
+    from src.bridges.health import check_bridge_health
+
+    results = check_bridge_health()
+    return [BridgeHealthOut(**r) for r in results]
