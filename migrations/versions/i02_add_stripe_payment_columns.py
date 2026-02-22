@@ -1,7 +1,7 @@
 """add_stripe_payment_columns
 
-Revision ID: i01_stripe
-Revises: h01_add_analytics_events_table
+Revision ID: i02_stripe
+Revises: i01_trust_attestations
 Create Date: 2026-02-21 00:00:00.000000
 """
 from __future__ import annotations
@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "i01_stripe"
-down_revision = "h01_analytics_events"
+revision = "i02_stripe"
+down_revision = "i01_trust_attestations"
 branch_labels = None
 depends_on = None
 
