@@ -1089,3 +1089,73 @@ class FrameworkSecurityScan(Base):
         Index("ix_framework_scans_framework", "framework"),
         Index("ix_framework_scans_scanned_at", "scanned_at"),
     )
+
+
+class VerificationBadge(Base):
+    """Formal verification badge issued to an entity."""
+
+    __tablename__ = "verification_badges"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    badge_type = Column(
+        String(50), nullable=False,
+    )  # email_verified, identity_verified, capability_audited, agentgraph_verified
+    issued_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    proof_url = Column(String(1000), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity", foreign_keys=[entity_id])
+    issuer = relationship("Entity", foreign_keys=[issued_by])
+
+    __table_args__ = (
+        Index("ix_verification_badges_entity", "entity_id"),
+        Index("ix_verification_badges_type", "badge_type"),
+        Index("ix_verification_badges_active", "is_active"),
+    )
+
+
+class AuditRecord(Base):
+    """Formal audit record for an entity."""
+
+    __tablename__ = "audit_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    auditor_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    audit_type = Column(
+        String(30), nullable=False,
+    )  # security, capability, compliance
+    result = Column(
+        String(20), nullable=False,
+    )  # pass, fail, partial
+    findings = Column(JSONB, default=dict, nullable=True)
+    report_url = Column(String(1000), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    target = relationship("Entity", foreign_keys=[target_entity_id])
+    auditor = relationship("Entity", foreign_keys=[auditor_entity_id])
+
+    __table_args__ = (
+        Index("ix_audit_records_target", "target_entity_id"),
+        Index("ix_audit_records_auditor", "auditor_entity_id"),
+        Index("ix_audit_records_type", "audit_type"),
+    )

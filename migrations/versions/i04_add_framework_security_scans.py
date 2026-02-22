@@ -1,7 +1,7 @@
 """add_framework_security_scans
 
 Revision ID: i04_framework_scans
-Revises: i02_stripe
+Revises: i03_badges_audit
 Create Date: 2026-02-21 00:00:00.000000
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "i04_framework_scans"
-down_revision = "i02_stripe"
+down_revision = "i03_badges_audit"
 branch_labels = None
 depends_on = None
 
