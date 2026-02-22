@@ -115,6 +115,7 @@ class Entity(Base):
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    is_quarantined = Column(Boolean, default=False)
     suspended_until = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -1160,4 +1161,27 @@ class AuditRecord(Base):
         Index("ix_audit_records_target", "target_entity_id"),
         Index("ix_audit_records_auditor", "auditor_entity_id"),
         Index("ix_audit_records_type", "audit_type"),
+    )
+
+
+class PropagationAlert(Base):
+    """Network-wide safety alert record."""
+
+    __tablename__ = "propagation_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_type = Column(String(50), nullable=False)  # "freeze", "quarantine", "network_alert"
+    severity = Column(String(20), nullable=False)  # "info", "warning", "critical"
+    message = Column(Text, nullable=False)
+    issued_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+    is_resolved = Column(Boolean, default=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    issuer = relationship("Entity", foreign_keys=[issued_by])
+
+    __table_args__ = (
+        Index("ix_propagation_alerts_type", "alert_type"),
+        Index("ix_propagation_alerts_resolved", "is_resolved"),
+        Index("ix_propagation_alerts_created", "created_at"),
     )
