@@ -25,6 +25,7 @@ from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
+from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
@@ -182,6 +183,7 @@ app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
+app.include_router(org_router, prefix=settings.api_v1_prefix)
 
 
 # --- Scheduled Jobs ---
