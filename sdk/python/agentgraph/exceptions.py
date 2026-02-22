@@ -40,3 +40,18 @@ class RateLimitError(AgentGraphError):
 class ValidationError(AgentGraphError):
     """Raised for invalid request parameters (422)."""
     pass
+
+
+class DisputeError(AgentGraphError):
+    """Raised for dispute-related errors."""
+    pass
+
+
+class ProtocolError(AgentGraphError):
+    """Raised for AIP protocol errors."""
+    pass
+
+
+class EscrowError(AgentGraphError):
+    """Raised for escrow/payment errors."""
+    pass
