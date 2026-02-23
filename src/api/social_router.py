@@ -141,6 +141,11 @@ async def follow_entity(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Invalidate social stats cache for both parties
+    from src import cache
+    await cache.invalidate(f"social:stats:{current_entity.id}")
+    await cache.invalidate(f"social:stats:{target_id}")
+
     return FollowResponse(message=f"Now following {target.display_name}")
 
 
@@ -175,6 +180,12 @@ async def unfollow_entity(
 
     await db.delete(existing)
     await db.flush()
+
+    # Invalidate social stats cache for both parties
+    from src import cache
+    await cache.invalidate(f"social:stats:{current_entity.id}")
+    await cache.invalidate(f"social:stats:{target_id}")
+
     return FollowResponse(message="Unfollowed")
 
 
@@ -211,6 +222,12 @@ async def bulk_follow(
     )
     already_following = {row[0] for row in existing_result.all()}
 
+    # Batch-fetch all target entities (1 query instead of N)
+    targets_result = await db.execute(
+        select(Entity).where(Entity.id.in_(body.entity_ids))
+    )
+    target_map = {e.id: e for e in targets_result.scalars().all()}
+
     results = []
     followed = 0
     for target_id in body.entity_ids:
@@ -224,7 +241,7 @@ async def bulk_follow(
             results.append({"id": str(target_id), "status": "already_following"})
             continue
 
-        target = await db.get(Entity, target_id)
+        target = target_map.get(target_id)
         if target is None or not target.is_active:
             results.append({"id": str(target_id), "status": "not_found"})
             continue
@@ -386,6 +403,13 @@ async def get_social_stats(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
+    from src import cache
+
+    cache_key = f"social:stats:{entity_id}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     entity = await db.get(Entity, entity_id)
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
@@ -412,11 +436,13 @@ async def get_social_stats(
         )
     ) or 0
 
-    return {
+    result = {
         "entity_id": str(entity_id),
         "following_count": following_count,
         "followers_count": followers_count,
     }
+    await cache.set(cache_key, result, cache.TTL_SHORT)
+    return result
 
 
 # --- Blocking ---
