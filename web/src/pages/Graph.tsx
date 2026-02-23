@@ -192,6 +192,7 @@ export default function Graph() {
     <div
       ref={containerRef}
       className={`flex flex-col overflow-hidden ${isFullscreen ? 'h-screen bg-background p-4' : 'h-[calc(100vh-8.5rem)]'}`}
+      style={{ overscrollBehavior: 'contain' }}
     >
       {/* Controls bar */}
       <div className="mb-3">
