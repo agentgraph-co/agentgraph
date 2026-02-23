@@ -1,53 +1,56 @@
 // ForceGraphView — SpriteKit force-directed graph wrapped in SwiftUI
+// Uses SpriteKit camera for zoom/pan (not UIGestureRecognizers which conflict with SwiftUI)
 
 import SpriteKit
 import SwiftUI
 
-// MARK: - SwiftUI Wrapper
+// MARK: - UIKit Hosting (bypasses SwiftUI gesture conflicts)
 
-struct ForceGraphView: View {
+struct ForceGraphView: UIViewRepresentable {
     let nodes: [ForceNode]
     let edges: [ForceEdge]
     var onNodeTap: ((String) -> Void)?
     var onNodeLongPress: ((String) -> Void)?
     var selectedNodeId: String?
 
-    /// Increment to force a graph rebuild (e.g., on reload)
-    @State private var scene: ForceGraphScene?
-    @State private var graphVersion = 0
+    func makeUIView(context: Context) -> SKView {
+        let skView = SKView()
+        skView.allowsTransparency = true
+        skView.backgroundColor = .clear
 
-    var body: some View {
-        GeometryReader { geo in
-            if let scene {
-                SpriteView(scene: scene, options: [.allowsTransparency])
-                    .ignoresSafeArea()
-                    .id(graphVersion)
-            } else {
-                Color.clear
-            }
-        }
-        .onChange(of: nodes.map(\.id)) { _, _ in
-            rebuildScene()
-        }
-        .onChange(of: selectedNodeId) {
-            scene?.updateSelection(selectedNodeId)
-        }
-        .onAppear {
-            if scene == nil {
-                rebuildScene()
-            }
+        let scene = ForceGraphScene(size: UIScreen.main.bounds.size)
+        scene.scaleMode = .resizeFill
+        scene.backgroundColor = .clear
+        scene.onNodeTap = onNodeTap
+        scene.onNodeLongPress = onNodeLongPress
+        scene.updateGraph(nodes: nodes, edges: edges, selectedNodeId: selectedNodeId)
+        context.coordinator.scene = scene
+        skView.presentScene(scene)
+
+        return skView
+    }
+
+    func updateUIView(_ skView: SKView, context: Context) {
+        guard let scene = context.coordinator.scene else { return }
+
+        // Only rebuild if node set actually changed
+        let currentIds = Set(scene.currentNodeIds)
+        let newIds = Set(nodes.map(\.id))
+        if currentIds != newIds {
+            scene.onNodeTap = onNodeTap
+            scene.onNodeLongPress = onNodeLongPress
+            scene.updateGraph(nodes: nodes, edges: edges, selectedNodeId: selectedNodeId)
+        } else {
+            scene.updateSelection(selectedNodeId)
         }
     }
 
-    private func rebuildScene() {
-        let newScene = ForceGraphScene(size: UIScreen.main.bounds.size)
-        newScene.scaleMode = .resizeFill
-        newScene.backgroundColor = .clear
-        newScene.onNodeTap = onNodeTap
-        newScene.onNodeLongPress = onNodeLongPress
-        newScene.updateGraph(nodes: nodes, edges: edges, selectedNodeId: selectedNodeId)
-        scene = newScene
-        graphVersion += 1
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var scene: ForceGraphScene?
     }
 }
 
@@ -57,29 +60,33 @@ final class ForceGraphScene: SKScene {
     var onNodeTap: ((String) -> Void)?
     var onNodeLongPress: ((String) -> Void)?
 
+    /// Expose current node IDs so the wrapper can detect changes
+    var currentNodeIds: [String] { Array(graphNodes.keys) }
+
     private var nodeSprites: [String: SKNode] = [:]
     private var edgeSprites: [String: SKShapeNode] = [:]
     private var labelNodes: [String: SKLabelNode] = [:]
-    private var iconNodes: [String: SKLabelNode] = [:]
     private var graphNodes: [String: ForceNode] = [:]
     private var graphEdges: [ForceEdge] = []
     private var currentSelectedId: String?
 
     // Camera for zoom/pan
-    private var cameraNode = SKCameraNode()
+    private let cameraNode = SKCameraNode()
     private var currentScale: CGFloat = 1.0
-    private var lastPinchScale: CGFloat = 1.0
 
-    // Long press detection
+    // Touch tracking
     private var touchStartTime: TimeInterval = 0
     private var touchStartNode: String?
+    private var touchStartPosition: CGPoint = .zero
+    private var isPanning = false
     private let longPressThreshold: TimeInterval = 0.5
+    private let panThreshold: CGFloat = 10
 
-    // LOD thresholds
-    private let labelZoomThreshold: CGFloat = 0.5
+    // LOD
+    private let labelZoomThreshold: CGFloat = 0.6
     private let hideSmallNodeThreshold: CGFloat = 2.0
 
-    // Physics constants
+    // Force sim constants
     private let centerAttraction: Float = 0.2
     private let nodeRepulsion: Float = -50.0
     private let springLength: Float = 120.0
@@ -87,17 +94,15 @@ final class ForceGraphScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = .clear
-        physicsWorld.gravity = CGVector(dx: 0, dy: 0)
+        physicsWorld.gravity = .zero
 
-        cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
         if cameraNode.parent == nil {
             addChild(cameraNode)
         }
         camera = cameraNode
+        cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
 
-        // Remove any existing gesture recognizers to avoid duplicates
-        view.gestureRecognizers?.removeAll()
-
+        // Use native gesture recognizers on the SKView
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
         view.addGestureRecognizer(pinch)
 
@@ -109,18 +114,12 @@ final class ForceGraphScene: SKScene {
     // MARK: - Gesture Handlers
 
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        switch gesture.state {
-        case .began:
-            lastPinchScale = currentScale
-        case .changed:
-            let newScale = lastPinchScale / gesture.scale
-            currentScale = max(0.2, min(5.0, newScale))
+        if gesture.state == .changed {
+            let newScale = currentScale / gesture.scale
+            currentScale = max(0.3, min(4.0, newScale))
             cameraNode.setScale(currentScale)
+            gesture.scale = 1.0
             updateLOD()
-        case .ended:
-            lastPinchScale = currentScale
-        default:
-            break
         }
     }
 
@@ -134,16 +133,17 @@ final class ForceGraphScene: SKScene {
         gesture.setTranslation(.zero, in: view)
     }
 
-    // MARK: - Touch Handling (Tap and Long Press on Nodes)
+    // MARK: - Single-finger touch: tap / long-press on nodes
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         touchStartTime = touch.timestamp
+        touchStartPosition = location
+        isPanning = false
 
         touchStartNode = nil
-        let touchedNodes = nodes(at: location)
-        for touched in touchedNodes {
+        for touched in nodes(at: location) {
             if let nodeId = touched.userData?["nodeId"] as? String {
                 touchStartNode = nodeId
                 break
@@ -155,8 +155,24 @@ final class ForceGraphScene: SKScene {
         }
     }
 
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let dx = location.x - touchStartPosition.x
+        let dy = location.y - touchStartPosition.y
+        if sqrt(dx * dx + dy * dy) > panThreshold {
+            isPanning = true
+        }
+    }
+
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let nodeId = touchStartNode else {
+        guard let touch = touches.first else {
+            touchStartNode = nil
+            return
+        }
+
+        // If finger moved significantly, it was a drag not a tap
+        guard !isPanning, let nodeId = touchStartNode else {
             touchStartNode = nil
             return
         }
@@ -181,62 +197,53 @@ final class ForceGraphScene: SKScene {
         nodeSprites.removeAll()
         edgeSprites.removeAll()
         labelNodes.removeAll()
-        iconNodes.removeAll()
         graphNodes.removeAll()
         graphEdges = edges
         currentSelectedId = selectedNodeId
 
-        // Re-add camera after removeAllChildren
         addChild(cameraNode)
         camera = cameraNode
         currentScale = 1.0
         cameraNode.setScale(1.0)
         cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
 
-        guard !nodes.isEmpty else { return }
-        guard size.width > 0, size.height > 0 else { return }
+        guard !nodes.isEmpty, size.width > 0, size.height > 0 else { return }
 
         for node in nodes {
             graphNodes[node.id] = node
         }
 
-        // Create edge shapes (drawn below nodes)
+        // Edges first (below nodes)
         for edge in edges {
-            let edgeLine = SKShapeNode()
-            edgeLine.strokeColor = edgeColor(for: edge.edgeType)
-            edgeLine.lineWidth = edgeLineWidth(for: edge)
-            edgeLine.alpha = 0.4
-            edgeLine.zPosition = 0
-            addChild(edgeLine)
-            edgeSprites[edge.id] = edgeLine
+            let line = SKShapeNode()
+            line.strokeColor = edgeColor(for: edge.edgeType)
+            line.lineWidth = edgeLineWidth(for: edge)
+            line.alpha = 0.4
+            line.zPosition = 0
+            addChild(line)
+            edgeSprites[edge.id] = line
         }
 
-        // Create node sprites
+        // Nodes
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let spreadRadius = min(size.width, size.height) * 0.35
-        let nodeCount = nodes.count
+        let spread = min(size.width, size.height) * 0.35
+        let count = nodes.count
 
-        for (index, node) in nodes.enumerated() {
+        for (i, node) in nodes.enumerated() {
             let angle: CGFloat
-            let radius: CGFloat
+            let r: CGFloat
             if node.isCenter {
-                angle = 0
-                radius = 0
+                angle = 0; r = 0
             } else {
-                angle = CGFloat(index) * 2.0 * .pi / CGFloat(max(1, nodeCount - 1))
-                let connectionCount = node.connections.count
-                radius = connectionCount > 2
-                    ? spreadRadius * 0.5
-                    : spreadRadius * CGFloat.random(in: 0.6...0.9)
+                angle = CGFloat(i) * 2.0 * .pi / CGFloat(max(1, count - 1))
+                r = node.connections.count > 2
+                    ? spread * 0.5
+                    : spread * CGFloat.random(in: 0.6...0.9)
             }
 
-            let position = CGPoint(
-                x: center.x + cos(angle) * radius,
-                y: center.y + sin(angle) * radius
-            )
-
-            let container = createNodeSprite(node: node, at: position, isSelected: node.id == selectedNodeId)
-            nodeSprites[node.id] = container
+            let pos = CGPoint(x: center.x + cos(angle) * r, y: center.y + sin(angle) * r)
+            let sprite = createNode(node, at: pos, selected: node.id == selectedNodeId)
+            nodeSprites[node.id] = sprite
         }
 
         simulateForces(steps: 80)
@@ -245,81 +252,60 @@ final class ForceGraphScene: SKScene {
     }
 
     func updateSelection(_ selectedId: String?) {
-        if let oldId = currentSelectedId, let oldSprite = nodeSprites[oldId] {
-            oldSprite.childNode(withName: "selectionRing")?.removeFromParent()
+        if let oldId = currentSelectedId, let sprite = nodeSprites[oldId] {
+            sprite.childNode(withName: "ring")?.removeFromParent()
         }
-
         currentSelectedId = selectedId
-
-        if let newId = selectedId, let newSprite = nodeSprites[newId],
+        if let newId = selectedId, let sprite = nodeSprites[newId],
            let node = graphNodes[newId] {
             let ring = SKShapeNode(circleOfRadius: node.radius + 4)
-            ring.name = "selectionRing"
+            ring.name = "ring"
             ring.strokeColor = .white
             ring.lineWidth = 2
             ring.fillColor = .clear
             ring.glowWidth = 3
             ring.zPosition = 10
-            newSprite.addChild(ring)
+            sprite.addChild(ring)
         }
     }
 
     // MARK: - Node Creation
 
-    private func createNodeSprite(node: ForceNode, at position: CGPoint, isSelected: Bool) -> SKNode {
+    private func createNode(_ node: ForceNode, at position: CGPoint, selected: Bool) -> SKNode {
         let container = SKNode()
         container.position = position
         container.zPosition = 5
-        container.userData = NSMutableDictionary()
-        container.userData?["nodeId"] = node.id
+        container.userData = ["nodeId": node.id] as NSMutableDictionary
 
+        // Physics body (used only during force sim, then frozen)
         let body = SKPhysicsBody(circleOfRadius: node.radius + 2)
         body.isDynamic = true
         body.mass = CGFloat(1.0 + node.trustScore * 2.0)
         body.linearDamping = CGFloat(damping)
         body.allowsRotation = false
-        body.friction = 0.3
-        body.restitution = 0.2
         body.categoryBitMask = 0x1
         body.collisionBitMask = 0x1
         body.contactTestBitMask = 0
         container.physicsBody = body
 
-        // Glow effect
-        let glowRadius = node.radius * 1.8
-        let glow = SKShapeNode(circleOfRadius: glowRadius)
-        let clusterColor = ForceGraphViewModel.colorForCluster(node.clusterId)
-        glow.fillColor = SKColor(
-            red: clusterColor.red,
-            green: clusterColor.green,
-            blue: clusterColor.blue,
-            alpha: 0.15
-        )
+        let cc = ForceGraphViewModel.colorForCluster(node.clusterId)
+
+        // Glow
+        let glow = SKShapeNode(circleOfRadius: node.radius * 1.8)
+        glow.fillColor = SKColor(red: cc.red, green: cc.green, blue: cc.blue, alpha: 0.15)
         glow.strokeColor = .clear
         glow.zPosition = -1
         container.addChild(glow)
 
-        // Main circle
+        // Circle
         let circle = SKShapeNode(circleOfRadius: node.radius)
-        circle.fillColor = SKColor(
-            red: clusterColor.red,
-            green: clusterColor.green,
-            blue: clusterColor.blue,
-            alpha: 1.0
-        )
-        circle.strokeColor = SKColor(
-            red: clusterColor.red,
-            green: clusterColor.green,
-            blue: clusterColor.blue,
-            alpha: 0.7
-        )
+        circle.fillColor = SKColor(red: cc.red, green: cc.green, blue: cc.blue, alpha: 1)
+        circle.strokeColor = SKColor(red: cc.red, green: cc.green, blue: cc.blue, alpha: 0.7)
         circle.lineWidth = node.isCenter ? 3 : 1.5
-        circle.name = "circle"
-        circle.userData = NSMutableDictionary()
-        circle.userData?["nodeId"] = node.id
+        circle.userData = ["nodeId": node.id] as NSMutableDictionary
         container.addChild(circle)
 
-        // Entity type icon
+        // Icon letter
         let icon = SKLabelNode(text: node.type == "human" ? "H" : "A")
         icon.fontSize = node.radius * 0.7
         icon.fontName = "Helvetica-Bold"
@@ -328,12 +314,11 @@ final class ForceGraphScene: SKScene {
         icon.horizontalAlignmentMode = .center
         icon.zPosition = 6
         container.addChild(icon)
-        iconNodes[node.id] = icon
 
         // Label
         let label = SKLabelNode(text: node.label)
         label.fontSize = 11
-        label.fontColor = SKColor(red: 0.804, green: 0.839, blue: 0.957, alpha: 1.0)
+        label.fontColor = SKColor(red: 0.804, green: 0.839, blue: 0.957, alpha: 1)
         label.verticalAlignmentMode = .top
         label.horizontalAlignmentMode = .center
         label.position = CGPoint(x: 0, y: -(node.radius + 6))
@@ -341,9 +326,9 @@ final class ForceGraphScene: SKScene {
         container.addChild(label)
         labelNodes[node.id] = label
 
-        if isSelected {
+        if selected {
             let ring = SKShapeNode(circleOfRadius: node.radius + 4)
-            ring.name = "selectionRing"
+            ring.name = "ring"
             ring.strokeColor = .white
             ring.lineWidth = 2
             ring.fillColor = .clear
@@ -365,164 +350,114 @@ final class ForceGraphScene: SKScene {
 
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
 
-        var adjacency: [String: [String]] = [:]
-        for edge in graphEdges {
-            adjacency[edge.source, default: []].append(edge.target)
-            adjacency[edge.target, default: []].append(edge.source)
-        }
-
         for _ in 0..<steps {
             var forces: [String: CGVector] = [:]
-            for nid in nodeIds {
-                forces[nid] = .zero
-            }
+            for nid in nodeIds { forces[nid] = .zero }
 
-            // Repulsion between all pairs
+            // Repulsion
             for i in 0..<count {
                 for j in (i + 1)..<count {
-                    let idA = nodeIds[i]
-                    let idB = nodeIds[j]
-                    guard let spriteA = nodeSprites[idA],
-                          let spriteB = nodeSprites[idB] else { continue }
-
-                    let dx = spriteB.position.x - spriteA.position.x
-                    let dy = spriteB.position.y - spriteA.position.y
+                    let a = nodeIds[i], b = nodeIds[j]
+                    guard let sa = nodeSprites[a], let sb = nodeSprites[b] else { continue }
+                    let dx = sb.position.x - sa.position.x
+                    let dy = sb.position.y - sa.position.y
                     let distSq = max(dx * dx + dy * dy, 100)
                     let dist = sqrt(distSq)
-
-                    let force = CGFloat(nodeRepulsion) / distSq
-                    let fx = force * dx / dist
-                    let fy = force * dy / dist
-
-                    forces[idA] = CGVector(dx: (forces[idA]?.dx ?? 0) + fx,
-                                           dy: (forces[idA]?.dy ?? 0) + fy)
-                    forces[idB] = CGVector(dx: (forces[idB]?.dx ?? 0) - fx,
-                                           dy: (forces[idB]?.dy ?? 0) - fy)
+                    let f = CGFloat(nodeRepulsion) / distSq
+                    let fx = f * dx / dist, fy = f * dy / dist
+                    forces[a]!.dx += fx; forces[a]!.dy += fy
+                    forces[b]!.dx -= fx; forces[b]!.dy -= fy
                 }
             }
 
-            // Spring forces along edges
+            // Springs
             for edge in graphEdges {
-                guard let spriteA = nodeSprites[edge.source],
-                      let spriteB = nodeSprites[edge.target] else { continue }
-
-                let dx = spriteB.position.x - spriteA.position.x
-                let dy = spriteB.position.y - spriteA.position.y
+                guard let sa = nodeSprites[edge.source], let sb = nodeSprites[edge.target] else { continue }
+                let dx = sb.position.x - sa.position.x
+                let dy = sb.position.y - sa.position.y
                 let dist = max(sqrt(dx * dx + dy * dy), 1)
-                let displacement = dist - CGFloat(springLength)
-
-                let fx = 0.05 * displacement * dx / dist
-                let fy = 0.05 * displacement * dy / dist
-
-                forces[edge.source] = CGVector(dx: (forces[edge.source]?.dx ?? 0) + fx,
-                                               dy: (forces[edge.source]?.dy ?? 0) + fy)
-                forces[edge.target] = CGVector(dx: (forces[edge.target]?.dx ?? 0) - fx,
-                                               dy: (forces[edge.target]?.dy ?? 0) - fy)
+                let disp = dist - CGFloat(springLength)
+                let fx = 0.05 * disp * dx / dist, fy = 0.05 * disp * dy / dist
+                forces[edge.source]!.dx += fx; forces[edge.source]!.dy += fy
+                forces[edge.target]!.dx -= fx; forces[edge.target]!.dy -= fy
             }
 
-            // Center gravity
+            // Gravity
             for nid in nodeIds {
-                guard let sprite = nodeSprites[nid] else { continue }
-                let dx = center.x - sprite.position.x
-                let dy = center.y - sprite.position.y
-
-                forces[nid] = CGVector(
-                    dx: (forces[nid]?.dx ?? 0) + dx * CGFloat(centerAttraction) * 0.01,
-                    dy: (forces[nid]?.dy ?? 0) + dy * CGFloat(centerAttraction) * 0.01
-                )
+                guard let s = nodeSprites[nid] else { continue }
+                let dx = center.x - s.position.x, dy = center.y - s.position.y
+                forces[nid]!.dx += dx * CGFloat(centerAttraction) * 0.01
+                forces[nid]!.dy += dy * CGFloat(centerAttraction) * 0.01
             }
 
-            // Apply forces
+            // Apply
             for nid in nodeIds {
-                guard let sprite = nodeSprites[nid],
-                      let force = forces[nid] else { continue }
-
-                let mag = sqrt(force.dx * force.dx + force.dy * force.dy)
-                let maxForce: CGFloat = 15
-                let scale = mag > maxForce ? maxForce / mag : 1.0
-
-                sprite.position = CGPoint(
-                    x: sprite.position.x + force.dx * scale,
-                    y: sprite.position.y + force.dy * scale
-                )
+                guard let s = nodeSprites[nid], let f = forces[nid] else { continue }
+                let mag = sqrt(f.dx * f.dx + f.dy * f.dy)
+                let cap: CGFloat = 15
+                let sc = mag > cap ? cap / mag : 1.0
+                s.position = CGPoint(x: s.position.x + f.dx * sc, y: s.position.y + f.dy * sc)
             }
         }
 
-        // Stop physics bodies after simulation
-        for (_, sprite) in nodeSprites {
-            sprite.physicsBody?.velocity = .zero
-            sprite.physicsBody?.isDynamic = false
+        // Freeze
+        for (_, s) in nodeSprites {
+            s.physicsBody?.velocity = .zero
+            s.physicsBody?.isDynamic = false
         }
     }
 
-    // MARK: - Edge Drawing
+    // MARK: - Edges
 
     private func updateEdgePaths() {
         for edge in graphEdges {
-            guard let edgeLine = edgeSprites[edge.id],
-                  let sourceSprite = nodeSprites[edge.source],
-                  let targetSprite = nodeSprites[edge.target] else { continue }
-
+            guard let line = edgeSprites[edge.id],
+                  let src = nodeSprites[edge.source],
+                  let dst = nodeSprites[edge.target] else { continue }
             let path = CGMutablePath()
-            path.move(to: sourceSprite.position)
-            path.addLine(to: targetSprite.position)
-            edgeLine.path = path
+            path.move(to: src.position)
+            path.addLine(to: dst.position)
+            line.path = path
         }
     }
 
-    // MARK: - Level of Detail
+    // MARK: - LOD
 
     private func updateLOD() {
         let showLabels = currentScale < labelZoomThreshold
         let hideSmall = currentScale > hideSmallNodeThreshold
 
-        for (_, label) in labelNodes {
-            label.isHidden = !showLabels
-        }
+        for (_, label) in labelNodes { label.isHidden = !showLabels }
 
-        if hideSmall {
-            for (nodeId, sprite) in nodeSprites {
-                guard let node = graphNodes[nodeId] else { continue }
+        for (nid, sprite) in nodeSprites {
+            if hideSmall, let node = graphNodes[nid] {
                 sprite.isHidden = node.radius < 14 && !node.isCenter
-            }
-        } else {
-            for (_, sprite) in nodeSprites {
+            } else {
                 sprite.isHidden = false
             }
         }
     }
 
-    // MARK: - Edge Styling
+    // MARK: - Styling
 
     private func edgeColor(for type: String) -> SKColor {
         switch type {
-        case "follow":
-            return SKColor(red: 0.118, green: 0.200, blue: 0.200, alpha: 1.0)
-        case "attestation":
-            return SKColor(red: 0.651, green: 0.890, blue: 0.631, alpha: 1.0)
-        case "operator_agent":
-            return SKColor(red: 0.537, green: 0.706, blue: 0.980, alpha: 1.0)
-        case "collaboration":
-            return SKColor(red: 0.796, green: 0.651, blue: 0.969, alpha: 1.0)
-        case "service":
-            return SKColor(red: 0.980, green: 0.702, blue: 0.529, alpha: 1.0)
-        default:
-            return SKColor(red: 0.424, green: 0.439, blue: 0.525, alpha: 1.0)
+        case "follow": SKColor(red: 0.118, green: 0.200, blue: 0.200, alpha: 1)
+        case "attestation": SKColor(red: 0.651, green: 0.890, blue: 0.631, alpha: 1)
+        case "operator_agent": SKColor(red: 0.537, green: 0.706, blue: 0.980, alpha: 1)
+        case "collaboration": SKColor(red: 0.796, green: 0.651, blue: 0.969, alpha: 1)
+        case "service": SKColor(red: 0.980, green: 0.702, blue: 0.529, alpha: 1)
+        default: SKColor(red: 0.424, green: 0.439, blue: 0.525, alpha: 1)
         }
     }
 
     private func edgeLineWidth(for edge: ForceEdge) -> CGFloat {
         switch edge.edgeType {
-        case "attestation":
-            return CGFloat(1.0 + (edge.weight ?? 0.5) * 2.0)
-        case "follow":
-            return 1.0
-        default:
-            return 1.5
+        case "attestation": CGFloat(1.0 + (edge.weight ?? 0.5) * 2.0)
+        case "follow": 1.0
+        default: 1.5
         }
     }
 
-    override func update(_ currentTime: TimeInterval) {
-        // No continuous updates needed since we pre-compute layout
-    }
+    override func update(_ currentTime: TimeInterval) {}
 }
