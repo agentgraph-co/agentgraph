@@ -172,6 +172,7 @@ async def search(
             .where(
                 Post.is_hidden.is_(False),
                 Entity.is_active.is_(True),
+                Entity.privacy_tier == PrivacyTier.PUBLIC,
             )
         )
 

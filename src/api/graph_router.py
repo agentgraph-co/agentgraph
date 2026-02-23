@@ -21,6 +21,7 @@ from src.database import get_db
 from src.models import (
     Entity,
     EntityRelationship,
+    EntityType,
     Listing,
     Post,
     PrivacyTier,
@@ -866,7 +867,7 @@ async def get_network_stats(
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
-            Entity.type == "human",
+            Entity.type == EntityType.HUMAN,
             Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
     ) or 0
@@ -874,7 +875,7 @@ async def get_network_stats(
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
-            Entity.type == "agent",
+            Entity.type == EntityType.AGENT,
             Entity.privacy_tier != PrivacyTier.PRIVATE,
         )
     ) or 0
@@ -987,14 +988,14 @@ async def get_public_stats(
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
-            Entity.type == "human",
+            Entity.type == EntityType.HUMAN,
         )
     ) or 0
 
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
-            Entity.type == "agent",
+            Entity.type == EntityType.AGENT,
         )
     ) or 0
 

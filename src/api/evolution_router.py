@@ -9,11 +9,11 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
@@ -358,12 +358,11 @@ async def get_lineage(
             forked_from = str(r.forked_from_entity_id)
             break
 
-    # Count forks of this agent
-    fork_count_result = await db.execute(
-        select(EvolutionRecord)
+    # Count forks of this agent (use SQL COUNT for efficiency)
+    fork_count = await db.scalar(
+        select(func.count()).select_from(EvolutionRecord)
         .where(EvolutionRecord.forked_from_entity_id == entity_id)
-    )
-    fork_count = len(fork_count_result.scalars().all())
+    ) or 0
 
     current_version = records[-1].version if records else None
 
@@ -519,7 +518,7 @@ async def approve_or_reject_evolution(
             detail="Only the agent's operator can approve",
         )
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if body.action == "approve":
         record.approval_status = EvolutionApprovalStatus.APPROVED

@@ -59,28 +59,24 @@ async def get_current_entity(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    # Check password-change invalidation (Redis-based, per-entity)
-    try:
-        _entity_id = uuid.UUID(payload["sub"])
-    except (ValueError, KeyError):
-        _entity_id = None
-    if _entity_id is not None:
-        from src import cache
-
-        inv_ts = await cache.get(f"token:inv:{_entity_id}")
-        if inv_ts is not None and payload.get("iat", 0) <= inv_ts:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token invalidated by password change",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
+    # Parse entity ID from token (once)
     try:
         entity_id = uuid.UUID(payload["sub"])
     except (ValueError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
+        )
+
+    # Check password-change invalidation (Redis-based, per-entity)
+    from src import cache
+
+    inv_ts = await cache.get(f"token:inv:{entity_id}")
+    if inv_ts is not None and payload.get("iat", 0) <= inv_ts:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalidated by password change",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     entity = await get_entity_by_id(db, entity_id)
