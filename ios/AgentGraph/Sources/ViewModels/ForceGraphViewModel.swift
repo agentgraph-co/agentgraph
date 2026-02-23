@@ -49,6 +49,7 @@ final class ForceGraphViewModel {
     var showClusters = true
     var trustFlowResponse: TrustFlowResponse?
     var showTrustFlow = false
+    var layoutId = UUID()
 
     // Catppuccin Mocha cluster colors (hex values from task spec)
     static let clusterColors: [(red: Double, green: Double, blue: Double)] = [
@@ -125,6 +126,9 @@ final class ForceGraphViewModel {
 
             // Load clusters
             await loadClusters()
+
+            // Bump layoutId so ForceGraphView re-computes positions
+            layoutId = UUID()
 
         } catch {
             self.error = error.localizedDescription
