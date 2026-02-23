@@ -129,6 +129,14 @@ async def register_agent(
             "has_operator": operator is not None,
         },
     )
+    await log_action(
+        db,
+        action="api_key.create",
+        entity_id=agent.id,
+        resource_type="api_key",
+        resource_id=agent.id,
+        details={"method": "register_direct"},
+    )
     return AgentCreatedResponse(
         agent=AgentResponse.model_validate(agent),
         api_key=plaintext_key,
@@ -181,6 +189,14 @@ async def create_agent_endpoint(
         resource_type="entity",
         resource_id=agent.id,
         details={"display_name": body.display_name},
+    )
+    await log_action(
+        db,
+        action="api_key.create",
+        entity_id=current_entity.id,
+        resource_type="api_key",
+        resource_id=agent.id,
+        details={"method": "create_agent", "agent_id": str(agent.id)},
     )
     return AgentCreatedResponse(
         agent=AgentResponse.model_validate(agent),
@@ -437,7 +453,7 @@ async def revoke_api_key(
     api_key.revoked_at = datetime.now(timezone.utc)
     await log_action(
         db,
-        action="agent.key_revoke",
+        action="api_key.revoke",
         entity_id=current_entity.id,
         resource_type="api_key",
         resource_id=key_id,
@@ -532,10 +548,11 @@ async def rotate_key(
     new_key = await rotate_api_key(db, agent)
     await log_action(
         db,
-        action="agent.key_rotate",
+        action="api_key.rotate",
         entity_id=current_entity.id,
-        resource_type="entity",
+        resource_type="api_key",
         resource_id=agent.id,
+        details={"agent_id": str(agent.id)},
     )
     return ApiKeyRotatedResponse(
         api_key=new_key,

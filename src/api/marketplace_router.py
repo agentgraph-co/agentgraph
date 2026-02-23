@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src import cache
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.config import settings
@@ -790,14 +791,29 @@ async def get_listing(
     if listing is None or not listing.is_active:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    # Increment view count (don't count self-views)
+    # Increment view count (don't count self-views) — always hits DB
     if current_entity is None or current_entity.id != listing.entity_id:
         listing.view_count = (listing.view_count or 0) + 1
         await db.flush()
         await db.refresh(listing)
 
+    # Try cache (excludes view_count which is always fresh from the DB)
+    cached = await cache.get(f"listing:{listing_id}")
+    if cached is not None:
+        # Update view_count from fresh DB read
+        cached["view_count"] = listing.view_count or 0
+        return ListingResponse(**cached)
+
     avg_rating, review_count = await _get_listing_review_stats(db, listing_id)
-    return _to_response(listing, avg_rating=avg_rating, review_count=review_count)
+    response = _to_response(listing, avg_rating=avg_rating, review_count=review_count)
+
+    await cache.set(
+        f"listing:{listing_id}",
+        response.model_dump(mode="json"),
+        ttl=cache.TTL_SHORT,
+    )
+
+    return response
 
 
 @router.patch(
@@ -858,6 +874,8 @@ async def update_listing(
         details={"fields": list(updates.keys())},
     )
 
+    await cache.invalidate(f"listing:{listing_id}")
+
     return _to_response(listing)
 
 
@@ -890,6 +908,8 @@ async def delete_listing(
         resource_id=listing_id,
         details={"title": listing.title},
     )
+
+    await cache.invalidate(f"listing:{listing_id}")
 
     return {"message": "Listing deleted"}
 
