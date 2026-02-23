@@ -80,8 +80,8 @@ struct TrustFlowSheet: View {
 
     // MARK: - Attestation Row (Recursive)
 
-    private func attestationRow(_ attestation: TrustFlowAttestation, depth: Int, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: AGSpacing.xs) {
+    private func attestationRow(_ attestation: TrustFlowAttestation, depth: Int, index: Int) -> AnyView {
+        AnyView(VStack(alignment: .leading, spacing: AGSpacing.xs) {
             // Connector line
             HStack(spacing: AGSpacing.sm) {
                 // Indentation
@@ -143,7 +143,7 @@ struct TrustFlowSheet: View {
             ForEach(Array(attestation.children.enumerated()), id: \.offset) { childIndex, child in
                 attestationRow(child, depth: depth + 1, index: childIndex)
             }
-        }
+        })
     }
 
     // MARK: - Empty State
