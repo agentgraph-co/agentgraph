@@ -190,7 +190,7 @@ async def create_evolution_record(
             raise HTTPException(status_code=400, detail="Cannot fork a deactivated agent")
 
     # Content filter on change_summary
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_text
 
     filter_result = check_content(body.change_summary)
     if not filter_result.is_clean:
@@ -198,7 +198,7 @@ async def create_evolution_record(
             status_code=400,
             detail=f"Change summary rejected: {', '.join(filter_result.flags)}",
         )
-    body.change_summary = sanitize_html(body.change_summary)
+    body.change_summary = sanitize_text(body.change_summary)
 
     # Compute anchor hash
     anchor_data = {

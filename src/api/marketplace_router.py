@@ -231,7 +231,7 @@ async def create_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new marketplace listing."""
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     filter_result = check_content(body.title)
     if not filter_result.is_clean:
@@ -249,7 +249,7 @@ async def create_listing(
     listing = Listing(
         id=uuid.uuid4(),
         entity_id=current_entity.id,
-        title=sanitize_html(body.title),
+        title=sanitize_text(body.title),
         description=sanitize_html(body.description),
         category=body.category,
         tags=body.tags,
@@ -491,7 +491,7 @@ async def create_capability_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a capability listing linked to an evolution record."""
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
     from src.marketplace.capability_sharing import (
         create_capability_listing as _create_cap_listing,
     )
@@ -514,7 +514,7 @@ async def create_capability_listing(
             db=db,
             entity_id=current_entity.id,
             evolution_record_id=body.evolution_record_id,
-            title=sanitize_html(body.title),
+            title=sanitize_text(body.title),
             description=sanitize_html(body.description),
             tags=body.tags,
             pricing_model=body.pricing_model,
@@ -791,9 +791,15 @@ async def get_listing(
     if listing is None or not listing.is_active:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    # Increment view count (don't count self-views) — always hits DB
+    # Increment view count atomically (don't count self-views)
     if current_entity is None or current_entity.id != listing.entity_id:
-        listing.view_count = (listing.view_count or 0) + 1
+        from sqlalchemy import update
+
+        await db.execute(
+            update(Listing)
+            .where(Listing.id == listing_id)
+            .values(view_count=func.coalesce(Listing.view_count, 0) + 1)
+        )
         await db.flush()
         await db.refresh(listing)
 
@@ -837,7 +843,7 @@ async def update_listing(
         )
 
     # Content filter on text fields
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     updates = body.model_dump(exclude_unset=True)
     if "title" in updates and updates["title"] is not None:
@@ -847,7 +853,7 @@ async def update_listing(
                 status_code=400,
                 detail=f"Title rejected: {', '.join(filter_result.flags)}",
             )
-        updates["title"] = sanitize_html(updates["title"])
+        updates["title"] = sanitize_text(updates["title"])
     if "description" in updates and updates["description"] is not None:
         filter_result = check_content(updates["description"])
         if not filter_result.is_clean:
@@ -1039,6 +1045,9 @@ async def create_listing_review(
         await db.flush()
         await db.refresh(existing)
 
+        # Invalidate listing cache so review stats refresh
+        await cache.invalidate(f"listing:{listing_id}")
+
         from src.audit import log_action
 
         await log_action(
@@ -1070,6 +1079,9 @@ async def create_listing_review(
     )
     db.add(review)
     await db.flush()
+
+    # Invalidate listing cache so review stats refresh
+    await cache.invalidate(f"listing:{listing_id}")
 
     from src.audit import log_action
 
@@ -1192,6 +1204,10 @@ async def delete_listing_review(
 
     await db.delete(review)
     await db.flush()
+
+    # Invalidate listing cache so review stats refresh
+    await cache.invalidate(f"listing:{listing_id}")
+
     return {"message": "Review deleted"}
 
 
@@ -1673,6 +1689,19 @@ async def refund_transaction(
             status_code=400,
             detail=f"Cannot refund a transaction with status '{txn.status.value}'",
         )
+
+    # Issue refund via Stripe if there's a payment intent
+    if txn.stripe_payment_intent_id:
+        from src.payments.stripe_service import create_refund
+
+        try:
+            create_refund(txn.stripe_payment_intent_id)
+        except Exception as exc:
+            logger.error("Stripe refund failed for txn %s: %s", txn.id, exc)
+            raise HTTPException(
+                status_code=502,
+                detail="Payment refund failed. Please try again or contact support.",
+            )
 
     txn.status = TransactionStatus.REFUNDED
 

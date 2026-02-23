@@ -29,10 +29,26 @@ async def _authenticate_ws(token: str) -> str | None:
     if not entity_id:
         return None
 
+    # Check token blacklist (logout / rotation)
+    jti = payload.get("jti")
+    if jti:
+        from src.api.auth_service import is_token_blacklisted
+
+        async with async_session() as db:
+            if await is_token_blacklisted(db, jti):
+                return None
+
     async with async_session() as db:
         entity = await get_entity_by_id(db, entity_id)
         if entity is None or not entity.is_active:
             return None
+
+    # Check password-change invalidation
+    from src import cache
+
+    inv_ts = await cache.get(f"token:inv:{entity_id}")
+    if inv_ts is not None and payload.get("iat", 0) <= inv_ts:
+        return None
 
     return entity_id
 

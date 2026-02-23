@@ -21,6 +21,7 @@ dependencies = [
     "stripe>=7.0,<8.0",
     "networkx>=2.6,<4.0",
     "python-louvain>=0.16,<1.0",
+    "nh3>=0.2,<1.0",
 ]
 
 [project.optional-dependencies]

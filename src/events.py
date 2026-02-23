@@ -146,8 +146,11 @@ async def _deliver_webhook(
         "payload": payload,
     }, default=str)
 
-    # Sign the payload with HMAC-SHA256 using the raw signing key
-    key = (sub.signing_key or sub.secret_hash).encode()
+    # Sign the payload with HMAC-SHA256 using the (decrypted) signing key
+    from src.encryption import decrypt_secret
+
+    raw_key = decrypt_secret(sub.signing_key) if sub.signing_key else sub.secret_hash
+    key = raw_key.encode()
     signature = hmac.new(
         key,
         body.encode(),

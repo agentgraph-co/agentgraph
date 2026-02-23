@@ -137,12 +137,14 @@ async def create_webhook(
     secret = secrets.token_urlsafe(32)
     secret_hash = hashlib.sha256(secret.encode()).hexdigest()
 
+    from src.encryption import encrypt_secret
+
     sub = WebhookSubscription(
         id=uuid.uuid4(),
         entity_id=current_entity.id,
         callback_url=str(body.callback_url),
         secret_hash=secret_hash,
-        signing_key=secret,
+        signing_key=encrypt_secret(secret),
         event_types=list(body.event_types),
         is_active=True,
         consecutive_failures=0,
