@@ -125,6 +125,10 @@ async def create_notification(
     db.add(notif)
     await db.flush()
 
+    # Invalidate unread count cache
+    from src import cache
+    await cache.invalidate(f"notif:unread:{entity_id}")
+
     # Broadcast via WebSocket if available
     try:
         from src.ws import manager
@@ -246,6 +250,9 @@ async def mark_as_read(
     notif.is_read = True
     await db.flush()
 
+    from src import cache
+    await cache.invalidate(f"notif:unread:{current_entity.id}")
+
     await log_action(
         db,
         action="notification.read",
@@ -273,6 +280,9 @@ async def mark_all_as_read(
     )
     count = result.rowcount
     await db.flush()
+
+    from src import cache
+    await cache.invalidate(f"notif:unread:{current_entity.id}")
 
     await log_action(
         db,
@@ -318,13 +328,22 @@ async def unread_count(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the count of unread notifications."""
+    from src import cache
+
+    cache_key = f"notif:unread:{current_entity.id}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     count = await db.scalar(
         select(func.count()).select_from(Notification).where(
             Notification.entity_id == current_entity.id,
             Notification.is_read.is_(False),
         )
     ) or 0
-    return {"unread_count": count}
+    result = {"unread_count": count}
+    await cache.set(cache_key, result, cache.TTL_SHORT)
+    return result
 
 
 # --- Notification Preferences ---

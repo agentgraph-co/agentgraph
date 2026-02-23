@@ -278,47 +278,71 @@ async def list_conversations(
     result = await db.execute(query)
     conversations = result.scalars().all()
 
-    items: list[ConversationResponse] = []
+    if not conversations:
+        return ConversationListResponse(conversations=[], total=total)
+
+    # Collect all "other" participant IDs and conversation IDs in one pass
+    conv_ids = [c.id for c in conversations]
+    other_ids: dict[uuid.UUID, uuid.UUID] = {}
     for conv in conversations:
-        # Determine the "other" participant
-        other_id = (
+        other_ids[conv.id] = (
             conv.participant_b_id
             if conv.participant_a_id == current_entity.id
             else conv.participant_a_id
         )
-        other = await db.get(Entity, other_id)
+
+    # Batch-fetch all other entities (1 query instead of N)
+    entity_ids = list(set(other_ids.values()))
+    entities_result = await db.execute(
+        select(Entity).where(Entity.id.in_(entity_ids))
+    )
+    entity_map = {e.id: e for e in entities_result.scalars().all()}
+
+    # Batch-fetch last message per conversation using DISTINCT ON (1 query)
+    last_msgs_result = await db.execute(
+        select(DirectMessage)
+        .where(DirectMessage.conversation_id.in_(conv_ids))
+        .order_by(DirectMessage.conversation_id, DirectMessage.created_at.desc())
+        .distinct(DirectMessage.conversation_id)
+    )
+    last_msg_map = {
+        msg.conversation_id: msg for msg in last_msgs_result.scalars().all()
+    }
+
+    # Batch-fetch unread counts per conversation (1 query)
+    unread_result = await db.execute(
+        select(
+            DirectMessage.conversation_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            DirectMessage.conversation_id.in_(conv_ids),
+            DirectMessage.sender_id != current_entity.id,
+            DirectMessage.is_read.is_(False),
+        )
+        .group_by(DirectMessage.conversation_id)
+    )
+    unread_map = {row[0]: row[1] for row in unread_result.all()}
+
+    items: list[ConversationResponse] = []
+    for conv in conversations:
+        oid = other_ids[conv.id]
+        other = entity_map.get(oid)
         if not other:
             continue
 
-        # Get last message preview
-        last_msg = await db.scalar(
-            select(DirectMessage)
-            .where(DirectMessage.conversation_id == conv.id)
-            .order_by(DirectMessage.created_at.desc())
-            .limit(1)
-        )
-
-        # Count unread
-        unread = await db.scalar(
-            select(func.count())
-            .select_from(DirectMessage)
-            .where(
-                DirectMessage.conversation_id == conv.id,
-                DirectMessage.sender_id != current_entity.id,
-                DirectMessage.is_read.is_(False),
-            )
-        ) or 0
+        last_msg = last_msg_map.get(conv.id)
 
         items.append(ConversationResponse(
             id=conv.id,
-            other_entity_id=other_id,
+            other_entity_id=oid,
             other_entity_name=other.display_name,
             other_entity_type=other.type.value,
             last_message_preview=(
                 last_msg.content[:100] if last_msg else None
             ),
             last_message_at=conv.last_message_at.isoformat(),
-            unread_count=unread,
+            unread_count=unread_map.get(conv.id, 0),
         ))
 
     return ConversationListResponse(conversations=items, total=total)
