@@ -85,7 +85,13 @@ export default function ForceGraph({
   const fgRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+
+  // Use a ref for zoom level to avoid triggering React re-renders from the
+  // onZoom callback (which fires synchronously inside d3-zoom's handler and
+  // causes "Cannot update a component while rendering" errors).
+  const currentZoomRef = useRef(1)
   const [currentZoom, setCurrentZoom] = useState(1)
+  const zoomRAFRef = useRef(0)
 
   // Track dimensions
   useEffect(() => {
@@ -100,10 +106,35 @@ export default function ForceGraph({
     return () => observer.disconnect()
   }, [])
 
+  // Prevent wheel events from propagating beyond the graph container.
+  // This is a belt-and-suspenders measure: d3-zoom already calls preventDefault()
+  // and stopImmediatePropagation(), but in some browsers (especially Safari on macOS),
+  // the compositor may intercept wheel events for page scroll/navigation before
+  // JavaScript handlers fire. This explicit handler on the container ensures the
+  // browser knows this area handles wheel events.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      // Only prevent default if the event target is inside the graph
+      // (not on control buttons at the bottom)
+      const target = e.target as HTMLElement
+      if (target.tagName === 'CANVAS' || target.closest('.force-graph-container')) {
+        e.preventDefault()
+      }
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
 
-  // Zoom tracking — store the current zoom level from the engine
+  // Zoom tracking — use ref + debounced state to avoid re-render during d3 handler
   const handleZoom = useCallback((transform: { k: number }) => {
-    setCurrentZoom(transform.k)
+    currentZoomRef.current = transform.k
+    // Batch the state update via rAF to avoid updating state during render
+    cancelAnimationFrame(zoomRAFRef.current)
+    zoomRAFRef.current = requestAnimationFrame(() => {
+      setCurrentZoom(transform.k)
+    })
   }, [])
 
   // Search term lowered for matching
@@ -271,7 +302,7 @@ export default function ForceGraph({
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative" style={{ touchAction: 'none' }}>
+    <div ref={containerRef} className="w-full h-full relative" style={{ touchAction: 'none', overscrollBehavior: 'contain' }}>
       {is3D ? (
         <ForceGraph3D
           ref={fgRef as React.MutableRefObject<never>}

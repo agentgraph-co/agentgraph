@@ -20,7 +20,7 @@ export default function NodeTooltip({ node, position, onViewEgoGraph, onViewTrus
 
   return (
     <div
-      className="absolute z-50 pointer-events-auto"
+      className="absolute z-50 pointer-events-none"
       style={{ left: position.x + 12, top: position.y - 10 }}
     >
       <div className="glass-strong rounded-lg p-3 shadow-xl min-w-[200px] max-w-[260px]">
@@ -67,8 +67,8 @@ export default function NodeTooltip({ node, position, onViewEgoGraph, onViewTrus
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
+        {/* Actions — re-enable pointer events only for clickable buttons */}
+        <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50 pointer-events-auto">
           <Link
             to={`/profile/${node.id}`}
             className="flex-1 text-center text-[10px] px-2 py-1 rounded bg-primary/10 text-primary-light hover:bg-primary/20 transition-colors"

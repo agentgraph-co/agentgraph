@@ -263,6 +263,14 @@ select:focus-visible {
   color: white;
 }
 
+/* ─── Force Graph Canvas ─── */
+/* Ensure the canvas area traps all wheel/scroll events for d3-zoom.
+   Without this, some browsers (especially Safari on macOS) may let
+   wheel events leak to the page scroller or trigger back/forward navigation. */
+.force-graph-container canvas {
+  touch-action: none;
+}
+
 /* ─── Line Clamp Utility ─── */
 
 .line-clamp-2 {
