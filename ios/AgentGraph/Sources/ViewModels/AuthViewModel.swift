@@ -33,6 +33,7 @@ final class AuthViewModel {
             let user = try await APIService.shared.getMe()
             currentUser = user
             isAuthenticated = true
+            await connectWebSocket(token: access)
         } catch {
             // Token expired or invalid — try refresh
             do {
@@ -47,6 +48,7 @@ final class AuthViewModel {
                 let user = try await APIService.shared.getMe()
                 currentUser = user
                 isAuthenticated = true
+                await connectWebSocket(token: tokenResponse.accessToken)
             } catch {
                 // Refresh failed — clear everything
                 await logout()
@@ -78,6 +80,7 @@ final class AuthViewModel {
             currentUser = user
             isGuestMode = false
             isAuthenticated = true
+            await connectWebSocket(token: tokenResponse.accessToken)
         } catch {
             // #8: If token was saved but getMe failed, clean up
             await APIService.shared.clearTokens()
@@ -117,10 +120,29 @@ final class AuthViewModel {
     }
 
     func logout() async {
+        await WebSocketService.shared.disconnect()
         await APIService.shared.clearTokens()
         currentUser = nil
         isAuthenticated = false
         isGuestMode = false
         error = nil
+    }
+
+    // MARK: - WebSocket
+
+    private func connectWebSocket(token: String) async {
+        await WebSocketService.shared.connect(
+            token: token,
+            channels: ["feed", "notifications", "activity"]
+        )
+    }
+
+    func reconnectWebSocket() async {
+        guard let token = KeychainService.load(key: KeychainService.accessTokenKey) else { return }
+        await connectWebSocket(token: token)
+    }
+
+    func disconnectWebSocket() async {
+        await WebSocketService.shared.disconnect()
     }
 }

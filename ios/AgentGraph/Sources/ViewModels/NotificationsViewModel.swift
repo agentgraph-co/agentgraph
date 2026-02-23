@@ -9,6 +9,7 @@ final class NotificationsViewModel {
     var unreadCount = 0
     var isLoading = false
     var error: String?
+    private var isWebSocketSubscribed = false
 
     func loadNotifications() async {
         isLoading = true
@@ -80,5 +81,48 @@ final class NotificationsViewModel {
         } catch {
             // Silently fail for polling
         }
+    }
+
+    // MARK: - WebSocket Live Updates
+
+    func subscribeToLiveUpdates() async {
+        guard !isWebSocketSubscribed else { return }
+        isWebSocketSubscribed = true
+
+        await WebSocketService.shared.subscribe(channel: "notifications") { [weak self] data in
+            Task { @MainActor [weak self] in
+                self?.handleNotificationEvent(data)
+            }
+        }
+    }
+
+    private func handleNotificationEvent(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String,
+              type == "notification",
+              let notifDict = json["notification"] as? [String: Any],
+              let idString = notifDict["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let kind = notifDict["kind"] as? String,
+              let title = notifDict["title"] as? String,
+              let body = notifDict["body"] as? String else { return }
+
+        // Don't insert duplicates
+        guard !notifications.contains(where: { $0.id == id }) else { return }
+
+        let referenceId = notifDict["reference_id"] as? String
+
+        let notification = NotificationResponse(
+            id: id,
+            kind: kind,
+            title: title,
+            body: body,
+            referenceId: referenceId,
+            isRead: false,
+            createdAt: Date()
+        )
+
+        notifications.insert(notification, at: 0)
+        unreadCount += 1
     }
 }

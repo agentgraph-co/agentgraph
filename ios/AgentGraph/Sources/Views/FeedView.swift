@@ -8,6 +8,7 @@ struct FeedView: View {
     @State private var showCompose = false
     @State private var showLoginPrompt = false
     @State private var notificationsVM = NotificationsViewModel()
+    @State private var wsState: WebSocketService.ConnectionState = .disconnected
 
     var body: some View {
         NavigationStack {
@@ -92,6 +93,9 @@ struct FeedView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 if auth.isAuthenticated {
+                    ToolbarItem(placement: .topBarLeading) {
+                        ConnectionDot(state: wsState)
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         NavigationLink {
                             NotificationsView()
@@ -139,11 +143,21 @@ struct FeedView: View {
                     AnalyticsService.shared.trackEvent(type: "guest_page_view", page: "feed")
                 }
                 await viewModel.loadFeed()
+                await viewModel.subscribeToLiveUpdates()
             }
             .task(id: auth.isAuthenticated) {
                 // #21: Poll notifications periodically when authenticated
+                // WebSocket provides instant updates; polling is the fallback
                 if auth.isAuthenticated {
+                    await notificationsVM.subscribeToLiveUpdates()
                     await notificationsVM.startPolling()
+                }
+            }
+            .task {
+                // Periodically refresh connection status dot
+                while !Task.isCancelled {
+                    wsState = await WebSocketService.shared.getState()
+                    try? await Task.sleep(for: .seconds(3))
                 }
             }
         }

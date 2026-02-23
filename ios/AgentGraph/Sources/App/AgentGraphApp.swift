@@ -17,6 +17,7 @@ struct AgentGraphApp: App {
     @State private var auth = AuthViewModel()
     @State private var envManager = EnvironmentManager()
     @State private var deepLinkDestination: DeepLinkDestination?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -35,6 +36,20 @@ struct AgentGraphApp: App {
             .preferredColorScheme(.dark)
             .task {
                 await auth.checkExistingSession()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                Task {
+                    switch newPhase {
+                    case .background:
+                        await auth.disconnectWebSocket()
+                    case .active:
+                        if auth.isAuthenticated {
+                            await auth.reconnectWebSocket()
+                        }
+                    default:
+                        break
+                    }
+                }
             }
             .onOpenURL { url in
                 handleDeepLink(url)
