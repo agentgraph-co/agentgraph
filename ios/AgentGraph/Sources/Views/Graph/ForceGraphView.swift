@@ -1,5 +1,6 @@
-// ForceGraphView — SwiftUI Canvas force-directed graph with native zoom/pan
-// Replaces SpriteKit to avoid coordinate system and gesture conflicts
+// ForceGraphView — SwiftUI Canvas force-directed graph with semantic zoom
+// Zoom spreads nodes apart but keeps circles/labels at readable screen-pixel sizes
+// (like react-force-graph-2d on the web, not "picture zoom")
 
 import SwiftUI
 
@@ -21,7 +22,7 @@ struct ForceGraphView: View {
     @State private var touchDown: Date?
     @State private var isDragging = false
 
-    // Pre-computed node positions from force simulation
+    // Pre-computed node positions from force simulation (graph-space)
     @State private var positions: [String: CGPoint] = [:]
     @State private var lastLayoutId: UUID?
 
@@ -33,9 +34,9 @@ struct ForceGraphView: View {
             .contentShape(Rectangle())
             .gesture(dragGesture(viewSize: geo.size))
             .simultaneousGesture(pinchGesture)
-            .onChange(of: layoutId) { _, newId in
+            .onChange(of: layoutId) { _, _ in
                 computePositions(in: geo.size)
-                lastLayoutId = newId
+                lastLayoutId = layoutId
             }
             .onAppear {
                 if positions.isEmpty || lastLayoutId != layoutId {
@@ -46,12 +47,35 @@ struct ForceGraphView: View {
         }
     }
 
+    // MARK: - Coordinate Transform
+
+    /// Convert graph-space position to screen-space position.
+    /// Zoom spreads positions apart from center; pan shifts everything.
+    private func toScreen(_ graphPos: CGPoint, viewSize: CGSize) -> CGPoint {
+        let cx = viewSize.width / 2
+        let cy = viewSize.height / 2
+        return CGPoint(
+            x: (graphPos.x - cx + currentOffset.x) * currentScale + cx,
+            y: (graphPos.y - cy + currentOffset.y) * currentScale + cy
+        )
+    }
+
+    /// Convert screen-space tap point back to graph-space.
+    private func toGraph(_ screenPos: CGPoint, viewSize: CGSize) -> CGPoint {
+        let cx = viewSize.width / 2
+        let cy = viewSize.height / 2
+        return CGPoint(
+            x: (screenPos.x - cx) / currentScale - currentOffset.x + cx,
+            y: (screenPos.y - cy) / currentScale - currentOffset.y + cy
+        )
+    }
+
     // MARK: - Gestures
 
     private var pinchGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
-                currentScale = max(0.3, min(5.0, baseScale * value.magnification))
+                currentScale = max(0.3, min(8.0, baseScale * value.magnification))
             }
             .onEnded { _ in
                 baseScale = currentScale
@@ -68,6 +92,7 @@ struct ForceGraphView: View {
                 let movedY = abs(value.translation.height)
                 if movedX > 8 || movedY > 8 {
                     isDragging = true
+                    // Offset is in graph-space; divide screen drag by scale
                     currentOffset = CGPoint(
                         x: baseOffset.x + value.translation.width / currentScale,
                         y: baseOffset.y + value.translation.height / currentScale
@@ -92,39 +117,40 @@ struct ForceGraphView: View {
             }
     }
 
-    // MARK: - Hit Testing
+    // MARK: - Hit Testing (screen-space)
 
     private func hitTest(at point: CGPoint, viewSize: CGSize) -> String? {
-        // Reverse the Canvas transform to get graph coordinates
-        let gx = (point.x - viewSize.width / 2) / currentScale - currentOffset.x + viewSize.width / 2
-        let gy = (point.y - viewSize.height / 2) / currentScale - currentOffset.y + viewSize.height / 2
+        // Mild radius growth so tap targets scale with zoom (but much less than 1:1)
+        let rScale = pow(currentScale, 0.2)
 
-        // Check nodes in reverse order (top-most first)
         for node in nodes.reversed() {
-            guard let pos = positions[node.id] else { continue }
-            let dx = pos.x - gx
-            let dy = pos.y - gy
-            let tapRadius = max(node.radius + 6, 20) // minimum 20pt tap target
-            if dx * dx + dy * dy <= tapRadius * tapRadius {
+            guard let gPos = positions[node.id] else { continue }
+            let sp = toScreen(gPos, viewSize: viewSize)
+            let r = node.radius * rScale
+            let dx = point.x - sp.x
+            let dy = point.y - sp.y
+            let tapR = max(r + 6, 22) // generous tap target
+            if dx * dx + dy * dy <= tapR * tapR {
                 return node.id
             }
         }
         return nil
     }
 
-    // MARK: - Drawing
+    // MARK: - Drawing (semantic zoom — positions transform, sizes stay fixed)
 
     private func drawGraph(context: inout GraphicsContext, size: CGSize) {
-        // Apply zoom/pan transform
-        context.translateBy(x: size.width / 2, y: size.height / 2)
-        context.scaleBy(x: currentScale, y: currentScale)
-        context.translateBy(x: currentOffset.x, y: currentOffset.y)
-        context.translateBy(x: -size.width / 2, y: -size.height / 2)
+        // How much node radius grows with zoom: very mild (exponent 0.2)
+        // At 2x zoom → radius is ~1.15x; at 4x zoom → radius is ~1.32x
+        let rScale = pow(currentScale, 0.2)
 
-        // Draw edges
+        // Draw edges first (below nodes)
         for edge in edges {
-            guard let from = positions[edge.source],
-                  let to = positions[edge.target] else { continue }
+            guard let fromG = positions[edge.source],
+                  let toG = positions[edge.target] else { continue }
+            let from = toScreen(fromG, viewSize: size)
+            let to = toScreen(toG, viewSize: size)
+
             var path = Path()
             path.move(to: from)
             path.addLine(to: to)
@@ -137,20 +163,22 @@ struct ForceGraphView: View {
 
         // Draw nodes
         for node in nodes {
-            guard let pos = positions[node.id] else { continue }
-            let r = node.radius
+            guard let gPos = positions[node.id] else { continue }
+            let sp = toScreen(gPos, viewSize: size)
+            let r = node.radius * rScale
             let cc = ForceGraphViewModel.colorForCluster(node.clusterId)
             let color = Color(red: cc.red, green: cc.green, blue: cc.blue)
 
             // Glow ring
             let glowR = r * 1.8
             context.fill(
-                Circle().path(in: CGRect(x: pos.x - glowR, y: pos.y - glowR, width: glowR * 2, height: glowR * 2)),
+                Circle().path(in: CGRect(x: sp.x - glowR, y: sp.y - glowR,
+                                         width: glowR * 2, height: glowR * 2)),
                 with: .color(color.opacity(0.15))
             )
 
             // Node circle
-            let nodeRect = CGRect(x: pos.x - r, y: pos.y - r, width: r * 2, height: r * 2)
+            let nodeRect = CGRect(x: sp.x - r, y: sp.y - r, width: r * 2, height: r * 2)
             context.fill(Circle().path(in: nodeRect), with: .color(color))
             context.stroke(
                 Circle().path(in: nodeRect),
@@ -161,40 +189,49 @@ struct ForceGraphView: View {
             // Selection ring
             if node.id == selectedNodeId {
                 let ringR = r + 4
-                let ringRect = CGRect(x: pos.x - ringR, y: pos.y - ringR, width: ringR * 2, height: ringR * 2)
+                let ringRect = CGRect(x: sp.x - ringR, y: sp.y - ringR,
+                                      width: ringR * 2, height: ringR * 2)
                 context.stroke(Circle().path(in: ringRect), with: .color(.white), lineWidth: 2)
             }
 
-            // Icon letter (H/A)
+            // Icon letter (H/A) — fixed screen-pixel font size
             let letter = node.type == "human" ? "H" : "A"
             context.draw(
                 Text(letter)
-                    .font(.system(size: r * 0.7, weight: .bold))
+                    .font(.system(size: min(r * 0.7, 14), weight: .bold))
                     .foregroundColor(.white),
-                at: pos
+                at: sp
             )
 
-            // Label — show at normal zoom and above
-            if currentScale >= 0.7 {
+            // Label — always visible at 1x, fades at extreme zoom-out
+            if currentScale >= 0.5 {
                 context.draw(
                     Text(node.label)
                         .font(.system(size: 11))
                         .foregroundColor(Color(red: 0.804, green: 0.839, blue: 0.957)),
-                    at: CGPoint(x: pos.x, y: pos.y + r + 10)
+                    at: CGPoint(x: sp.x, y: sp.y + r + 8)
                 )
             }
 
-            // Trust score badge — show when zoomed in
-            if currentScale >= 1.8 {
+            // Trust score badge — appears when zoomed in past 1.5x
+            if currentScale >= 1.5 {
                 let trustText = String(format: "%.0f%%", node.trustScore * 100)
                 context.draw(
                     Text(trustText)
                         .font(.system(size: 9))
                         .foregroundColor(Color(red: 0.424, green: 0.439, blue: 0.525)),
-                    at: CGPoint(x: pos.x, y: pos.y - r - 8)
+                    at: CGPoint(x: sp.x, y: sp.y - r - 6)
                 )
             }
         }
+
+        // Zoom level indicator (bottom-left, fixed screen position)
+        context.draw(
+            Text(String(format: "%.1fx", currentScale))
+                .font(.system(size: 10))
+                .foregroundColor(Color(red: 0.424, green: 0.439, blue: 0.525, opacity: 0.6)),
+            at: CGPoint(x: 32, y: size.height - 16)
+        )
     }
 
     // MARK: - Force Simulation
@@ -219,7 +256,8 @@ struct ForceGraphView: View {
                 let r = node.connections.count > 2
                     ? spread * 0.5
                     : spread * CGFloat.random(in: 0.6...0.9)
-                pos[node.id] = CGPoint(x: center.x + cos(angle) * r, y: center.y + sin(angle) * r)
+                pos[node.id] = CGPoint(x: center.x + cos(angle) * r,
+                                       y: center.y + sin(angle) * r)
             }
         }
 
