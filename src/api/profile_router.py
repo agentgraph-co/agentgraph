@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src import cache
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
@@ -53,7 +54,12 @@ class UpdateProfileRequest(BaseModel):
             "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
             "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.",
             "172.28.", "172.29.", "172.30.", "172.31.",
+            "100.64.", "100.65.", "100.66.", "100.67.",  # Carrier-grade NAT
+            "224.", "225.", "226.", "227.", "228.", "229.",  # Multicast
+            "230.", "231.", "232.", "233.", "234.", "235.",
+            "236.", "237.", "238.", "239.",
             "::1", "[::1]", "fe80:", "fc00:", "fd",
+            "ff00:", "ff01:", "ff02:",  # IPv6 multicast
         )
         for b in blocked:
             if hostname.startswith(b):
@@ -88,18 +94,28 @@ class ProfileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-async def _get_counts(
+async def _get_profile_stats(
     db: AsyncSession, entity_id: uuid.UUID,
-) -> tuple[int, int, int]:
-    """Return (post_count, follower_count, following_count)."""
-    post_count = await db.scalar(
-        select(func.count()).select_from(Post).where(
+) -> dict:
+    """Return all profile stats in 2 queries (down from 5).
+
+    Returns dict with keys: post_count, follower_count, following_count,
+    average_rating, review_count, endorsement_count.
+    """
+
+    # Query 1: counts via scalar subqueries in a single SELECT
+    post_sq = (
+        select(func.count())
+        .select_from(Post)
+        .where(
             Post.author_entity_id == entity_id,
             Post.is_hidden.is_(False),
         )
-    ) or 0
-
-    follower_count = await db.scalar(
+        .correlate(None)
+        .scalar_subquery()
+        .label("post_count")
+    )
+    follower_sq = (
         select(func.count())
         .select_from(EntityRelationship)
         .join(Entity, EntityRelationship.source_entity_id == Entity.id)
@@ -108,9 +124,11 @@ async def _get_counts(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
         )
-    ) or 0
-
-    following_count = await db.scalar(
+        .correlate(None)
+        .scalar_subquery()
+        .label("follower_count")
+    )
+    following_sq = (
         select(func.count())
         .select_from(EntityRelationship)
         .join(Entity, EntityRelationship.target_entity_id == Entity.id)
@@ -119,16 +137,34 @@ async def _get_counts(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
         )
-    ) or 0
+        .correlate(None)
+        .scalar_subquery()
+        .label("following_count")
+    )
+    endorsement_sq = (
+        select(func.count())
+        .select_from(CapabilityEndorsement)
+        .join(Entity, CapabilityEndorsement.endorser_entity_id == Entity.id)
+        .where(
+            CapabilityEndorsement.agent_entity_id == entity_id,
+            Entity.is_active.is_(True),
+        )
+        .correlate(None)
+        .scalar_subquery()
+        .label("endorsement_count")
+    )
 
-    return post_count, follower_count, following_count
-
-
-async def _get_review_stats(
-    db: AsyncSession, entity_id: uuid.UUID,
-) -> tuple[float | None, int, int]:
-    """Return (average_rating, review_count, endorsement_count)."""
     result = await db.execute(
+        select(post_sq, follower_sq, following_sq, endorsement_sq)
+    )
+    row = result.one()
+    post_count = row[0] or 0
+    follower_count = row[1] or 0
+    following_count = row[2] or 0
+    endorsement_count = row[3] or 0
+
+    # Query 2: review stats
+    review_result = await db.execute(
         select(
             func.avg(Review.rating),
             func.count(Review.id),
@@ -139,21 +175,18 @@ async def _get_review_stats(
             Entity.is_active.is_(True),
         )
     )
-    row = result.one()
-    avg_rating = round(float(row[0]), 2) if row[0] is not None else None
-    review_count = row[1]
+    review_row = review_result.one()
+    avg_rating = round(float(review_row[0]), 2) if review_row[0] is not None else None
+    review_count = review_row[1]
 
-    endorsement_count = await db.scalar(
-        select(func.count())
-        .select_from(CapabilityEndorsement)
-        .join(Entity, CapabilityEndorsement.endorser_entity_id == Entity.id)
-        .where(
-            CapabilityEndorsement.agent_entity_id == entity_id,
-            Entity.is_active.is_(True),
-        )
-    ) or 0
-
-    return avg_rating, review_count, endorsement_count
+    return {
+        "post_count": post_count,
+        "follower_count": follower_count,
+        "following_count": following_count,
+        "average_rating": avg_rating,
+        "review_count": review_count,
+        "endorsement_count": endorsement_count,
+    }
 
 
 def _compute_badges(entity: Entity) -> list[str]:
@@ -274,6 +307,12 @@ async def get_profile(
 
     is_own = current_entity is not None and current_entity.id == entity_id
 
+    # Try cache for public, non-own profiles
+    if not is_own and entity.privacy_tier == PrivacyTier.PUBLIC:
+        cached = await cache.get(f"profile:{entity_id}")
+        if cached is not None:
+            return ProfileResponse(**cached)
+
     # Privacy tier enforcement
     if not is_own and entity.privacy_tier != PrivacyTier.PUBLIC:
         can_view = False
@@ -312,14 +351,9 @@ async def get_profile(
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
-    post_count, follower_count, following_count = await _get_counts(
-        db, entity_id
-    )
-    avg_rating, review_count, endorsement_count = await _get_review_stats(
-        db, entity_id
-    )
+    stats = await _get_profile_stats(db, entity_id)
 
-    return ProfileResponse(
+    response = ProfileResponse(
         id=entity.id,
         type=entity.type.value,
         display_name=entity.display_name,
@@ -338,15 +372,25 @@ async def get_profile(
         trust_score=ts.score if ts else None,
         trust_components=ts.components if ts else None,
         badges=_compute_badges(entity),
-        average_rating=avg_rating,
-        review_count=review_count,
-        endorsement_count=endorsement_count,
-        post_count=post_count,
-        follower_count=follower_count,
-        following_count=following_count,
+        average_rating=stats["average_rating"],
+        review_count=stats["review_count"],
+        endorsement_count=stats["endorsement_count"],
+        post_count=stats["post_count"],
+        follower_count=stats["follower_count"],
+        following_count=stats["following_count"],
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
     )
+
+    # Cache public profiles for 60 seconds
+    if not is_own and entity.privacy_tier == PrivacyTier.PUBLIC:
+        await cache.set(
+            f"profile:{entity_id}",
+            response.model_dump(mode="json"),
+            ttl=cache.TTL_SHORT,
+        )
+
+    return response
 
 
 @router.patch(
@@ -411,15 +455,13 @@ async def update_profile(
     )
     await db.flush()
 
+    # Invalidate cached profile
+    await cache.invalidate(f"profile:{entity_id}")
+
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
-    post_count, follower_count, following_count = await _get_counts(
-        db, entity_id
-    )
-    avg_rating, review_count, endorsement_count = await _get_review_stats(
-        db, entity_id
-    )
+    stats = await _get_profile_stats(db, entity_id)
 
     return ProfileResponse(
         id=entity.id,
@@ -440,12 +482,12 @@ async def update_profile(
         trust_score=ts.score if ts else None,
         trust_components=ts.components if ts else None,
         badges=_compute_badges(entity),
-        average_rating=avg_rating,
-        review_count=review_count,
-        endorsement_count=endorsement_count,
-        post_count=post_count,
-        follower_count=follower_count,
-        following_count=following_count,
+        average_rating=stats["average_rating"],
+        review_count=stats["review_count"],
+        endorsement_count=stats["endorsement_count"],
+        post_count=stats["post_count"],
+        follower_count=stats["follower_count"],
+        following_count=stats["following_count"],
         created_at=entity.created_at.isoformat(),
         is_own_profile=True,
     )

@@ -282,11 +282,137 @@ async def compute_trust_score(
 
 
 async def batch_recompute(db: AsyncSession) -> int:
-    """Recompute trust scores for all active entities. Returns count."""
-    result = await db.execute(
-        select(Entity.id).where(Entity.is_active.is_(True))
+    """Recompute trust scores for all active entities.
+
+    Pre-loads component data in bulk queries, then computes per-entity
+    scores in memory with minimal per-entity DB hits.
+    """
+    cutoff_30d = datetime.now(timezone.utc) - timedelta(days=30)
+
+    # Fetch all active entities
+    entities_result = await db.execute(
+        select(Entity).where(Entity.is_active.is_(True))
     )
-    entity_ids = [row[0] for row in result.fetchall()]
+    entities = entities_result.scalars().all()
+    if not entities:
+        return 0
+
+    entity_ids = [e.id for e in entities]
+    entity_map = {e.id: e for e in entities}
+
+    # Bulk query 1: post counts per entity (last 30 days)
+    post_result = await db.execute(
+        select(Post.author_entity_id, func.count())
+        .where(
+            Post.author_entity_id.in_(entity_ids),
+            Post.created_at >= cutoff_30d,
+        )
+        .group_by(Post.author_entity_id)
+    )
+    post_counts = dict(post_result.all())
+
+    # Bulk query 2: vote counts per entity (last 30 days)
+    vote_result = await db.execute(
+        select(Vote.entity_id, func.count())
+        .where(
+            Vote.entity_id.in_(entity_ids),
+            Vote.created_at >= cutoff_30d,
+        )
+        .group_by(Vote.entity_id)
+    )
+    vote_counts = dict(vote_result.all())
+
+    # Bulk query 3: review averages per entity
+    review_result = await db.execute(
+        select(Review.target_entity_id, func.avg(Review.rating))
+        .where(Review.target_entity_id.in_(entity_ids))
+        .group_by(Review.target_entity_id)
+    )
+    review_avgs = dict(review_result.all())
+
+    # Bulk query 4: endorsement counts per entity
+    endorse_result = await db.execute(
+        select(CapabilityEndorsement.agent_entity_id, func.count())
+        .where(CapabilityEndorsement.agent_entity_id.in_(entity_ids))
+        .group_by(CapabilityEndorsement.agent_entity_id)
+    )
+    endorse_counts = dict(endorse_result.all())
+
+    # Compute scores in-memory
+    count = 0
     for eid in entity_ids:
-        await compute_trust_score(db, eid)
-    return len(entity_ids)
+        entity = entity_map[eid]
+        verification = _verification_factor(entity)
+        age = _age_factor(entity)
+
+        # Activity factor from pre-loaded data
+        total_activity = post_counts.get(eid, 0) + vote_counts.get(eid, 0)
+        activity = (
+            min(math.log(total_activity + 1) / math.log(ACTIVITY_LOG_CAP), 1.0)
+            if total_activity > 0
+            else 0.0
+        )
+
+        # Reputation from pre-loaded data
+        avg_rating_raw = review_avgs.get(eid)
+        review_score = float(avg_rating_raw) / 5.0 if avg_rating_raw else 0.0
+        ec = endorse_counts.get(eid, 0)
+        endorsement_score = (
+            min(math.log(ec + 1) / math.log(20), 1.0) if ec > 0 else 0.0
+        )
+        if avg_rating_raw is not None and ec > 0:
+            reputation = 0.6 * review_score + 0.4 * endorsement_score
+        elif avg_rating_raw is not None:
+            reputation = review_score
+        elif ec > 0:
+            reputation = endorsement_score
+        else:
+            reputation = 0.0
+
+        # Community factor still needs per-entity query (attestation data is complex)
+        community, contextual_scores = await _community_factor(db, eid)
+
+        score = (
+            VERIFICATION_WEIGHT * verification
+            + AGE_WEIGHT * age
+            + ACTIVITY_WEIGHT * activity
+            + REPUTATION_WEIGHT * reputation
+            + COMMUNITY_WEIGHT * community
+        )
+
+        framework_modifier = getattr(entity, "framework_trust_modifier", None)
+        if framework_modifier is not None and framework_modifier != 1.0:
+            score *= framework_modifier
+
+        components = {
+            "verification": round(verification, 4),
+            "age": round(age, 4),
+            "activity": round(activity, 4),
+            "reputation": round(reputation, 4),
+            "community": round(community, 4),
+        }
+
+        # Upsert
+        existing = await db.scalar(
+            select(TrustScore).where(TrustScore.entity_id == eid)
+        )
+        if existing:
+            existing.score = round(score, 4)
+            existing.components = components
+            existing.contextual_scores = contextual_scores
+            existing.computed_at = datetime.now(timezone.utc)
+        else:
+            ts = TrustScore(
+                id=uuid.uuid4(),
+                entity_id=eid,
+                score=round(score, 4),
+                components=components,
+                contextual_scores=contextual_scores,
+                computed_at=datetime.now(timezone.utc),
+            )
+            db.add(ts)
+
+        count += 1
+
+    await db.flush()
+    return count

@@ -101,6 +101,12 @@ _DANGEROUS_URI_RE = re.compile(
     re.I,
 )
 
+# Style attributes (CSS injection defense-in-depth)
+_STYLE_ATTR_RE = re.compile(
+    r"\bstyle\s*=\s*([\"']).*?\1",
+    re.I | re.S,
+)
+
 # HTML comments that could hide content
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 
@@ -130,6 +136,9 @@ def sanitize_html(text: str) -> str:
 
     # Remove event handler attributes from any remaining HTML
     text = _EVENT_HANDLER_RE.sub("", text)
+
+    # Remove style attributes (CSS injection defense-in-depth)
+    text = _STYLE_ATTR_RE.sub("", text)
 
     # Neutralize dangerous URIs
     text = _DANGEROUS_URI_RE.sub("", text)

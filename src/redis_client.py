@@ -22,7 +22,7 @@ def _get_pool() -> aioredis.ConnectionPool:
     if _pool is None:
         _pool = aioredis.ConnectionPool.from_url(
             settings.redis_url,
-            max_connections=20,
+            max_connections=100,
             decode_responses=True,
         )
     return _pool

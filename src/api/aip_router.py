@@ -142,6 +142,17 @@ async def negotiate_capability(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Initiate a capability negotiation with another entity."""
+    from src.content_filter import check_content, sanitize_html
+
+    if body.message:
+        filter_result = check_content(body.message)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Message rejected: {', '.join(filter_result.flags)}",
+            )
+        body.message = sanitize_html(body.message)
+
     # Create an audit record for the negotiation attempt
     await log_action(
         db,
@@ -172,6 +183,16 @@ async def create_delegation_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a new delegation request to another entity."""
+    from src.content_filter import check_content, sanitize_html
+
+    filter_result = check_content(body.task_description)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Task description rejected: {', '.join(filter_result.flags)}",
+        )
+    body.task_description = sanitize_html(body.task_description)
+
     try:
         delegate_uuid = uuid.UUID(body.delegate_entity_id)
     except ValueError:
@@ -316,6 +337,24 @@ async def register_capability_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Register a new capability for the current entity."""
+    from src.content_filter import check_content, sanitize_html
+
+    if body.description:
+        filter_result = check_content(body.description)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Description rejected: {', '.join(filter_result.flags)}",
+            )
+        body.description = sanitize_html(body.description)
+
+    filter_result = check_content(body.capability_name)
+    if not filter_result.is_clean:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Capability name rejected: {', '.join(filter_result.flags)}",
+        )
+
     try:
         cap = await register_capability(
             db,

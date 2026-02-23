@@ -92,6 +92,42 @@ async def get_current_entity(
     return entity
 
 
+def require_scope(scope: str):
+    """Dependency that checks API key scopes.
+
+    If the request was authenticated via API key, verifies the key
+    has the required scope. JWT-authenticated requests pass through.
+    """
+
+    async def _check_scope(
+        x_api_key: str | None = Header(None),
+        db: AsyncSession = Depends(get_db),
+    ) -> None:
+        if x_api_key is None:
+            return  # JWT auth — scopes not applicable
+        import hashlib
+
+        from sqlalchemy import select as sa_select
+
+        from src.models import APIKey
+
+        key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
+        api_key = await db.scalar(
+            sa_select(APIKey).where(
+                APIKey.key_hash == key_hash, APIKey.is_active.is_(True),
+            )
+        )
+        if api_key is None:
+            return  # Will be rejected by get_current_entity
+        if api_key.scopes and scope not in api_key.scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"API key missing required scope: {scope}",
+            )
+
+    return Depends(_check_scope)
+
+
 async def get_optional_entity(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Header(None),

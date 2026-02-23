@@ -34,6 +34,8 @@ class ConnectionManager:
     def __init__(self) -> None:
         # channel:entity_id -> set of WebSocket connections (local to this worker)
         self._connections: dict[str, set[WebSocket]] = defaultdict(set)
+        # Secondary index: channel_name -> set of WebSocket connections (O(1) lookup)
+        self._channel_subscribers: dict[str, set[WebSocket]] = defaultdict(set)
         # All connections for broadcast (local to this worker)
         self._all: set[WebSocket] = set()
         # Whether the Redis subscriber background task is running
@@ -48,6 +50,7 @@ class ConnectionManager:
         for ch in channels or ["feed"]:
             key = f"{ch}:{entity_id}"
             self._connections[key].add(websocket)
+            self._channel_subscribers[ch].add(websocket)
         # Start Redis subscriber if not already running
         self._ensure_subscriber()
 
@@ -61,6 +64,14 @@ class ConnectionManager:
                 keys_to_remove.append(key)
         for key in keys_to_remove:
             del self._connections[key]
+        # Clean up channel subscriber index
+        ch_keys_to_remove = []
+        for ch, sockets in self._channel_subscribers.items():
+            sockets.discard(websocket)
+            if not sockets:
+                ch_keys_to_remove.append(ch)
+        for ch in ch_keys_to_remove:
+            del self._channel_subscribers[ch]
 
     async def send_to_entity(
         self, entity_id: str, channel: str, data: dict[str, Any],
@@ -202,16 +213,15 @@ class ConnectionManager:
         message = json.dumps(data, default=str)
         sent = 0
         dead = []
-        for key, sockets in self._connections.items():
-            if key.startswith(f"{channel}:"):
-                for ws in sockets:
-                    try:
-                        await ws.send_text(message)
-                        sent += 1
-                    except Exception:
-                        dead.append((key, ws))
-        for key, ws in dead:
-            self._connections.get(key, set()).discard(ws)
+        # Use O(1) channel index instead of iterating all connections
+        for ws in list(self._channel_subscribers.get(channel, set())):
+            try:
+                await ws.send_text(message)
+                sent += 1
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self._channel_subscribers.get(channel, set()).discard(ws)
             self._all.discard(ws)
         return sent
 

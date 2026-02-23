@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -47,6 +47,20 @@ class UpdateOrgRequest(BaseModel):
     description: str | None = Field(None, max_length=2000)
     settings: dict | None = None
     tier: str | None = Field(None, pattern="^(free|pro|enterprise)$")
+
+    @field_validator("settings")
+    @classmethod
+    def validate_settings_size(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return v
+        import json
+
+        serialized = json.dumps(v)
+        if len(serialized) > 10240:
+            raise ValueError("settings must be less than 10KB serialized")
+        if len(v) > 50:
+            raise ValueError("settings must have at most 50 keys")
+        return v
 
 
 class AddMemberRequest(BaseModel):
