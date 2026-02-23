@@ -19,7 +19,7 @@ struct GraphView: View {
                         await viewModel.loadRichGraph(centerId: auth.currentUser?.id)
                     }))
                 } else {
-                    // SpriteKit force-directed graph
+                    // Canvas force-directed graph
                     ForceGraphView(
                         nodes: viewModel.nodes,
                         edges: viewModel.edges,
@@ -31,9 +31,9 @@ struct GraphView: View {
                                 await viewModel.loadTrustFlow(entityId: nodeId)
                             }
                         },
-                        selectedNodeId: viewModel.selectedNodeId
+                        selectedNodeId: viewModel.selectedNodeId,
+                        layoutId: viewModel.layoutId
                     )
-                    .ignoresSafeArea()
 
                     // Overlay controls
                     VStack {

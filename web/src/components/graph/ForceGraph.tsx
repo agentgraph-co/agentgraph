@@ -257,8 +257,8 @@ export default function ForceGraph({
     linkDirectionalParticles: getLinkParticles,
     linkDirectionalParticleWidth: PARTICLE_CONFIG.width,
     linkDirectionalParticleSpeed: PARTICLE_CONFIG.speed,
-    linkOpacity: 0.35,
-    linkWidth: 1,
+    linkOpacity: 0.45,
+    linkWidth: 1.5,
     onNodeClick: handleNodeClick,
     onNodeHover: handleNodeHover,
     onBackgroundClick: onBackgroundClick,
@@ -289,10 +289,28 @@ export default function ForceGraph({
         />
       )}
 
-      {/* Controls hint */}
-      <div className="absolute bottom-3 left-3 text-[10px] text-text-muted/50 pointer-events-none">
-        Scroll to zoom &middot; Drag to pan &middot; Click node for actions
-        {!is3D && ` &middot; Zoom: ${currentZoom.toFixed(1)}x`}
+      {/* Controls hint + actions */}
+      <div className="absolute bottom-3 left-3 flex items-center gap-3">
+        <span className="text-[10px] text-text-muted/50 pointer-events-none">
+          Scroll to zoom &middot; Drag to pan &middot; Click node for actions
+          {!is3D && ` · Zoom: ${currentZoom.toFixed(1)}x`}
+        </span>
+      </div>
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+        <button
+          onClick={() => fgRef.current?.zoomToFit(400, 40)}
+          className="px-2 py-1 rounded text-[10px] bg-surface/80 text-text-muted hover:text-text border border-border/50 cursor-pointer transition-colors"
+          title="Fit all nodes in view"
+        >
+          Fit
+        </button>
+        <button
+          onClick={() => { fgRef.current?.centerAt(0, 0, 400); fgRef.current?.zoom(1, 400) }}
+          className="px-2 py-1 rounded text-[10px] bg-surface/80 text-text-muted hover:text-text border border-border/50 cursor-pointer transition-colors"
+          title="Reset zoom and center"
+        >
+          Reset
+        </button>
       </div>
     </div>
   )

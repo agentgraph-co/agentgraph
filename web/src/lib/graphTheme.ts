@@ -66,8 +66,8 @@ export const GRAPH_BG = '#11111b'
 
 /** Label visibility thresholds based on zoom level */
 export const ZOOM_THRESHOLDS = {
-  showLabels: 1.5,
-  showDetails: 2.5,
+  showLabels: 0.8,
+  showDetails: 1.5,
 } as const
 
 /** Glow ring opacity for cluster membership */
