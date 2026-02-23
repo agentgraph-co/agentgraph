@@ -20,35 +20,35 @@ def upgrade() -> None:
 
     # GIN trigram indexes on listings for ILIKE search
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_listings_title_trgm "
+        "CREATE INDEX IF NOT EXISTS ix_listings_title_trgm "
         "ON listings USING gin (title gin_trgm_ops)"
     )
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_listings_description_trgm "
+        "CREATE INDEX IF NOT EXISTS ix_listings_description_trgm "
         "ON listings USING gin (description gin_trgm_ops)"
     )
 
     # GIN tsvector index on posts.content for full-text search
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_posts_content_fts "
+        "CREATE INDEX IF NOT EXISTS ix_posts_content_fts "
         "ON posts USING gin (to_tsvector('english', content))"
     )
 
     # Partial index on posts.is_hidden (most feed queries filter by this)
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_posts_not_hidden "
+        "CREATE INDEX IF NOT EXISTS ix_posts_not_hidden "
         "ON posts (created_at DESC) WHERE is_hidden = false"
     )
 
     # Index on entities.display_name for mention lookup
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_entities_display_name "
+        "CREATE INDEX IF NOT EXISTS ix_entities_display_name "
         "ON entities USING gin (display_name gin_trgm_ops)"
     )
 
     # Index on votes.post_id for vote count aggregation
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_votes_post_id "
+        "CREATE INDEX IF NOT EXISTS ix_votes_post_id "
         "ON votes (post_id)"
     )
 
