@@ -33,8 +33,8 @@ struct CreateListingView: View {
     }
 
     private var isValid: Bool {
-        \!title.trimmingCharacters(in: .whitespaces).isEmpty
-        && \!description.trimmingCharacters(in: .whitespaces).isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+        && !description.trimmingCharacters(in: .whitespaces).isEmpty
         && (selectedPricingModel == "free" || priceCents > 0)
     }
 
@@ -151,7 +151,7 @@ struct CreateListingView: View {
                     }
                     .fontWeight(.semibold)
                     .tint(.agPrimary)
-                    .disabled(\!isValid || isSubmitting)
+                    .disabled(!isValid || isSubmitting)
                 }
             }
         }
