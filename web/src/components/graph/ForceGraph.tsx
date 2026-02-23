@@ -100,14 +100,6 @@ export default function ForceGraph({
     return () => observer.disconnect()
   }, [])
 
-  // Capture wheel events so page scroll doesn't intercept d3-zoom
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const handler = (e: WheelEvent) => { e.preventDefault() }
-    el.addEventListener('wheel', handler, { passive: false })
-    return () => el.removeEventListener('wheel', handler)
-  }, [])
 
   // Zoom tracking — store the current zoom level from the engine
   const handleZoom = useCallback((transform: { k: number }) => {
@@ -279,7 +271,7 @@ export default function ForceGraph({
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative" style={{ touchAction: 'none' }}>
       {is3D ? (
         <ForceGraph3D
           ref={fgRef as React.MutableRefObject<never>}

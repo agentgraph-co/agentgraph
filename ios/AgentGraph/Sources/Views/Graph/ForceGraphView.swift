@@ -22,6 +22,10 @@ struct ForceGraphView: View {
     @State private var positions: [String: CGPoint] = [:]
     @State private var lastLayoutId: UUID?
 
+    // Node dragging state
+    @State private var draggedNodeId: String?
+    @State private var dragStartedOnNode = false
+
     // Particle config per edge type
     private static let particleCounts: [String: Int] = [
         "attestation": 3,
@@ -53,17 +57,37 @@ struct ForceGraphView: View {
                         baseScale = currentScale
                     }
             )
-            // Drag to pan (one finger, requires movement)
+            // Drag: on a node = move it, on empty space = pan
             .simultaneousGesture(
-                DragGesture(minimumDistance: 10)
+                DragGesture(minimumDistance: 6)
                     .onChanged { value in
-                        panOffset = CGSize(
-                            width: basePanOffset.width + value.translation.width,
-                            height: basePanOffset.height + value.translation.height
-                        )
+                        // First movement — decide if dragging a node or panning
+                        if draggedNodeId == nil && !dragStartedOnNode {
+                            if let nodeId = hitTest(at: value.startLocation, viewSize: geo.size) {
+                                draggedNodeId = nodeId
+                                dragStartedOnNode = true
+                            } else {
+                                dragStartedOnNode = false
+                            }
+                        }
+
+                        if let nodeId = draggedNodeId {
+                            // Move the node in graph-space
+                            positions[nodeId] = toGraph(value.location, viewSize: geo.size)
+                        } else {
+                            // Pan the canvas
+                            panOffset = CGSize(
+                                width: basePanOffset.width + value.translation.width,
+                                height: basePanOffset.height + value.translation.height
+                            )
+                        }
                     }
                     .onEnded { _ in
-                        basePanOffset = panOffset
+                        if draggedNodeId == nil {
+                            basePanOffset = panOffset
+                        }
+                        draggedNodeId = nil
+                        dragStartedOnNode = false
                     }
             )
             // Tap for node selection
@@ -97,6 +121,16 @@ struct ForceGraphView: View {
         return CGPoint(
             x: (graphPos.x - cx) * currentScale + cx + panOffset.width,
             y: (graphPos.y - cy) * currentScale + cy + panOffset.height
+        )
+    }
+
+    /// Inverse of toScreen — convert screen-space point back to graph-space
+    private func toGraph(_ screenPos: CGPoint, viewSize: CGSize) -> CGPoint {
+        let cx = viewSize.width / 2
+        let cy = viewSize.height / 2
+        return CGPoint(
+            x: (screenPos.x - cx - panOffset.width) / currentScale + cx,
+            y: (screenPos.y - cy - panOffset.height) / currentScale + cy
         )
     }
 
@@ -181,6 +215,15 @@ struct ForceGraphView: View {
                 let sr = r + 4
                 let srr = CGRect(x: sp.x - sr, y: sp.y - sr, width: sr * 2, height: sr * 2)
                 context.stroke(Circle().path(in: srr), with: .color(.white), lineWidth: 2)
+            }
+
+            // Drag highlight ring
+            if node.id == draggedNodeId {
+                let dr = r + 6
+                let drr = CGRect(x: sp.x - dr, y: sp.y - dr, width: dr * 2, height: dr * 2)
+                context.stroke(Circle().path(in: drr),
+                               with: .color(color.opacity(0.8)),
+                               style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
             }
 
             // Icon letter
