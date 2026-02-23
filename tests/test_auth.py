@@ -46,7 +46,8 @@ async def test_register_success(client: AsyncClient):
 async def test_register_duplicate_email(client: AsyncClient):
     await client.post(REGISTER_URL, json=VALID_USER)
     resp = await client.post(REGISTER_URL, json=VALID_USER)
-    assert resp.status_code == 409
+    # Returns 201 with generic message to prevent email enumeration
+    assert resp.status_code == 201
 
 
 @pytest.mark.asyncio

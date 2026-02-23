@@ -4,8 +4,9 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import jwt
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,15 +19,15 @@ from src.models import (
     TokenBlacklist,
 )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+_pwd_hasher = PasswordHash((BcryptHasher(rounds=12),))
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return _pwd_hasher.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return _pwd_hasher.verify(plain, hashed)
 
 
 def create_access_token(entity_id: uuid.UUID, entity_type: str) -> str:
@@ -58,8 +59,13 @@ def create_refresh_token(entity_id: uuid.UUID) -> str:
 
 def decode_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError:
+        return jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except jwt.PyJWTError:
         return None
 
 
@@ -153,8 +159,8 @@ async def authenticate_human(
 ) -> Entity | None:
     entity = await get_entity_by_email(db, email)
     if entity is None:
-        # Prevent timing attacks — hash anyway
-        pwd_context.dummy_verify()
+        # Prevent timing attacks — hash a dummy to consume same time as real verify
+        _pwd_hasher.hash("timing-attack-dummy")
         return None
     if not verify_password(password, entity.password_hash):
         return None

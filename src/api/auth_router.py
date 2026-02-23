@@ -65,10 +65,9 @@ async def register(
 
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:
-        # Don't reveal whether email exists — same message either way
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Registration failed",
+        # Don't reveal whether email exists — return same shape as success
+        return MessageResponse(
+            message="Registration successful. Please check your email for verification.",
         )
 
     entity = await register_human(db, body.email, body.password, body.display_name)
