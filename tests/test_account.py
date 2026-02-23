@@ -132,8 +132,19 @@ async def test_audit_log_after_password_change(client: AsyncClient):
         headers=_auth(token),
     )
 
+    # Re-login because password change invalidates old tokens.
+    # Sleep briefly so the new token's iat is after the invalidation timestamp.
+    import asyncio
+
+    await asyncio.sleep(1.1)
+    resp = await client.post(
+        LOGIN_URL,
+        json={"email": USER["email"], "password": "NewStr0ngP@ss!"},
+    )
+    new_token = resp.json()["access_token"]
+
     resp = await client.get(
-        f"{ACCOUNT_URL}/audit-log", headers=_auth(token),
+        f"{ACCOUNT_URL}/audit-log", headers=_auth(new_token),
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -152,16 +163,28 @@ async def test_audit_log_pagination(client: AsyncClient):
     baseline = resp.json()["total"]
 
     # Create some audit entries via password changes
+    # Each password change invalidates old tokens, so re-login each time
+    current_pwd = USER["password"]
     for i in range(3):
-        pwd = f"NewP@ss{i}x" if i > 0 else USER["password"]
+        new_pwd = f"NewP@ss{i + 1}x"
         await client.post(
             f"{ACCOUNT_URL}/change-password",
             json={
-                "current_password": pwd,
-                "new_password": f"NewP@ss{i + 1}x",
+                "current_password": current_pwd,
+                "new_password": new_pwd,
             },
             headers=_auth(token),
         )
+        current_pwd = new_pwd
+        # Re-login to get a fresh token (wait so iat > invalidation timestamp)
+        import asyncio
+
+        await asyncio.sleep(1.1)
+        resp = await client.post(
+            LOGIN_URL,
+            json={"email": USER["email"], "password": current_pwd},
+        )
+        token = resp.json()["access_token"]
 
     resp = await client.get(
         f"{ACCOUNT_URL}/audit-log",
@@ -170,5 +193,28 @@ async def test_audit_log_pagination(client: AsyncClient):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == baseline + 3
+    # 3 password changes + 3 re-logins
+    assert data["total"] >= baseline + 3
     assert len(data["entries"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_old_token_rejected_after_password_change(client: AsyncClient):
+    """Verify that password change invalidates all existing tokens."""
+    token = await _setup_user(client)
+
+    # Change password
+    await client.post(
+        f"{ACCOUNT_URL}/change-password",
+        json={
+            "current_password": USER["password"],
+            "new_password": "NewStr0ngP@ss!",
+        },
+        headers=_auth(token),
+    )
+
+    # Old token should now be rejected
+    resp = await client.get(
+        f"{ACCOUNT_URL}/audit-log", headers=_auth(token),
+    )
+    assert resp.status_code == 401

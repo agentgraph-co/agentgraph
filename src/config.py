@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import secrets
+
 from pydantic_settings import BaseSettings
+
+_DEFAULT_SECRET = "CHANGE-ME-IN-PRODUCTION"
 
 
 class Settings(BaseSettings):
@@ -18,7 +22,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # Auth
-    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION"
+    jwt_secret: str = _DEFAULT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
@@ -51,3 +55,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# If debug mode uses the default secret, replace it with a random one so
+# even dev tokens are unpredictable.  Non-debug mode crashes in main.py.
+if settings.debug and settings.jwt_secret == _DEFAULT_SECRET:
+    settings.jwt_secret = secrets.token_urlsafe(64)
