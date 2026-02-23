@@ -172,18 +172,24 @@ export default function ForceGraph({
     return r * r * 0.5
   }, [])
 
-  // Custom 2D canvas node painting — includes cluster glow ring and LOD labels
+  // Custom 2D canvas node painting — semantic zoom like iOS:
+  // d3-zoom scales the canvas uniformly, so we compensate by drawing nodes
+  // smaller in graph-space as zoom increases. On screen, nodes grow mildly
+  // (pow 0.2) instead of linearly. At 2x zoom, nodes are 1.15x bigger, not 2x.
   const paintNode = useCallback(
     (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as FGNode
       if (n.x == null || n.y == null) return
 
-      const r = nodeRadius(n.trust_score)
+      // Semantic zoom compensation: shrink graph-space sizes so on-screen
+      // size = graphSize * globalScale / pow(gs, 0.8) = graphSize * pow(gs, 0.2)
+      const sem = 1 / Math.pow(globalScale, 0.8)
+      const r = nodeRadius(n.trust_score) * sem
       const color = getNodeColor(n)
 
       // Cluster glow ring
       if (n.cluster_id != null) {
-        const glowR = r + 3
+        const glowR = r + 3 * sem
         ctx.beginPath()
         ctx.arc(n.x, n.y, glowR, 0, 2 * Math.PI)
         const cc = clusterColor(n.cluster_id)
@@ -197,35 +203,37 @@ export default function ForceGraph({
       ctx.fillStyle = color
       ctx.fill()
       ctx.strokeStyle = '#11111b'
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 * sem
       ctx.stroke()
 
       // Search highlight ring
       if (searchLower && n.label.toLowerCase().includes(searchLower)) {
         ctx.beginPath()
-        ctx.arc(n.x, n.y, r + 2, 0, 2 * Math.PI)
+        ctx.arc(n.x, n.y, r + 2 * sem, 0, 2 * Math.PI)
         ctx.strokeStyle = '#f38ba8'
-        ctx.lineWidth = 2
+        ctx.lineWidth = 2 * sem
         ctx.stroke()
       }
 
-      // LOD: Labels at zoom > 1.5
+      // LOD: Labels — fixed screen-pixel size
       if (globalScale >= ZOOM_THRESHOLDS.showLabels) {
-        ctx.font = `${Math.min(12, 10 / globalScale * 3)}px Geist, sans-serif`
+        const fontSize = Math.min(12, 11) / globalScale
+        ctx.font = `${fontSize}px Geist, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillStyle = '#cdd6f4'
-        ctx.fillText(n.label, n.x, n.y + r + 2)
+        ctx.fillText(n.label, n.x, n.y + r + 2 * sem)
       }
 
-      // LOD: Details at zoom > 2.5 (trust score badge)
+      // LOD: Trust score badge — fixed screen-pixel size
       if (globalScale >= ZOOM_THRESHOLDS.showDetails && n.trust_score != null) {
         const trustLabel = `${(n.trust_score * 100).toFixed(0)}%`
-        ctx.font = `${8 / globalScale * 3}px Geist, sans-serif`
+        const fontSize = 9 / globalScale
+        ctx.font = `${fontSize}px Geist, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
         ctx.fillStyle = '#6c7086'
-        ctx.fillText(trustLabel, n.x, n.y - r - 2)
+        ctx.fillText(trustLabel, n.x, n.y - r - 2 * sem)
       }
     },
     [getNodeColor, searchLower],
@@ -241,6 +249,18 @@ export default function ForceGraph({
   const getLinkParticles = useCallback((link: object) => {
     const l = link as FGLink
     return PARTICLE_CONFIG.count[l.type] ?? DEFAULT_PARTICLE_COUNT
+  }, [])
+
+  // Semantic edge width — shrinks in graph-space as zoom increases
+  const getLinkWidth = useCallback(() => {
+    const gs = currentZoomRef.current
+    return 1.5 / Math.pow(gs, 0.8)
+  }, [])
+
+  // Semantic particle width
+  const getParticleWidth = useCallback(() => {
+    const gs = currentZoomRef.current
+    return PARTICLE_CONFIG.width / Math.pow(gs, 0.8)
   }, [])
 
   // Handle node click
@@ -287,10 +307,10 @@ export default function ForceGraph({
     linkTarget: 'target' as const,
     linkColor: getLinkColor,
     linkDirectionalParticles: getLinkParticles,
-    linkDirectionalParticleWidth: PARTICLE_CONFIG.width,
+    linkDirectionalParticleWidth: is3D ? PARTICLE_CONFIG.width : getParticleWidth,
     linkDirectionalParticleSpeed: PARTICLE_CONFIG.speed,
     linkOpacity: 0.45,
-    linkWidth: 1.5,
+    linkWidth: is3D ? 1.5 : getLinkWidth,
     onNodeClick: handleNodeClick,
     onNodeHover: handleNodeHover,
     onBackgroundClick: onBackgroundClick,
