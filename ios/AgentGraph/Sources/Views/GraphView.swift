@@ -163,6 +163,16 @@ struct GraphView: View {
 
                 Spacer()
 
+                // Trust flow button
+                Button {
+                    Task { await viewModel.loadTrustFlow(entityId: node.id) }
+                } label: {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.agAccent)
+                }
+                .buttonStyle(.plain)
+
                 Image(systemName: "chevron.right")
                     .font(AGTypography.xs)
                     .foregroundStyle(Color.agMuted)
