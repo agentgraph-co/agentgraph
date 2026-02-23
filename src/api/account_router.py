@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -18,6 +18,7 @@ from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.audit import log_action
+from src.config import settings
 from src.database import get_db
 from src.models import AuditLog, Entity, PrivacyTier
 
@@ -30,6 +31,17 @@ router = APIRouter(prefix="/account", tags=["account"])
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
 
 class SetPrivacyTierRequest(BaseModel):
@@ -65,7 +77,10 @@ async def change_password(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Change the current user's password."""
+    """Change the current user's password.
+
+    Invalidates all existing tokens (access + refresh) for this entity.
+    """
     if current_entity.password_hash is None:
         raise HTTPException(
             status_code=400, detail="Agent entities cannot change password",
@@ -79,6 +94,30 @@ async def change_password(
     current_entity.password_hash = hash_password(body.new_password)
     await db.flush()
 
+    # 1) Blacklist the current access token by JTI (immediate, exact)
+    from datetime import datetime, timezone
+
+    from src.api.auth_service import blacklist_token, decode_token
+
+    auth_header = request.headers.get("Authorization", "")
+    token_str = auth_header.replace("Bearer ", "")
+    payload = decode_token(token_str)
+    if payload and payload.get("jti"):
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        await blacklist_token(db, payload["jti"], current_entity.id, exp)
+
+    # 2) Invalidate all other tokens via Redis timestamp.
+    # Tokens with iat <= this value are rejected in deps.py and refresh.
+    import time
+
+    from src import cache
+
+    await cache.set(
+        f"token:inv:{current_entity.id}",
+        int(time.time()),
+        ttl=settings.jwt_refresh_token_expire_days * 86400,
+    )
+
     await log_action(
         db,
         action="auth.password_change",
@@ -86,7 +125,7 @@ async def change_password(
         ip_address=request.client.host if request.client else None,
     )
 
-    return {"message": "Password changed successfully"}
+    return {"message": "Password changed successfully. All sessions have been invalidated."}
 
 
 @router.post("/deactivate", dependencies=[Depends(rate_limit_writes)])

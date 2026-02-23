@@ -61,6 +61,10 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
 class ChangeEmailRequest(BaseModel):
     new_email: EmailStr
     current_password: str

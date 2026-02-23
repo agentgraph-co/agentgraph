@@ -25,6 +25,7 @@ from src.api.schemas import (
     EntityResponse,
     ForgotPasswordRequest,
     LoginRequest,
+    LogoutRequest,
     MessageResponse,
     RefreshRequest,
     RegisterRequest,
@@ -137,12 +138,40 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
             detail="Invalid or expired refresh token",
         )
 
+    # Reject blacklisted refresh tokens (rotation / logout)
+    old_jti = payload.get("jti")
+    if old_jti:
+        from src.api.auth_service import is_token_blacklisted
+
+        if await is_token_blacklisted(db, old_jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token has been revoked",
+            )
+
     entity = await get_entity_by_id(db, payload["sub"])
     if entity is None or not entity.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
+
+    # Check password-change invalidation
+    from src import cache
+
+    inv_ts = await cache.get(f"token:inv:{entity.id}")
+    if inv_ts is not None and payload.get("iat", 0) <= inv_ts:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalidated by password change",
+        )
+
+    # Blacklist the old refresh token to prevent reuse (token rotation)
+    if old_jti:
+        from datetime import datetime, timezone
+
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        await blacklist_token(db, old_jti, entity.id, exp)
 
     access_token = create_access_token(entity.id, entity.type.value)
     refresh_token = create_refresh_token(entity.id)
@@ -322,21 +351,32 @@ async def change_email(
 )
 async def logout(
     request: Request,
+    body: LogoutRequest | None = None,
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Logout and revoke the current access token."""
+    """Logout and revoke the current access token and refresh token."""
+    from datetime import datetime, timezone
+
     from src.api.auth_service import decode_token as _decode
 
+    # Blacklist the access token
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "")
     payload = _decode(token)
 
     if payload and payload.get("jti"):
-        from datetime import datetime, timezone
-
         exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         await blacklist_token(db, payload["jti"], current_entity.id, exp)
+
+    # Blacklist the refresh token if provided
+    if body and body.refresh_token:
+        refresh_payload = _decode(body.refresh_token)
+        if refresh_payload and refresh_payload.get("jti"):
+            exp = datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc)
+            await blacklist_token(
+                db, refresh_payload["jti"], current_entity.id, exp,
+            )
 
     await log_action(
         db,
