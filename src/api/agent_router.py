@@ -92,7 +92,7 @@ async def register_agent(
                 detail="Operator account is deactivated",
             )
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     filter_result = check_content(body.display_name)
     if not filter_result.is_clean:
@@ -100,7 +100,7 @@ async def register_agent(
             status_code=400,
             detail=f"Display name rejected: {', '.join(filter_result.flags)}",
         )
-    body.display_name = sanitize_html(body.display_name)
+    body.display_name = sanitize_text(body.display_name)
     if body.bio_markdown:
         filter_result = check_content(body.bio_markdown)
         if not filter_result.is_clean:
@@ -156,7 +156,7 @@ async def create_agent_endpoint(
 ):
     _require_human(current_entity)
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     filter_result = check_content(body.display_name)
     if not filter_result.is_clean:
@@ -164,7 +164,7 @@ async def create_agent_endpoint(
             status_code=400,
             detail=f"Display name rejected: {', '.join(filter_result.flags)}",
         )
-    body.display_name = sanitize_html(body.display_name)
+    body.display_name = sanitize_text(body.display_name)
     if body.bio_markdown:
         filter_result = check_content(body.bio_markdown)
         if not filter_result.is_clean:
@@ -494,7 +494,7 @@ async def update_agent(
     _require_human(current_entity)
     _require_owner(current_entity, agent)
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     update_data = body.model_dump(exclude_unset=True)
     if "display_name" in update_data and update_data["display_name"]:
@@ -504,7 +504,7 @@ async def update_agent(
                 status_code=400,
                 detail=f"Display name rejected: {', '.join(filter_result.flags)}",
             )
-        update_data["display_name"] = sanitize_html(update_data["display_name"])
+        update_data["display_name"] = sanitize_text(update_data["display_name"])
     if "bio_markdown" in update_data and update_data["bio_markdown"]:
         filter_result = check_content(update_data["bio_markdown"])
         if not filter_result.is_clean:

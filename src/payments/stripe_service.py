@@ -97,6 +97,19 @@ def cancel_payment_intent(payment_intent_id: str) -> dict:
     return {"payment_intent_id": intent.id, "status": intent.status}
 
 
+def create_refund(payment_intent_id: str, amount_cents: int | None = None) -> dict:
+    """Create a refund for a PaymentIntent.
+
+    If *amount_cents* is provided, creates a partial refund.
+    Otherwise refunds the full amount.
+    """
+    kwargs: dict = {"payment_intent": payment_intent_id}
+    if amount_cents is not None:
+        kwargs["amount"] = amount_cents
+    refund = stripe.Refund.create(**kwargs)
+    return {"refund_id": refund.id, "status": refund.status}
+
+
 def verify_webhook_signature(payload: bytes, signature: str) -> dict:
     """Verify and parse a Stripe webhook event.
 

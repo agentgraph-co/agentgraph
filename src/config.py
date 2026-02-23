@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     stripe_platform_fee_percent: int = 10
     escrow_auto_release_hours: int = 72
 
+    # Webhook encryption (Fernet key for signing key at-rest encryption)
+    webhook_encryption_key: str | None = None
+
     # SSO
     sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe
     sso_saml_entity_id: str = "agentgraph-sp"

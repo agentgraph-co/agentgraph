@@ -82,65 +82,64 @@ def check_content(text: str) -> FilterResult:
 
 # --- HTML Sanitization ---
 
-# Tags that are never allowed (script, event handlers, etc.)
-_DANGEROUS_TAG_RE = re.compile(
-    r"<\s*/?\s*(script|iframe|object|embed|form|input|textarea|button|link|meta"
-    r"|style|base|applet|marquee|bgsound|svg|math)\b[^>]*>",
-    re.I,
-)
+# Allowed tags for user-generated content (safe subset for Markdown rendering)
+_ALLOWED_TAGS = {
+    "a", "abbr", "b", "blockquote", "br", "code", "dd", "del", "dl", "dt",
+    "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "ins",
+    "li", "ol", "p", "pre", "s", "strong", "sub", "sup", "table", "tbody",
+    "td", "th", "thead", "tr", "ul",
+}
 
-# Event handler attributes: onclick, onerror, onload, etc.
-_EVENT_HANDLER_RE = re.compile(
-    r"\bon\w+\s*=",
-    re.I,
-)
+# Allowed attributes per tag
+_ALLOWED_ATTRIBUTES: dict[str, set[str]] = {
+    "a": {"href", "title"},
+    "img": {"src", "alt", "title", "width", "height"},
+    "td": {"colspan", "rowspan"},
+    "th": {"colspan", "rowspan"},
+}
 
-# javascript: and data: URIs in attributes
-_DANGEROUS_URI_RE = re.compile(
-    r"(javascript|vbscript|data)\s*:",
-    re.I,
-)
-
-# Style attributes (CSS injection defense-in-depth)
-_STYLE_ATTR_RE = re.compile(
-    r"\bstyle\s*=\s*([\"']).*?\1",
-    re.I | re.S,
-)
-
-# HTML comments that could hide content
-_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# Only allow safe URL schemes
+_ALLOWED_URL_SCHEMES = {"http", "https", "mailto"}
 
 
 def sanitize_html(text: str) -> str:
     """Strip dangerous HTML from user-generated text.
 
-    Removes script tags, event handlers, dangerous URIs, and HTML
-    comments while preserving plain text and safe Markdown formatting.
+    Uses nh3 (Rust-based ammonia bindings) for robust, spec-compliant
+    HTML sanitization that cannot be bypassed by encoding tricks.
+
+    For plain-text fields (titles, display names, etc.) that pass through
+    here, we strip ALL tags and return unescaped text. For markdown/rich
+    fields that may contain safe HTML, allowed tags are preserved.
     """
     if not text:
         return text
 
-    # Remove HTML comments
-    text = _HTML_COMMENT_RE.sub("", text)
+    import nh3
 
-    # Remove dangerous tags entirely (including content for script/style)
-    text = re.sub(
-        r"<\s*(script|style)\b[^>]*>.*?</\s*(script|style)\s*>",
-        "",
+    return nh3.clean(
         text,
-        flags=re.I | re.S,
+        tags=_ALLOWED_TAGS,
+        attributes=_ALLOWED_ATTRIBUTES,
+        url_schemes=_ALLOWED_URL_SCHEMES,
+        strip_comments=True,
     )
 
-    # Remove remaining dangerous tags (self-closing or opening)
-    text = _DANGEROUS_TAG_RE.sub("", text)
 
-    # Remove event handler attributes from any remaining HTML
-    text = _EVENT_HANDLER_RE.sub("", text)
+def sanitize_text(text: str) -> str:
+    """Strip ALL HTML tags from text, returning safe plain text.
 
-    # Remove style attributes (CSS injection defense-in-depth)
-    text = _STYLE_ATTR_RE.sub("", text)
+    Use this for plain-text fields (titles, display names, summaries)
+    that should never contain markup.
+    """
+    if not text:
+        return text
 
-    # Neutralize dangerous URIs
-    text = _DANGEROUS_URI_RE.sub("", text)
+    import html
 
-    return text
+    import nh3
+
+    # Strip all HTML tags
+    cleaned = nh3.clean(text, tags=set())
+    # Decode entities back to plain text characters (e.g. &amp; → &)
+    return html.unescape(cleaned)

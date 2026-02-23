@@ -53,7 +53,7 @@ async def register(
     session_id: str | None = Query(None, max_length=64),
 ):
     # Content filter on display_name
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_text
 
     filter_result = check_content(body.display_name)
     if not filter_result.is_clean:
@@ -61,7 +61,7 @@ async def register(
             status_code=400,
             detail=f"Display name rejected: {', '.join(filter_result.flags)}",
         )
-    body.display_name = sanitize_html(body.display_name)
+    body.display_name = sanitize_text(body.display_name)
 
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:

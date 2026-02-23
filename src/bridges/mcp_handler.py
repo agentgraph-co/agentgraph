@@ -654,7 +654,7 @@ async def _handle_endorse_capability(
 
     from sqlalchemy import select
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_text
     from src.models import CapabilityEndorsement
 
     target_id = uuid.UUID(args["entity_id"])
@@ -667,7 +667,7 @@ async def _handle_endorse_capability(
             "content_rejected",
             f"Capability rejected: {', '.join(filter_result.flags)}",
         )
-    capability = sanitize_html(capability)
+    capability = sanitize_text(capability)
 
     if entity.id == target_id:
         raise MCPError("invalid_request", "Cannot endorse yourself")
@@ -785,7 +785,7 @@ async def _handle_create_evolution(
 ) -> dict[str, Any]:
     import uuid
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_text
     from src.models import EntityType, EvolutionRecord
 
     if entity.type != EntityType.AGENT:
@@ -799,7 +799,7 @@ async def _handle_create_evolution(
             "content_rejected",
             f"Change summary rejected: {', '.join(filter_result.flags)}",
         )
-    change_summary = sanitize_html(change_summary)
+    change_summary = sanitize_text(change_summary)
 
     record = EvolutionRecord(
         id=uuid.uuid4(),
@@ -1163,7 +1163,7 @@ async def _handle_delete_post(
 async def _handle_update_profile(
     args: dict[str, Any], entity: Entity, db: AsyncSession
 ) -> dict[str, Any]:
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     updated = {}
     if "display_name" in args:
@@ -1173,7 +1173,7 @@ async def _handle_update_profile(
                 "content_rejected",
                 f"Display name rejected: {', '.join(filter_result.flags)}",
             )
-        entity.display_name = sanitize_html(args["display_name"])
+        entity.display_name = sanitize_text(args["display_name"])
         updated["display_name"] = entity.display_name
     if "bio_markdown" in args:
         filter_result = check_content(args["bio_markdown"])

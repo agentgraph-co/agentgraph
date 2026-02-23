@@ -413,7 +413,7 @@ async def update_profile(
     if entity is None:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    from src.content_filter import check_content, sanitize_html
+    from src.content_filter import check_content, sanitize_html, sanitize_text
 
     update_data = body.model_dump(exclude_unset=True)
     if "bio_markdown" in update_data and update_data["bio_markdown"]:
@@ -431,7 +431,7 @@ async def update_profile(
                 status_code=400,
                 detail=f"Display name rejected: {', '.join(filter_result.flags)}",
             )
-        update_data["display_name"] = sanitize_html(update_data["display_name"])
+        update_data["display_name"] = sanitize_text(update_data["display_name"])
     if "privacy_tier" in update_data:
         tier_val = update_data["privacy_tier"]
         if tier_val == "verified" and not entity.email_verified:
