@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_optional_entity
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import (
@@ -20,6 +21,7 @@ from src.models import (
     Entity,
     EntityRelationship,
     Post,
+    PrivacyTier,
     RelationshipType,
     Review,
     Vote,
@@ -51,12 +53,18 @@ async def get_activity(
     entity_id: uuid.UUID,
     limit: int = Query(30, ge=1, le=100),
     before: str | None = Query(None, description="ISO timestamp cursor"),
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the public activity timeline for an entity."""
     entity = await db.get(Entity, entity_id)
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Respect privacy tiers — only the entity itself can view private activity
+    if entity.privacy_tier == PrivacyTier.PRIVATE:
+        if current_entity is None or current_entity.id != entity_id:
+            raise HTTPException(status_code=403, detail="This entity's activity is private")
 
     before_dt: datetime | None = None
     if before:

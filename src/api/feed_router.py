@@ -1066,6 +1066,8 @@ async def edit_post(
 )
 async def get_post_edits(
     post_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Get edit history for a post."""
@@ -1077,6 +1079,8 @@ async def get_post_edits(
         select(PostEdit)
         .where(PostEdit.post_id == post_id)
         .order_by(PostEdit.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     edits = result.scalars().all()
 
