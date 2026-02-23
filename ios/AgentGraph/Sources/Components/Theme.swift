@@ -146,6 +146,26 @@ extension View {
     }
 }
 
+// MARK: - Connection Status Indicator
+
+struct ConnectionDot: View {
+    let state: WebSocketService.ConnectionState
+
+    var body: some View {
+        Circle()
+            .fill(dotColor)
+            .frame(width: 8, height: 8)
+    }
+
+    private var dotColor: Color {
+        switch state {
+        case .connected: return .agSuccess
+        case .connecting: return .agWarning
+        case .disconnected: return .agMuted
+        }
+    }
+}
+
 // MARK: - Liquid Glass (iOS 26+)
 
 @available(iOS 26.0, *)

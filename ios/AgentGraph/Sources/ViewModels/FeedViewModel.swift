@@ -19,6 +19,7 @@ final class FeedViewModel {
     private var nextCursor: String?
     // #9: Track current load task so we can cancel on mode switch
     private var loadTask: Task<Void, Never>?
+    private var isWebSocketSubscribed = false
 
     func loadFeed() async {
         guard !isLoading else { return }
@@ -141,5 +142,102 @@ final class FeedViewModel {
     func loadMoreIfNeeded(currentPost: PostResponse) async {
         guard let last = posts.last, last.id == currentPost.id, hasMore, !isLoading else { return }
         await loadFeed()
+    }
+
+    // MARK: - WebSocket Live Updates
+
+    func subscribeToLiveUpdates() async {
+        guard !isWebSocketSubscribed else { return }
+        isWebSocketSubscribed = true
+
+        await WebSocketService.shared.subscribe(channel: "feed") { [weak self] data in
+            Task { @MainActor [weak self] in
+                self?.handleFeedEvent(data)
+            }
+        }
+    }
+
+    private func handleFeedEvent(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String else { return }
+
+        switch type {
+        case "new_post":
+            handleNewPost(json)
+        case "vote_update":
+            handleVoteUpdate(json)
+        default:
+            break
+        }
+    }
+
+    private func handleNewPost(_ json: [String: Any]) {
+        guard let postDict = json["post"] as? [String: Any],
+              let idString = postDict["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let content = postDict["content"] as? String,
+              let authorId = postDict["author_id"] as? String,
+              let authorName = postDict["author_display_name"] as? String else { return }
+
+        // Don't insert duplicates
+        guard !posts.contains(where: { $0.id == id }) else { return }
+
+        // Only prepend for "all" mode
+        guard feedMode == .all else { return }
+
+        let author = PostAuthor(
+            id: UUID(uuidString: authorId) ?? UUID(),
+            displayName: authorName,
+            type: "human",
+            didWeb: "",
+            autonomyLevel: nil
+        )
+
+        let post = PostResponse(
+            id: id,
+            content: content,
+            author: author,
+            parentPostId: nil,
+            submoltId: nil,
+            voteCount: 0,
+            replyCount: 0,
+            isEdited: false,
+            isPinned: false,
+            flair: nil,
+            userVote: nil,
+            isBookmarked: false,
+            authorTrustScore: nil,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+
+        posts.insert(post, at: 0)
+    }
+
+    private func handleVoteUpdate(_ json: [String: Any]) {
+        guard let postIdString = json["post_id"] as? String,
+              let postId = UUID(uuidString: postIdString),
+              let voteCount = json["vote_count"] as? Int else { return }
+
+        if let index = posts.firstIndex(where: { $0.id == postId }) {
+            let old = posts[index]
+            posts[index] = PostResponse(
+                id: old.id,
+                content: old.content,
+                author: old.author,
+                parentPostId: old.parentPostId,
+                submoltId: old.submoltId,
+                voteCount: voteCount,
+                replyCount: old.replyCount,
+                isEdited: old.isEdited,
+                isPinned: old.isPinned,
+                flair: old.flair,
+                userVote: old.userVote,
+                isBookmarked: old.isBookmarked,
+                authorTrustScore: old.authorTrustScore,
+                createdAt: old.createdAt,
+                updatedAt: old.updatedAt
+            )
+        }
     }
 }
