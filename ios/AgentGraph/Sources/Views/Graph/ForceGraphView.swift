@@ -1,5 +1,6 @@
 // ForceGraphView — SwiftUI Canvas force-directed graph with semantic zoom
 // Zoom spreads nodes apart but keeps circles/labels at readable screen-pixel sizes
+// Animated directional particles flow along edges (like react-force-graph on web)
 
 import SwiftUI
 
@@ -21,12 +22,27 @@ struct ForceGraphView: View {
     @State private var positions: [String: CGPoint] = [:]
     @State private var lastLayoutId: UUID?
 
+    // Particle config per edge type
+    private static let particleCounts: [String: Int] = [
+        "attestation": 3,
+        "operator_agent": 2,
+        "collaboration": 2,
+        "service": 2,
+        "follow": 1,
+    ]
+    private static let particleSpeed: Double = 0.3 // full edge traversal in ~3.3s
+
     var body: some View {
         GeometryReader { geo in
-            Canvas { context, size in
-                drawGraph(context: &context, size: size)
+            // TimelineView drives continuous animation for edge particles
+            TimelineView(.animation) { timeline in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+
+                Canvas { context, size in
+                    drawGraph(context: &context, size: size, time: time)
+                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
             // Pinch to zoom (two fingers)
             .gesture(
                 MagnifyGesture()
@@ -75,8 +91,6 @@ struct ForceGraphView: View {
 
     // MARK: - Coordinate Transform (semantic zoom)
 
-    /// Graph-space → Screen-space.
-    /// Zoom spreads positions from view center; pan shifts in screen pixels.
     private func toScreen(_ graphPos: CGPoint, viewSize: CGSize) -> CGPoint {
         let cx = viewSize.width / 2
         let cy = viewSize.height / 2
@@ -106,26 +120,37 @@ struct ForceGraphView: View {
 
     // MARK: - Drawing
 
-    private func drawGraph(context: inout GraphicsContext, size: CGSize) {
-        // Mild node radius growth: pow(scale, 0.2)
-        // At 2x zoom → 1.15x radius; at 4x zoom → 1.32x radius
+    private func drawGraph(context: inout GraphicsContext, size: CGSize, time: Double) {
         let rScale = pow(currentScale, 0.2)
 
-        // Edges
+        // Edges + animated particles
         for edge in edges {
             guard let fromG = positions[edge.source],
                   let toG = positions[edge.target] else { continue }
             let from = toScreen(fromG, viewSize: size)
             let to = toScreen(toG, viewSize: size)
+            let color = edgeColor(for: edge.edgeType)
 
+            // Edge line
             var path = Path()
             path.move(to: from)
             path.addLine(to: to)
-            context.stroke(
-                path,
-                with: .color(edgeColor(for: edge.edgeType).opacity(0.4)),
-                lineWidth: edgeLineWidth(for: edge)
-            )
+            context.stroke(path, with: .color(color.opacity(0.35)),
+                           lineWidth: edgeLineWidth(for: edge))
+
+            // Directional particles — small dots flowing from source to target
+            let count = Self.particleCounts[edge.edgeType] ?? 1
+            let particleR: CGFloat = 2.0
+            for i in 0..<count {
+                // Offset each particle evenly + animate with time
+                let phase = Double(i) / Double(count)
+                let t = (time * Self.particleSpeed + phase).truncatingRemainder(dividingBy: 1.0)
+                let px = from.x + (to.x - from.x) * t
+                let py = from.y + (to.y - from.y) * t
+                let rect = CGRect(x: px - particleR, y: py - particleR,
+                                  width: particleR * 2, height: particleR * 2)
+                context.fill(Circle().path(in: rect), with: .color(color.opacity(0.8)))
+            }
         }
 
         // Nodes
@@ -167,7 +192,7 @@ struct ForceGraphView: View {
                 at: sp
             )
 
-            // Label — visible at 0.5x and above
+            // Label
             if currentScale >= 0.5 {
                 context.draw(
                     Text(node.label)
@@ -177,7 +202,7 @@ struct ForceGraphView: View {
                 )
             }
 
-            // Trust badge — visible when zoomed in
+            // Trust badge
             if currentScale >= 1.5 {
                 let pct = String(format: "%.0f%%", node.trustScore * 100)
                 context.draw(
@@ -190,9 +215,8 @@ struct ForceGraphView: View {
         }
 
         // Zoom indicator
-        let zoomText = String(format: "%.1fx", currentScale)
         context.draw(
-            Text(zoomText)
+            Text(String(format: "%.1fx", currentScale))
                 .font(.system(size: 10))
                 .foregroundColor(Color.white.opacity(0.3)),
             at: CGPoint(x: 30, y: size.height - 16)
@@ -231,7 +255,6 @@ struct ForceGraphView: View {
             var forces: [String: CGVector] = [:]
             for nid in nodeIds { forces[nid] = .zero }
 
-            // Repulsion
             for i in 0..<nodeIds.count {
                 for j in (i + 1)..<nodeIds.count {
                     let a = nodeIds[i], b = nodeIds[j]
@@ -250,7 +273,6 @@ struct ForceGraphView: View {
                 }
             }
 
-            // Springs
             for edge in edges {
                 guard let pa = pos[edge.source], let pb = pos[edge.target] else { continue }
                 let dx = pb.x - pa.x
@@ -265,14 +287,12 @@ struct ForceGraphView: View {
                 forces[edge.target]!.dy -= fy
             }
 
-            // Gravity
             for nid in nodeIds {
                 guard let p = pos[nid] else { continue }
                 forces[nid]!.dx += (center.x - p.x) * 0.002
                 forces[nid]!.dy += (center.y - p.y) * 0.002
             }
 
-            // Apply
             for nid in nodeIds {
                 guard var p = pos[nid], let f = forces[nid] else { continue }
                 let mag = sqrt(f.dx * f.dx + f.dy * f.dy)

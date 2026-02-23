@@ -953,19 +953,115 @@
         "id": "73",
         "title": "Populate Staging Environment with Comprehensive Test Data",
         "description": "Create a staging data seeding script that populates the staging database with realistic test data including marketplace listings, DMs/messages, graph relationships (follows, trust attestations, operator links), agents, trust scores, evolution records, and community activity. Run against the staging backend at http://***REMOVED***:8000.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "After DB reset, staging lost all test data. Need a comprehensive seed script.\n\nData to populate:\n1. Users: 15-20 human accounts with varied trust scores and profiles\n2. Agents: 30-40 agents across multiple operators with capabilities, autonomy levels 1-5\n3. Relationships: 100+ follow relationships creating a realistic social graph\n4. Trust: Trust scores for all entities, 20+ attestations between entities\n5. Posts: 50+ feed posts with comments, votes, and threaded discussions\n6. Marketplace: 20+ listings (tools, services, data products) with varied categories and prices\n7. Evolution: 10+ evolution records showing agent version history and forks\n8. Graph data: Enough interconnections for the graph visualization to look impressive (clusters, multi-hop paths)\n9. Notifications: Sample notifications for the admin user\n10. DID documents: W3C DID docs for all entities\n\nAdmin account: kenne@agentgraph.io (already exists, entity ID 824b5642-5604-4df8-bf1b-583a2f18a8d5)\n\nApproach: Python script using httpx to call API endpoints directly, or direct DB inserts via SQLAlchemy. API approach preferred for data integrity.\n\nVerification: Login as admin, check feed has posts, graph shows connections, marketplace has listings, profiles show trust scores.",
         "testStrategy": "Run seed script against staging. Verify via API: GET /feed returns posts, GET /graph returns nodes+edges, GET /marketplace/listings returns listings, GET /profiles/{id} shows trust scores. Visual check: load web app at ***REMOVED***:5174 and verify feed, graph, marketplace pages have data.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-22T08:24:02.581Z"
+      },
+      {
+        "id": "74",
+        "title": "Reset and Seed Staging Data",
+        "description": "Drop/recreate both agentgraph and agentgraph_staging databases, run all 31 migrations, seed with full Phase 1-4 data. Verify admin login (kenne@agentgraph.io / Staging123!) works with admin access. Ensure both API server and frontend are running against seeded data.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Steps:\n1. dropdb agentgraph && createdb agentgraph\n2. dropdb agentgraph_staging && createdb agentgraph_staging\n3. alembic upgrade head (on both DBs)\n4. DATABASE_URL=...agentgraph python scripts/seed_staging.py\n5. DATABASE_URL=...agentgraph_staging python scripts/seed_staging.py\n6. Verify login: POST /api/v1/auth/login {email: kenne@agentgraph.io, password: Staging123!}\n7. Verify admin: GET /api/v1/auth/me → is_admin: true\n8. Restart uvicorn and vite dev servers\n\nKnown gotcha: seed_staging.py defaults to agentgraph_staging — must set DATABASE_URL explicitly when seeding the main DB.\n\nData summary: 33 entities, 30 listings, 43 transactions, 2 disputes, 10 delegations, 52 capability registry entries, 9 org usage records.",
+        "testStrategy": "Login as kenne@agentgraph.io, verify 200 + is_admin=true. Spot-check endpoints: GET /feed, GET /marketplace, GET /disputes, GET /aip/discover, GET /insights/network/growth.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:42:11.048626Z"
+      },
+      {
+        "id": "75",
+        "title": "Deep Dive Security & Performance Audit",
+        "description": "Thorough security and performance review across all 4 phases. Audit authentication flows, authorization checks, input validation, SQL injection vectors, rate limiting effectiveness, CORS config, and OWASP Top 10 compliance. Profile slow queries, identify N+1 problems, and benchmark key endpoints under load.",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Three-pronged audit:\n\n1. Security Audit:\n   - Auth: JWT token handling, refresh flow, password reset, session management\n   - Authorization: Role checks on all admin/org endpoints, entity ownership validation\n   - Input validation: All request bodies, query params, path params\n   - SQL injection: Raw SQL usage in analytics/insights queries\n   - XSS: Content sanitization in posts, listings, DMs\n   - CORS: Verify allowlist is correct for all environments\n   - Rate limiting: Verify all write endpoints are rate-limited\n   - Secrets: No hardcoded keys, proper .env.secrets usage\n   - Dependencies: Check for known CVEs in pip packages\n\n2. Performance Audit:\n   - Profile top 20 endpoints with realistic data volume\n   - Identify missing indexes (EXPLAIN ANALYZE on slow queries)\n   - Check N+1 query patterns (especially feed, marketplace browse)\n   - Redis cache hit rates and TTL effectiveness\n   - WebSocket connection scaling\n   - Database connection pool sizing\n\n3. Code Quality:\n   - Dead code identification\n   - Consistent error handling patterns\n   - Proper async/await usage (no blocking calls in async context)\n   - Test coverage gaps\n\nOutput: Security findings report with severity ratings, performance bottleneck list with recommendations, code quality issues.",
+        "testStrategy": "Run automated security scan (bandit, safety). Profile endpoints with wrk/hey. Run EXPLAIN ANALYZE on all analytics queries. Check test coverage report. Verify all findings are actionable.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:47:48.608Z"
+      },
+      {
+        "id": "76",
+        "title": "iOS App — SwiftUI Mobile Client",
+        "description": "Build the AgentGraph iOS app using SwiftUI with Liquid Glass design language (iOS 26+). Implement core screens: Feed, Profile, Graph, and Discovery. Connect to the complete REST API and WebSocket infrastructure.",
+        "status": "pending",
+        "dependencies": [
+          "75"
+        ],
+        "priority": "high",
+        "details": "iOS app following CLAUDE.md iOS guidelines:\n\nArchitecture: MVVM + SwiftUI, Swift Concurrency (async/await), SwiftData for local persistence.\n\nCore Screens (MVP):\n1. Feed — Trust-scored content stream with glass card treatment, pull-to-refresh, infinite scroll\n2. Profile — Agent/human identity with trust score, evolution timeline, capabilities\n3. Graph — Simplified 2D network visualization (ego-graph)\n4. Discovery — Search agents, browse marketplace, explore capabilities\n5. Auth — Login/register flow\n6. Notifications — Push + in-app notifications\n7. Messages — DM conversations\n\nAPI Integration:\n- Networking layer using URLSession + async/await\n- JWT token management (Keychain storage)\n- WebSocket client for real-time feed/notifications\n- Offline-first with SwiftData caching\n\nDesign:\n- iOS 26 Liquid Glass modifiers for glass card effects\n- Progressive enhancement: iOS 18 baseline, glass effects on 26+\n- Design tokens from design-system/tokens.json\n- Dark mode support\n\nProject: ios/AgentGraph/ with xcodegen (project.yml)\nBuild: Free Apple Developer account, Personal Team signing\nSync: Code generation on Mac Mini, build on MacBook Pro via git",
+        "testStrategy": "Unit tests for ViewModels and networking layer. UI tests for critical flows (login, post creation, navigation). Manual testing on simulator and device. Verify all API endpoints work from iOS client.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:42:11.048626Z"
+      },
+      {
+        "id": "77",
+        "title": "Frontend Polish — Phase 4 React Web Features",
+        "description": "Wire up Phase 4 backend features in the React web app. Add Disputes UI (open/resolve/escalate), AIP Dashboard (delegations, capability registry), Insights Charts (network growth, trust distribution, marketplace volume), and Enterprise org management views.",
+        "status": "pending",
+        "dependencies": [
+          "75"
+        ],
+        "priority": "medium",
+        "details": "New frontend pages/components:\n\n1. Disputes UI:\n   - /disputes — List my disputes with status badges\n   - /disputes/:id — Dispute detail with message thread, resolution actions\n   - Open dispute flow from transaction detail\n   - Admin dispute management panel\n\n2. AIP Dashboard:\n   - /aip/delegations — List delegations (sent/received), status tracking\n   - /aip/capabilities — Browse capability registry, register new capabilities\n   - /aip/discover — Agent discovery with capability/trust filters\n   - Delegation creation wizard\n\n3. Insights Charts:\n   - /insights — Dashboard with charts for all 7 insights endpoints\n   - Network growth line chart (entities over time)\n   - Trust distribution histogram\n   - Marketplace volume bar chart\n   - Capability demand treemap\n   - Framework adoption pie chart\n   - Network health gauges\n   - Use recharts or Chart.js\n\n4. Enterprise Management:\n   - Org usage dashboard with metering data\n   - Audit log export UI (CSV/JSON download)\n   - Org API key management panel\n\n5. Marketplace Enhancements:\n   - Escrow status badges on transactions\n   - 'Confirm Receipt' / 'Open Dispute' buttons\n   - Capability listing category with adoption count\n\nStack: React 19 + TanStack Query + Tailwind CSS v4",
+        "testStrategy": "Component tests with React Testing Library. E2E tests with Playwright for critical flows. Visual regression testing for charts. Verify all API integrations work with seeded data.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:42:11.048626Z"
+      },
+      {
+        "id": "78",
+        "title": "Production Prep — Docker Compose, CI/CD, Cloud Deploy",
+        "description": "Containerize the application with Docker Compose (API + frontend + PostgreSQL + Redis). Set up GitHub Actions CI/CD pipeline for automated testing, building, and deployment. Deploy to AWS or similar cloud provider with proper networking, TLS, and monitoring.",
+        "status": "pending",
+        "dependencies": [
+          "75"
+        ],
+        "priority": "high",
+        "details": "Production deployment infrastructure:\n\n1. Docker Compose (local + staging):\n   - API service (uvicorn, multi-worker)\n   - Frontend service (nginx serving built React app)\n   - PostgreSQL 16 with persistent volume\n   - Redis 7 with persistent volume\n   - Nginx reverse proxy with TLS termination\n   - Health checks on all services\n   - .env.production template\n\n2. CI/CD Pipeline (GitHub Actions):\n   - On PR: lint (ruff) + type check (tsc -b) + test (pytest) + AST verify\n   - On merge to main: build Docker images, push to registry\n   - On tag: deploy to staging, then production with approval gate\n   - Container scanning (trivy or similar)\n\n3. Cloud Deployment (AWS preferred per Task 54):\n   - ECS Fargate or EC2 for containers\n   - RDS PostgreSQL 16\n   - ElastiCache Redis 7\n   - ALB with TLS (ACM certificate)\n   - CloudFront CDN for frontend\n   - Route 53 DNS\n   - Secrets Manager for credentials\n   - CloudWatch for monitoring/alerts\n\n4. Operational:\n   - Database backup strategy (automated RDS snapshots)\n   - Log aggregation\n   - Health check endpoints\n   - Rollback procedure\n   - Cost estimation document\n\nSupersedes/incorporates deferred Task 54 (Deploy to AWS).",
+        "testStrategy": "Docker Compose up locally, verify all services healthy. CI pipeline passes on test PR. Deploy to staging, run smoke tests. Verify TLS, health checks, monitoring. Test rollback procedure. Verify backup/restore.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:42:11.048626Z"
+      },
+      {
+        "id": "79",
+        "title": "Load Testing — Stress Test API at Scale",
+        "description": "Design and execute comprehensive load tests against the AgentGraph API. Identify breaking points, bottlenecks, and scalability limits. Test with realistic traffic patterns simulating target user counts (1K, 10K, 100K entities).",
+        "status": "pending",
+        "dependencies": [
+          "75",
+          "78"
+        ],
+        "priority": "medium",
+        "details": "Load testing strategy:\n\n1. Tool Selection:\n   - k6 (preferred) or Locust for HTTP load testing\n   - Custom WebSocket load test script\n   - PostgreSQL pgbench for database stress\n\n2. Test Scenarios:\n   a. Feed browsing (GET /feed with pagination) — highest traffic endpoint\n   b. Authentication flow (register + login + token refresh)\n   c. Post creation with content filtering\n   d. Marketplace browse + search\n   e. Trust score computation under concurrent writes\n   f. WebSocket connection storm (1000+ concurrent)\n   g. Insights endpoints under cache miss conditions\n   h. AIP delegation creation burst\n   i. Mixed realistic traffic pattern (70% read, 20% write, 10% search)\n\n3. Scale Targets:\n   - 100 concurrent users: should handle easily\n   - 1,000 concurrent: identify first bottlenecks\n   - 10,000 concurrent: find breaking point\n   - Sustained 1K req/s for 30 minutes\n\n4. Metrics to Capture:\n   - p50, p95, p99 latency per endpoint\n   - Throughput (req/s)\n   - Error rate\n   - Database connection pool utilization\n   - Redis cache hit rate\n   - Memory and CPU usage\n   - WebSocket message delivery latency\n\n5. Output:\n   - Performance baseline document\n   - Bottleneck analysis with fix recommendations\n   - Scaling recommendations (horizontal vs vertical)\n   - Cost projection at target scale",
+        "testStrategy": "Run load tests on staging environment (Docker Compose). Compare results against SLA targets. Verify no data corruption under load. Check for connection leaks. Verify graceful degradation under overload.",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T23:42:11.048626Z"
+      },
+      {
+        "id": "80",
+        "title": "iOS Graph — Interactive Node Dragging & Advanced Interactions",
+        "description": "Enhance the iOS SwiftUI Canvas force graph with interactive node manipulation: long-press and drag to reposition individual nodes, double-tap to center on a node, pinch-on-node to expand/collapse neighbors, and haptic feedback for interactions.",
+        "status": "pending",
+        "dependencies": [
+          "76"
+        ],
+        "priority": "medium",
+        "details": "Enhance ForceGraphView.swift (SwiftUI Canvas) with advanced interactions:\n\n1. Long-Press & Drag to Reposition Nodes:\n   - Long press on a node (0.5s) to 'grab' it — show haptic feedback + visual highlight\n   - While holding, drag to reposition the node in graph space\n   - On release, the node stays at the new position (pin it)\n   - Other nodes should re-simulate around the pinned node\n   - Requires converting the simple force layout to an incremental simulation\n   - Must coexist with existing pan gesture (drag on empty space = pan, drag on node = move node)\n\n2. Double-Tap to Center & Zoom:\n   - Double-tap a node to animate zoom + pan so the node is centered at 2x zoom\n   - Useful for navigating large graphs\n\n3. Node Context Menu (Long Press without Drag):\n   - If user long-presses but doesn't drag, show a context menu:\n     - View Profile\n     - View Trust Flow\n     - Center on This Node (ego-graph reload)\n     - Copy Node ID\n\n4. Edge Interaction:\n   - Tap on an edge to show a popover with edge type + weight\n   - Requires edge hit-testing (closest point on line segment)\n\n5. Incremental Force Simulation:\n   - Replace the current 80-iteration batch simulation with a live simulation\n   - Use CADisplayLink or Timer to run simulation steps continuously\n   - Allow nodes to settle naturally with velocity damping\n   - Pinned/dragged nodes have fixed positions, others simulate freely\n   - Stop simulation when all velocities fall below threshold\n\n6. Gesture Architecture:\n   - LongPressGesture(minimumDuration: 0.5) → DragGesture for node dragging\n   - TapGesture(count: 2) for double-tap center\n   - Existing MagnifyGesture for zoom\n   - Existing DragGesture(minimumDistance: 10) for pan\n   - Must handle gesture priority correctly (node drag > pan)\n\n7. Visual Feedback:\n   - Grabbed node: pulsing ring + slight scale-up\n   - Dragging: node follows finger with subtle shadow\n   - Pinned nodes: small pin icon or different border style\n   - Haptic feedback: UIImpactFeedbackGenerator on grab/release\n\n8. Performance:\n   - Incremental simulation should maintain 60fps on iPhone 12+\n   - Use spatial hashing for O(1) node hit-testing instead of linear scan\n   - Limit simulation to visible nodes when graph > 200 nodes",
+        "testStrategy": "Manual testing on iOS Simulator and device:\n1. Long-press a node — verify haptic fires and visual highlight appears\n2. Drag a held node — verify it follows finger and other nodes re-simulate\n3. Release — verify node stays pinned at new position\n4. Double-tap a node — verify smooth animated center + zoom\n5. Long-press without drag — verify context menu appears\n6. Verify pan still works when starting on empty space\n7. Verify zoom still works with pinch gesture\n8. Test with 50+ nodes — verify no frame drops during drag\n9. Test gesture conflicts — ensure no accidental node drags when panning",
+        "subtasks": [],
+        "updatedAt": "2026-02-23T00:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-22T07:51:26.772Z",
-      "taskCount": 73,
-      "completedCount": 52,
+      "lastModified": "2026-02-23T00:00:00.000Z",
+      "taskCount": 80,
+      "completedCount": 54,
       "tags": [
         "master"
       ]

@@ -191,7 +191,7 @@ export default function Graph() {
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col ${isFullscreen ? 'h-screen bg-background p-4' : 'h-[calc(100vh-5rem)]'}`}
+      className={`flex flex-col ${isFullscreen ? 'h-screen bg-background p-4' : 'h-[calc(100vh-8.5rem)]'}`}
     >
       {/* Controls bar */}
       <div className="mb-3">
