@@ -43,6 +43,7 @@ struct ForceGraphView: View {
 
 // MARK: - SpriteKit Scene
 
+@MainActor
 final class ForceGraphScene: SKScene {
     var onNodeTap: ((String) -> Void)?
     var onNodeLongPress: ((String) -> Void)?
@@ -80,7 +81,9 @@ final class ForceGraphScene: SKScene {
         physicsWorld.gravity = CGVector(dx: 0, dy: 0)
 
         cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        addChild(cameraNode)
+        if cameraNode.parent == nil {
+            addChild(cameraNode)
+        }
         camera = cameraNode
 
         // Add pinch gesture for zoom
@@ -176,11 +179,14 @@ final class ForceGraphScene: SKScene {
         currentSelectedId = selectedNodeId
 
         // Re-add camera
-        addChild(cameraNode)
+        if cameraNode.parent == nil {
+            addChild(cameraNode)
+        }
         camera = cameraNode
         cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
 
         guard !nodes.isEmpty else { return }
+        guard size.width > 0, size.height > 0 else { return }
 
         // Store node data
         for node in nodes {
@@ -314,9 +320,11 @@ final class ForceGraphScene: SKScene {
         circle.userData?["nodeId"] = node.id
         container.addChild(circle)
 
-        // Entity type icon
-        let icon = SKLabelNode(text: node.type == "human" ? "\u{1F464}" : "\u{1F4BB}")
-        icon.fontSize = node.radius * 0.9
+        // Entity type icon (simple text — emoji can crash SpriteKit on some devices)
+        let icon = SKLabelNode(text: node.type == "human" ? "H" : "A")
+        icon.fontSize = node.radius * 0.7
+        icon.fontName = "Helvetica-Bold"
+        icon.fontColor = .white
         icon.verticalAlignmentMode = .center
         icon.horizontalAlignmentMode = .center
         icon.zPosition = 6
