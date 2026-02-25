@@ -385,36 +385,36 @@ async def org_stats(
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
     await _check_org_role(db, org_id, entity.id)
-    member_count_q = (
-        select(func.count()).select_from(OrganizationMembership)
-        .where(OrganizationMembership.organization_id == org_id)
-    )
-    member_count = await db.scalar(member_count_q) or 0
-    member_ids_q = (
+    # Single subquery for member IDs — reused in all aggregations
+    member_sub = (
         select(OrganizationMembership.entity_id)
         .where(OrganizationMembership.organization_id == org_id)
+        .scalar_subquery()
     )
-    member_ids_result = await db.execute(member_ids_q)
-    member_ids = [row[0] for row in member_ids_result.fetchall()]
-    agent_count = 0
-    avg_trust = 0.0
-    post_count = 0
-    if member_ids:
-        agent_count_q = (
-            select(func.count()).select_from(Entity)
-            .where(Entity.id.in_(member_ids), Entity.type == EntityType.AGENT)
-        )
-        agent_count = await db.scalar(agent_count_q) or 0
-        trust_q = select(func.avg(TrustScore.score)).where(
-            TrustScore.entity_id.in_(member_ids)
-        )
-        avg_trust_raw = await db.scalar(trust_q)
-        avg_trust = round(float(avg_trust_raw), 4) if avg_trust_raw else 0.0
-        post_count_q = (
-            select(func.count()).select_from(Post)
-            .where(Post.author_entity_id.in_(member_ids))
-        )
-        post_count = await db.scalar(post_count_q) or 0
+    # Batch all counts + avg into one round-trip
+    stats_q = select(
+        func.count(OrganizationMembership.entity_id).label("member_count"),
+    ).where(OrganizationMembership.organization_id == org_id)
+    member_count = await db.scalar(stats_q) or 0
+
+    agg_q = select(
+        func.count(Entity.id).filter(Entity.type == EntityType.AGENT).label("agent_count"),
+        func.coalesce(
+            func.avg(TrustScore.score), 0.0,
+        ).label("avg_trust"),
+        func.count(Post.id).label("post_count"),
+    ).select_from(
+        Entity
+    ).outerjoin(
+        TrustScore, TrustScore.entity_id == Entity.id,
+    ).outerjoin(
+        Post, Post.author_entity_id == Entity.id,
+    ).where(Entity.id.in_(member_sub))
+
+    row = (await db.execute(agg_q)).one_or_none()
+    agent_count = row.agent_count if row else 0
+    avg_trust = round(float(row.avg_trust), 4) if row else 0.0
+    post_count = row.post_count if row else 0
     return {
         "member_count": member_count, "agent_count": agent_count,
         "avg_trust": avg_trust, "post_count": post_count,

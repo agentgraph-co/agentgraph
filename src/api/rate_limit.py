@@ -121,9 +121,13 @@ class RedisRateLimiter:
             from src.redis_client import get_redis
 
             r = get_redis()
-            keys = await r.keys("rl:*")
-            if keys:
-                await r.delete(*keys)
+            cursor = 0
+            while True:
+                cursor, keys = await r.scan(cursor, match="rl:*", count=200)
+                if keys:
+                    await r.delete(*keys)
+                if cursor == 0:
+                    break
         except Exception:
             pass
 
@@ -140,7 +144,15 @@ def _get_client_ip(request: Request) -> str:
     if direct_ip in settings.trusted_proxies:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            # Walk the chain right-to-left, skip any IPs that are also
+            # trusted proxies, and return the first non-proxy IP.  This is
+            # the standard secure approach: the rightmost non-trusted IP is
+            # the real client, because a trusted proxy appended it.
+            ips = [ip.strip() for ip in forwarded.split(",")]
+            for ip in reversed(ips):
+                if ip and ip not in settings.trusted_proxies:
+                    return ip
+            # All IPs are trusted proxies — fall through to direct_ip
     return direct_ip
 
 
