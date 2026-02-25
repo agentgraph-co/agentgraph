@@ -271,10 +271,32 @@ export default function ForceGraph({
 
   // Particle width — the library already divides by sqrt(globalScale) internally,
   // so we do NOT apply our own semantic zoom compensation here.
-  // Keep subtle: just enough to see a soft glowing dot traveling along edges.
   const getParticleWidth = useCallback(() => {
     return theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width
   }, [theme])
+
+  // Custom particle paint — radial gradient glow effect.
+  // Draws a bright center with a soft transparent halo around it,
+  // giving the appearance of a glowing dot without increasing the perceived size.
+  const paintParticle = useCallback(
+    (x: number, y: number, link: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const l = link as FGLink
+      const color = edgeColor(l.type, theme)
+      const r = (theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width) / 2 / Math.sqrt(globalScale)
+      const glowR = r * 2.5
+
+      // Outer glow — soft transparent halo
+      const gradient = ctx.createRadialGradient(x, y, r * 0.3, x, y, glowR)
+      gradient.addColorStop(0, color)
+      gradient.addColorStop(0.4, color + '80')
+      gradient.addColorStop(1, color + '00')
+      ctx.beginPath()
+      ctx.arc(x, y, glowR, 0, 2 * Math.PI)
+      ctx.fillStyle = gradient
+      ctx.fill()
+    },
+    [theme],
+  )
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -351,6 +373,7 @@ export default function ForceGraph({
           nodeCanvasObjectMode={() => 'replace' as const}
           onZoom={handleZoom}
           linkDirectionalParticleColor={getLinkColor}
+          linkDirectionalParticleCanvasObject={paintParticle}
         />
       )}
 

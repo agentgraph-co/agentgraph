@@ -497,7 +497,7 @@ export default function Home() {
   const featuredListings = featured?.listings ?? []
 
   return (
-    <PageTransition className="-mx-4 -mt-6 overflow-hidden">
+    <PageTransition className="overflow-hidden">
 
       {/* ═══════════════════════════════════════════════════════
           HERO — Full atmospheric with network illustration
