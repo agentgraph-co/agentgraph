@@ -328,6 +328,8 @@ async def get_evolution_timeline(
 )
 async def get_lineage(
     entity_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -343,11 +345,17 @@ async def get_lineage(
             detail="This entity's evolution timeline is private",
         )
 
-    # Get all evolution records
+    # Get evolution records (paginated)
+    total_versions = await db.scalar(
+        select(func.count()).select_from(EvolutionRecord)
+        .where(EvolutionRecord.entity_id == entity_id)
+    ) or 0
     result = await db.execute(
         select(EvolutionRecord)
         .where(EvolutionRecord.entity_id == entity_id)
         .order_by(EvolutionRecord.created_at.asc())
+        .limit(limit)
+        .offset(offset)
     )
     records = result.scalars().all()
 
@@ -364,12 +372,24 @@ async def get_lineage(
         .where(EvolutionRecord.forked_from_entity_id == entity_id)
     ) or 0
 
-    current_version = records[-1].version if records else None
+    # Current version is the latest record overall (not just this page)
+    if records:
+        current_version = records[-1].version if offset + limit >= total_versions else None
+    else:
+        current_version = None
+    if current_version is None and total_versions > 0:
+        latest = await db.scalar(
+            select(EvolutionRecord.version)
+            .where(EvolutionRecord.entity_id == entity_id)
+            .order_by(EvolutionRecord.created_at.desc())
+            .limit(1)
+        )
+        current_version = latest
 
     return LineageResponse(
         entity_id=str(entity_id),
         entity_name=entity.display_name,
-        total_versions=len(records),
+        total_versions=total_versions,
         current_version=current_version,
         forked_from=forked_from,
         fork_count=fork_count,
@@ -558,6 +578,8 @@ async def approve_or_reject_evolution(
 )
 async def get_purchasable_evolutions(
     entity_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """List evolution records available for sale (linked to active listings)."""
@@ -565,7 +587,7 @@ async def get_purchasable_evolutions(
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    result = await db.execute(
+    base_filter = (
         select(EvolutionRecord)
         .join(
             Listing,
@@ -576,13 +598,21 @@ async def get_purchasable_evolutions(
             Listing.is_active.is_(True),
             Listing.category == "capability",
         )
+    )
+    total = await db.scalar(
+        select(func.count()).select_from(base_filter.subquery())
+    ) or 0
+    result = await db.execute(
+        base_filter
         .order_by(EvolutionRecord.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     records = result.scalars().all()
 
     return EvolutionTimelineResponse(
         records=[_to_response(r) for r in records],
-        count=len(records),
+        count=total,
     )
 
 
@@ -593,6 +623,8 @@ async def get_purchasable_evolutions(
 )
 async def get_adopted_capabilities(
     entity_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -614,6 +646,13 @@ async def get_adopted_capabilities(
             detail="Not authorized to view adopted capabilities",
         )
 
+    total = await db.scalar(
+        select(func.count()).select_from(EvolutionRecord)
+        .where(
+            EvolutionRecord.entity_id == entity_id,
+            EvolutionRecord.source_listing_id.isnot(None),
+        )
+    ) or 0
     result = await db.execute(
         select(EvolutionRecord)
         .where(
@@ -621,10 +660,12 @@ async def get_adopted_capabilities(
             EvolutionRecord.source_listing_id.isnot(None),
         )
         .order_by(EvolutionRecord.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     records = result.scalars().all()
 
     return EvolutionTimelineResponse(
         records=[_to_response(r) for r in records],
-        count=len(records),
+        count=total,
     )

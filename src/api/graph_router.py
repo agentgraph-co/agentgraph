@@ -454,6 +454,7 @@ async def get_cluster_detail(
         select(Entity).where(
             Entity.id.in_(member_uuids),
             Entity.is_active.is_(True),
+            _build_privacy_filter(current_entity),
         )
     )
     entities = entity_result.scalars().all()
