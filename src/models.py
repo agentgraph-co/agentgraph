@@ -104,7 +104,9 @@ class Entity(Base):
         CheckConstraint("autonomy_level IS NULL OR (autonomy_level >= 1 AND autonomy_level <= 5)"),
         nullable=True,
     )
-    operator_id = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+    operator_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
+    )
 
     # Privacy
     privacy_tier = Column(
@@ -317,7 +319,9 @@ class ModerationFlag(Base):
     reason = Column(Enum(ModerationReason), nullable=False)
     details = Column(Text, nullable=True)
     status = Column(Enum(ModerationStatus), default=ModerationStatus.PENDING, nullable=False)
-    resolved_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+    resolved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
+    )
     resolution_note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
@@ -341,10 +345,10 @@ class EvolutionRecord(Base):
     )
     version = Column(String(50), nullable=False)  # semver: "1.0.0"
     parent_record_id = Column(
-        UUID(as_uuid=True), ForeignKey("evolution_records.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("evolution_records.id", ondelete="SET NULL"), nullable=True
     )
     forked_from_entity_id = Column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
     )
     change_type = Column(
         String(30), nullable=False
@@ -371,7 +375,7 @@ class EvolutionRecord(Base):
         nullable=False,
     )
     approved_by = Column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
     )
     approval_note = Column(Text, nullable=True)
     approved_at = Column(DateTime(timezone=True), nullable=True)
@@ -653,11 +657,11 @@ class Dispute(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     transaction_id = Column(
-        UUID(as_uuid=True), ForeignKey("transactions.id"),
+        UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"),
         unique=True, nullable=False,
     )
     opened_by = Column(
-        UUID(as_uuid=True), ForeignKey("entities.id"),
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
         nullable=False,
     )
     reason = Column(Text, nullable=False)
@@ -667,7 +671,7 @@ class Dispute(Base):
     resolution = Column(String(20), nullable=True)
     resolution_amount_cents = Column(Integer, nullable=True)
     resolved_by = Column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
     )
     admin_note = Column(Text, nullable=True)
     deadline = Column(DateTime(timezone=True), nullable=False)
@@ -1145,7 +1149,7 @@ class ModerationAppeal(Base):
     reason = Column(Text, nullable=False)
     status = Column(String(20), default="pending", nullable=False)  # pending/upheld/overturned
     resolved_by = Column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True,
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
     )
     resolution_note = Column(Text, nullable=True)
     created_at = Column(
@@ -1268,7 +1272,9 @@ class PropagationAlert(Base):
     alert_type = Column(String(50), nullable=False)  # "freeze", "quarantine", "network_alert"
     severity = Column(String(20), nullable=False)  # "info", "warning", "critical"
     message = Column(Text, nullable=False)
-    issued_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
+    issued_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
+    )
     is_resolved = Column(Boolean, default=False)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -1294,7 +1300,9 @@ class Organization(Base):
     settings = Column(JSONB, default=dict)  # org-level config
     tier = Column(String(20), default="free", nullable=False)  # "free", "pro", "enterprise"
     is_active = Column(Boolean, default=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    created_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="RESTRICT"), nullable=False,
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
