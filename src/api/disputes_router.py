@@ -16,7 +16,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.config import settings
 from src.database import get_db
@@ -460,9 +460,9 @@ async def resolve_dispute(
         txn.buyer_entity_id == current_entity.id
         or txn.seller_entity_id == current_entity.id
     )
-    if not is_participant:
+    if not is_participant and not current_entity.is_admin:
         raise HTTPException(
-            status_code=403, detail="Only buyer or seller can resolve",
+            status_code=403, detail="Only buyer, seller, or admin can resolve",
         )
 
     resolution_enum = DisputeResolution(body.resolution)
@@ -660,8 +660,7 @@ async def admin_list_disputes(
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: list all disputes."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     query = select(Dispute)
 
@@ -696,8 +695,7 @@ async def admin_adjudicate_dispute(
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: adjudicate a dispute with a binding resolution."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     dispute = await db.get(Dispute, dispute_id)
     if dispute is None:

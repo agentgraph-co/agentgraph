@@ -654,7 +654,7 @@ async def _build_rich_graph(
 )
 async def get_rich_graph(
     limit: int = Query(500, ge=1, le=2000),
-    entity_type: str | None = Query(None, pattern="^(human|agent)"),
+    entity_type: str | None = Query(None, pattern="^(human|agent)$"),
     min_trust: float | None = Query(None, ge=0.0, le=1.0),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),

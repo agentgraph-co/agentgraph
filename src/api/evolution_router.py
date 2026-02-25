@@ -253,6 +253,7 @@ async def create_evolution_record(
         },
     )
     await db.flush()
+    await db.refresh(record)
 
     # Broadcast via WebSocket
     try:
@@ -568,6 +569,7 @@ async def approve_or_reject_evolution(
         },
     )
     await db.flush()
+    await db.refresh(record)
     return _to_response(record)
 
 

@@ -99,16 +99,28 @@ async def websocket_endpoint(
                     "delegate_status",
                     "ack",
                 ):
-                    from src.protocol.router import handle_aip_message
+                    try:
+                        from src.protocol.router import handle_aip_message
 
-                    async with async_session() as aip_db:
-                        response = await handle_aip_message(
-                            aip_db, entity_id, msg,
+                        async with async_session() as aip_db:
+                            response = await handle_aip_message(
+                                aip_db, entity_id, msg,
+                            )
+                            await aip_db.commit()
+                        if response:
+                            await websocket.send_text(json.dumps(response))
+                    except Exception:
+                        logger.exception(
+                            "Error handling AIP message for entity %s",
+                            entity_id,
                         )
-                        await aip_db.commit()
-                    if response:
-                        await websocket.send_text(json.dumps(response))
             except json.JSONDecodeError:
                 pass
     except WebSocketDisconnect:
+        logger.debug("WebSocket disconnect for entity %s", entity_id)
+        manager.disconnect(websocket, entity_id)
+    except Exception:
+        logger.exception(
+            "Unexpected WebSocket error for entity %s", entity_id,
+        )
         manager.disconnect(websocket, entity_id)

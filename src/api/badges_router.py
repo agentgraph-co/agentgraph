@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -186,11 +186,7 @@ async def issue_badge(
     db: AsyncSession = Depends(get_db),
 ):
     """Issue a verification badge to an entity (admin only)."""
-    if not current_entity.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
+    require_admin(current_entity)
 
     target = await db.get(Entity, entity_id)
     if target is None or not target.is_active:
@@ -277,11 +273,7 @@ async def deactivate_badge(
     db: AsyncSession = Depends(get_db),
 ):
     """Deactivate a verification badge (admin only)."""
-    if not current_entity.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
+    require_admin(current_entity)
 
     badge = await db.get(VerificationBadge, badge_id)
     if badge is None or badge.entity_id != entity_id:

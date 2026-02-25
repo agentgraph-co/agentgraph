@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_optional_entity
 from src.api.privacy import check_privacy_access
-from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
@@ -231,7 +231,7 @@ async def get_trust_score(
 @router.post(
     "/entities/{entity_id}/trust/refresh",
     response_model=TrustScoreResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_auth)],
 )
 async def refresh_trust_score(
     entity_id: uuid.UUID,
