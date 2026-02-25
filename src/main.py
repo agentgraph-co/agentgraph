@@ -183,20 +183,27 @@ async def validation_exception_handler(
 ) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
 
+    def _sanitize_value(v: object) -> object:
+        """Recursively make a value JSON-serializable."""
+        if isinstance(v, (str, int, float, bool, type(None))):
+            return v
+        if isinstance(v, dict):
+            return {k: _sanitize_value(val) for k, val in v.items()}
+        if isinstance(v, (list, tuple)):
+            return [_sanitize_value(item) for item in v]
+        return str(v)
+
     def _sanitize_errors(errors: list[dict]) -> list[dict]:
         """Make validation error dicts JSON-serializable.
 
         Pydantic/FastAPI may put non-serializable objects (e.g. ValueError)
-        in the ``ctx`` field. Convert them to strings.
+        in the ``ctx`` field. Convert them recursively.
         """
         sanitized = []
         for err in errors:
             clean = dict(err)
-            if "ctx" in clean and isinstance(clean["ctx"], dict):
-                clean["ctx"] = {
-                    k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in clean["ctx"].items()
-                }
+            if "ctx" in clean:
+                clean["ctx"] = _sanitize_value(clean["ctx"])
             sanitized.append(clean)
         return sanitized
 

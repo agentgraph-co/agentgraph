@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,7 @@ from src.models import (
     TrustScore,
     VerificationBadge,
 )
+from src.ssrf import validate_url_https_optional
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,11 @@ class CreateBadgeRequest(BaseModel):
     proof_url: str | None = Field(None, max_length=1000)
     expires_at: datetime | None = None
 
+    @field_validator("proof_url")
+    @classmethod
+    def check_proof_url(cls, v: str | None) -> str | None:
+        return validate_url_https_optional(v, field_name="proof_url")
+
 
 class AuditRecordResponse(BaseModel):
     id: uuid.UUID
@@ -94,6 +100,11 @@ class CreateAuditRecordRequest(BaseModel):
     )
     findings: dict | None = None
     report_url: str | None = Field(None, max_length=1000)
+
+    @field_validator("report_url")
+    @classmethod
+    def check_report_url(cls, v: str | None) -> str | None:
+        return validate_url_https_optional(v, field_name="report_url")
 
 
 

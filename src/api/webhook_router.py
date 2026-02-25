@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -15,6 +14,7 @@ from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import Entity, WebhookSubscription
+from src.ssrf import validate_url
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -40,27 +40,6 @@ VALID_EVENT_TYPES = {
 }
 
 
-_BLOCKED_HOSTS = (
-    "localhost", "127.0.0.1", "0.0.0.0", "169.254", "10.", "192.168.",
-    "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
-    "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.",
-    "172.28.", "172.29.", "172.30.", "172.31.",
-    "::1", "[::1]", "fe80:", "fc00:", "fd",
-)
-
-
-def _validate_callback_url(v: HttpUrl | str | None) -> HttpUrl | str | None:
-    if v is None:
-        return v
-    url_str = str(v)
-    parsed = urlparse(url_str)
-    hostname = parsed.hostname or ""
-    for b in _BLOCKED_HOSTS:
-        if hostname.startswith(b):
-            raise ValueError("callback_url cannot point to internal addresses")
-    return v
-
-
 class UpdateWebhookRequest(BaseModel):
     callback_url: HttpUrl | None = None
     event_types: list[str] | None = Field(None, min_length=1)
@@ -68,7 +47,10 @@ class UpdateWebhookRequest(BaseModel):
     @field_validator("callback_url")
     @classmethod
     def check_ssrf(cls, v: HttpUrl | None) -> HttpUrl | None:
-        return _validate_callback_url(v)
+        if v is None:
+            return v
+        validate_url(str(v), field_name="callback_url")
+        return v
 
 
 class CreateWebhookRequest(BaseModel):
@@ -78,7 +60,8 @@ class CreateWebhookRequest(BaseModel):
     @field_validator("callback_url")
     @classmethod
     def check_ssrf(cls, v: HttpUrl) -> HttpUrl:
-        return _validate_callback_url(v)
+        validate_url(str(v), field_name="callback_url")
+        return v
 
     model_config = {"json_schema_extra": {"examples": [
         {"callback_url": "https://example.com/webhook", "event_types": ["entity.followed"]}
