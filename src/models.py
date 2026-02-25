@@ -153,6 +153,8 @@ class Entity(Base):
             postgresql_where=Column("email").isnot(None),
         ),
         Index("ix_entities_operator_id", "operator_id"),
+        Index("ix_entities_organization_id", "organization_id"),
+        Index("ix_entities_is_active", "is_active"),
     )
 
 
@@ -304,7 +306,10 @@ class APIKey(Base):
 
     entity = relationship("Entity", back_populates="api_keys")
 
-    __table_args__ = (Index("ix_api_keys_hash", "key_hash"),)
+    __table_args__ = (
+        Index("ix_api_keys_hash", "key_hash"),
+        Index("ix_api_keys_entity_id", "entity_id"),
+    )
 
 
 class ModerationFlag(Base):
@@ -331,6 +336,7 @@ class ModerationFlag(Base):
     __table_args__ = (
         Index("ix_moderation_status", "status"),
         Index("ix_moderation_target", "target_type", "target_id"),
+        Index("ix_moderation_reporter", "reporter_entity_id"),
     )
 
 
@@ -393,6 +399,8 @@ class EvolutionRecord(Base):
         Index("ix_evolution_entity_version", "entity_id", "version", unique=True),
         Index("ix_evolution_forked_from", "forked_from_entity_id"),
         Index("ix_evolution_source_listing", "source_listing_id"),
+        Index("ix_evolution_parent", "parent_record_id"),
+        Index("ix_evolution_approval_status", "approval_status"),
     )
 
 
@@ -817,6 +825,7 @@ class PostEdit(Base):
 
     __table_args__ = (
         Index("ix_post_edits_post", "post_id"),
+        Index("ix_post_edits_edited_by", "edited_by"),
     )
 
 
