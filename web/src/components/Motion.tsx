@@ -122,29 +122,6 @@ export function StaggerItem({ children, className = '' }: StaggerItemProps) {
   )
 }
 
-// ─── Parallax Layer ───
-
-interface ParallaxProps {
-  children: React.ReactNode
-  className?: string
-  speed?: number // 0 = static, 1 = full scroll speed, negative = reverse
-}
-
-export function Parallax({ children, className = '', speed = 0.3 }: ParallaxProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start end', 'end start'],
-  })
-  const y = useTransform(scrollYProgress, [0, 1], [speed * -100, speed * 100])
-
-  return (
-    <motion.div ref={ref} className={className} style={{ y }}>
-      {children}
-    </motion.div>
-  )
-}
-
 // ─── Animated Counter ───
 
 interface CounterProps {
@@ -222,44 +199,6 @@ function CounterDisplay({ target, duration }: { target: number; duration: number
   }, [target, duration])
 
   return <span ref={ref}>0</span>
-}
-
-// ─── Floating Orb (ambient decoration) ───
-
-interface OrbProps {
-  className?: string
-  color?: string
-  size?: number
-  delay?: number
-}
-
-export function Orb({
-  className = '',
-  color = 'var(--color-primary)',
-  size = 300,
-  delay = 0,
-}: OrbProps) {
-  return (
-    <motion.div
-      className={`absolute rounded-full pointer-events-none blur-3xl ${className}`}
-      style={{
-        width: size,
-        height: size,
-        background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-      }}
-      animate={{
-        x: [0, 30, -20, 10, 0],
-        y: [0, -25, 15, -10, 0],
-        scale: [1, 1.1, 0.95, 1.05, 1],
-      }}
-      transition={{
-        duration: 12,
-        delay,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      }}
-    />
-  )
 }
 
 // ─── Magnetic Hover Effect ───
@@ -450,59 +389,6 @@ export function GradientBreath({
         ease: 'easeInOut',
       }}
     />
-  )
-}
-
-// ─── Mycelium Lines (SVG connecting paths with draw animation) ───
-
-interface MyceliumLinesProps {
-  className?: string
-  nodePositions?: Array<{ x: number; y: number }>
-}
-
-export function MyceliumLines({
-  className = '',
-  nodePositions = [
-    { x: 10, y: 50 }, { x: 30, y: 20 }, { x: 50, y: 60 },
-    { x: 70, y: 30 }, { x: 90, y: 50 },
-  ],
-}: MyceliumLinesProps) {
-  const paths: string[] = []
-  for (let i = 0; i < nodePositions.length - 1; i++) {
-    const p1 = nodePositions[i]
-    const p2 = nodePositions[i + 1]
-    const cx = (p1.x + p2.x) / 2
-    const cy = p1.y + (Math.random() - 0.5) * 20
-    paths.push(`M${p1.x},${p1.y} Q${cx},${cy} ${p2.x},${p2.y}`)
-  }
-
-  return (
-    <svg
-      className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      fill="none"
-    >
-      {paths.map((d, i) => (
-        <motion.path
-          key={i}
-          d={d}
-          stroke="url(#mycelium-grad)"
-          strokeWidth="0.3"
-          strokeLinecap="round"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.3 }}
-          transition={{ duration: 2, delay: i * 0.3, ease: 'easeOut' }}
-        />
-      ))}
-      <defs>
-        <linearGradient id="mycelium-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#2DD4BF" />
-          <stop offset="50%" stopColor="#E879F9" />
-          <stop offset="100%" stopColor="#F59E0B" />
-        </linearGradient>
-      </defs>
-    </svg>
   )
 }
 
