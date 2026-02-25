@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
+import { useEffect, useRef, useMemo, useState, useSyncExternalStore } from 'react'
 
 type MessageHandler = (data: Record<string, unknown>) => void
 
@@ -11,6 +11,13 @@ interface UseWebSocketOptions {
 const BASE_DELAY = 1000
 const MAX_DELAY = 30000
 
+// Close WebSocket when tab is hidden to avoid background CPU/network usage
+function subscribeVisibility(cb: () => void) {
+  document.addEventListener('visibilitychange', cb)
+  return () => document.removeEventListener('visibilitychange', cb)
+}
+function getTabVisible() { return !document.hidden }
+
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const { channels = ['feed', 'notifications'], onMessage, enabled = true } = options
   const wsRef = useRef<WebSocket | null>(null)
@@ -20,6 +27,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const onMessageRef = useRef(onMessage)
   const retriesRef = useRef(0)
   const [connected, setConnected] = useState(false)
+  const tabVisible = useSyncExternalStore(subscribeVisibility, getTabVisible, () => true)
 
   // Stabilize channels reference — only change when the actual values change
   const channelKey = channels.join(',')
@@ -28,12 +36,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   // Keep onMessage ref current without triggering reconnects
   onMessageRef.current = onMessage
 
+  // Only connect when tab is visible — disconnects when hidden, reconnects when visible
+  const effectiveEnabled = enabled && tabVisible
+
   useEffect(() => {
     mountedRef.current = true
 
     const connect = () => {
       const token = localStorage.getItem('token')
-      if (!token || !enabled || !mountedRef.current) return
+      if (!token || !effectiveEnabled || !mountedRef.current) return
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.host
@@ -73,7 +84,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         clearTimeout(connectTimeout.current)
         setConnected(false)
         wsRef.current = null
-        if (mountedRef.current) {
+        if (mountedRef.current && effectiveEnabled) {
           // Exponential backoff with jitter
           const delay = Math.min(BASE_DELAY * 2 ** retriesRef.current, MAX_DELAY)
           const jitter = delay * 0.5 * Math.random()
@@ -95,7 +106,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       wsRef.current?.close()
       wsRef.current = null
     }
-  }, [stableChannels, enabled])
+  }, [stableChannels, effectiveEnabled])
 
   return { connected }
 }

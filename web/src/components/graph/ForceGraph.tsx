@@ -5,7 +5,7 @@
  * Trust edges pulse with directional particles.
  * LOD: labels at zoom > 1.5, details at zoom > 2.5.
  */
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import ForceGraph3D from 'react-force-graph-3d'
 import type { GraphData, GraphNode, GraphEdge } from '../../hooks/useGraphData'
@@ -30,6 +30,13 @@ import {
   DEFAULT_PARTICLE_COUNT,
   NODE_TYPE_COLORS,
 } from '../../lib/graphTheme'
+
+// Pause/resume force simulation when browser tab is hidden/visible
+function subscribeVisibility(cb: () => void) {
+  document.addEventListener('visibilitychange', cb)
+  return () => document.removeEventListener('visibilitychange', cb)
+}
+function getTabHidden() { return document.hidden }
 
 // Internal node shape used by react-force-graph (adds x, y, etc.)
 interface FGNode extends GraphNode {
@@ -103,6 +110,18 @@ export default function ForceGraph({
   const currentZoomRef = useRef(1)
   const [currentZoom, setCurrentZoom] = useState(1)
   const zoomRAFRef = useRef(0)
+
+  // Pause/resume force simulation when tab is hidden — saves significant CPU
+  const tabHidden = useSyncExternalStore(subscribeVisibility, getTabHidden, () => false)
+  useEffect(() => {
+    const fg = fgRef.current
+    if (!fg) return
+    if (tabHidden) {
+      fg.pauseAnimation?.()
+    } else {
+      fg.resumeAnimation?.()
+    }
+  }, [tabHidden])
 
   // Track dimensions
   useEffect(() => {

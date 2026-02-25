@@ -206,8 +206,8 @@ a:focus-visible,
 /* ─── Organic Futurism Animations ─── */
 
 @keyframes gradient-breathe {
-  0%, 100% { opacity: 0.6; filter: hue-rotate(0deg); }
-  50% { opacity: 0.9; filter: hue-rotate(15deg); }
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
 }
 
 @keyframes particle-drift {

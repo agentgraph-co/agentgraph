@@ -3,7 +3,7 @@
  * Import these in any page for scroll-triggered reveals,
  * staggered lists, counters, and ambient effects.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   motion,
   useInView,
@@ -12,6 +12,19 @@ import {
   type Variant,
 } from 'framer-motion'
 import { useTheme } from '../hooks/useTheme'
+
+// ─── Tab Visibility Hook ───
+// Pauses CPU-heavy animations when the browser tab is hidden.
+
+function useTabVisible() {
+  const [visible, setVisible] = useState(!document.hidden)
+  useEffect(() => {
+    const handler = () => setVisible(!document.hidden)
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [])
+  return visible
+}
 
 // ─── Spring configs ───
 
@@ -263,6 +276,7 @@ export function ParticleField({
 }: ParticleFieldProps) {
   const { theme } = useTheme()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tabVisible = useTabVisible()
   const resolvedColors = colors ?? (theme === 'light' ? PARTICLE_COLORS_LIGHT : PARTICLE_COLORS_DARK)
   const connectionColor = theme === 'light' ? '#0D9488' : '#2DD4BF'
   const connectionAlpha = theme === 'light' ? 0.15 : 0.08
@@ -292,7 +306,15 @@ export function ParticleField({
     }))
 
     let raf: number
-    const animate = () => {
+    // Throttle to ~30fps instead of 60fps — halves CPU for a negligible visual difference
+    let lastFrame = 0
+    const FRAME_INTERVAL = 33 // ~30fps
+
+    const animate = (now: number) => {
+      raf = requestAnimationFrame(animate)
+      if (now - lastFrame < FRAME_INTERVAL) return
+      lastFrame = now
+
       const w = canvas.offsetWidth
       const h = canvas.offsetHeight
       ctx.clearRect(0, 0, w, h)
@@ -312,26 +334,24 @@ export function ParticleField({
         ctx.fill()
       }
 
-      // Draw connections between close particles
+      // Draw connections — use squared distance to avoid sqrt per pair
+      const CONN_DIST_SQ = 120 * 120
       ctx.globalAlpha = connectionAlpha
       ctx.strokeStyle = connectionColor
       ctx.lineWidth = 0.5
+      ctx.beginPath() // Single path for all lines — much fewer draw calls
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x
           const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 120) {
-            ctx.beginPath()
+          if (dx * dx + dy * dy < CONN_DIST_SQ) {
             ctx.moveTo(particles[i].x, particles[i].y)
             ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
           }
         }
       }
+      ctx.stroke() // Single stroke call for all connections
       ctx.globalAlpha = 1
-
-      raf = requestAnimationFrame(animate)
     }
     raf = requestAnimationFrame(animate)
 
@@ -339,7 +359,10 @@ export function ParticleField({
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
     }
-  }, [count, resolvedColors, speed, connectionColor, connectionAlpha])
+  }, [count, resolvedColors, speed, connectionColor, connectionAlpha, tabVisible])
+
+  // Don't render canvas at all when tab is hidden
+  if (!tabVisible) return null
 
   return (
     <canvas
@@ -373,22 +396,15 @@ export function GradientBreath({
   // Wider gradient spread in light mode so background isn't flat white
   const spread = theme === 'light' ? '65%' : '50%'
 
+  // Use pure CSS animation instead of framer-motion to reduce JS overhead
   return (
-    <motion.div
-      className={`absolute inset-0 pointer-events-none ${className}`}
+    <div
+      className={`absolute inset-0 pointer-events-none animate-gradient-breathe ${className}`}
       style={{
         background: `radial-gradient(ellipse at 30% 50%, ${resolvedColors[0]}${a1} 0%, transparent ${spread}),
                      radial-gradient(ellipse at 70% 30%, ${resolvedColors[1]}${a2} 0%, transparent ${spread}),
                      radial-gradient(ellipse at 50% 80%, ${resolvedColors[2]}${a3} 0%, transparent ${spread})`,
-      }}
-      animate={{
-        opacity: [0.6, 0.9, 0.6],
-        scale: [1, 1.02, 1],
-      }}
-      transition={{
-        duration,
-        repeat: Infinity,
-        ease: 'easeInOut',
+        animationDuration: `${duration}s`,
       }}
     />
   )
@@ -409,40 +425,21 @@ export function BioluminescentGlow({
 }: BioluminescentGlowProps) {
   const { theme } = useTheme()
 
-  // Light mode uses darker/more saturated colors with higher alpha for visibility
-  const bgFrames = theme === 'light'
-    ? [
-        'radial-gradient(circle, rgba(13,148,136,0.22) 0%, rgba(162,28,175,0.12) 50%, transparent 75%)',
-        'radial-gradient(circle, rgba(162,28,175,0.22) 0%, rgba(217,119,6,0.12) 50%, transparent 75%)',
-        'radial-gradient(circle, rgba(217,119,6,0.18) 0%, rgba(13,148,136,0.12) 50%, transparent 75%)',
-        'radial-gradient(circle, rgba(13,148,136,0.22) 0%, rgba(162,28,175,0.12) 50%, transparent 75%)',
-      ]
-    : [
-        'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(232,121,249,0.2) 0%, rgba(245,158,11,0.1) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(13,148,136,0.1) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
-      ]
+  // Use pure CSS animation instead of framer-motion to avoid JS overhead.
+  // The float-slow keyframe handles x/y/scale; we just set the gradient as static background.
+  const bg = theme === 'light'
+    ? 'radial-gradient(circle, rgba(13,148,136,0.22) 0%, rgba(162,28,175,0.12) 50%, transparent 75%)'
+    : 'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)'
 
   return (
-    <motion.div
-      className={`absolute rounded-full pointer-events-none blur-3xl ${className}`}
+    <div
+      className={`absolute rounded-full pointer-events-none blur-3xl animate-float-slow ${className}`}
       style={{
         width: size,
         height: size,
-        background: bgFrames[0],
-      }}
-      animate={{
-        x: [0, 20, -15, 10, 0],
-        y: [0, -20, 10, -5, 0],
-        scale: [1, 1.15, 0.9, 1.1, 1],
-        background: bgFrames,
-      }}
-      transition={{
-        duration: 16,
-        delay,
-        repeat: Infinity,
-        ease: 'easeInOut',
+        background: bg,
+        animationDelay: `${delay}s`,
+        animationDuration: '16s',
       }}
     />
   )
