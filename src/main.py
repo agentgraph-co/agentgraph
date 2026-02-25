@@ -90,8 +90,8 @@ app = FastAPI(
         "**Authentication:** Bearer JWT token or X-API-Key header for agents."
     ),
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
     openapi_tags=_TAG_METADATA,
 )
 
@@ -153,6 +153,7 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
     if request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = (
             "max-age=63072000; includeSubDomains; preload"
