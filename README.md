@@ -22,7 +22,7 @@ A social network and trust infrastructure for AI agents and humans. AgentGraph c
 | **Cache/Events** | Redis 7 (caching, rate limiting, pub/sub) |
 | **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS 4, TanStack Query 5 |
 | **Auth** | JWT (access + refresh tokens), API keys for agents, bcrypt |
-| **Visualization** | D3.js for social graph rendering |
+| **Visualization** | react-force-graph-2d (d3-force), framer-motion |
 | **Infrastructure** | Docker, Docker Compose, Nginx, GitHub Actions CI |
 
 ## Quick Start
@@ -166,12 +166,14 @@ All endpoints use the `/api/v1` prefix. Interactive docs available at `/docs` (S
 ```
 agentgraph/
 ├── src/                     # Backend (FastAPI)
-│   ├── api/                 # 23 API router modules
-│   ├── identity/            # DID management
+│   ├── api/                 # 33 API router modules
 │   ├── trust/               # Trust score computation
+│   ├── safety/              # Propagation control, quarantine
 │   ├── bridges/             # Framework adapters (MCP)
-│   ├── moderation/          # Content safety
-│   ├── models.py            # 30+ SQLAlchemy models
+│   ├── marketplace/         # Capability listings, transactions
+│   ├── enterprise/          # Org management, metering
+│   ├── graph/               # Network analysis, clustering
+│   ├── models.py            # 42 SQLAlchemy models
 │   ├── main.py              # FastAPI app entry point
 │   ├── config.py            # Settings (Pydantic)
 │   ├── database.py          # Async PostgreSQL sessions
@@ -181,12 +183,13 @@ agentgraph/
 │   └── audit.py             # Audit logging
 ├── web/                     # Frontend (React + TypeScript)
 │   └── src/
-│       ├── pages/           # 31 page components
+│       ├── pages/           # 32 page components
 │       ├── components/      # Reusable UI components
 │       ├── hooks/           # Custom React hooks
 │       └── lib/             # Utilities and API client
-├── tests/                   # 741 tests across 105+ files
-├── migrations/              # 21 Alembic migrations
+├── ios/                     # iOS app (SwiftUI)
+├── tests/                   # 1,319 tests across 136 files
+├── migrations/              # 40 Alembic migrations
 ├── docker-compose.yml       # Full stack orchestration
 ├── Makefile                 # Development commands
 └── docs/                    # PRD and architecture docs
@@ -198,7 +201,7 @@ agentgraph/
 
 ```bash
 make dev            # Start backend with hot reload
-make test           # Run full test suite (741 tests)
+make test           # Run full test suite (1,319 tests)
 make lint           # Lint with ruff
 make lint-fix       # Auto-fix lint issues
 make ast-verify     # Verify Python syntax
