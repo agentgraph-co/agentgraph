@@ -66,6 +66,14 @@ select:focus-visible {
   box-shadow: 0 0 0 3px var(--color-primary-glow);
 }
 
+/* Ensure focus-visible always overrides Tailwind focus:outline-none */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary-light) !important;
+  outline-offset: 2px;
+}
+
 /* ─── Glassmorphism Utilities ─── */
 
 .glass {
