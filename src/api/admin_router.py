@@ -522,8 +522,12 @@ async def get_rate_limit_status(
         from src.redis_client import get_redis
 
         r = get_redis()
-        keys = await r.keys("rl:*")
-        for rk in keys[:200]:
+        keys = []
+        async for rk in r.scan_iter(match="rl:*", count=100):
+            keys.append(rk)
+            if len(keys) >= 200:
+                break
+        for rk in keys:
             await r.zremrangebyscore(rk, 0, now - 60)
             count = await r.zcard(rk)
             if count > 0:

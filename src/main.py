@@ -4,7 +4,10 @@ import logging
 import uuid
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.account_router import router as account_router
 from src.api.activity_router import router as activity_router
@@ -170,6 +173,57 @@ async def rate_limit_headers_middleware(request: Request, call_next) -> Response
     return response
 
 
+logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError,
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "request_id": request_id,
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException,
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "request_id": request_id,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(
+    request: Request, exc: Exception,
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.error(
+        "Unhandled exception [request_id=%s]: %s",
+        request_id,
+        exc,
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "request_id": request_id,
+        },
+    )
+
+
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
@@ -242,14 +296,18 @@ async def shutdown_event() -> None:
 
 
 @app.get("/health")
-async def health_check() -> dict:
+async def health_check() -> JSONResponse:
     """Health check with database and Redis connectivity verification."""
     from sqlalchemy import text
 
     from src.database import async_session
     from src.redis_client import check_redis
 
-    health = {"status": "ok", "service": settings.app_name, "checks": {}}
+    health: dict = {
+        "status": "ok",
+        "service": settings.app_name,
+        "checks": {},
+    }
 
     # Check database
     try:
@@ -266,7 +324,8 @@ async def health_check() -> dict:
     if not redis_ok:
         health["status"] = "degraded"
 
-    return health
+    status_code = 503 if health["status"] == "degraded" else 200
+    return JSONResponse(content=health, status_code=status_code)
 
 
 @app.get(f"{settings.api_v1_prefix}/ping")
