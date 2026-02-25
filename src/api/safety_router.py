@@ -6,7 +6,7 @@ quarantine/release entities, and broadcast network alerts.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
@@ -102,7 +102,7 @@ async def activate_freeze(
 
     return FreezeStatusResponse(
         frozen=body.active,
-        since=datetime.utcnow().isoformat() if body.active else None,
+        since=datetime.now(timezone.utc).isoformat() if body.active else None,
     )
 
 

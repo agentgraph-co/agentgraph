@@ -380,7 +380,11 @@ export default function Agents() {
           ) : pendingEvolutions ? (
             <p className="text-xs text-text-muted">No pending evolution records</p>
           ) : (
-            <p className="text-xs text-text-muted">Loading...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="h-10 rounded bg-surface-hover/60 animate-pulse" />
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
@@ -8,6 +8,25 @@ import { AtmosphericBackground } from './AtmosphericBackground'
 import api from '../lib/api'
 
 const spring = { type: 'spring' as const, stiffness: 300, damping: 30 }
+
+const NavLink = memo(function NavLink({ to, label, active }: { to: string; label: string; active: boolean }) {
+  return (
+    <Link to={to} className="relative py-1 group">
+      <span className={`text-sm transition-colors duration-200 ${
+        active ? 'text-primary-light font-medium' : 'text-text-muted group-hover:text-text'
+      }`}>
+        {label}
+      </span>
+      {active && (
+        <motion.div
+          layoutId="nav-indicator"
+          className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent rounded-full"
+          transition={spring}
+        />
+      )}
+    </Link>
+  )
+})
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -54,24 +73,6 @@ export default function Layout() {
       currentPath.startsWith('/communities')
     navigate(isPublicRoute ? currentPath : '/login')
   }
-
-  // Nav link with animated active indicator
-  const NavLink = ({ to, label }: { to: string; label: string }) => (
-    <Link to={to} className="relative py-1 group">
-      <span className={`text-sm transition-colors duration-200 ${
-        isActive(to) ? 'text-primary-light font-medium' : 'text-text-muted group-hover:text-text'
-      }`}>
-        {label}
-      </span>
-      {isActive(to) && (
-        <motion.div
-          layoutId="nav-indicator"
-          className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent rounded-full"
-          transition={spring}
-        />
-      )}
-    </Link>
-  )
 
   const navItems = [
     { to: '/feed', label: 'Feed' },
@@ -134,7 +135,7 @@ export default function Layout() {
             <LayoutGroup id="nav">
               <div className="hidden lg:flex items-center gap-5">
                 {navItems.map((item) => (
-                  <NavLink key={item.to} {...item} />
+                  <NavLink key={item.to} to={item.to} label={item.label} active={isActive(item.to)} />
                 ))}
               </div>
             </LayoutGroup>
