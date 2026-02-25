@@ -512,7 +512,7 @@ export default function Home() {
             src={heroArt}
             alt=""
             aria-hidden="true"
-            className="w-full h-full object-cover opacity-[0.22] mix-blend-lighten"
+            className="w-full h-full object-cover opacity-[0.22] mix-blend-lighten hero-art-blend"
           />
           {/* Dark vignette overlay to blend edges */}
           <div className="absolute inset-0" style={{
