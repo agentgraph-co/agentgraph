@@ -467,6 +467,22 @@ async def resolve_dispute(
 
     resolution_enum = DisputeResolution(body.resolution)
 
+    # Prevent self-serving unilateral resolutions.
+    # Buyer cannot cancel (refund themselves); seller cannot release
+    # (pay themselves). Either party can propose a partial refund.
+    is_buyer = txn.buyer_entity_id == current_entity.id
+    is_seller = txn.seller_entity_id == current_entity.id
+    if is_buyer and resolution_enum == DisputeResolution.CANCEL_AUTH:
+        raise HTTPException(
+            status_code=403,
+            detail="Buyer cannot unilaterally cancel — only seller or admin can refund",
+        )
+    if is_seller and resolution_enum == DisputeResolution.RELEASE_FUNDS:
+        raise HTTPException(
+            status_code=403,
+            detail="Seller cannot unilaterally release funds — only buyer or admin can release",
+        )
+
     # Validate partial refund amount
     if resolution_enum == DisputeResolution.PARTIAL_REFUND:
         if body.amount_cents is None or body.amount_cents <= 0:

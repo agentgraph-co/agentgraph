@@ -324,9 +324,10 @@ async def test_cannot_message_resolved_dispute(client):
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
         mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
 
+        # Seller concedes by canceling (refunding buyer)
         await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
             "resolution": "cancel_auth",
-        }, headers=buyer["headers"])
+        }, headers=seller["headers"])
 
     resp = await client.post(f"{API}/disputes/{dispute_id}/message", json={
         "message": "This should be blocked after resolution.",
@@ -358,7 +359,7 @@ async def test_resolve_dispute_release_funds(client):
 
 @pytest.mark.asyncio
 async def test_resolve_dispute_cancel_auth(client):
-    """Resolving with cancel_auth should cancel the payment."""
+    """Resolving with cancel_auth should cancel the payment (seller concedes)."""
     seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
 
     create = await client.post(f"{API}/disputes", json={
@@ -370,9 +371,10 @@ async def test_resolve_dispute_cancel_auth(client):
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
         mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
 
+        # Seller concedes by canceling (refunding buyer)
         resp = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
             "resolution": "cancel_auth",
-        }, headers=buyer["headers"])
+        }, headers=seller["headers"])
         assert resp.status_code == 200
         assert resp.json()["status"] == "resolved"
         assert resp.json()["resolution"] == "cancel_auth"
@@ -433,9 +435,10 @@ async def test_cannot_resolve_already_resolved(client):
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
         mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
 
+        # Seller concedes by canceling
         resp1 = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
             "resolution": "cancel_auth",
-        }, headers=buyer["headers"])
+        }, headers=seller["headers"])
         assert resp1.status_code == 200
 
         resp2 = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
@@ -476,9 +479,10 @@ async def test_cannot_escalate_resolved(client):
 
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
         mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
+        # Seller concedes by canceling
         await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
             "resolution": "cancel_auth",
-        }, headers=buyer["headers"])
+        }, headers=seller["headers"])
 
     resp = await client.post(
         f"{API}/disputes/{dispute_id}/escalate",
@@ -715,7 +719,7 @@ async def test_list_disputes_with_status_filter(client):
 
 @pytest.mark.asyncio
 async def test_seller_can_resolve(client):
-    """Seller can also resolve a dispute."""
+    """Seller can resolve a dispute by conceding (cancel_auth)."""
     seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
 
     create = await client.post(f"{API}/disputes", json={
@@ -724,11 +728,12 @@ async def test_seller_can_resolve(client):
     }, headers=buyer["headers"])
     dispute_id = create.json()["id"]
 
-    with patch("src.payments.stripe_service.capture_payment_intent") as mock_capture:
-        mock_capture.return_value = {"payment_intent_id": "pi_test", "status": "succeeded"}
+    with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
+        mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
 
+        # Seller concedes by canceling (refunding buyer)
         resp = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
-            "resolution": "release_funds",
+            "resolution": "cancel_auth",
         }, headers=seller["headers"])
         assert resp.status_code == 200
         assert resp.json()["status"] == "resolved"
@@ -750,3 +755,39 @@ async def test_uninvolved_cannot_resolve(client):
         "resolution": "release_funds",
     }, headers=other["headers"])
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_buyer_cannot_self_refund(client):
+    """Buyer cannot unilaterally cancel_auth (self-serving)."""
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+
+    create = await client.post(f"{API}/disputes", json={
+        "transaction_id": txn_id,
+        "reason": "Testing self-serving resolution block for buyer.",
+    }, headers=buyer["headers"])
+    dispute_id = create.json()["id"]
+
+    resp = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
+        "resolution": "cancel_auth",
+    }, headers=buyer["headers"])
+    assert resp.status_code == 403
+    assert "Buyer cannot" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_seller_cannot_self_release(client):
+    """Seller cannot unilaterally release_funds (self-serving)."""
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+
+    create = await client.post(f"{API}/disputes", json={
+        "transaction_id": txn_id,
+        "reason": "Testing self-serving resolution block for seller.",
+    }, headers=buyer["headers"])
+    dispute_id = create.json()["id"]
+
+    resp = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
+        "resolution": "release_funds",
+    }, headers=seller["headers"])
+    assert resp.status_code == 403
+    assert "Seller cannot" in resp.json()["detail"]
