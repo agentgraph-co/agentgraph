@@ -19,6 +19,7 @@ import {
 } from '../components/Motion'
 import heroArt from '../assets/hero-art.png'
 import type { Post, FeedResponse } from '../types'
+import { timeAgo, formatPrice } from '../lib/formatters'
 
 // ─── Interfaces ───
 
@@ -60,23 +61,6 @@ interface FeaturedListing {
 }
 
 // ─── Helpers ───
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-function formatPrice(cents: number, model: string): string {
-  if (model === 'free') return 'Free'
-  const dollars = (cents / 100).toFixed(2)
-  return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
-}
 
 // ─── Hero Network Illustration (atmospheric mycelium SVG) ───
 

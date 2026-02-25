@@ -9,6 +9,7 @@ import GuestPrompt from '../components/GuestPrompt'
 import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
+import { timeAgo } from '../lib/formatters'
 
 const PAGE_SIZE = 20
 
@@ -24,17 +25,6 @@ interface SuggestedEntity {
   display_name: string
   bio_markdown: string
   trust_score: number | null
-}
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 export default function Feed() {

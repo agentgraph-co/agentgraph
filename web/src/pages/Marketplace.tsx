@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { ListingSkeleton } from '../components/Skeleton'
+import { formatPrice } from '../lib/formatters'
 
 interface Listing {
   id: string
@@ -46,12 +47,6 @@ const SORT_OPTIONS = [
   { value: 'price_desc', label: 'Price: High to Low' },
 ] as const
 const PAGE_SIZE = 18
-
-function formatPrice(cents: number, model: string): string {
-  if (model === 'free') return 'Free'
-  const dollars = (cents / 100).toFixed(2)
-  return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
-}
 
 function Stars({ rating }: { rating: number }) {
   return (

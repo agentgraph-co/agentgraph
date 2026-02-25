@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import { NotificationSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
+import { timeAgo } from '../lib/formatters'
 
 interface Notification {
   id: string
@@ -21,17 +22,6 @@ interface NotificationList {
 }
 
 const PAGE_SIZE = 20
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 const ICON_MAP: Record<string, string> = {
   follow: '\u{1F465}',

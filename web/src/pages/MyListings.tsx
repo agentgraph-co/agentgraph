@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
-import { formatDate } from '../lib/formatters'
+import { formatDate, formatPrice } from '../lib/formatters'
 
 interface Listing {
   id: string
@@ -30,12 +30,6 @@ interface ListingListResponse {
 }
 
 const PAGE_SIZE = 20
-
-function formatPrice(cents: number, model: string): string {
-  if (model === 'free') return 'Free'
-  const dollars = (cents / 100).toFixed(2)
-  return model === 'subscription' ? `$${dollars}/mo` : `$${dollars}`
-}
 
 export default function MyListings() {
   const queryClient = useQueryClient()
