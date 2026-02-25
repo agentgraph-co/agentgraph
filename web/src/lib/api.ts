@@ -17,15 +17,20 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const hadToken = !!localStorage.getItem('token')
-      localStorage.removeItem('token')
-      // Only redirect if we had a token and aren't already on an auth page
-      const onAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
-        (p) => window.location.pathname.startsWith(p),
-      )
-      if (hadToken && !onAuthPage) {
-        window.dispatchEvent(new CustomEvent('session-expired'))
-        window.location.href = '/login'
+      // Only treat /auth/me 401 as session expiry — other endpoints may
+      // return 401 for permission reasons without meaning the token is bad.
+      const url = error.config?.url || ''
+      const isAuthCheck = url.includes('/auth/me')
+      if (isAuthCheck) {
+        const hadToken = !!localStorage.getItem('token')
+        localStorage.removeItem('token')
+        const onAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
+          (p) => window.location.pathname.startsWith(p),
+        )
+        if (hadToken && !onAuthPage) {
+          window.dispatchEvent(new CustomEvent('session-expired'))
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
