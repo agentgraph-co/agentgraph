@@ -215,6 +215,30 @@ async def rate_limit_writes(request: Request) -> None:
             )
 
 
+async def rate_limit_export(request: Request) -> None:
+    """Very strict limit for heavy export endpoints (5/hour)."""
+    ip = _get_client_ip(request)
+    key = f"export:{ip}"
+    limit = 5
+    window = 3600
+    if not await _limiter.check(key, limit, window):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Export rate limit exceeded. Try again later.",
+            headers=_rate_limit_response(0, limit, window),
+        )
+    entity_id = _get_entity_id(request)
+    if entity_id:
+        ekey = f"export:entity:{entity_id}"
+        if not await _limiter.check(ekey, limit, window):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Export rate limit exceeded. Try again later.",
+                headers=_rate_limit_response(0, limit, window),
+            )
+    await _set_rate_limit_headers(request, key, limit, window)
+
+
 async def rate_limit_auth(request: Request) -> None:
     """Stricter limit for auth endpoints."""
     ip = _get_client_ip(request)
