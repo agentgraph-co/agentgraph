@@ -8,12 +8,17 @@ interface UseWebSocketOptions {
   enabled?: boolean
 }
 
+const BASE_DELAY = 1000
+const MAX_DELAY = 30000
+
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const { channels = ['feed', 'notifications'], onMessage, enabled = true } = options
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const connectTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const mountedRef = useRef(true)
   const onMessageRef = useRef(onMessage)
+  const retriesRef = useRef(0)
   const [connected, setConnected] = useState(false)
 
   // Stabilize channels reference — only change when the actual values change
@@ -38,7 +43,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       const ws = new WebSocket(url)
       wsRef.current = ws
 
-      ws.onopen = () => setConnected(true)
+      // Connection timeout — close and retry if stuck in CONNECTING
+      connectTimeout.current = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close()
+        }
+      }, 10000)
+
+      ws.onopen = () => {
+        clearTimeout(connectTimeout.current)
+        retriesRef.current = 0
+        setConnected(true)
+      }
 
       ws.onmessage = (event) => {
         try {
@@ -54,10 +70,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
 
       ws.onclose = () => {
+        clearTimeout(connectTimeout.current)
         setConnected(false)
         wsRef.current = null
         if (mountedRef.current) {
-          reconnectTimer.current = setTimeout(connect, 3000)
+          // Exponential backoff with jitter
+          const delay = Math.min(BASE_DELAY * 2 ** retriesRef.current, MAX_DELAY)
+          const jitter = delay * 0.5 * Math.random()
+          retriesRef.current++
+          reconnectTimer.current = setTimeout(connect, delay + jitter)
         }
       }
 
@@ -70,6 +91,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return () => {
       mountedRef.current = false
       clearTimeout(reconnectTimer.current)
+      clearTimeout(connectTimeout.current)
       wsRef.current?.close()
       wsRef.current = null
     }

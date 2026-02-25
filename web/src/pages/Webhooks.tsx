@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from '../components/Toasts'
@@ -45,9 +45,11 @@ export default function Webhooks() {
   const [error, setError] = useState('')
   const [createdSecret, setCreatedSecret] = useState<CreatedWebhook | null>(null)
   const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Webhooks - AgentGraph' }, [])
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
 
   const { data: webhooks, isLoading, isError, refetch } = useQuery<{ webhooks: Webhook[]; count: number }>({
     queryKey: ['webhooks'],
@@ -115,7 +117,8 @@ export default function Webhooks() {
   const copySecret = async (secret: string) => {
     await navigator.clipboard.writeText(secret)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(false), 2000)
   }
 
   if (isLoading) {

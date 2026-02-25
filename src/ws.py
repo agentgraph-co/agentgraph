@@ -40,6 +40,7 @@ class ConnectionManager:
         self._all: set[WebSocket] = set()
         # Whether the Redis subscriber background task is running
         self._subscriber_task: asyncio.Task | None = None
+        self._subscriber_lock = asyncio.Lock()
 
     async def connect(
         self, websocket: WebSocket, entity_id: str, channels: list[str] | None = None,
@@ -139,17 +140,36 @@ class ConnectionManager:
         if self._subscriber_task is None or self._subscriber_task.done():
             try:
                 loop = asyncio.get_running_loop()
-                self._subscriber_task = loop.create_task(self._subscribe_loop())
+                self._subscriber_task = loop.create_task(
+                    self._subscribe_with_retry(),
+                )
             except RuntimeError:
                 pass
 
-    async def _subscribe_loop(self) -> None:
-        """Background task that listens for Redis pub/sub messages and delivers locally."""
-        try:
-            from src.redis_client import get_redis
+    async def _subscribe_with_retry(self) -> None:
+        """Retry subscriber loop with exponential backoff."""
+        delay = 1.0
+        max_delay = 30.0
+        while True:
+            try:
+                await self._subscribe_loop()
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                logger.warning(
+                    "Redis subscriber disconnected, retrying in %.0fs",
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, max_delay)
 
-            r = get_redis()
-            pubsub = r.pubsub()
+    async def _subscribe_loop(self) -> None:
+        """Background task that listens for Redis pub/sub messages."""
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        pubsub = r.pubsub()
+        try:
             await pubsub.subscribe(_REDIS_WS_CHANNEL)
 
             async for raw_message in pubsub.listen():
@@ -160,11 +180,12 @@ class ConnectionManager:
                     await self._handle_pubsub_message(msg)
                 except Exception:
                     logger.exception("Error handling pub/sub message")
-        except asyncio.CancelledError:
-            return
-        except Exception:
-            logger.warning("Redis subscriber disconnected, will retry on next connection")
-            self._subscriber_task = None
+        finally:
+            try:
+                await pubsub.unsubscribe(_REDIS_WS_CHANNEL)
+                await pubsub.close()
+            except Exception:
+                pass
 
     async def _handle_pubsub_message(self, msg: dict[str, Any]) -> None:
         """Route an incoming pub/sub message to local WebSocket connections.
