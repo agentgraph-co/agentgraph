@@ -99,16 +99,16 @@ export const ZOOM_THRESHOLDS = {
 /** Glow ring opacity for cluster membership */
 export const CLUSTER_GLOW_ALPHA = 0.35
 
-/** Edge particle settings for directional flow */
+/** Edge particle settings for directional flow — subtle glowing dots */
 export const PARTICLE_CONFIG = {
-  width: 3,
-  speed: 0.006,
+  width: 2,
+  speed: 0.004,
   count: {
-    attestation: 3,
+    attestation: 2,
     follow: 1,
     operator_agent: 2,
     collaboration: 2,
-    service: 2,
+    service: 1,
     fork: 1,
   } as Record<string, number>,
 } as const

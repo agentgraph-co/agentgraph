@@ -270,10 +270,10 @@ export default function ForceGraph({
   }, [theme])
 
   // Particle width — the library already divides by sqrt(globalScale) internally,
-  // so we do NOT apply our own semantic zoom compensation here (that was causing
-  // double-shrink making particles sub-pixel and invisible).
+  // so we do NOT apply our own semantic zoom compensation here.
+  // Keep subtle: just enough to see a soft glowing dot traveling along edges.
   const getParticleWidth = useCallback(() => {
-    return theme === 'light' ? PARTICLE_CONFIG.width * 2 : PARTICLE_CONFIG.width * 1.5
+    return theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width
   }, [theme])
 
   // Handle node click
