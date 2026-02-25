@@ -283,6 +283,18 @@ async def reset_password(
     entity.password_hash = hash_password(body.new_password)
     await db.flush()
 
+    # Invalidate all existing sessions — tokens with iat <= this value
+    # are rejected in deps.py and refresh. Same pattern as change_password.
+    import time
+
+    from src import cache
+
+    await cache.set(
+        f"token:inv:{entity.id}",
+        int(time.time()),
+        ttl=settings.jwt_refresh_token_expire_days * 86400,
+    )
+
     await log_action(
         db,
         action="auth.password_reset",
@@ -290,7 +302,9 @@ async def reset_password(
         ip_address=request.client.host if request.client else None,
     )
 
-    return MessageResponse(message="Password reset successful. Please log in.")
+    return MessageResponse(
+        message="Password reset successful. All sessions invalidated. Please log in.",
+    )
 
 
 @router.post(
