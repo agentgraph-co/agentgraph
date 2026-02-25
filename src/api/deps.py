@@ -140,6 +140,15 @@ def require_scope(scope: str):
     return Depends(_check_scope)
 
 
+def require_admin(entity: Entity) -> None:
+    """Raise 403 if entity is not an admin."""
+    if not entity.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+
 async def get_optional_entity(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Header(None),

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import AnalyticsEvent, Entity
@@ -101,11 +101,6 @@ async def track_event(
 # --- Admin endpoints ---
 
 
-def _require_admin(entity: Entity) -> None:
-    if not entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-
 @router.get(
     "/conversion",
     response_model=ConversionSummary,
@@ -117,7 +112,7 @@ async def get_conversion_funnel(
     db: AsyncSession = Depends(get_db),
 ):
     """Conversion funnel summary. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
@@ -198,7 +193,7 @@ async def get_daily_conversion(
     db: AsyncSession = Depends(get_db),
 ):
     """Daily event breakdown. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
