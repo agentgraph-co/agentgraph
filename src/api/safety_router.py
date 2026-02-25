@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import Entity
@@ -70,11 +70,6 @@ class AlertResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def _require_admin(entity: Entity) -> None:
-    if not entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-
 # --- Freeze endpoints ---
 
 
@@ -89,7 +84,7 @@ async def activate_freeze(
     db: AsyncSession = Depends(get_db),
 ):
     """Activate or deactivate propagation freeze. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.safety.emergency import broadcast_network_alert
     from src.safety.propagation import set_propagation_freeze
@@ -121,7 +116,7 @@ async def freeze_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Check current propagation freeze status. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.safety.propagation import is_propagation_frozen
 
@@ -144,7 +139,7 @@ async def quarantine_entity_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Quarantine an entity. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     target = await db.get(Entity, entity_id)
     if target is None:
@@ -182,7 +177,7 @@ async def release_quarantine_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Release an entity from quarantine. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     target = await db.get(Entity, entity_id)
     if target is None:
@@ -222,7 +217,7 @@ async def create_alert(
     db: AsyncSession = Depends(get_db),
 ):
     """Broadcast a network alert. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.safety.emergency import broadcast_network_alert
 
@@ -239,18 +234,22 @@ async def create_alert(
 
 @router.get(
     "/alerts",
-    response_model=list[AlertResponse],
     dependencies=[Depends(rate_limit_reads)],
 )
 async def list_alerts(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ):
     """List recent propagation alerts. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
-    from src.safety.emergency import get_recent_alerts
+    from src.safety.emergency import count_alerts, get_recent_alerts
 
-    alerts = await get_recent_alerts(db, limit=limit)
-    return [AlertResponse.model_validate(a) for a in alerts]
+    total = await count_alerts(db)
+    alerts = await get_recent_alerts(db, limit=limit, offset=offset)
+    return {
+        "alerts": [AlertResponse.model_validate(a) for a in alerts],
+        "total": total,
+    }

@@ -9,7 +9,7 @@ from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -36,11 +36,6 @@ from src.models import (
 from src.utils import like_pattern
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-def _require_admin(entity: Entity) -> None:
-    if not entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 class PlatformStats(BaseModel):
@@ -90,7 +85,7 @@ async def platform_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get platform-wide statistics. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     total_entities = await db.scalar(
         select(func.count()).select_from(Entity)
@@ -197,7 +192,7 @@ async def list_entities(
     db: AsyncSession = Depends(get_db),
 ):
     """List all entities. Admin only. Use q to search by name or email."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from sqlalchemy import or_
 
@@ -256,7 +251,7 @@ async def deactivate_entity(
     db: AsyncSession = Depends(get_db),
 ):
     """Deactivate an entity. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     entity = await db.get(Entity, entity_id)
     if entity is None:
@@ -287,7 +282,7 @@ async def reactivate_entity(
     db: AsyncSession = Depends(get_db),
 ):
     """Reactivate an entity. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     entity = await db.get(Entity, entity_id)
     if entity is None:
@@ -308,7 +303,7 @@ async def admin_verify_email(
     db: AsyncSession = Depends(get_db),
 ):
     """Force-verify an entity's email. Admin only (for support cases)."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     entity = await db.get(Entity, entity_id)
     if entity is None:
@@ -339,7 +334,7 @@ async def promote_to_admin(
     db: AsyncSession = Depends(get_db),
 ):
     """Promote an entity to admin. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     entity = await db.get(Entity, entity_id)
     if entity is None:
@@ -362,7 +357,7 @@ async def demote_admin(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove admin status from an entity. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     if entity_id == current_entity.id:
         raise HTTPException(
@@ -386,7 +381,7 @@ async def recompute_trust_scores(
     db: AsyncSession = Depends(get_db),
 ):
     """Recompute trust scores for all active entities. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.trust.score import batch_recompute
 
@@ -410,7 +405,7 @@ async def recompute_all_trust_scores(
 
     Admin only.
     """
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.jobs.trust_recompute import run_trust_recompute
 
@@ -451,7 +446,7 @@ async def trust_distribution_stats(
     - avg_by_type: average score per entity type (human vs agent)
     - total_with_scores: total entities that have trust scores
     """
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.models import EntityType, TrustScore
 
@@ -508,7 +503,7 @@ async def get_rate_limit_status(
     current_entity: Entity = Depends(get_current_entity),
 ):
     """Get current rate limiter state. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     import time as _time
 
@@ -566,7 +561,7 @@ async def get_growth_metrics(
     db: AsyncSession = Depends(get_db),
 ):
     """Get daily growth metrics for the past N days. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from datetime import timedelta, timezone
 
@@ -632,7 +627,7 @@ async def get_top_entities(
     db: AsyncSession = Depends(get_db),
 ):
     """Get top entities by various metrics. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.models import RelationshipType, TrustScore
 
@@ -724,7 +719,7 @@ async def toggle_featured_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Toggle featured status on a listing. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     listing = await db.get(Listing, listing_id)
     if listing is None:
@@ -759,7 +754,7 @@ async def suspend_entity(
     """Temporarily suspend an entity for N days. Admin only."""
     from datetime import timedelta, timezone
 
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     entity = await db.get(Entity, entity_id)
     if entity is None:
@@ -797,7 +792,7 @@ async def cleanup_token_blacklist(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove expired entries from the token blacklist. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.api.auth_service import cleanup_expired_blacklist
 
@@ -815,7 +810,7 @@ async def admin_hide_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Hide a post (soft delete). Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     post = await db.get(Post, post_id)
     if post is None:
@@ -846,7 +841,7 @@ async def query_audit_logs(
     db: AsyncSession = Depends(get_db),
 ):
     """Query audit logs with filters. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     base = select(AuditLog)
     count_base = select(func.count()).select_from(AuditLog)

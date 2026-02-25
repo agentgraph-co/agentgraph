@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import AnomalyAlert, Entity
@@ -57,11 +57,6 @@ class ResolveResponse(BaseModel):
 
 
 # --- Helpers ---
-
-
-def _require_admin(entity: Entity) -> None:
-    if not entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 # --- Endpoints ---
@@ -145,7 +140,7 @@ async def trigger_anomaly_scan(
     db: AsyncSession = Depends(get_db),
 ) -> AnomalyScanResponse:
     """Trigger a manual anomaly scan. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     from src.jobs.anomaly_scan import run_anomaly_scan
 
@@ -164,7 +159,7 @@ async def resolve_anomaly_alert(
     db: AsyncSession = Depends(get_db),
 ) -> ResolveResponse:
     """Resolve an anomaly alert. Admin only."""
-    _require_admin(current_entity)
+    require_admin(current_entity)
 
     alert = await db.get(AnomalyAlert, alert_id)
     if alert is None:

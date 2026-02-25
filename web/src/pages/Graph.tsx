@@ -19,6 +19,7 @@ import {
 } from '../hooks/useGraphData'
 import type { GraphNode, GraphData } from '../hooks/useGraphData'
 
+import ErrorBoundary from '../components/ErrorBoundary'
 import ForceGraph from '../components/graph/ForceGraph'
 import NodeTooltip from '../components/graph/NodeTooltip'
 import ClusterLegend from '../components/graph/ClusterLegend'
@@ -276,15 +277,17 @@ export default function Graph() {
       >
         {/* Force graph */}
         {activeData && (
-          <ForceGraph
-            graphData={activeData}
-            is3D={is3D}
-            searchTerm={searchTerm}
-            activeCluster={activeCluster}
-            onNodeClick={handleNodeClick}
-            onNodeHover={handleNodeHover}
-            onBackgroundClick={() => setHoveredNode(null)}
-          />
+          <ErrorBoundary>
+            <ForceGraph
+              graphData={activeData}
+              is3D={is3D}
+              searchTerm={searchTerm}
+              activeCluster={activeCluster}
+              onNodeClick={handleNodeClick}
+              onNodeHover={handleNodeHover}
+              onBackgroundClick={() => setHoveredNode(null)}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Ego loading overlay */}
