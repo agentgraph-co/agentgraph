@@ -292,7 +292,7 @@ select:focus-visible {
 [data-theme="light"] {
   --color-surface: #ffffff;
   --color-surface-hover: #f1f5f9;
-  --color-background: #f8fafc;
+  --color-background: #f3f5f7;
   --color-text: #1e293b;
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
@@ -331,5 +331,5 @@ select:focus-visible {
 
 [data-theme="light"] .hero-art-blend {
   mix-blend-mode: multiply;
-  opacity: 0.18;
+  opacity: 0.35;
 }

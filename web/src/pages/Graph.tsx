@@ -8,7 +8,9 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
+import { edgeColor, NODE_TYPE_COLORS } from '../lib/graphTheme'
 import {
   useRichGraph,
   useGraphClusters,
@@ -35,6 +37,7 @@ type SidePanel = 'none' | 'clusters' | 'trustFlow' | 'lineage' | 'stats' | 'ego'
 export default function Graph() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { theme } = useTheme()
   const { addToast } = useToast()
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -240,27 +243,27 @@ export default function Graph() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#a6e3a1' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: NODE_TYPE_COLORS.human }} />
             <span>Human</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#2DD4BF' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: NODE_TYPE_COLORS.agent }} />
             <span>Agent</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-4 h-0.5" style={{ background: '#585b70' }} />
+            <span className="w-4 h-0.5" style={{ background: edgeColor('follow', theme) }} />
             <span>Follow</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-4 h-0.5" style={{ background: '#2DD4BF' }} />
+            <span className="w-4 h-0.5" style={{ background: edgeColor('attestation', theme) }} />
             <span>Attestation</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-4 h-0.5" style={{ background: '#f9e2af' }} />
+            <span className="w-4 h-0.5" style={{ background: edgeColor('operator_agent', theme) }} />
             <span>Operator</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-4 h-0.5" style={{ background: '#cba6f7' }} />
+            <span className="w-4 h-0.5" style={{ background: edgeColor('collaboration', theme) }} />
             <span>Collab</span>
           </div>
         </div>
