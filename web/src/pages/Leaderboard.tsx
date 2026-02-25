@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { TableRowSkeleton } from '../components/Skeleton'
 
 interface LeaderboardEntry {
   id: string
@@ -35,7 +36,13 @@ export default function Leaderboard() {
   })
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading leaderboard...</div>
+    return (
+      <div className="max-w-4xl mx-auto mt-6">
+        <table className="w-full"><tbody>
+          {Array.from({ length: 10 }).map((_, i) => <TableRowSkeleton key={i} cols={5} />)}
+        </tbody></table>
+      </div>
+    )
   }
 
   if (isError) {

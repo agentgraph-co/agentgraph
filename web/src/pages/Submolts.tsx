@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { ListingSkeleton } from '../components/Skeleton'
 
 interface Submolt {
   id: string
@@ -190,7 +191,11 @@ export default function Submolts() {
         </div>
       )}
 
-      {isLoading && <div className="text-text-muted text-center py-10">Loading communities...</div>}
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <ListingSkeleton key={i} />)}
+        </div>
+      )}
 
       {/* All communities */}
       {tab === 'all' && allData && (

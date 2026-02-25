@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import GuestPrompt from '../components/GuestPrompt'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { formatDate, timeAgo } from '../lib/formatters'
+import { PostSkeleton, ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 
@@ -299,7 +300,12 @@ export default function SubmoltDetail() {
   }
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading community...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        <ProfileSkeleton />
+        {Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)}
+      </div>
+    )
   }
 
   if (isError) {

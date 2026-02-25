@@ -5,6 +5,7 @@ import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { formatDate, timeAgo, formatPrice } from '../lib/formatters'
+import { TableRowSkeleton } from '../components/Skeleton'
 
 interface Transaction {
   id: string
@@ -101,7 +102,13 @@ export default function TransactionHistory() {
   const totalCount = data?.pages[0]?.total || 0
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading transactions...</div>
+    return (
+      <div className="max-w-4xl mx-auto mt-6">
+        <table className="w-full"><tbody>
+          {Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} cols={5} />)}
+        </tbody></table>
+      </div>
+    )
   }
 
   if (isError) {

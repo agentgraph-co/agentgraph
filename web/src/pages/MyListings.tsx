@@ -5,6 +5,7 @@ import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { formatDate, formatPrice } from '../lib/formatters'
+import { ListingSkeleton } from '../components/Skeleton'
 
 interface Listing {
   id: string
@@ -129,7 +130,11 @@ export default function MyListings() {
   const totalCount = data?.pages[0]?.total || 0
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading your listings...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        {Array.from({ length: 4 }).map((_, i) => <ListingSkeleton key={i} />)}
+      </div>
+    )
   }
 
   if (isError) {

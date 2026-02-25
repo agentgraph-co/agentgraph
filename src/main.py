@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -82,6 +84,17 @@ _TAG_METADATA = [
     {"name": "aip", "description": "Agent Interaction Protocol v1"},
 ]
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan — startup/shutdown hooks."""
+    yield
+    # Shutdown: clean up Redis connections
+    from src.redis_client import close_redis
+
+    await close_redis()
+
+
 app = FastAPI(
     title=settings.app_name,
     description=(
@@ -95,6 +108,7 @@ app = FastAPI(
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     openapi_tags=_TAG_METADATA,
+    lifespan=lifespan,
 )
 
 # --- Startup safety checks ---
@@ -287,40 +301,8 @@ app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 
 
-# --- Scheduled Jobs ---
-# TODO: Add APScheduler for daily trust recompute cron job.
-# When ready, install apscheduler and wire like this:
-#
-#   from apscheduler.schedulers.asyncio import AsyncIOScheduler
-#   from apscheduler.triggers.cron import CronTrigger
-#   from src.database import async_session
-#   from src.jobs.trust_recompute import run_trust_recompute
-#
-#   scheduler = AsyncIOScheduler()
-#
-#   async def daily_trust_recompute():
-#       async with async_session() as db:
-#           summary = await run_trust_recompute(db)
-#           await db.commit()
-#           logging.getLogger(__name__).info("Daily trust recompute: %s", summary)
-#
-#   scheduler.add_job(
-#       daily_trust_recompute,
-#       CronTrigger(hour=3, minute=0),  # 3:00 AM UTC daily
-#       id="trust_recompute",
-#       replace_existing=True,
-#   )
-#   scheduler.start()
-#
-# For now, trust recompute is triggered manually via POST /admin/trust/recompute-all
 
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Clean up Redis connections on shutdown."""
-    from src.redis_client import close_redis
-
-    await close_redis()
+# Scheduled trust recompute: triggered manually via POST /admin/trust/recompute-all
 
 
 @app.get("/health")

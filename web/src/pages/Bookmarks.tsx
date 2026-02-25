@@ -6,6 +6,7 @@ import type { FeedResponse } from '../types'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
+import { PostSkeleton } from '../components/Skeleton'
 
 type SortMode = 'newest' | 'oldest' | 'most_votes'
 
@@ -66,7 +67,11 @@ export default function Bookmarks() {
   }, [data, searchTerm, sortBy, filterType])
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading bookmarks...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        {Array.from({ length: 5 }).map((_, i) => <PostSkeleton key={i} />)}
+      </div>
+    )
   }
 
   if (isError) {

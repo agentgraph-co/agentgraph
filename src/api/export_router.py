@@ -38,6 +38,12 @@ from src.models import (
 
 router = APIRouter(prefix="/export", tags=["export"])
 
+# GDPR export caps — prevent runaway queries on large accounts
+EXPORT_LIMIT_STANDARD = 5000
+EXPORT_LIMIT_LARGE = 10000
+EXPORT_LIMIT_SMALL = 1000
+EXPORT_LIMIT_MINIMAL = 500
+
 
 @router.get("/me", dependencies=[Depends(rate_limit_export)])
 async def export_my_data(
@@ -71,7 +77,7 @@ async def export_my_data(
         select(Post)
         .where(Post.author_entity_id == entity_id)
         .order_by(Post.created_at.desc())
-        .limit(5000)
+        .limit(EXPORT_LIMIT_STANDARD)
     )
     posts = [
         {
@@ -89,7 +95,7 @@ async def export_my_data(
 
     # Votes
     votes_result = await db.execute(
-        select(Vote).where(Vote.entity_id == entity_id).limit(5000)
+        select(Vote).where(Vote.entity_id == entity_id).limit(EXPORT_LIMIT_STANDARD)
     )
     votes = [
         {
@@ -105,7 +111,7 @@ async def export_my_data(
         select(EntityRelationship).where(
             EntityRelationship.source_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
-        ).limit(10000)
+        ).limit(EXPORT_LIMIT_LARGE)
     )
     following = [
         str(r.target_entity_id)
@@ -117,7 +123,7 @@ async def export_my_data(
         select(EntityRelationship).where(
             EntityRelationship.target_entity_id == entity_id,
             EntityRelationship.type == RelationshipType.FOLLOW,
-        ).limit(10000)
+        ).limit(EXPORT_LIMIT_LARGE)
     )
     followers = [
         str(r.source_entity_id)
@@ -143,7 +149,7 @@ async def export_my_data(
             select(EvolutionRecord)
             .where(EvolutionRecord.entity_id == entity_id)
             .order_by(EvolutionRecord.created_at.asc())
-            .limit(5000)
+            .limit(EXPORT_LIMIT_STANDARD)
         )
         evolution = [
             {
@@ -158,7 +164,7 @@ async def export_my_data(
 
     # Listings
     listings_result = await db.execute(
-        select(Listing).where(Listing.entity_id == entity_id).limit(5000)
+        select(Listing).where(Listing.entity_id == entity_id).limit(EXPORT_LIMIT_STANDARD)
     )
     listings = [
         {
@@ -176,7 +182,7 @@ async def export_my_data(
 
     # Bookmarks
     bookmarks_result = await db.execute(
-        select(Bookmark).where(Bookmark.entity_id == entity_id).limit(5000)
+        select(Bookmark).where(Bookmark.entity_id == entity_id).limit(EXPORT_LIMIT_STANDARD)
     )
     bookmarks = [
         {
@@ -191,7 +197,7 @@ async def export_my_data(
         select(Notification)
         .where(Notification.entity_id == entity_id)
         .order_by(Notification.created_at.desc())
-        .limit(5000)
+        .limit(EXPORT_LIMIT_STANDARD)
     )
     notifications = [
         {
@@ -211,7 +217,7 @@ async def export_my_data(
                 Conversation.participant_a_id == entity_id,
                 Conversation.participant_b_id == entity_id,
             )
-        ).limit(1000)
+        ).limit(EXPORT_LIMIT_SMALL)
     )
     conversations = conv_result.scalars().all()
     # Build lookup: conversation_id → other participant
@@ -234,7 +240,7 @@ async def export_my_data(
                 DirectMessage.conversation_id,
                 DirectMessage.created_at.asc(),
             )
-            .limit(10000)
+            .limit(EXPORT_LIMIT_LARGE)
         )
         for msg in msg_result.scalars().all():
             dms.append({
@@ -251,7 +257,7 @@ async def export_my_data(
     endorse_result = await db.execute(
         select(CapabilityEndorsement).where(
             CapabilityEndorsement.endorser_entity_id == entity_id,
-        ).limit(5000)
+        ).limit(EXPORT_LIMIT_STANDARD)
     )
     endorsements_given = [
         {
@@ -266,7 +272,7 @@ async def export_my_data(
 
     # Reviews given
     review_result = await db.execute(
-        select(Review).where(Review.reviewer_entity_id == entity_id).limit(5000)
+        select(Review).where(Review.reviewer_entity_id == entity_id).limit(EXPORT_LIMIT_STANDARD)
     )
     reviews_given = [
         {
@@ -280,7 +286,7 @@ async def export_my_data(
 
     # Blocked entities
     block_result = await db.execute(
-        select(EntityBlock).where(EntityBlock.blocker_id == entity_id).limit(5000)
+        select(EntityBlock).where(EntityBlock.blocker_id == entity_id).limit(EXPORT_LIMIT_STANDARD)
     )
     blocked = [
         str(b.blocked_id) for b in block_result.scalars().all()
@@ -291,7 +297,7 @@ async def export_my_data(
         select(AuditLog)
         .where(AuditLog.entity_id == entity_id)
         .order_by(AuditLog.created_at.desc())
-        .limit(500)
+        .limit(EXPORT_LIMIT_MINIMAL)
     )
     audit_log = [
         {
@@ -310,7 +316,7 @@ async def export_my_data(
                 Transaction.seller_entity_id == entity_id,
             )
         ).order_by(Transaction.created_at.desc())
-        .limit(5000)
+        .limit(EXPORT_LIMIT_STANDARD)
     )
     transactions = [
         {
@@ -330,7 +336,7 @@ async def export_my_data(
         select(ListingReview).where(
             ListingReview.reviewer_entity_id == entity_id,
         ).order_by(ListingReview.created_at.desc())
-        .limit(5000)
+        .limit(EXPORT_LIMIT_STANDARD)
     )
     listing_reviews_given = [
         {
