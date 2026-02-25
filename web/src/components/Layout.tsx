@@ -39,9 +39,18 @@ export default function Layout() {
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
-  // Glassmorphism on scroll
+  // Glassmorphism on scroll — debounced to avoid re-rendering 60x/sec
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10)
+    let ticking = false
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true
+        requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 10)
+          ticking = false
+        })
+      }
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
