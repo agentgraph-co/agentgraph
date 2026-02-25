@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { AtmosphericBackground } from './AtmosphericBackground'
@@ -27,7 +27,10 @@ export default function Layout() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
+  const isActive = useCallback(
+    (path: string) => location.pathname === path || location.pathname.startsWith(path + '/'),
+    [location.pathname],
+  )
 
   const { data: unreadData } = useQuery<{ unread_count: number }>({
     queryKey: ['unread-count'],
@@ -128,11 +131,13 @@ export default function Layout() {
             </Link>
 
             {/* Desktop Nav */}
-            <div className="hidden lg:flex items-center gap-5">
-              {navItems.map((item) => (
-                <NavLink key={item.to} {...item} />
-              ))}
-            </div>
+            <LayoutGroup id="nav">
+              <div className="hidden lg:flex items-center gap-5">
+                {navItems.map((item) => (
+                  <NavLink key={item.to} {...item} />
+                ))}
+              </div>
+            </LayoutGroup>
           </div>
 
           {/* Right side */}
