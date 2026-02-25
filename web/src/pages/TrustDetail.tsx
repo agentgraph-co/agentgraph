@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
+import { ProfileSkeleton } from '../components/Skeleton'
 
 interface TrustComponentDetail {
   raw: number
@@ -218,7 +219,11 @@ export default function TrustDetail() {
   })
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading trust data...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        <ProfileSkeleton />
+      </div>
+    )
   }
 
   if (isError) {
