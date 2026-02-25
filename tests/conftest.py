@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 DB_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://localhost:5432/agentgraph"
+    "DATABASE_URL", "postgresql+asyncpg://localhost:5432/agentgraph_test"
 )
 
 # Tables to truncate before the test session (order respects FK constraints).
