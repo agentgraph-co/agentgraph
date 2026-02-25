@@ -119,6 +119,8 @@ class CreateAuditRecordRequest(BaseModel):
 async def list_badges(
     entity_id: uuid.UUID,
     include_expired: bool = Query(False),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """List verification badges for an entity."""
@@ -146,7 +148,10 @@ async def list_badges(
     if not include_expired:
         full_query = full_query.where(VerificationBadge.is_active.is_(True))
 
-    full_query = full_query.order_by(VerificationBadge.created_at.desc())
+    full_query = (
+        full_query.order_by(VerificationBadge.created_at.desc())
+        .limit(limit).offset(offset)
+    )
     result = await db.execute(full_query)
 
     badges = []
