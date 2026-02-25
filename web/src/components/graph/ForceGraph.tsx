@@ -282,8 +282,8 @@ export default function ForceGraph({
     (x: number, y: number, link: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const l = link as FGLink
       const color = edgeColor(l.type, theme)
-      // 48% smaller (24% + 24%): multiply by 0.76^2 ≈ 0.578
-      const r = (theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width) / 2 / Math.sqrt(globalScale) * 0.578
+      // 25% smaller on top of previous 0.578 → 0.578 * 0.75 ≈ 0.434
+      const r = (theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width) / 2 / Math.sqrt(globalScale) * 0.434
       const glowR = r * 2.5
 
       // Compute edge angle so the oval's long axis aligns with the line
