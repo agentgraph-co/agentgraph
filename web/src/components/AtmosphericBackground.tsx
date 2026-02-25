@@ -88,8 +88,10 @@ function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
   // Fade out as user scrolls into content
   const scrollOpacity = useTransform(scrollY, [0, 400], [1, 0.3])
 
-  // Base opacity varies by intensity
-  const baseOpacity = intensity === 'full' ? 0.12 : 0.07
+  // Base opacity varies by intensity and theme
+  const baseOpacity = theme === 'light'
+    ? (intensity === 'full' ? 0.18 : 0.12)
+    : (intensity === 'full' ? 0.18 : 0.10)
 
   return (
     <motion.div
@@ -112,10 +114,7 @@ function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
       <div
         className="absolute inset-0"
         style={{
-          background: `
-            radial-gradient(ellipse at center, transparent 15%, var(--color-background) 65%),
-            linear-gradient(to bottom, transparent 30%, var(--color-background) 90%)
-          `,
+          background: 'radial-gradient(ellipse at center, transparent 20%, var(--color-background) 70%)',
         }}
       />
     </motion.div>

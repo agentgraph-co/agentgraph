@@ -40,19 +40,19 @@ export const EDGE_COLORS: Record<string, string> = {
   fork: '#f5c2e7',
 }
 
-/** Edge type colors (light theme) */
+/** Edge type colors (light theme) — darkened for visibility against #f1f5f9 bg */
 export const EDGE_COLORS_LIGHT: Record<string, string> = {
-  follow: '#94a3b8',
-  attestation: '#0D9488',
-  operator_agent: '#ca8a04',
-  collaboration: '#7C3AED',
-  service: '#ea580c',
-  fork: '#A21CAF',
+  follow: '#64748b',
+  attestation: '#0f766e',
+  operator_agent: '#a16207',
+  collaboration: '#6d28d9',
+  service: '#c2410c',
+  fork: '#86198f',
 }
 
 /** Default edge color fallback */
 export const DEFAULT_EDGE_COLOR = '#6c7086'
-export const DEFAULT_EDGE_COLOR_LIGHT = '#94a3b8'
+export const DEFAULT_EDGE_COLOR_LIGHT = '#64748b'
 
 /** Get edge color by relationship type, theme-aware */
 export function edgeColor(type: string, theme: 'dark' | 'light' = 'dark'): string {
