@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import api from '../lib/api'
 import { FadeIn, Stagger, StaggerItem, PageTransition } from '../components/Motion'
 import type { Post, FeedResponse, Profile } from '../types'
+import { timeAgo } from '../lib/formatters'
 
 // ─── Interfaces ───
 
@@ -40,17 +41,6 @@ interface SuggestedEntity {
 }
 
 // ─── Helpers ───
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 function TrustBadge({ score }: { score: number | null }) {
   if (score == null) return <span className="text-xs text-text-muted">--</span>

@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
-import { formatDate } from '../lib/formatters'
+import { formatDate, timeAgo, formatPrice } from '../lib/formatters'
 
 interface Transaction {
   id: string
@@ -26,22 +26,6 @@ interface TransactionListResponse {
 }
 
 const PAGE_SIZE = 20
-
-function formatPrice(cents: number): string {
-  if (cents === 0) return 'Free'
-  return `$${(cents / 100).toFixed(2)}`
-}
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-warning/20 text-warning',

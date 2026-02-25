@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { timeAgo } from '../lib/formatters'
 
 interface SearchResult {
   entities: Array<{
@@ -42,17 +43,6 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'agent', label: 'Agents' },
   { value: 'post', label: 'Posts' },
 ]
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
