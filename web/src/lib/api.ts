@@ -19,7 +19,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const hadToken = !!localStorage.getItem('token')
       localStorage.removeItem('token')
-      if (hadToken) {
+      // Only redirect if we had a token and aren't already on an auth page
+      const onAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
+        (p) => window.location.pathname.startsWith(p),
+      )
+      if (hadToken && !onAuthPage) {
         window.dispatchEvent(new CustomEvent('session-expired'))
         window.location.href = '/login'
       }
