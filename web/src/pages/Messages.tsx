@@ -53,7 +53,8 @@ export default function Messages() {
       const { data } = await api.get('/messages', { params: { limit: 50 } })
       return data
     },
-    refetchInterval: 10_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   })
 
   const { data: messages } = useQuery<{ messages: Message[] }>({
@@ -63,7 +64,8 @@ export default function Messages() {
       return data
     },
     enabled: !!selectedConvId,
-    refetchInterval: 5_000,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
   })
 
   const { data: searchResults } = useQuery<{ entities: SearchEntity[] }>({

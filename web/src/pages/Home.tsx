@@ -522,13 +522,12 @@ export default function Home() {
 
         {/* Bioluminescent orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <BioluminescentGlow size={600} className="top-[-15%] left-[-15%]" delay={0} />
-          <BioluminescentGlow size={500} className="top-[10%] right-[-10%]" delay={3} />
-          <BioluminescentGlow size={450} className="bottom-[-10%] left-[25%]" delay={6} />
+          <BioluminescentGlow size={500} className="top-[-15%] left-[-15%]" delay={0} />
+          <BioluminescentGlow size={450} className="bottom-[-10%] left-[25%]" delay={5} />
         </div>
 
         {/* Particle field */}
-        <ParticleField count={70} speed={0.3} />
+        <ParticleField count={40} speed={0.3} />
 
         {/* Mycelium network illustration — visual centerpiece */}
         <NetworkIllustration />

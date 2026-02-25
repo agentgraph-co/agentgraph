@@ -156,8 +156,7 @@ function MediumLayer() {
     <>
       <GradientBreath className="opacity-50" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={500} className="top-[-10%] right-[-10%]" delay={0} />
-        <BioluminescentGlow size={400} className="bottom-[-5%] left-[-8%]" delay={6} />
+        <BioluminescentGlow size={450} className="top-[-10%] right-[-10%]" delay={0} />
       </div>
       <ParallaxHeroFace intensity="medium" />
     </>
@@ -171,9 +170,8 @@ function FullLayer() {
     <>
       <GradientBreath />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={600} className="top-[-15%] left-[-10%]" delay={0} />
-        <BioluminescentGlow size={500} className="top-[20%] right-[-12%]" delay={4} />
-        <BioluminescentGlow size={400} className="bottom-[-5%] left-[30%]" delay={8} />
+        <BioluminescentGlow size={550} className="top-[-15%] left-[-10%]" delay={0} />
+        <BioluminescentGlow size={450} className="bottom-[-5%] left-[30%]" delay={6} />
       </div>
       <ParallaxHeroFace intensity="full" />
     </>

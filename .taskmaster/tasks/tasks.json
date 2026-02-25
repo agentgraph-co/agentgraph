@@ -1181,78 +1181,85 @@
         "id": "92",
         "title": "API \u2014 Stricter Rate Limits on Export, SSO, and Agent Registration",
         "description": "Export endpoint needs dedicated rate limit. SSO and agent registration use wrong tier.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. Create rate_limit_export tier in rate_limit.py: 5 requests per hour per entity\n2. Apply to GET /export/me (export_router.py line 42)\n3. Change SSO login/callback from rate_limit_writes to rate_limit_auth (sso_router.py)\n4. Change POST /agents/register from rate_limit_writes to rate_limit_auth (agent_router.py)\n5. Add per-entity cooldown for POST /trust/refresh (1 per hour)",
         "testStrategy": "Test export rate limit triggers after 5 calls. Test SSO login rate limit triggers at auth tier. Test agent registration rate limit.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:45.368Z"
       },
       {
         "id": "93",
         "title": "Database \u2014 Add Missing db.refresh() After Mutations",
         "description": "agent_router and profile_router return stale updated_at after setattr+flush without db.refresh.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. src/api/agent_router.py ~line 519: After db.flush(), add await db.refresh(agent) before returning AgentResponse\n2. src/api/profile_router.py ~line 456: After db.flush(), add await db.refresh(entity) before reading back\n3. Check evolution_router.py line 255 and line 550 for same pattern\n4. Check trust/score.py line 250-267 for same pattern",
         "testStrategy": "Test: update agent, verify response updated_at reflects actual DB time. Same for profile update.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:46.025Z"
       },
       {
         "id": "94",
         "title": "Frontend \u2014 Add Error Boundary Around ForceGraph and Per-Route Boundaries",
         "description": "ForceGraph can crash on WebGL context loss. Single app-wide ErrorBoundary means entire app crashes.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. Wrap ForceGraph2D/3D in web/src/components/graph/ForceGraph.tsx with a dedicated ErrorBoundary that shows 'Graph could not be rendered' fallback\n2. Add per-route ErrorBoundary in App.tsx around high-risk routes: /graph, /profile, /admin\n3. The existing ErrorBoundary in App.tsx stays as the top-level catch-all",
         "testStrategy": "Manually test by forcing an error in ForceGraph (pass malformed data). Verify fallback UI shows instead of white screen. Verify other pages still work.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:46.716Z"
       },
       {
         "id": "95",
         "title": "Infrastructure \u2014 WebSocket Reliability: Reconnection, Backpressure, Error Handling",
         "description": "Three WebSocket reliability issues: no Redis subscriber reconnection, no slow-client backpressure, incomplete exception handling.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. src/ws.py lines 146-167: Add reconnection loop with exponential backoff in _subscribe_loop. On Redis disconnect, retry every 5s (then 10s, 20s, max 60s) instead of waiting for next WS client.\n2. src/ws.py _local_send_* methods: Wrap ws.send_text() in asyncio.wait_for(timeout=5.0). On timeout, disconnect the slow client.\n3. src/api/ws_router.py lines 84-114: Add except Exception handler alongside WebSocketDisconnect that calls manager.disconnect() to prevent connection leaks.",
         "testStrategy": "Test: simulate Redis disconnect, verify subscriber reconnects. Test slow client doesn't block other clients. Test exception during WS session doesn't leak connection.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:47.318Z"
       },
       {
         "id": "96",
         "title": "Infrastructure \u2014 Health Endpoint Returns 503 When Degraded + Swagger Disable in Prod",
         "description": "Health returns 200 even when degraded (LB can't detect). Swagger UI always enabled.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. src/main.py /health endpoint (~line 244): Return JSONResponse with status_code=503 when health['status'] == 'degraded'\n2. src/main.py line 91-92: Change to docs_url='/docs' if settings.debug else None, redoc_url='/redoc' if settings.debug else None\n3. Add Content-Security-Policy header to security headers middleware: default-src 'self'",
         "testStrategy": "Test: stop Redis, call /health, verify 503 returned. Test in debug=False mode, verify /docs returns 404. Verify CSP header present in responses.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:47.955Z"
       },
       {
         "id": "97",
         "title": "Code Quality \u2014 Extract Shared Admin Check, Password Validator, Standardize Imports",
         "description": "Admin check duplicated in 10+ routers. Password validation triplicated. log_action imported inconsistently.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. Move _require_admin() from admin_router.py to src/api/deps.py. Import and use across all routers that check is_admin (moderation_router, analytics_router, safety_router, anomaly_router, badges_router, disputes_router)\n2. Extract password strength validator to shared function in schemas.py. Use field_validator decorator in RegisterRequest, ResetPasswordRequest, and ChangePasswordRequest\n3. Change all inline log_action imports (~15 routers) to top-level imports. No circular dependency issue exists.\n4. Standardize parameter naming: use current_entity everywhere (not entity) for get_current_entity dependency",
         "testStrategy": "Run full test suite \u2014 all tests must pass. Run ruff lint. Grep for inline 'from src.audit import' \u2014 should be zero.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:48.593Z"
       },
       {
         "id": "98",
         "title": "API \u2014 Fix Cluster Privacy Leak and Dispute Resolution Logic",
         "description": "Cluster endpoint exposes PRIVATE entities. Dispute resolution allows unilateral resolution by either party.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. graph_router.py lines 453-458: Apply _build_privacy_filter(current_entity) to the entity fetch query in cluster detail endpoint\n2. disputes_router.py lines 429-558: Change resolve_dispute to only allow non-initiating party to resolve (if buyer opened dispute, only seller can propose resolution and vice versa). Admin can always resolve. Add test for this behavior.\n3. graph_router.py line 656: Fix regex \u2014 add $ anchor: pattern='^(human|agent)$'",
         "testStrategy": "Test: create PRIVATE entity, verify it doesn't appear in cluster members for unauthenticated users. Test: buyer opens dispute, verify buyer cannot unilaterally release funds. Test: admin can always resolve.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-25T19:49:49.330Z"
       },
       {
         "id": "99",
@@ -1308,13 +1315,36 @@
         "details": "Dead code:\n- Remove empty packages: src/identity/, src/social/, src/moderation/\n- Move v0-reference components out of web/src/ to docs/design-references/\n- Remove commented-out APScheduler code in main.py lines 210-233\n- Remove unused AuthResponse interface in web/src/types/index.ts\n\nConstants:\n- Export router limits (5000, 10000, etc.) \u2192 named constants\n- Trust modifier values (1.0, 0.8, 0.5) \u2192 named constants in base_scanner\n- Content preview truncation lengths (100, 200) \u2192 named constants\n\nCleanup:\n- Version string '0.1.0' sourced from single location\n- Migrate on_event('shutdown') to lifespan context manager\n- safety_router.py line 110: datetime.utcnow() \u2192 datetime.now(timezone.utc)\n- marketplace_router.py lines 525, 704: Replace str(exc) with generic error message",
         "testStrategy": "Run full test suite. Run ruff lint. Run tsc -b. Verify no regressions.",
         "subtasks": []
+      },
+      {
+        "id": "104",
+        "title": "UI Polish \u2014 Header Nav Highlight on Scroll + Footer Gradient Band",
+        "description": "Two remaining UI issues from light mode fix: (1) header nav active indicator still occasionally re-animates on scroll \u2014 needs deeper fix (possibly extract NavLink to stable component outside Layout render), (2) bottom gradient band still slightly visible on long list pages in light mode \u2014 vignette needs further tuning or removal.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "",
+        "testStrategy": "Visual QA in both light and dark mode. Scroll long pages and verify no gradient band. Navigate between pages and verify nav indicator only animates on route change.",
+        "subtasks": []
+      },
+      {
+        "id": "105",
+        "title": "Performance \u2014 Fix Frontend Resource Consumption Causing Browser Overload",
+        "description": "The site causes extreme browser resource consumption (CPU/memory), forcing users to close the tab. Despite earlier optimizations (tab-visibility pausing, 30fps throttle, CSS-only animations), the site still overloads Chrome on a MacBook Pro.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "details": "User report: site is a MASSIVE resource hog, had to close the browser tab.\n\nPrevious optimizations (commit be16e66) addressed:\n- ParticleField: throttled to 30fps, batched stroke calls, skip sqrt, unmount when tab hidden\n- ForceGraph: pause/resume simulation when tab hidden\n- GradientBreath: replaced framer-motion with CSS animation\n- BioluminescentGlow: replaced framer-motion with CSS float-slow\n- CSS gradient-breathe: removed hue-rotate filter\n- WebSocket: disconnect when tab hidden, reconnect when visible\n\nStill causing issues \u2014 deeper investigation needed:\n\n1. Profile the site with Chrome DevTools Performance tab:\n   - Identify top CPU consumers (JS heap, paint, composite)\n   - Check for memory leaks (heap snapshots over time)\n   - Measure GPU usage from canvas/WebGL rendering\n\n2. Likely culprits to investigate:\n   a. ParticleField canvas \u2014 O(n\u00b2) connection lines even at 30fps may be too much with many particles\n   b. ForceGraph continuous d3-force simulation \u2014 even when \"settled\", simulation may never fully stop\n   c. AtmosphericBackground \u2014 parallax scroll listeners, multiple layered elements\n   d. framer-motion LayoutGroup \u2014 layout animations on every nav change trigger expensive recalculations\n   e. TanStack Query \u2014 multiple queries with aggressive refetchInterval (unread-count 30s, etc.)\n   f. React re-renders \u2014 check for unnecessary re-renders with React DevTools Profiler\n   g. Tailwind CSS v4 \u2014 check if JIT/runtime CSS generation is contributing\n   h. Multiple simultaneous CSS animations (animate-pulse on skeletons, gradient-breathe, float-slow)\n\n3. Potential fixes:\n   - Intersection Observer: only animate elements visible in viewport\n   - requestIdleCallback for non-critical updates\n   - Virtualize long lists (feed, leaderboard) with react-window\n   - Reduce ParticleField particle count or disable on low-power devices\n   - Add navigator.hardwareConcurrency check for adaptive quality\n   - Lazy-load heavy components (ForceGraph, ParticleField)\n   - Consider prefers-reduced-motion media query to disable animations\n   - Web Worker for trust score / graph computations\n   - Profile and optimize AtmosphericBackground layers",
+        "testStrategy": "Profile with Chrome DevTools before/after. Measure: JS heap size, CPU percentage, paint time, composite layers. Target: <5% idle CPU, <200MB heap on feed page. Test on MacBook Pro Chrome for 5 minutes without interaction \u2014 fan should not spin up. Test all pages: Home, Feed, Graph, Profile, Marketplace.",
+        "subtasks": [],
+        "updatedAt": "2026-02-25T21:27:26.838194+00:00"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-23T06:58:09.549Z",
-      "taskCount": 80,
-      "completedCount": 57,
+      "lastModified": "2026-02-25T19:49:49.330Z",
+      "taskCount": 104,
+      "completedCount": 74,
       "tags": [
         "master"
       ]

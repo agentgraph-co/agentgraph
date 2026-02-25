@@ -78,15 +78,15 @@ a:focus-visible,
 
 .glass {
   background: var(--color-surface-glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .glass-strong {
-  background: rgba(17, 27, 27, 0.9);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  background: rgba(17, 27, 27, 0.92);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
@@ -336,4 +336,14 @@ a:focus-visible,
 [data-theme="light"] .hero-art-blend {
   mix-blend-mode: multiply;
   opacity: 0.35;
+}
+
+/* ─── Reduced Motion ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

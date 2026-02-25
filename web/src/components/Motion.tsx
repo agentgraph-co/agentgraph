@@ -308,7 +308,7 @@ export function ParticleField({
     let raf: number
     // Throttle to ~30fps instead of 60fps — halves CPU for a negligible visual difference
     let lastFrame = 0
-    const FRAME_INTERVAL = 33 // ~30fps
+    const FRAME_INTERVAL = 50 // ~20fps — lower CPU with negligible visual difference
 
     const animate = (now: number) => {
       raf = requestAnimationFrame(animate)
@@ -433,7 +433,7 @@ export function BioluminescentGlow({
 
   return (
     <div
-      className={`absolute rounded-full pointer-events-none blur-3xl animate-float-slow ${className}`}
+      className={`absolute rounded-full pointer-events-none blur-2xl animate-float-slow ${className}`}
       style={{
         width: size,
         height: size,
