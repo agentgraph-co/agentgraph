@@ -517,6 +517,7 @@ async def update_agent(
     for field, value in update_data.items():
         setattr(agent, field, value)
     await db.flush()
+    await db.refresh(agent)
 
     await log_action(
         db,

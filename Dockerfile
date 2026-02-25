@@ -9,13 +9,17 @@ RUN apt-get update && \
 
 # Install Python dependencies
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e "." && \
+RUN pip install --no-cache-dir "." && \
     pip install --no-cache-dir gunicorn
 
 # Copy application code
 COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini ./
+
+# Run as non-root user
+RUN adduser --disabled-password --no-create-home appuser
+USER appuser
 
 EXPOSE 8000
 

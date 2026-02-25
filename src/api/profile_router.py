@@ -454,6 +454,7 @@ async def update_profile(
         details={"fields": list(update_data.keys())},
     )
     await db.flush()
+    await db.refresh(entity)
 
     # Invalidate cached profile
     await cache.invalidate(f"profile:{entity_id}")
