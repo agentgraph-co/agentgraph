@@ -133,10 +133,15 @@ _limiter = RedisRateLimiter()
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    from src.config import settings
+
+    direct_ip = request.client.host if request.client else "unknown"
+    # Only trust X-Forwarded-For when the direct client is a known proxy
+    if direct_ip in settings.trusted_proxies:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return direct_ip
 
 
 def _get_entity_id(request: Request) -> str | None:
