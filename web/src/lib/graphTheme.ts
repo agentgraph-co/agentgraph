@@ -102,7 +102,7 @@ export const CLUSTER_GLOW_ALPHA = 0.35
 /** Edge particle settings for directional flow — subtle glowing dots */
 export const PARTICLE_CONFIG = {
   width: 2,
-  speed: 0.002,
+  speed: 0.003,
   count: {
     attestation: 2,
     follow: 1,

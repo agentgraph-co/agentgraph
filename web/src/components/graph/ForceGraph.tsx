@@ -282,18 +282,26 @@ export default function ForceGraph({
     (x: number, y: number, link: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const l = link as FGLink
       const color = edgeColor(l.type, theme)
-      const r = (theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width) / 2 / Math.sqrt(globalScale)
+      // 24% smaller: multiply by 0.76
+      const r = (theme === 'light' ? PARTICLE_CONFIG.width * 1.4 : PARTICLE_CONFIG.width) / 2 / Math.sqrt(globalScale) * 0.76
       const glowR = r * 2.5
 
+      // Oval shape — stretch 1.6x along the edge direction via ellipse scaling
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(1.6, 1)
+
       // Outer glow — soft transparent halo
-      const gradient = ctx.createRadialGradient(x, y, r * 0.3, x, y, glowR)
+      const gradient = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, glowR)
       gradient.addColorStop(0, color)
       gradient.addColorStop(0.4, color + '80')
       gradient.addColorStop(1, color + '00')
       ctx.beginPath()
-      ctx.arc(x, y, glowR, 0, 2 * Math.PI)
+      ctx.arc(0, 0, glowR, 0, 2 * Math.PI)
       ctx.fillStyle = gradient
       ctx.fill()
+
+      ctx.restore()
     },
     [theme],
   )
