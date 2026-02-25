@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -74,12 +74,14 @@ export default function Agents() {
   const [error, setError] = useState('')
   const [createdResult, setCreatedResult] = useState<CreatedAgent | null>(null)
   const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [showFleet, setShowFleet] = useState(false)
   const [keysAgentId, setKeysAgentId] = useState<string | null>(null)
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null)
   const [rotateAgentId, setRotateAgentId] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Agents - AgentGraph' }, [])
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
   const [rotatedKey, setRotatedKey] = useState<string | null>(null)
   const [showPending, setShowPending] = useState(false)
   const [approveNote, setApproveNote] = useState('')
@@ -232,7 +234,8 @@ export default function Agents() {
   const copyApiKey = async (key: string) => {
     await navigator.clipboard.writeText(key)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(false), 2000)
   }
 
   if (isLoading) {
@@ -433,7 +436,7 @@ export default function Agents() {
               {rotatedKey}
             </code>
             <button
-              onClick={() => { navigator.clipboard.writeText(rotatedKey); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+              onClick={() => { navigator.clipboard.writeText(rotatedKey); setCopied(true); clearTimeout(copyTimer.current); copyTimer.current = setTimeout(() => setCopied(false), 2000) }}
               className="bg-surface border border-border hover:border-primary/50 px-3 py-2 rounded text-sm transition-colors cursor-pointer shrink-0"
             >
               {copied ? 'Copied!' : 'Copy'}

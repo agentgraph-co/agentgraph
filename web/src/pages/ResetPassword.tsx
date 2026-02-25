@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 
@@ -13,8 +13,10 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const redirectTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => { document.title = 'Reset Password - AgentGraph' }, [])
+  useEffect(() => () => clearTimeout(redirectTimer.current), [])
 
   if (!token) {
     return (
@@ -39,7 +41,7 @@ export default function ResetPassword() {
     try {
       await api.post('/auth/reset-password', { token, new_password: password })
       setSuccess(true)
-      setTimeout(() => navigate('/login'), 3000)
+      redirectTimer.current = setTimeout(() => navigate('/login'), 3000)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg || 'Reset failed. The token may be invalid or expired.')
