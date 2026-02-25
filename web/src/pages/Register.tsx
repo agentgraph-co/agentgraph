@@ -88,6 +88,7 @@ export default function Register() {
               required
               minLength={8}
               autoComplete="new-password"
+              aria-describedby="password-strength"
               className="w-full bg-surface border border-border rounded-md px-3 py-2 pr-16 text-text focus:outline-none focus:border-primary"
             />
             <button
@@ -100,8 +101,8 @@ export default function Register() {
             </button>
           </div>
           {password && (
-            <div className="mt-2">
-              <div className="flex gap-1 mb-1">
+            <div className="mt-2" id="password-strength" role="status" aria-live="polite">
+              <div className="flex gap-1 mb-1" aria-hidden="true">
                 {[1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
