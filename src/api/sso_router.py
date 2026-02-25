@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,7 @@ from src.models import (
     OrganizationMembership,
     OrgRole,
 )
+from src.ssrf import validate_url_https_optional
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,21 @@ class SSOConfigUpdate(BaseModel):
     token_endpoint: str | None = None
     client_id: str | None = None
     client_secret: str | None = None
+
+    @field_validator("idp_sso_url")
+    @classmethod
+    def check_idp_sso_url(cls, v: str | None) -> str | None:
+        return validate_url_https_optional(v, field_name="idp_sso_url")
+
+    @field_validator("authorization_endpoint")
+    @classmethod
+    def check_authorization_endpoint(cls, v: str | None) -> str | None:
+        return validate_url_https_optional(v, field_name="authorization_endpoint")
+
+    @field_validator("token_endpoint")
+    @classmethod
+    def check_token_endpoint(cls, v: str | None) -> str | None:
+        return validate_url_https_optional(v, field_name="token_endpoint")
 
 
 # --- Helpers ---

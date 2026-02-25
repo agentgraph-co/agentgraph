@@ -9,7 +9,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -27,6 +27,7 @@ from src.models import (
     Transaction,
     TransactionStatus,
 )
+from src.ssrf import validate_url
 from src.utils import like_pattern
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,16 @@ class ListingReviewListResponse(BaseModel):
 class ConnectOnboardRequest(BaseModel):
     return_url: str = Field(..., min_length=1, max_length=2000)
     refresh_url: str = Field(..., min_length=1, max_length=2000)
+
+    @field_validator("return_url")
+    @classmethod
+    def check_return_url(cls, v: str) -> str:
+        return validate_url(v, field_name="return_url")
+
+    @field_validator("refresh_url")
+    @classmethod
+    def check_refresh_url(cls, v: str) -> str:
+        return validate_url(v, field_name="refresh_url")
 
 
 class ConnectOnboardResponse(BaseModel):

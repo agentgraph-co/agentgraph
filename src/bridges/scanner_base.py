@@ -220,6 +220,25 @@ BASE_PATTERNS: list[tuple[str, str, str, str]] = [
         "warning",
         "Use of pickle (arbitrary code execution on deserialization)",
     ),
+    # Dynamic import bypass — warning
+    (
+        "dynamic_import_builtin",
+        r"\b__import__\s*\(",
+        "warning",
+        "Dynamic import via __import__() (bypasses static analysis)",
+    ),
+    (
+        "dynamic_import_importlib",
+        r"\bimportlib\s*\.\s*(import_module|__import__)\s*\(",
+        "warning",
+        "Dynamic import via importlib (bypasses static analysis)",
+    ),
+    (
+        "dynamic_import_spec",
+        r"\bimportlib\s*\.\s*util\s*\.\s*spec_from_file_location\s*\(",
+        "warning",
+        "Dynamic file import via importlib.util (arbitrary module loading)",
+    ),
 ]
 
 

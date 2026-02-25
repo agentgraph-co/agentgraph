@@ -463,8 +463,8 @@ async def test_connect_onboard_creates_account(client: AsyncClient):
         resp = await client.post(
             f"{MARKET_URL}/connect/onboard",
             json={
-                "return_url": "http://localhost:5173/settings",
-                "refresh_url": "http://localhost:5173/settings?refresh=1",
+                "return_url": "https://app.agentgraph.io/settings",
+                "refresh_url": "https://app.agentgraph.io/settings?refresh=1",
             },
             headers=_auth(token),
         )
@@ -496,8 +496,8 @@ async def test_connect_onboard_existing_account(client: AsyncClient, db):
         resp = await client.post(
             f"{MARKET_URL}/connect/onboard",
             json={
-                "return_url": "http://localhost:5173/settings",
-                "refresh_url": "http://localhost:5173/settings?refresh=1",
+                "return_url": "https://app.agentgraph.io/settings",
+                "refresh_url": "https://app.agentgraph.io/settings?refresh=1",
             },
             headers=_auth(token),
         )

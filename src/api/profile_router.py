@@ -24,6 +24,7 @@ from src.models import (
     TrustScore,
     Vote,
 )
+from src.ssrf import validate_url_optional
 from src.utils import like_pattern
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -40,31 +41,7 @@ class UpdateProfileRequest(BaseModel):
     @field_validator("avatar_url")
     @classmethod
     def validate_avatar_url(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        if not v.startswith(("https://", "http://")):
-            raise ValueError("avatar_url must be a valid HTTP(S) URL")
-        # Block internal/private IPs to prevent SSRF
-        from urllib.parse import urlparse
-
-        parsed = urlparse(v)
-        hostname = parsed.hostname or ""
-        blocked = (
-            "localhost", "127.0.0.1", "0.0.0.0", "169.254", "10.", "192.168.",
-            "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
-            "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.",
-            "172.28.", "172.29.", "172.30.", "172.31.",
-            "100.64.", "100.65.", "100.66.", "100.67.",  # Carrier-grade NAT
-            "224.", "225.", "226.", "227.", "228.", "229.",  # Multicast
-            "230.", "231.", "232.", "233.", "234.", "235.",
-            "236.", "237.", "238.", "239.",
-            "::1", "[::1]", "fe80:", "fc00:", "fd",
-            "ff00:", "ff01:", "ff02:",  # IPv6 multicast
-        )
-        for b in blocked:
-            if hostname.startswith(b):
-                raise ValueError("avatar_url cannot point to internal addresses")
-        return v
+        return validate_url_optional(v, field_name="avatar_url")
 
 
 class ProfileResponse(BaseModel):

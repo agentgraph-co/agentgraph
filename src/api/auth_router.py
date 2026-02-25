@@ -382,14 +382,17 @@ async def logout(
         exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         await blacklist_token(db, payload["jti"], current_entity.id, exp)
 
-    # Blacklist the refresh token if provided
+    # Blacklist the refresh token if provided (verify ownership first)
     if body and body.refresh_token:
         refresh_payload = _decode(body.refresh_token)
         if refresh_payload and refresh_payload.get("jti"):
-            exp = datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc)
-            await blacklist_token(
-                db, refresh_payload["jti"], current_entity.id, exp,
-            )
+            # Only blacklist if the token belongs to the requesting user
+            token_sub = refresh_payload.get("sub")
+            if token_sub and str(token_sub) == str(current_entity.id):
+                exp = datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc)
+                await blacklist_token(
+                    db, refresh_payload["jti"], current_entity.id, exp,
+                )
 
     await log_action(
         db,

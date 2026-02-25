@@ -17,6 +17,7 @@ from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import DIDDocument, Entity
+from src.ssrf import validate_url_https
 
 router = APIRouter(prefix="/did", tags=["did"])
 
@@ -31,9 +32,7 @@ class ServiceEndpoint(BaseModel):
     @field_validator("serviceEndpoint")
     @classmethod
     def validate_url_scheme(cls, v: str) -> str:
-        if not v.startswith("https://"):
-            raise ValueError("serviceEndpoint must use https:// scheme")
-        return v
+        return validate_url_https(v, field_name="serviceEndpoint")
 
 
 class UpdateDIDRequest(BaseModel):
