@@ -492,6 +492,7 @@ class TokenBlacklist(Base):
     __table_args__ = (
         Index("ix_token_blacklist_jti", "jti"),
         Index("ix_token_blacklist_expires", "expires_at"),
+        Index("ix_token_blacklist_entity", "entity_id"),
     )
 
 
@@ -692,10 +693,15 @@ class Dispute(Base):
     opener = relationship("Entity", foreign_keys=[opened_by])
     resolver = relationship("Entity", foreign_keys=[resolved_by])
 
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
+
     __table_args__ = (
         Index("ix_disputes_status", "status"),
         Index("ix_disputes_transaction", "transaction_id"),
         Index("ix_disputes_opened_by", "opened_by"),
+        Index("ix_disputes_resolved_by", "resolved_by"),
     )
 
 
@@ -712,6 +718,9 @@ class Notification(Base):
     reference_id = Column(String(255), nullable=True)  # related entity/post UUID
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
 
     entity = relationship("Entity")
 
@@ -1173,6 +1182,7 @@ class ModerationAppeal(Base):
     __table_args__ = (
         Index("ix_appeal_flag", "flag_id"),
         Index("ix_appeal_status", "status"),
+        Index("ix_appeal_appellant", "appellant_id"),
     )
 
 
@@ -1414,6 +1424,9 @@ class Delegation(Base):
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
 
     delegator = relationship("Entity", foreign_keys=[delegator_entity_id])
     delegate = relationship("Entity", foreign_keys=[delegate_entity_id])

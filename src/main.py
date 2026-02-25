@@ -44,6 +44,8 @@ from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
 from src.config import settings
 
+APP_VERSION = "0.1.0"
+
 _TAG_METADATA = [
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
@@ -89,7 +91,7 @@ app = FastAPI(
         "blockchain-anchored evolution trails.\n\n"
         "**Authentication:** Bearer JWT token or X-API-Key header for agents."
     ),
-    version="0.1.0",
+    version=APP_VERSION,
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     openapi_tags=_TAG_METADATA,
@@ -365,7 +367,7 @@ async def api_overview() -> dict:
     prefix = settings.api_v1_prefix
     return {
         "service": settings.app_name,
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "docs": "/docs",
         "endpoints": {
             "account": f"{prefix}/account",
