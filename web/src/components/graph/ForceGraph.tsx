@@ -269,11 +269,11 @@ export default function ForceGraph({
     return base / Math.pow(gs, 0.8)
   }, [theme])
 
-  // Semantic particle width — boosted in light mode for visibility
+  // Particle width — the library already divides by sqrt(globalScale) internally,
+  // so we do NOT apply our own semantic zoom compensation here (that was causing
+  // double-shrink making particles sub-pixel and invisible).
   const getParticleWidth = useCallback(() => {
-    const gs = currentZoomRef.current
-    const base = theme === 'light' ? PARTICLE_CONFIG.width * 1.5 : PARTICLE_CONFIG.width
-    return base / Math.pow(gs, 0.8)
+    return theme === 'light' ? PARTICLE_CONFIG.width * 2 : PARTICLE_CONFIG.width * 1.5
   }, [theme])
 
   // Handle node click
@@ -322,7 +322,7 @@ export default function ForceGraph({
     linkDirectionalParticles: getLinkParticles,
     linkDirectionalParticleWidth: is3D ? PARTICLE_CONFIG.width : getParticleWidth,
     linkDirectionalParticleSpeed: PARTICLE_CONFIG.speed,
-    linkOpacity: theme === 'light' ? 0.7 : 0.45,
+    linkOpacity: is3D ? (theme === 'light' ? 0.7 : 0.45) : undefined, // 2D canvas ignores this prop
     linkWidth: is3D ? 1.5 : getLinkWidth,
     onNodeClick: handleNodeClick,
     onNodeHover: handleNodeHover,

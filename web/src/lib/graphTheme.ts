@@ -101,8 +101,8 @@ export const CLUSTER_GLOW_ALPHA = 0.35
 
 /** Edge particle settings for directional flow */
 export const PARTICLE_CONFIG = {
-  width: 2,
-  speed: 0.004,
+  width: 3,
+  speed: 0.006,
   count: {
     attestation: 3,
     follow: 1,
