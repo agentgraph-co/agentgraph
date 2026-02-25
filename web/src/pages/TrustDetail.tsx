@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 
@@ -38,44 +39,75 @@ interface AttestationListData {
   count: number
 }
 
-const COMPONENT_INFO: Record<string, { label: string; description: string; color: string }> = {
+const COMPONENT_INFO: Record<string, { label: string; description: string }> = {
   verification: {
     label: 'Verification',
     description: 'Email verified, DID registered, identity attestations',
-    color: '#2DD4BF',
   },
   age: {
     label: 'Account Age',
     description: 'Time since account creation (up to 365 days)',
-    color: '#a6e3a1',
   },
   activity: {
     label: 'Activity',
     description: 'Posts and votes in the last 30 days (log-scaled)',
-    color: '#f9e2af',
   },
   reputation: {
     label: 'Reputation',
     description: 'Review ratings (60%) and endorsement count (40%)',
-    color: '#f38ba8',
   },
   community: {
     label: 'Community',
     description: 'Trust attestations from other entities (competent, reliable, safe, responsive)',
-    color: '#cba6f7',
   },
 }
 
-const ATTESTATION_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  competent: { label: 'Competent', color: '#2DD4BF' },
-  reliable: { label: 'Reliable', color: '#a6e3a1' },
-  safe: { label: 'Safe', color: '#f9e2af' },
-  responsive: { label: 'Responsive', color: '#89b4fa' },
+// Catppuccin pastels for dark mode, saturated variants for light mode
+const COMPONENT_COLORS: Record<string, Record<string, string>> = {
+  dark: {
+    verification: '#2DD4BF',
+    age: '#a6e3a1',
+    activity: '#f9e2af',
+    reputation: '#f38ba8',
+    community: '#cba6f7',
+  },
+  light: {
+    verification: '#0D9488',
+    age: '#16a34a',
+    activity: '#ca8a04',
+    reputation: '#e11d48',
+    community: '#7C3AED',
+  },
 }
+
+const ATTESTATION_TYPE_LABELS: Record<string, { label: string }> = {
+  competent: { label: 'Competent' },
+  reliable: { label: 'Reliable' },
+  safe: { label: 'Safe' },
+  responsive: { label: 'Responsive' },
+}
+
+const ATTESTATION_COLORS: Record<string, Record<string, string>> = {
+  dark: {
+    competent: '#2DD4BF',
+    reliable: '#a6e3a1',
+    safe: '#f9e2af',
+    responsive: '#89b4fa',
+  },
+  light: {
+    competent: '#0D9488',
+    reliable: '#16a34a',
+    safe: '#ca8a04',
+    responsive: '#2563eb',
+  },
+}
+
+const FALLBACK_COLOR: Record<string, string> = { dark: '#585b70', light: '#64748b' }
 
 export default function TrustDetail() {
   const { entityId } = useParams<{ entityId: string }>()
   const { user } = useAuth()
+  const { theme } = useTheme()
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [showContest, setShowContest] = useState(false)
@@ -267,6 +299,7 @@ export default function TrustDetail() {
         {trust.component_details
           ? Object.entries(trust.component_details).map(([key, detail]) => {
               const info = COMPONENT_INFO[key]
+              const color = COMPONENT_COLORS[theme]?.[key] ?? FALLBACK_COLOR[theme]
               const rawPct = (detail.raw * 100).toFixed(0)
               const contributionPct = (detail.contribution * 100).toFixed(1)
               const weightPct = (detail.weight * 100).toFixed(0)
@@ -277,7 +310,7 @@ export default function TrustDetail() {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2.5 h-2.5 rounded-full"
-                        style={{ background: info?.color || '#585b70' }}
+                        style={{ background: color }}
                       />
                       <span className="text-sm font-medium">{info?.label || key}</span>
                       <span className="text-[10px] text-text-muted">({weightPct}% weight)</span>
@@ -294,7 +327,7 @@ export default function TrustDetail() {
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${rawPct}%`,
-                        background: info?.color || '#585b70',
+                        background: color,
                       }}
                     />
                   </div>
@@ -304,6 +337,7 @@ export default function TrustDetail() {
             })
           : Object.entries(trust.components).map(([key, value]) => {
               const info = COMPONENT_INFO[key]
+              const color = COMPONENT_COLORS[theme]?.[key] ?? FALLBACK_COLOR[theme]
               const pct = (value * 100).toFixed(0)
               return (
                 <div key={key} className="bg-surface border border-border rounded-lg p-4">
@@ -311,7 +345,7 @@ export default function TrustDetail() {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2.5 h-2.5 rounded-full"
-                        style={{ background: info?.color || '#585b70' }}
+                        style={{ background: color }}
                       />
                       <span className="text-sm font-medium">{info?.label || key}</span>
                     </div>
@@ -322,7 +356,7 @@ export default function TrustDetail() {
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${pct}%`,
-                        background: info?.color || '#585b70',
+                        background: color,
                       }}
                     />
                   </div>
@@ -341,11 +375,12 @@ export default function TrustDetail() {
           <div className="space-y-3">
             {attestations.attestations.map((att) => {
               const typeInfo = ATTESTATION_TYPE_LABELS[att.attestation_type]
+              const attColor = ATTESTATION_COLORS[theme]?.[att.attestation_type] ?? FALLBACK_COLOR[theme]
               return (
                 <div key={att.id} className="flex items-start gap-3 text-sm">
                   <span
                     className="mt-1 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider whitespace-nowrap"
-                    style={{ background: `${typeInfo?.color || '#585b70'}20`, color: typeInfo?.color || '#585b70' }}
+                    style={{ background: `${attColor}20`, color: attColor }}
                   >
                     {typeInfo?.label || att.attestation_type}
                   </span>

@@ -11,6 +11,7 @@ import {
   useTransform,
   type Variant,
 } from 'framer-motion'
+import { useTheme } from '../hooks/useTheme'
 
 // ─── Spring configs ───
 
@@ -304,6 +305,10 @@ export function PageTransition({ children, className = '' }: PageTransitionProps
 
 // ─── Particle Field (canvas-based floating data points) ───
 
+// Module-level color constants — stable references prevent re-render loops
+const PARTICLE_COLORS_DARK = ['#2DD4BF', '#E879F9', '#F59E0B']
+const PARTICLE_COLORS_LIGHT = ['#0D9488', '#A21CAF', '#D97706']
+
 interface ParticleFieldProps {
   className?: string
   count?: number
@@ -314,10 +319,14 @@ interface ParticleFieldProps {
 export function ParticleField({
   className = '',
   count = 50,
-  colors = ['#2DD4BF', '#E879F9', '#F59E0B'],
+  colors,
   speed = 0.5,
 }: ParticleFieldProps) {
+  const { theme } = useTheme()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const resolvedColors = colors ?? (theme === 'light' ? PARTICLE_COLORS_LIGHT : PARTICLE_COLORS_DARK)
+  const connectionColor = theme === 'light' ? '#0D9488' : '#2DD4BF'
+  const connectionAlpha = theme === 'light' ? 0.15 : 0.08
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -339,7 +348,7 @@ export function ParticleField({
       vx: (Math.random() - 0.5) * speed,
       vy: (Math.random() - 0.5) * speed,
       r: Math.random() * 2 + 0.5,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: resolvedColors[Math.floor(Math.random() * resolvedColors.length)],
       alpha: Math.random() * 0.6 + 0.2,
     }))
 
@@ -365,8 +374,8 @@ export function ParticleField({
       }
 
       // Draw connections between close particles
-      ctx.globalAlpha = 0.08
-      ctx.strokeStyle = '#2DD4BF'
+      ctx.globalAlpha = connectionAlpha
+      ctx.strokeStyle = connectionColor
       ctx.lineWidth = 0.5
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
@@ -391,7 +400,7 @@ export function ParticleField({
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
     }
-  }, [count, colors, speed])
+  }, [count, resolvedColors, speed, connectionColor, connectionAlpha])
 
   return (
     <canvas
@@ -404,6 +413,9 @@ export function ParticleField({
 
 // ─── Gradient Breath (slow-pulsing gradient) ───
 
+const GRADIENT_COLORS_DARK: [string, string, string] = ['#0D9488', '#E879F9', '#F59E0B']
+const GRADIENT_COLORS_LIGHT: [string, string, string] = ['#0D9488', '#A21CAF', '#D97706']
+
 interface GradientBreathProps {
   className?: string
   colors?: [string, string, string]
@@ -412,16 +424,21 @@ interface GradientBreathProps {
 
 export function GradientBreath({
   className = '',
-  colors = ['#0D9488', '#E879F9', '#F59E0B'],
+  colors,
   duration = 8,
 }: GradientBreathProps) {
+  const { theme } = useTheme()
+  const resolvedColors = colors ?? (theme === 'light' ? GRADIENT_COLORS_LIGHT : GRADIENT_COLORS_DARK)
+  // Light mode needs higher alpha so gradients are visible on bright backgrounds
+  const [a1, a2, a3] = theme === 'light' ? ['30', '25', '18'] : ['15', '10', '08']
+
   return (
     <motion.div
       className={`absolute inset-0 pointer-events-none ${className}`}
       style={{
-        background: `radial-gradient(ellipse at 30% 50%, ${colors[0]}15 0%, transparent 50%),
-                     radial-gradient(ellipse at 70% 30%, ${colors[1]}10 0%, transparent 50%),
-                     radial-gradient(ellipse at 50% 80%, ${colors[2]}08 0%, transparent 50%)`,
+        background: `radial-gradient(ellipse at 30% 50%, ${resolvedColors[0]}${a1} 0%, transparent 50%),
+                     radial-gradient(ellipse at 70% 30%, ${resolvedColors[1]}${a2} 0%, transparent 50%),
+                     radial-gradient(ellipse at 50% 80%, ${resolvedColors[2]}${a3} 0%, transparent 50%)`,
       }}
       animate={{
         opacity: [0.6, 0.9, 0.6],
@@ -502,24 +519,36 @@ export function BioluminescentGlow({
   size = 400,
   delay = 0,
 }: BioluminescentGlowProps) {
+  const { theme } = useTheme()
+
+  // Light mode uses darker/more saturated colors with higher alpha for visibility
+  const bgFrames = theme === 'light'
+    ? [
+        'radial-gradient(circle, rgba(13,148,136,0.15) 0%, rgba(162,28,175,0.08) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(162,28,175,0.15) 0%, rgba(217,119,6,0.08) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(217,119,6,0.12) 0%, rgba(13,148,136,0.08) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(13,148,136,0.15) 0%, rgba(162,28,175,0.08) 50%, transparent 70%)',
+      ]
+    : [
+        'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(232,121,249,0.2) 0%, rgba(245,158,11,0.1) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(13,148,136,0.1) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+      ]
+
   return (
     <motion.div
       className={`absolute rounded-full pointer-events-none blur-3xl ${className}`}
       style={{
         width: size,
         height: size,
-        background: 'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
+        background: bgFrames[0],
       }}
       animate={{
         x: [0, 20, -15, 10, 0],
         y: [0, -20, 10, -5, 0],
         scale: [1, 1.15, 0.9, 1.1, 1],
-        background: [
-          'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
-          'radial-gradient(circle, rgba(232,121,249,0.2) 0%, rgba(245,158,11,0.1) 50%, transparent 70%)',
-          'radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(13,148,136,0.1) 50%, transparent 70%)',
-          'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
-        ],
+        background: bgFrames,
       }}
       transition={{
         duration: 16,

@@ -977,19 +977,19 @@
         "id": "75",
         "title": "Deep Dive Security & Performance Audit",
         "description": "Thorough security and performance review across all 4 phases. Audit authentication flows, authorization checks, input validation, SQL injection vectors, rate limiting effectiveness, CORS config, and OWASP Top 10 compliance. Profile slow queries, identify N+1 problems, and benchmark key endpoints under load.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Three-pronged audit:\n\n1. Security Audit:\n   - Auth: JWT token handling, refresh flow, password reset, session management\n   - Authorization: Role checks on all admin/org endpoints, entity ownership validation\n   - Input validation: All request bodies, query params, path params\n   - SQL injection: Raw SQL usage in analytics/insights queries\n   - XSS: Content sanitization in posts, listings, DMs\n   - CORS: Verify allowlist is correct for all environments\n   - Rate limiting: Verify all write endpoints are rate-limited\n   - Secrets: No hardcoded keys, proper .env.secrets usage\n   - Dependencies: Check for known CVEs in pip packages\n\n2. Performance Audit:\n   - Profile top 20 endpoints with realistic data volume\n   - Identify missing indexes (EXPLAIN ANALYZE on slow queries)\n   - Check N+1 query patterns (especially feed, marketplace browse)\n   - Redis cache hit rates and TTL effectiveness\n   - WebSocket connection scaling\n   - Database connection pool sizing\n\n3. Code Quality:\n   - Dead code identification\n   - Consistent error handling patterns\n   - Proper async/await usage (no blocking calls in async context)\n   - Test coverage gaps\n\nOutput: Security findings report with severity ratings, performance bottleneck list with recommendations, code quality issues.",
         "testStrategy": "Run automated security scan (bandit, safety). Profile endpoints with wrk/hey. Run EXPLAIN ANALYZE on all analytics queries. Check test coverage report. Verify all findings are actionable.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T23:47:48.608Z"
+        "updatedAt": "2026-02-23T06:35:31.313Z"
       },
       {
         "id": "76",
         "title": "iOS App \u2014 SwiftUI Mobile Client",
         "description": "Build the AgentGraph iOS app using SwiftUI with Liquid Glass design language (iOS 26+). Implement core screens: Feed, Profile, Graph, and Discovery. Connect to the complete REST API and WebSocket infrastructure.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "75"
         ],
@@ -997,7 +997,7 @@
         "details": "iOS app following CLAUDE.md iOS guidelines:\n\nArchitecture: MVVM + SwiftUI, Swift Concurrency (async/await), SwiftData for local persistence.\n\nCore Screens (MVP):\n1. Feed \u2014 Trust-scored content stream with glass card treatment, pull-to-refresh, infinite scroll\n2. Profile \u2014 Agent/human identity with trust score, evolution timeline, capabilities\n3. Graph \u2014 Simplified 2D network visualization (ego-graph)\n4. Discovery \u2014 Search agents, browse marketplace, explore capabilities\n5. Auth \u2014 Login/register flow\n6. Notifications \u2014 Push + in-app notifications\n7. Messages \u2014 DM conversations\n\nAPI Integration:\n- Networking layer using URLSession + async/await\n- JWT token management (Keychain storage)\n- WebSocket client for real-time feed/notifications\n- Offline-first with SwiftData caching\n\nDesign:\n- iOS 26 Liquid Glass modifiers for glass card effects\n- Progressive enhancement: iOS 18 baseline, glass effects on 26+\n- Design tokens from design-system/tokens.json\n- Dark mode support\n\nProject: ios/AgentGraph/ with xcodegen (project.yml)\nBuild: Free Apple Developer account, Personal Team signing\nSync: Code generation on Mac Mini, build on MacBook Pro via git",
         "testStrategy": "Unit tests for ViewModels and networking layer. UI tests for critical flows (login, post creation, navigation). Manual testing on simulator and device. Verify all API endpoints work from iOS client.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T23:42:11.048626Z"
+        "updatedAt": "2026-02-23T06:58:09.549Z"
       },
       {
         "id": "77",
@@ -1055,13 +1055,266 @@
         "testStrategy": "Manual testing on iOS Simulator and device:\n1. Long-press a node \u2014 verify haptic fires and visual highlight appears\n2. Drag a held node \u2014 verify it follows finger and other nodes re-simulate\n3. Release \u2014 verify node stays pinned at new position\n4. Double-tap a node \u2014 verify smooth animated center + zoom\n5. Long-press without drag \u2014 verify context menu appears\n6. Verify pan still works when starting on empty space\n7. Verify zoom still works with pinch gesture\n8. Test with 50+ nodes \u2014 verify no frame drops during drag\n9. Test gesture conflicts \u2014 ensure no accidental node drags when panning",
         "subtasks": [],
         "updatedAt": "2026-02-23T00:30:00.000Z"
+      },
+      {
+        "id": "81",
+        "title": "Fix Light Mode Visual Issues \u2014 Hero Art, Animations, Background, Graph Legend, TrustDetail Colors",
+        "description": "User-reported: hero face invisible, animations lost, background too white, Graph edge legend and TrustDetail hardcoded dark-mode colors. Comprehensive light mode polish pass.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Changes needed:\n1. web/src/pages/Home.tsx: Verify hero-art-blend CSS fix works (mix-blend-multiply). If still invisible, try opacity bump or invert filter.\n2. web/src/components/Motion.tsx: ParticleField (line 317) default colors ['#2DD4BF','#E879F9','#F59E0B'] are dark-mode-optimized. Make theme-aware. Fix colors array dep bug at line 394 \u2014 extract to module-level constant. MyceliumLines SVG gradient (line 483) uses hardcoded colors. GradientBreath same.\n3. web/src/pages/Graph.tsx lines 243-265: Edge legend uses inline style={{ color: '#a6e3a1' }} etc. Import edgeColor() from graphTheme.ts and use useTheme().\n4. web/src/pages/TrustDetail.tsx lines 41-73: COMPONENT_INFO and ATTESTATION_TYPE_LABELS use hardcoded Catppuccin hex. Create theme-aware color map.\n5. web/src/index.css: Light mode background #f8fafc is too flat/white. Add subtle warm tint or very light gradient for depth.",
+        "testStrategy": "Toggle light mode on every page. Verify hero art visible, particle animations visible, graph legend readable, trust detail colors distinguishable. Check WCAG contrast on all colored elements.",
+        "subtasks": []
+      },
+      {
+        "id": "82",
+        "title": "Security \u2014 Password Reset Must Invalidate Existing Sessions",
+        "description": "reset_password in auth_router.py line 283 changes password but doesn't invalidate existing sessions via token:inv cache key. Compromised sessions survive password reset.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "In src/api/auth_router.py reset_password endpoint (~line 283), after changing password hash, add:\n  await cache.set(f'token:inv:{entity.id}', int(time.time()), ttl=settings.access_token_expire_minutes * 60)\nThis matches the pattern in account_router.py change_password (lines 109-119).\nAlso add audit log entry for password reset.\nAdd test: login, get token, reset password, verify old token is rejected.",
+        "testStrategy": "Test: register, login, get access token, reset password via forgot-password flow, verify old access token returns 401. Verify new login works after reset.",
+        "subtasks": []
+      },
+      {
+        "id": "83",
+        "title": "Security \u2014 Fix Rate Limit X-Forwarded-For Bypass",
+        "description": "rate_limit.py line 137 trusts X-Forwarded-For blindly. Attacker can spoof any IP to bypass rate limiting.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "In src/api/rate_limit.py _get_client_ip():\n1. Add TRUSTED_PROXIES setting to src/config.py (default: empty list for dev, set to reverse proxy IPs in production)\n2. Only trust X-Forwarded-For when request.client.host is in TRUSTED_PROXIES\n3. If not trusted, use request.client.host directly\n4. Add test for spoofed X-Forwarded-For being ignored when not from trusted proxy",
+        "testStrategy": "Test: send request with fake X-Forwarded-For header, verify rate limit tracks actual client IP not spoofed one. Test with trusted proxy configured, verify X-Forwarded-For is used.",
+        "subtasks": []
+      },
+      {
+        "id": "84",
+        "title": "Security \u2014 Gitignore Staging Secrets",
+        "description": ".env.staging contains JWT_SECRET and is committed to git. Add to .gitignore or move secret to .env.secrets.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Options:\n1. Add .env.staging to .gitignore and git rm --cached .env.staging\n2. OR move JWT_SECRET out of .env.staging into .env.secrets, update start-staging.sh to source both files\n\nAlso update web/.env.staging (already has VITE_API_BASE_URL which is non-sensitive \u2014 that's fine to keep).\nVerify .env.secrets is in .gitignore (it already is).",
+        "testStrategy": "Verify .env.staging is gitignored. Verify start-staging.sh still works after the change. Verify JWT_SECRET is loaded correctly.",
+        "subtasks": []
+      },
+      {
+        "id": "85",
+        "title": "Infrastructure \u2014 Add Global Exception Handlers",
+        "description": "src/main.py has no exception_handler registrations. Unhandled exceptions return unstructured 500 with no request_id.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add to src/main.py:\n1. @app.exception_handler(Exception) \u2014 log with request_id, return {detail: 'Internal server error', request_id: ...} with 500\n2. @app.exception_handler(RequestValidationError) \u2014 return consistent format matching other error responses\n3. @app.exception_handler(StarletteHTTPException) \u2014 pass through but add request_id\n4. Ensure request_id from middleware is always available in error responses",
+        "testStrategy": "Test: trigger validation error, verify response format. Trigger unhandled exception (e.g., via mock), verify 500 response includes request_id. Verify no stack traces leak to client.",
+        "subtasks": []
+      },
+      {
+        "id": "86",
+        "title": "Infrastructure \u2014 Docker Security: Non-Root User + Fix Pip Install",
+        "description": "Dockerfile runs as root and uses editable pip install. Fix both.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "In Dockerfile:\n1. Add: RUN adduser --disabled-password --no-create-home appuser\n2. Add: USER appuser (before CMD)\n3. Change pip install -e '.' to pip install --no-cache-dir '.'\n4. Move COPY src/ before pip install so source is available\n5. Either remove gunicorn install (not used) or switch CMD to use gunicorn",
+        "testStrategy": "docker build and docker run. Verify process runs as appuser (not root). Verify app starts and responds to health check.",
+        "subtasks": []
+      },
+      {
+        "id": "87",
+        "title": "Infrastructure \u2014 Replace Redis KEYS with SCAN in Admin Router",
+        "description": "admin_router.py line 525 uses r.keys('rl:*') which blocks Redis. Replace with SCAN iterator.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "In src/api/admin_router.py GET /admin/rate-limits endpoint (line 525):\nReplace: keys = await r.keys('rl:*')\nWith: async iterator using r.scan(match='rl:*', count=100)\nCollect results the same way but without blocking Redis.\nSame pattern as cache.invalidate_pattern in src/cache.py lines 59-73.",
+        "testStrategy": "Test: call GET /admin/rate-limits, verify it returns rate limit keys without blocking. Verify response format is unchanged.",
+        "subtasks": []
+      },
+      {
+        "id": "88",
+        "title": "Database \u2014 Add Missing ondelete to 11 ForeignKeys + Alembic Migration",
+        "description": "11 FK columns lack ondelete behavior. Fix models.py and create migration to ALTER existing constraints.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Fix in src/models.py:\n- Entity.operator_id (line 107): ondelete='SET NULL'\n- ModerationFlag.resolved_by (line 320): ondelete='SET NULL'\n- EvolutionRecord.parent_record_id (line 344): ondelete='SET NULL'\n- EvolutionRecord.forked_from_entity_id (line 347): ondelete='SET NULL'\n- EvolutionRecord.approved_by (line 374): ondelete='SET NULL'\n- Dispute.transaction_id (line 656): ondelete='CASCADE'\n- Dispute.opened_by (line 660): ondelete='CASCADE'\n- Dispute.resolved_by (line 670): ondelete='SET NULL'\n- ModerationAppeal.resolved_by (line 1148): ondelete='SET NULL'\n- PropagationAlert.issued_by (line 1271): ondelete='SET NULL'\n- Organization.created_by (line 1297): ondelete='SET NULL'\n\nCreate new Alembic migration that drops and recreates FK constraints with correct ondelete.",
+        "testStrategy": "Run alembic upgrade head. Verify constraints exist with correct ondelete behavior. Test by deleting an entity and verifying cascades/nullifications work correctly.",
+        "subtasks": []
+      },
+      {
+        "id": "89",
+        "title": "API \u2014 Fix N+1 Queries in org_router and export_router",
+        "description": "org_router list_members does individual db.get per member. export_router DM export does separate query per conversation.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "1. src/api/org_router.py lines 294-307: Replace loop of db.get(Entity, m.entity_id) with JOIN query:\n   select(OrganizationMembership, Entity).join(Entity, OrganizationMembership.entity_id == Entity.id)\n2. src/api/export_router.py lines 218-237: Replace per-conversation DM query with batch:\n   conv_ids = [c.id for c in conversations]\n   all_msgs = await db.execute(select(DirectMessage).where(DirectMessage.conversation_id.in_(conv_ids)))\n   Then group by conversation_id in Python.",
+        "testStrategy": "Test org member listing returns same data. Test export includes all DMs. Profile both endpoints to verify reduced query count.",
+        "subtasks": []
+      },
+      {
+        "id": "90",
+        "title": "API \u2014 Add Pagination to Unbounded List Endpoints",
+        "description": "5+ endpoints return all results with no limit/offset. Add pagination parameters.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add limit: int = Query(50, ge=1, le=200) and offset: int = Query(0, ge=0) to:\n- GET /agents (agent_router.py lines 207-214)\n- GET /marketplace/entity/{entity_id} (marketplace_router.py lines 923-949)\n- GET /organizations/{org_id}/members (org_router.py lines 282-307)\n- GET /organizations/{org_id}/api-keys (org_router.py lines 520-555)\n- GET /admin/safety/alerts (safety_router.py \u2014 add offset, already has limit)\n- GET /entities/{entity_id}/capabilities (endorsement_router.py \u2014 limit endorsers list)\nReturn total count in response for pagination UI.",
+        "testStrategy": "Test each endpoint with limit and offset params. Verify default limit works. Verify total count is correct. Test edge cases (offset beyond results, limit=1).",
+        "subtasks": []
+      },
+      {
+        "id": "91",
+        "title": "Code Quality \u2014 Consolidate Bridge Scanners and Registries (~1700 LOC Duplication)",
+        "description": "5 bridge security scanners and 5 registries are 90%+ identical. Extract shared base classes to eliminate ~1,700 lines of copy-paste.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "1. Create src/bridges/base_scanner.py with:\n   - Vulnerability dataclass\n   - ScanResult dataclass with to_dict()\n   - BASE_PATTERNS list (222 lines)\n   - scan_skill() function\n   - scan_manifest_base() skeleton\n2. Each framework scanner (openclaw, langchain, crewai, autogen, semantic_kernel) becomes ~30 lines defining FRAMEWORK_PATTERNS and a thin scan_manifest() wrapper.\n3. Create src/bridges/base_registry.py with generic import_framework_agent(), rescan_entity(), get_latest_scan()\n4. Each registry becomes ~10 lines.\n5. Extract trust modifier constants: TRUST_MODIFIER_CLEAN=1.0, WARNING=0.8, CRITICAL=0.5",
+        "testStrategy": "Run existing bridge tests \u2014 all must pass unchanged. Verify scan results are identical before and after refactor. Run ruff lint.",
+        "subtasks": []
+      },
+      {
+        "id": "92",
+        "title": "API \u2014 Stricter Rate Limits on Export, SSO, and Agent Registration",
+        "description": "Export endpoint needs dedicated rate limit. SSO and agent registration use wrong tier.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. Create rate_limit_export tier in rate_limit.py: 5 requests per hour per entity\n2. Apply to GET /export/me (export_router.py line 42)\n3. Change SSO login/callback from rate_limit_writes to rate_limit_auth (sso_router.py)\n4. Change POST /agents/register from rate_limit_writes to rate_limit_auth (agent_router.py)\n5. Add per-entity cooldown for POST /trust/refresh (1 per hour)",
+        "testStrategy": "Test export rate limit triggers after 5 calls. Test SSO login rate limit triggers at auth tier. Test agent registration rate limit.",
+        "subtasks": []
+      },
+      {
+        "id": "93",
+        "title": "Database \u2014 Add Missing db.refresh() After Mutations",
+        "description": "agent_router and profile_router return stale updated_at after setattr+flush without db.refresh.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. src/api/agent_router.py ~line 519: After db.flush(), add await db.refresh(agent) before returning AgentResponse\n2. src/api/profile_router.py ~line 456: After db.flush(), add await db.refresh(entity) before reading back\n3. Check evolution_router.py line 255 and line 550 for same pattern\n4. Check trust/score.py line 250-267 for same pattern",
+        "testStrategy": "Test: update agent, verify response updated_at reflects actual DB time. Same for profile update.",
+        "subtasks": []
+      },
+      {
+        "id": "94",
+        "title": "Frontend \u2014 Add Error Boundary Around ForceGraph and Per-Route Boundaries",
+        "description": "ForceGraph can crash on WebGL context loss. Single app-wide ErrorBoundary means entire app crashes.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. Wrap ForceGraph2D/3D in web/src/components/graph/ForceGraph.tsx with a dedicated ErrorBoundary that shows 'Graph could not be rendered' fallback\n2. Add per-route ErrorBoundary in App.tsx around high-risk routes: /graph, /profile, /admin\n3. The existing ErrorBoundary in App.tsx stays as the top-level catch-all",
+        "testStrategy": "Manually test by forcing an error in ForceGraph (pass malformed data). Verify fallback UI shows instead of white screen. Verify other pages still work.",
+        "subtasks": []
+      },
+      {
+        "id": "95",
+        "title": "Infrastructure \u2014 WebSocket Reliability: Reconnection, Backpressure, Error Handling",
+        "description": "Three WebSocket reliability issues: no Redis subscriber reconnection, no slow-client backpressure, incomplete exception handling.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. src/ws.py lines 146-167: Add reconnection loop with exponential backoff in _subscribe_loop. On Redis disconnect, retry every 5s (then 10s, 20s, max 60s) instead of waiting for next WS client.\n2. src/ws.py _local_send_* methods: Wrap ws.send_text() in asyncio.wait_for(timeout=5.0). On timeout, disconnect the slow client.\n3. src/api/ws_router.py lines 84-114: Add except Exception handler alongside WebSocketDisconnect that calls manager.disconnect() to prevent connection leaks.",
+        "testStrategy": "Test: simulate Redis disconnect, verify subscriber reconnects. Test slow client doesn't block other clients. Test exception during WS session doesn't leak connection.",
+        "subtasks": []
+      },
+      {
+        "id": "96",
+        "title": "Infrastructure \u2014 Health Endpoint Returns 503 When Degraded + Swagger Disable in Prod",
+        "description": "Health returns 200 even when degraded (LB can't detect). Swagger UI always enabled.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. src/main.py /health endpoint (~line 244): Return JSONResponse with status_code=503 when health['status'] == 'degraded'\n2. src/main.py line 91-92: Change to docs_url='/docs' if settings.debug else None, redoc_url='/redoc' if settings.debug else None\n3. Add Content-Security-Policy header to security headers middleware: default-src 'self'",
+        "testStrategy": "Test: stop Redis, call /health, verify 503 returned. Test in debug=False mode, verify /docs returns 404. Verify CSP header present in responses.",
+        "subtasks": []
+      },
+      {
+        "id": "97",
+        "title": "Code Quality \u2014 Extract Shared Admin Check, Password Validator, Standardize Imports",
+        "description": "Admin check duplicated in 10+ routers. Password validation triplicated. log_action imported inconsistently.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. Move _require_admin() from admin_router.py to src/api/deps.py. Import and use across all routers that check is_admin (moderation_router, analytics_router, safety_router, anomaly_router, badges_router, disputes_router)\n2. Extract password strength validator to shared function in schemas.py. Use field_validator decorator in RegisterRequest, ResetPasswordRequest, and ChangePasswordRequest\n3. Change all inline log_action imports (~15 routers) to top-level imports. No circular dependency issue exists.\n4. Standardize parameter naming: use current_entity everywhere (not entity) for get_current_entity dependency",
+        "testStrategy": "Run full test suite \u2014 all tests must pass. Run ruff lint. Grep for inline 'from src.audit import' \u2014 should be zero.",
+        "subtasks": []
+      },
+      {
+        "id": "98",
+        "title": "API \u2014 Fix Cluster Privacy Leak and Dispute Resolution Logic",
+        "description": "Cluster endpoint exposes PRIVATE entities. Dispute resolution allows unilateral resolution by either party.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. graph_router.py lines 453-458: Apply _build_privacy_filter(current_entity) to the entity fetch query in cluster detail endpoint\n2. disputes_router.py lines 429-558: Change resolve_dispute to only allow non-initiating party to resolve (if buyer opened dispute, only seller can propose resolution and vice versa). Admin can always resolve. Add test for this behavior.\n3. graph_router.py line 656: Fix regex \u2014 add $ anchor: pattern='^(human|agent)$'",
+        "testStrategy": "Test: create PRIVATE entity, verify it doesn't appear in cluster members for unauthenticated users. Test: buyer opens dispute, verify buyer cannot unilaterally release funds. Test: admin can always resolve.",
+        "subtasks": []
+      },
+      {
+        "id": "99",
+        "title": "Frontend \u2014 Accessibility: ARIA Labels, Tab Roles, Table Captions",
+        "description": "Multiple interactive elements lack proper ARIA attributes for screen reader accessibility.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "1. Agents.tsx: Add aria-label='Autonomy level' and aria-valuetext to range input\n2. ListingDetail.tsx: Add aria-label='Rate N out of 5 stars' to star rating buttons\n3. Webhooks.tsx: Add aria-pressed state to event type toggle buttons\n4. ForceGraph.tsx: Add role='img' aria-label='Trust network graph visualization' to container div\n5. Bookmarks, Leaderboard, TransactionHistory filter buttons: Add role='tab', aria-selected, role='tablist' grouping\n6. Leaderboard.tsx table: Add <caption className='sr-only'>",
+        "testStrategy": "Run axe accessibility audit in browser. Verify all interactive elements have accessible names. Test with VoiceOver on macOS.",
+        "subtasks": []
+      },
+      {
+        "id": "100",
+        "title": "Database \u2014 Add Missing Indexes and updated_at to Mutable Models",
+        "description": "Missing indexes on queried FK columns. Mutable models lack updated_at timestamp.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Indexes:\n- Dispute.resolved_by (line 670)\n- TokenBlacklist.entity_id (line 464)\n- ModerationAppeal.appellant_id (line 1131)\n\nupdated_at columns:\n- Dispute model (line 649)\n- Delegation model (line 1377)\n- WebhookSubscription model (line 741)\n- Notification model (line 690)\n\nCreate Alembic migration for all changes.",
+        "testStrategy": "Run migration. Verify indexes exist via pg_indexes. Verify updated_at auto-updates on record modification.",
+        "subtasks": []
+      },
+      {
+        "id": "101",
+        "title": "Frontend \u2014 Standardize Loading States to Skeleton Components",
+        "description": "9 pages use plain 'Loading...' text instead of skeleton components.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Replace plain text loading in: Agents, Bookmarks, Leaderboard, Submolts, SubmoltDetail, TransactionHistory, TrustDetail, Webhooks, MyListings.\nUse existing PostSkeleton or create appropriate skeleton variants (TableRowSkeleton, CardSkeleton) for each page type.",
+        "testStrategy": "Visual check each page while data is loading. Verify skeletons match the shape of the loaded content.",
+        "subtasks": []
+      },
+      {
+        "id": "102",
+        "title": "Frontend \u2014 Fix setTimeout Memory Leaks and ParticleField Re-render Bug",
+        "description": "Multiple setTimeout calls without cleanup. ParticleField colors dependency causes infinite re-creation.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "1. Toasts.tsx line 23: Store timeout IDs, clear on unmount/dismiss\n2. ResetPassword.tsx line 42: Clear navigate timeout on unmount via useEffect return\n3. Agents.tsx line 235, Webhooks.tsx line 118: Clear copy timers on unmount\n4. Motion.tsx ParticleField line 317/394: Extract default colors array to module-level constant to prevent new reference each render. Currently causes teardown/rebuild on every parent re-render.",
+        "testStrategy": "React StrictMode double-render should not cause visual glitches. Navigate away from pages with timers and verify no console warnings about unmounted state updates.",
+        "subtasks": []
+      },
+      {
+        "id": "103",
+        "title": "Code Quality \u2014 Remove Dead Code, Extract Constants, Clean Up",
+        "description": "Various dead code, magic numbers, and cleanup items across the codebase.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Dead code:\n- Remove empty packages: src/identity/, src/social/, src/moderation/\n- Move v0-reference components out of web/src/ to docs/design-references/\n- Remove commented-out APScheduler code in main.py lines 210-233\n- Remove unused AuthResponse interface in web/src/types/index.ts\n\nConstants:\n- Export router limits (5000, 10000, etc.) \u2192 named constants\n- Trust modifier values (1.0, 0.8, 0.5) \u2192 named constants in base_scanner\n- Content preview truncation lengths (100, 200) \u2192 named constants\n\nCleanup:\n- Version string '0.1.0' sourced from single location\n- Migrate on_event('shutdown') to lifespan context manager\n- safety_router.py line 110: datetime.utcnow() \u2192 datetime.now(timezone.utc)\n- marketplace_router.py lines 525, 704: Replace str(exc) with generic error message",
+        "testStrategy": "Run full test suite. Run ruff lint. Run tsc -b. Verify no regressions.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-23T00:00:00.000Z",
+      "lastModified": "2026-02-23T06:58:09.549Z",
       "taskCount": 80,
-      "completedCount": 54,
+      "completedCount": 57,
       "tags": [
         "master"
       ]
