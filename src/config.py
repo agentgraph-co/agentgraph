@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     rate_limit_reads_per_minute: int = 100
     rate_limit_writes_per_minute: int = 20
     rate_limit_auth_per_minute: int = 5
+    trusted_proxies: list[str] = []
 
     # Stripe Connect
     stripe_secret_key: str | None = None
