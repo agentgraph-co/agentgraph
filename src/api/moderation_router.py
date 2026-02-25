@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -176,8 +176,7 @@ async def list_flags(
     db: AsyncSession = Depends(get_db),
 ):
     """List moderation flags with filtering and pagination. Admin only."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     query = select(ModerationFlag)
     if status is not None:
@@ -256,8 +255,7 @@ async def resolve_flag(
     db: AsyncSession = Depends(get_db),
 ):
     """Resolve a moderation flag. Admin only."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     if body.status == ModerationStatus.PENDING:
         raise HTTPException(
@@ -370,8 +368,7 @@ async def moderation_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get moderation statistics. Admin only."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     pending = await db.scalar(
         select(func.count()).select_from(ModerationFlag).where(
@@ -530,8 +527,7 @@ async def list_appeals(
     db: AsyncSession = Depends(get_db),
 ):
     """List moderation appeals. Admin only."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     query = select(ModerationAppeal)
     count_query = select(func.count()).select_from(ModerationAppeal)
@@ -610,8 +606,7 @@ async def resolve_appeal(
     db: AsyncSession = Depends(get_db),
 ):
     """Resolve a moderation appeal. Admin only."""
-    if not current_entity.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    require_admin(current_entity)
 
     appeal = await db.get(ModerationAppeal, appeal_id)
     if appeal is None:

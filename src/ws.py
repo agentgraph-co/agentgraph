@@ -209,6 +209,17 @@ class ConnectionManager:
 
     # --- Local delivery (this worker only) ---
 
+    async def _safe_send(self, ws: Any, message: str) -> bool:
+        """Send with timeout — disconnect slow clients after 5 seconds."""
+        try:
+            await asyncio.wait_for(ws.send_text(message), timeout=5.0)
+            return True
+        except asyncio.TimeoutError:
+            logger.debug("WebSocket send timeout, disconnecting slow client")
+            return False
+        except Exception:
+            return False
+
     async def _local_send_to_entity(
         self, entity_id: str, channel: str, data: dict[str, Any],
     ) -> int:
@@ -218,10 +229,9 @@ class ConnectionManager:
         dead = []
         message = json.dumps(data, default=str)
         for ws in sockets:
-            try:
-                await ws.send_text(message)
+            if await self._safe_send(ws, message):
                 sent += 1
-            except Exception:
+            else:
                 dead.append(ws)
         for ws in dead:
             self._connections[key].discard(ws)
@@ -236,10 +246,9 @@ class ConnectionManager:
         dead = []
         # Use O(1) channel index instead of iterating all connections
         for ws in list(self._channel_subscribers.get(channel, set())):
-            try:
-                await ws.send_text(message)
+            if await self._safe_send(ws, message):
                 sent += 1
-            except Exception:
+            else:
                 dead.append(ws)
         for ws in dead:
             self._channel_subscribers.get(channel, set()).discard(ws)
@@ -251,10 +260,9 @@ class ConnectionManager:
         sent = 0
         dead = []
         for ws in self._all:
-            try:
-                await ws.send_text(message)
+            if await self._safe_send(ws, message):
                 sent += 1
-            except Exception:
+            else:
                 dead.append(ws)
         for ws in dead:
             self._all.discard(ws)

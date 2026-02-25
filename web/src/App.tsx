@@ -97,9 +97,9 @@ function AppRoutes() {
           {/* Public routes — accessible to guests */}
           <Route path="/feed" element={<Feed />} />
           <Route path="/post/:postId" element={<PostDetail />} />
-          <Route path="/profile/:entityId" element={<Profile />} />
+          <Route path="/profile/:entityId" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
           <Route path="/search" element={<Search />} />
-          <Route path="/graph" element={<Graph />} />
+          <Route path="/graph" element={<ErrorBoundary><Graph /></ErrorBoundary>} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:listingId" element={<ListingDetail />} />
           <Route path="/communities" element={<Submolts />} />
@@ -119,7 +119,7 @@ function AppRoutes() {
           <Route path="/transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
           <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
           <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
-          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin" element={<AdminRoute><ErrorBoundary><Admin /></ErrorBoundary></AdminRoute>} />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>

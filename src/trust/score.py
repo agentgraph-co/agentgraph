@@ -265,6 +265,7 @@ async def compute_trust_score(
         db.add(trust_score)
 
     await db.flush()
+    await db.refresh(trust_score)
 
     # Dispatch webhook event
     try:
