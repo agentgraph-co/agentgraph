@@ -194,8 +194,9 @@ async def test_alerts_list_endpoint(client, db):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
+    assert isinstance(data, dict)
+    assert "alerts" in data
+    assert len(data["alerts"]) >= 1
 
 
 @pytest.mark.asyncio
@@ -215,7 +216,7 @@ async def test_freeze_creates_alert(client, db):
         "/api/v1/admin/safety/alerts",
         headers={"Authorization": f"Bearer {token}"},
     )
-    alerts = resp2.json()
+    alerts = resp2.json()["alerts"]
     freeze_alerts = [a for a in alerts if a["alert_type"] == "freeze"]
     assert len(freeze_alerts) >= 1
 
@@ -244,7 +245,7 @@ async def test_quarantine_creates_alert(client, db):
         "/api/v1/admin/safety/alerts",
         headers={"Authorization": f"Bearer {token}"},
     )
-    alerts = resp2.json()
+    alerts = resp2.json()["alerts"]
     q_alerts = [a for a in alerts if a["alert_type"] == "quarantine"]
     assert len(q_alerts) >= 1
 

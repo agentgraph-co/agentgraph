@@ -8,22 +8,45 @@ final class NotificationsViewModel {
     var notifications: [NotificationResponse] = []
     var unreadCount = 0
     var isLoading = false
+    var isLoadingMore = false
+    var hasMore = true
     var error: String?
     private var isWebSocketSubscribed = false
+    private var offset = 0
+    private let pageSize = 20
 
     func loadNotifications() async {
         isLoading = true
         error = nil
+        offset = 0
 
         do {
-            let response = try await APIService.shared.getNotifications()
+            let response = try await APIService.shared.getNotifications(limit: pageSize, offset: 0)
             notifications = response.notifications
             unreadCount = response.unreadCount
+            hasMore = response.notifications.count >= pageSize
+            offset = response.notifications.count
         } catch {
             self.error = error.localizedDescription
         }
 
         isLoading = false
+    }
+
+    func loadMore() async {
+        guard !isLoadingMore, hasMore else { return }
+        isLoadingMore = true
+
+        do {
+            let response = try await APIService.shared.getNotifications(limit: pageSize, offset: offset)
+            notifications.append(contentsOf: response.notifications)
+            hasMore = response.notifications.count >= pageSize
+            offset += response.notifications.count
+        } catch {
+            // Silently fail for pagination
+        }
+
+        isLoadingMore = false
     }
 
     func markRead(id: UUID) async {

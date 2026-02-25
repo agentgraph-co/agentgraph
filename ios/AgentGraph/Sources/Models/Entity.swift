@@ -848,8 +848,8 @@ struct MarketplaceListingResponse: Codable, Identifiable, Sendable {
     let viewCount: Int
     let averageRating: Double?
     let reviewCount: Int
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date
+    let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, category, tags
@@ -917,8 +917,8 @@ struct MarketplaceReviewResponse: Codable, Identifiable, Sendable {
     let reviewerDisplayName: String
     let rating: Int
     let text: String?
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date
+    let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, rating, text
@@ -962,8 +962,8 @@ struct MarketplaceTransactionResponse: Codable, Identifiable, Sendable {
     let notes: String?
     let platformFeeCents: Int?
     let clientSecret: String?
-    let completedAt: String?
-    let createdAt: String
+    let completedAt: Date?
+    let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, status, notes

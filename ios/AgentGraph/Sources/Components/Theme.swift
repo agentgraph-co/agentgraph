@@ -40,18 +40,18 @@ extension Color {
     static let agAccentLight = Color(red: 0.635, green: 0.110, blue: 0.686)       // #A21CAF
 }
 
-// MARK: - Typography (System fonts — Geist not bundled in iOS yet)
+// MARK: - Typography (Dynamic Type — scales with user's accessibility settings)
 
 struct AGTypography {
-    static let xs: Font = .system(size: 12)
-    static let sm: Font = .system(size: 14)
-    static let base: Font = .system(size: 16)
-    static let lg: Font = .system(size: 18)
-    static let xl: Font = .system(size: 20)
-    static let xxl: Font = .system(size: 24, weight: .semibold)
-    static let xxxl: Font = .system(size: 30, weight: .bold)
-    static let display: Font = .system(size: 36, weight: .bold)
-    static let hero: Font = .system(size: 48, weight: .bold)
+    static let xs: Font = .caption2
+    static let sm: Font = .caption
+    static let base: Font = .body
+    static let lg: Font = .callout
+    static let xl: Font = .title3
+    static let xxl: Font = .title2.weight(.semibold)
+    static let xxxl: Font = .title.weight(.bold)
+    static let display: Font = .largeTitle.weight(.bold)
+    static let hero: Font = .system(size: 48, weight: .bold, design: .default)
 }
 
 // MARK: - Spacing
