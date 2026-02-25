@@ -9,11 +9,21 @@ import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import ForceGraph3D from 'react-force-graph-3d'
 import type { GraphData, GraphNode, GraphEdge } from '../../hooks/useGraphData'
+import { useTheme } from '../../hooks/useTheme'
 import {
   clusterColor,
   edgeColor,
   nodeRadius,
   GRAPH_BG,
+  GRAPH_BG_LIGHT,
+  GRAPH_LABEL_DARK,
+  GRAPH_LABEL_LIGHT,
+  GRAPH_BADGE_DARK,
+  GRAPH_BADGE_LIGHT,
+  GRAPH_NODE_STROKE_DARK,
+  GRAPH_NODE_STROKE_LIGHT,
+  UNCLUSTERED_COLOR,
+  UNCLUSTERED_COLOR_LIGHT,
   ZOOM_THRESHOLDS,
   CLUSTER_GLOW_ALPHA,
   PARTICLE_CONFIG,
@@ -81,6 +91,7 @@ export default function ForceGraph({
   onNodeHover,
   onBackgroundClick,
 }: ForceGraphProps) {
+  const { theme } = useTheme()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -159,9 +170,9 @@ export default function ForceGraph({
         return clusterColor(n.cluster_id)
       }
       // Fallback: type-based color
-      return NODE_TYPE_COLORS[n.type] ?? '#585b70'
+      return NODE_TYPE_COLORS[n.type] ?? (theme === 'light' ? UNCLUSTERED_COLOR_LIGHT : UNCLUSTERED_COLOR)
     },
-    [searchLower],
+    [searchLower, theme],
   )
 
   // Node size callback
@@ -202,7 +213,7 @@ export default function ForceGraph({
       ctx.arc(n.x, n.y, r, 0, 2 * Math.PI)
       ctx.fillStyle = color
       ctx.fill()
-      ctx.strokeStyle = '#11111b'
+      ctx.strokeStyle = theme === 'light' ? GRAPH_NODE_STROKE_LIGHT : GRAPH_NODE_STROKE_DARK
       ctx.lineWidth = 1 * sem
       ctx.stroke()
 
@@ -221,7 +232,7 @@ export default function ForceGraph({
         ctx.font = `${fontSize}px Geist, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = '#cdd6f4'
+        ctx.fillStyle = theme === 'light' ? GRAPH_LABEL_LIGHT : GRAPH_LABEL_DARK
         ctx.fillText(n.label, n.x, n.y + r + 2 * sem)
       }
 
@@ -232,18 +243,18 @@ export default function ForceGraph({
         ctx.font = `${fontSize}px Geist, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillStyle = '#6c7086'
+        ctx.fillStyle = theme === 'light' ? GRAPH_BADGE_LIGHT : GRAPH_BADGE_DARK
         ctx.fillText(trustLabel, n.x, n.y - r - 2 * sem)
       }
     },
-    [getNodeColor, searchLower],
+    [getNodeColor, searchLower, theme],
   )
 
   // Edge color
   const getLinkColor = useCallback((link: object) => {
     const l = link as FGLink
-    return edgeColor(l.type)
-  }, [])
+    return edgeColor(l.type, theme)
+  }, [theme])
 
   // Directional particle count per edge type
   const getLinkParticles = useCallback((link: object) => {
@@ -314,7 +325,7 @@ export default function ForceGraph({
     onNodeClick: handleNodeClick,
     onNodeHover: handleNodeHover,
     onBackgroundClick: onBackgroundClick,
-    backgroundColor: GRAPH_BG,
+    backgroundColor: theme === 'light' ? GRAPH_BG_LIGHT : GRAPH_BG,
     width: dimensions.width,
     height: dimensions.height,
     warmupTicks: 50,

@@ -1,6 +1,7 @@
 /**
  * Graph visual constants — Catppuccin Mocha palette for cluster coloring,
  * node sizing by trust, edge styling by relationship type.
+ * Supports dark and light themes.
  */
 
 /** Catppuccin Mocha palette — 12 distinct cluster colors */
@@ -20,7 +21,8 @@ export const CLUSTER_COLORS = [
 ] as const
 
 /** Default color for nodes without a cluster assignment */
-export const UNCLUSTERED_COLOR = '#585b70'
+export const UNCLUSTERED_COLOR = '#7f849c'
+export const UNCLUSTERED_COLOR_LIGHT = '#94a3b8'
 
 /** Map a cluster_id to a color (wraps around if > 12 clusters) */
 export function clusterColor(clusterId: number | null | undefined): string {
@@ -28,9 +30,9 @@ export function clusterColor(clusterId: number | null | undefined): string {
   return CLUSTER_COLORS[clusterId % CLUSTER_COLORS.length]
 }
 
-/** Edge type colors */
+/** Edge type colors (dark theme) */
 export const EDGE_COLORS: Record<string, string> = {
-  follow: '#585b70',
+  follow: '#7f849c',
   attestation: '#2DD4BF',
   operator_agent: '#f9e2af',
   collaboration: '#cba6f7',
@@ -38,12 +40,25 @@ export const EDGE_COLORS: Record<string, string> = {
   fork: '#f5c2e7',
 }
 
-/** Default edge color fallback */
-export const DEFAULT_EDGE_COLOR = '#45475a'
+/** Edge type colors (light theme) */
+export const EDGE_COLORS_LIGHT: Record<string, string> = {
+  follow: '#94a3b8',
+  attestation: '#0D9488',
+  operator_agent: '#ca8a04',
+  collaboration: '#7C3AED',
+  service: '#ea580c',
+  fork: '#A21CAF',
+}
 
-/** Get edge color by relationship type */
-export function edgeColor(type: string): string {
-  return EDGE_COLORS[type] ?? DEFAULT_EDGE_COLOR
+/** Default edge color fallback */
+export const DEFAULT_EDGE_COLOR = '#6c7086'
+export const DEFAULT_EDGE_COLOR_LIGHT = '#94a3b8'
+
+/** Get edge color by relationship type, theme-aware */
+export function edgeColor(type: string, theme: 'dark' | 'light' = 'dark'): string {
+  const colors = theme === 'light' ? EDGE_COLORS_LIGHT : EDGE_COLORS
+  const fallback = theme === 'light' ? DEFAULT_EDGE_COLOR_LIGHT : DEFAULT_EDGE_COLOR
+  return colors[type] ?? fallback
 }
 
 /** Node radius from trust score.
@@ -61,8 +76,19 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   human: '#a6e3a1',
 }
 
-/** Canvas background color (dark theme) */
+/** Canvas background colors */
 export const GRAPH_BG = '#11111b'
+export const GRAPH_BG_LIGHT = '#f1f5f9'
+
+/** Label / badge colors per theme */
+export const GRAPH_LABEL_DARK = '#cdd6f4'
+export const GRAPH_LABEL_LIGHT = '#1e293b'
+export const GRAPH_BADGE_DARK = '#9399b2'
+export const GRAPH_BADGE_LIGHT = '#64748b'
+
+/** Node stroke colors per theme */
+export const GRAPH_NODE_STROKE_DARK = '#11111b'
+export const GRAPH_NODE_STROKE_LIGHT = '#e2e8f0'
 
 /** Label visibility thresholds based on zoom level */
 export const ZOOM_THRESHOLDS = {
@@ -71,7 +97,7 @@ export const ZOOM_THRESHOLDS = {
 } as const
 
 /** Glow ring opacity for cluster membership */
-export const CLUSTER_GLOW_ALPHA = 0.25
+export const CLUSTER_GLOW_ALPHA = 0.35
 
 /** Edge particle settings for directional flow */
 export const PARTICLE_CONFIG = {
