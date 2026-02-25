@@ -68,15 +68,25 @@ async def broadcast_network_alert(
     return alert
 
 
+async def count_alerts(db: AsyncSession) -> int:
+    """Return total number of propagation alerts."""
+    from sqlalchemy.sql import func
+
+    result = await db.execute(select(func.count()).select_from(PropagationAlert))
+    return result.scalar() or 0
+
+
 async def get_recent_alerts(
     db: AsyncSession,
     limit: int = 20,
+    offset: int = 0,
 ) -> list[PropagationAlert]:
     """Fetch the most recent propagation alerts.
 
     Args:
         db: Database session.
         limit: Maximum number of alerts to return.
+        offset: Number of alerts to skip.
 
     Returns:
         List of PropagationAlert records ordered by created_at descending.
@@ -85,5 +95,6 @@ async def get_recent_alerts(
         select(PropagationAlert)
         .order_by(PropagationAlert.created_at.desc())
         .limit(limit)
+        .offset(offset)
     )
     return list(result.scalars().all())
