@@ -13,7 +13,6 @@ import {
   PageTransition,
   ParticleField,
   GradientBreath,
-  BioluminescentGlow,
   useScroll,
   useTransform,
 } from '../components/Motion'
@@ -520,14 +519,8 @@ export default function Home() {
           }} />
         </div>
 
-        {/* Bioluminescent orbs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <BioluminescentGlow size={500} className="top-[-15%] left-[-15%]" delay={0} />
-          <BioluminescentGlow size={450} className="bottom-[-10%] left-[25%]" delay={5} />
-        </div>
-
-        {/* Particle field */}
-        <ParticleField count={40} speed={0.3} />
+        {/* Particle field — lightweight ambient effect */}
+        <ParticleField count={25} speed={0.2} />
 
         {/* Mycelium network illustration — visual centerpiece */}
         <NetworkIllustration />

@@ -1,9 +1,6 @@
-import { useRef, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { GradientBreath, BioluminescentGlow } from './Motion'
 import { useTheme } from '../hooks/useTheme'
-import heroArt from '../assets/hero-art.png'
 
 // ─── Types ───
 
@@ -73,55 +70,7 @@ function getIntensity(pathname: string): Intensity {
   return 'none'
 }
 
-// ─── Parallax Hero Face ───
-// Shows on medium + full intensity pages in both themes.
-// Parallax: moves slower than scroll giving depth.
-// Over content areas it's very subtle; more visible at page top.
-
-function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
-  const { theme } = useTheme()
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollY } = useScroll()
-
-  // Parallax: face moves at 30% of scroll speed
-  const y = useTransform(scrollY, [0, 1000], [0, -300])
-  // Fade out as user scrolls into content
-  const scrollOpacity = useTransform(scrollY, [0, 400], [1, 0.3])
-
-  // Base opacity varies by intensity and theme
-  const baseOpacity = theme === 'light'
-    ? (intensity === 'full' ? 0.18 : 0.12)
-    : (intensity === 'full' ? 0.18 : 0.10)
-
-  return (
-    <motion.div
-      ref={ref}
-      className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-      style={{ y, opacity: scrollOpacity }}
-    >
-      <img
-        src={heroArt}
-        alt=""
-        aria-hidden="true"
-        className="w-full h-full object-cover"
-        style={{
-          opacity: baseOpacity,
-          mixBlendMode: theme === 'light' ? 'multiply' : 'lighten',
-          filter: theme === 'light' ? 'contrast(1.2) brightness(0.9)' : 'none',
-        }}
-      />
-      {/* Vignette — fades edges into the background color */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'radial-gradient(ellipse at center, transparent 20%, var(--color-background) 70%)',
-        }}
-      />
-    </motion.div>
-  )
-}
-
-// ─── Subtle Layer (pure CSS, no framer-motion) ───
+// ─── Subtle Layer (pure CSS, no JS animations) ───
 
 function SubtleLayer() {
   const { theme } = useTheme()
@@ -149,36 +98,9 @@ function SubtleLayer() {
   )
 }
 
-// ─── Medium Layer ───
-
-function MediumLayer() {
-  return (
-    <>
-      <GradientBreath className="opacity-50" />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={450} className="top-[-10%] right-[-10%]" delay={0} />
-      </div>
-      <ParallaxHeroFace intensity="medium" />
-    </>
-  )
-}
-
-// ─── Full Layer (Dashboard) ───
-
-function FullLayer() {
-  return (
-    <>
-      <GradientBreath />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={550} className="top-[-15%] left-[-10%]" delay={0} />
-        <BioluminescentGlow size={450} className="bottom-[-5%] left-[30%]" delay={6} />
-      </div>
-      <ParallaxHeroFace intensity="full" />
-    </>
-  )
-}
-
 // ─── Main Component ───
+// All non-home pages use lightweight SubtleLayer only (pure CSS gradients).
+// Heavy effects (particles, glow orbs, parallax) are restricted to Home hero.
 
 export function AtmosphericBackground({ children }: { children: React.ReactNode }) {
   const location = useLocation()
@@ -191,11 +113,8 @@ export function AtmosphericBackground({ children }: { children: React.ReactNode 
 
   return (
     <div className="relative flex-1 flex flex-col">
-      {/* Background layers — full viewport width, pinned behind content */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ top: '3.5rem' }}>
-        {intensity === 'subtle' && <SubtleLayer />}
-        {intensity === 'medium' && <MediumLayer />}
-        {intensity === 'full' && <FullLayer />}
+        <SubtleLayer />
       </div>
       <div className="relative z-10 flex-1 flex flex-col">
         {children}
