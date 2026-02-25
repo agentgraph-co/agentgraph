@@ -204,14 +204,26 @@ async def create_agent_endpoint(
     )
 
 
-@router.get("", response_model=list[AgentResponse], dependencies=[Depends(rate_limit_reads)])
+@router.get("", dependencies=[Depends(rate_limit_reads)])
 async def list_agents(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     _require_human(current_entity)
-    agents = await get_operator_agents(db, current_entity.id)
-    return [AgentResponse.model_validate(a) for a in agents]
+    base = select(Entity).where(
+        Entity.operator_id == current_entity.id,
+        Entity.type == EntityType.AGENT,
+    )
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar() or 0
+    result = await db.execute(base.limit(limit).offset(offset))
+    agents = result.scalars().all()
+    return {
+        "agents": [AgentResponse.model_validate(a) for a in agents],
+        "total": total,
+    }
 
 
 @router.get(

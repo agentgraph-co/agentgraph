@@ -927,25 +927,32 @@ async def delete_listing(
 async def get_entity_listings(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     """Get all active listings for a specific entity."""
     entity = await db.get(Entity, entity_id)
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    result = await db.execute(
+    base = (
         select(Listing)
         .where(
             Listing.entity_id == entity_id,
             Listing.is_active.is_(True),
         )
-        .order_by(Listing.created_at.desc())
+    )
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar() or 0
+
+    result = await db.execute(
+        base.order_by(Listing.created_at.desc()).limit(limit).offset(offset)
     )
     listings = result.scalars().all()
 
     return ListingListResponse(
         listings=[_to_response(item) for item in listings],
-        total=len(listings),
+        total=total,
     )
 
 

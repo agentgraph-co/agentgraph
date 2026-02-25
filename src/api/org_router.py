@@ -285,18 +285,27 @@ async def list_members(
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_reads),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ) -> dict:
     """List all members of an organization."""
     org = await db.get(Organization, org_id)
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
     await _check_org_role(db, org_id, entity.id)
-    q = (
+    base = (
         select(OrganizationMembership, Entity)
         .join(Entity, OrganizationMembership.entity_id == Entity.id)
         .where(OrganizationMembership.organization_id == org_id)
     )
-    result = await db.execute(q)
+    count_q = select(func.count()).select_from(
+        select(OrganizationMembership)
+        .where(OrganizationMembership.organization_id == org_id)
+        .subquery()
+    )
+    total_result = await db.execute(count_q)
+    total = total_result.scalar() or 0
+    result = await db.execute(base.limit(limit).offset(offset))
     rows = result.all()
     members = [
         {
@@ -308,7 +317,7 @@ async def list_members(
         }
         for m, ent in rows
     ]
-    return {"members": members, "total": len(members)}
+    return {"members": members, "total": total}
 
 
 
@@ -527,6 +536,8 @@ async def list_org_api_keys(
     entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_reads),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     """List org-scoped API keys (owner/admin only)."""
     org = await db.get(Organization, org_id)
@@ -536,11 +547,15 @@ async def list_org_api_keys(
 
     from src.models import APIKey
 
+    base = select(APIKey).where(
+        APIKey.organization_id == org_id,
+        APIKey.is_active.is_(True),
+    )
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar() or 0
+
     result = await db.execute(
-        select(APIKey).where(
-            APIKey.organization_id == org_id,
-            APIKey.is_active.is_(True),
-        ).order_by(APIKey.created_at.desc())
+        base.order_by(APIKey.created_at.desc()).limit(limit).offset(offset)
     )
     keys = result.scalars().all()
 
@@ -555,7 +570,7 @@ async def list_org_api_keys(
             }
             for k in keys
         ],
-        "total": len(keys),
+        "total": total,
     }
 
 
