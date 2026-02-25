@@ -214,22 +214,33 @@ async def export_my_data(
         ).limit(1000)
     )
     conversations = conv_result.scalars().all()
-    dms = []
+    # Build lookup: conversation_id → other participant
+    conv_other: dict = {}
+    conv_ids = []
     for conv in conversations:
-        other_id = (
+        conv_ids.append(conv.id)
+        conv_other[conv.id] = (
             conv.participant_b_id
             if conv.participant_a_id == entity_id
             else conv.participant_a_id
         )
+    # Batch-fetch all messages for all conversations at once
+    dms = []
+    if conv_ids:
         msg_result = await db.execute(
             select(DirectMessage)
-            .where(DirectMessage.conversation_id == conv.id)
-            .order_by(DirectMessage.created_at.asc())
-            .limit(5000)
+            .where(DirectMessage.conversation_id.in_(conv_ids))
+            .order_by(
+                DirectMessage.conversation_id,
+                DirectMessage.created_at.asc(),
+            )
+            .limit(10000)
         )
         for msg in msg_result.scalars().all():
             dms.append({
-                "conversation_with": str(other_id),
+                "conversation_with": str(
+                    conv_other.get(msg.conversation_id, "")
+                ),
                 "sender_id": str(msg.sender_id),
                 "content": msg.content,
                 "is_read": msg.is_read,

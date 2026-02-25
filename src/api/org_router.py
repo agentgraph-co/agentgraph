@@ -291,19 +291,23 @@ async def list_members(
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
     await _check_org_role(db, org_id, entity.id)
-    q = select(OrganizationMembership).where(
-        OrganizationMembership.organization_id == org_id
+    q = (
+        select(OrganizationMembership, Entity)
+        .join(Entity, OrganizationMembership.entity_id == Entity.id)
+        .where(OrganizationMembership.organization_id == org_id)
     )
     result = await db.execute(q)
-    memberships = result.scalars().all()
-    members = []
-    for m in memberships:
-        ent = await db.get(Entity, m.entity_id)
-        members.append({
-            "id": str(m.id), "entity_id": str(m.entity_id),
+    rows = result.all()
+    members = [
+        {
+            "id": str(m.id),
+            "entity_id": str(m.entity_id),
             "display_name": ent.display_name if ent else "Unknown",
-            "role": m.role.value, "joined_at": m.joined_at.isoformat(),
-        })
+            "role": m.role.value,
+            "joined_at": m.joined_at.isoformat(),
+        }
+        for m, ent in rows
+    ]
     return {"members": members, "total": len(members)}
 
 
