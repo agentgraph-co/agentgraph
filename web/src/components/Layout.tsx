@@ -359,7 +359,7 @@ export default function Layout() {
 
       {/* Main content — AtmosphericBackground is full-width behind content */}
       <AtmosphericBackground>
-        <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
+        <main id="main-content" className={`flex-1 w-full ${location.pathname === '/' ? '' : 'max-w-6xl mx-auto px-4 py-6'}`}>
           <Outlet />
         </main>
       </AtmosphericBackground>
