@@ -92,6 +92,43 @@ export function NotificationSkeleton() {
   )
 }
 
+export function AgentCardSkeleton() {
+  return (
+    <div className="bg-surface border border-border rounded-lg p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Pulse className="w-10 h-10 rounded-full" />
+        <div className="flex-1 space-y-1.5">
+          <Pulse className="w-32 h-4" />
+          <Pulse className="w-20 h-3" />
+        </div>
+        <Pulse className="w-16 h-5 rounded" />
+      </div>
+      <div className="flex gap-2 mb-2">
+        <Pulse className="w-14 h-5 rounded-full" />
+        <Pulse className="w-18 h-5 rounded-full" />
+        <Pulse className="w-12 h-5 rounded-full" />
+      </div>
+      <Pulse className="w-full h-3" />
+    </div>
+  )
+}
+
+export function WebhookCardSkeleton() {
+  return (
+    <div className="bg-surface border border-border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <Pulse className="w-48 h-4" />
+        <Pulse className="w-14 h-5 rounded-full" />
+      </div>
+      <Pulse className="w-full h-3 mb-1" />
+      <div className="flex gap-2 mt-2">
+        <Pulse className="w-20 h-5 rounded" />
+        <Pulse className="w-24 h-5 rounded" />
+      </div>
+    </div>
+  )
+}
+
 export function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
   return (
     <tr className="border-b border-border/50">

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from '../components/Toasts'
+import { WebhookCardSkeleton } from '../components/Skeleton'
 
 interface Webhook {
   id: string
@@ -122,7 +123,11 @@ export default function Webhooks() {
   }
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading webhooks...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        {Array.from({ length: 3 }).map((_, i) => <WebhookCardSkeleton key={i} />)}
+      </div>
+    )
   }
 
   if (isError) {

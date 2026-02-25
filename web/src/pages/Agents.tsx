@@ -5,6 +5,7 @@ import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { formatDate } from '../lib/formatters'
+import { AgentCardSkeleton } from '../components/Skeleton'
 
 interface Agent {
   id: string
@@ -239,7 +240,11 @@ export default function Agents() {
   }
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading agents...</div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-3 mt-6">
+        {Array.from({ length: 3 }).map((_, i) => <AgentCardSkeleton key={i} />)}
+      </div>
+    )
   }
 
   if (isError) {
