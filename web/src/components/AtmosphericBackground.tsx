@@ -1,6 +1,8 @@
-import { useSyncExternalStore } from 'react'
+import { useRef, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { GradientBreath, BioluminescentGlow } from './Motion'
+import { useTheme } from '../hooks/useTheme'
 import heroArt from '../assets/hero-art.png'
 
 // ─── Types ───
@@ -71,19 +73,78 @@ function getIntensity(pathname: string): Intensity {
   return 'none'
 }
 
+// ─── Parallax Hero Face ───
+// Shows on medium + full intensity pages in both themes.
+// Parallax: moves slower than scroll giving depth.
+// Over content areas it's very subtle; more visible at page top.
+
+function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
+  const { theme } = useTheme()
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollY } = useScroll()
+
+  // Parallax: face moves at 30% of scroll speed
+  const y = useTransform(scrollY, [0, 1000], [0, -300])
+  // Fade out as user scrolls into content
+  const scrollOpacity = useTransform(scrollY, [0, 400], [1, 0.3])
+
+  // Base opacity varies by intensity
+  const baseOpacity = intensity === 'full' ? 0.12 : 0.07
+
+  return (
+    <motion.div
+      ref={ref}
+      className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
+      style={{ y, opacity: scrollOpacity }}
+    >
+      <img
+        src={heroArt}
+        alt=""
+        aria-hidden="true"
+        className="w-full h-full object-cover"
+        style={{
+          opacity: baseOpacity,
+          mixBlendMode: theme === 'light' ? 'multiply' : 'lighten',
+          filter: theme === 'light' ? 'contrast(1.2) brightness(0.9)' : 'none',
+        }}
+      />
+      {/* Vignette — fades edges into the background color */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(ellipse at center, transparent 15%, var(--color-background) 65%),
+            linear-gradient(to bottom, transparent 30%, var(--color-background) 90%)
+          `,
+        }}
+      />
+    </motion.div>
+  )
+}
+
 // ─── Subtle Layer (pure CSS, no framer-motion) ───
 
 function SubtleLayer() {
+  const { theme } = useTheme()
+  // Light mode needs stronger gradients to be visible
+  const alpha = theme === 'light' ? 1 : 0.3
+
   return (
     <div
       className="absolute inset-0 pointer-events-none animate-gradient-breathe"
       style={{
-        opacity: 0.3,
-        background: `
-          radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.12) 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 30%, rgba(232,121,249,0.08) 0%, transparent 50%),
-          radial-gradient(ellipse at 50% 80%, rgba(245,158,11,0.06) 0%, transparent 50%)
-        `,
+        opacity: alpha,
+        background: theme === 'light'
+          ? `
+            radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.08) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 30%, rgba(162,28,175,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 80%, rgba(217,119,6,0.05) 0%, transparent 50%)
+          `
+          : `
+            radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.12) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 30%, rgba(232,121,249,0.08) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 80%, rgba(245,158,11,0.06) 0%, transparent 50%)
+          `,
       }}
     />
   )
@@ -96,8 +157,10 @@ function MediumLayer() {
     <>
       <GradientBreath className="opacity-50" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={400} className="top-[-10%] right-[-5%]" delay={0} />
+        <BioluminescentGlow size={500} className="top-[-10%] right-[-10%]" delay={0} />
+        <BioluminescentGlow size={400} className="bottom-[-5%] left-[-8%]" delay={6} />
       </div>
+      <ParallaxHeroFace intensity="medium" />
     </>
   )
 }
@@ -109,24 +172,11 @@ function FullLayer() {
     <>
       <GradientBreath />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <BioluminescentGlow size={500} className="top-[-15%] left-[-10%]" delay={0} />
-        <BioluminescentGlow size={400} className="top-[20%] right-[-8%]" delay={4} />
-        <BioluminescentGlow size={350} className="bottom-[-5%] left-[30%]" delay={8} />
+        <BioluminescentGlow size={600} className="top-[-15%] left-[-10%]" delay={0} />
+        <BioluminescentGlow size={500} className="top-[20%] right-[-12%]" delay={4} />
+        <BioluminescentGlow size={400} className="bottom-[-5%] left-[30%]" delay={8} />
       </div>
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none atmosphere-hero-art">
-        <img
-          src={heroArt}
-          alt=""
-          aria-hidden="true"
-          className="w-full h-full object-cover opacity-[0.10] mix-blend-lighten"
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'radial-gradient(ellipse at center, transparent 20%, var(--color-background) 70%)',
-          }}
-        />
-      </div>
+      <ParallaxHeroFace intensity="full" />
     </>
   )
 }
@@ -143,13 +193,14 @@ export function AtmosphericBackground({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div className="relative">
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="relative flex-1 flex flex-col">
+      {/* Background layers — full viewport width, pinned behind content */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ top: '3.5rem' }}>
         {intensity === 'subtle' && <SubtleLayer />}
         {intensity === 'medium' && <MediumLayer />}
         {intensity === 'full' && <FullLayer />}
       </div>
-      <div className="relative z-10">
+      <div className="relative z-10 flex-1 flex flex-col">
         {children}
       </div>
     </div>

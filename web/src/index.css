@@ -333,10 +333,6 @@ a:focus-visible,
   background: #cbd5e1;
 }
 
-[data-theme="light"] .atmosphere-hero-art {
-  display: none;
-}
-
 [data-theme="light"] .hero-art-blend {
   mix-blend-mode: multiply;
   opacity: 0.35;

@@ -262,17 +262,19 @@ export default function ForceGraph({
     return PARTICLE_CONFIG.count[l.type] ?? DEFAULT_PARTICLE_COUNT
   }, [])
 
-  // Semantic edge width — shrinks in graph-space as zoom increases
+  // Semantic edge width — shrinks in graph-space as zoom increases, thicker in light mode
   const getLinkWidth = useCallback(() => {
     const gs = currentZoomRef.current
-    return 1.5 / Math.pow(gs, 0.8)
-  }, [])
+    const base = theme === 'light' ? 2 : 1.5
+    return base / Math.pow(gs, 0.8)
+  }, [theme])
 
-  // Semantic particle width
+  // Semantic particle width — boosted in light mode for visibility
   const getParticleWidth = useCallback(() => {
     const gs = currentZoomRef.current
-    return PARTICLE_CONFIG.width / Math.pow(gs, 0.8)
-  }, [])
+    const base = theme === 'light' ? PARTICLE_CONFIG.width * 1.5 : PARTICLE_CONFIG.width
+    return base / Math.pow(gs, 0.8)
+  }, [theme])
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -320,7 +322,7 @@ export default function ForceGraph({
     linkDirectionalParticles: getLinkParticles,
     linkDirectionalParticleWidth: is3D ? PARTICLE_CONFIG.width : getParticleWidth,
     linkDirectionalParticleSpeed: PARTICLE_CONFIG.speed,
-    linkOpacity: 0.45,
+    linkOpacity: theme === 'light' ? 0.7 : 0.45,
     linkWidth: is3D ? 1.5 : getLinkWidth,
     onNodeClick: handleNodeClick,
     onNodeHover: handleNodeHover,

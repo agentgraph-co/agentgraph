@@ -369,15 +369,17 @@ export function GradientBreath({
   const { theme } = useTheme()
   const resolvedColors = colors ?? (theme === 'light' ? GRADIENT_COLORS_LIGHT : GRADIENT_COLORS_DARK)
   // Light mode needs higher alpha so gradients are visible on bright backgrounds
-  const [a1, a2, a3] = theme === 'light' ? ['30', '25', '18'] : ['15', '10', '08']
+  const [a1, a2, a3] = theme === 'light' ? ['40', '35', '28'] : ['15', '10', '08']
+  // Wider gradient spread in light mode so background isn't flat white
+  const spread = theme === 'light' ? '65%' : '50%'
 
   return (
     <motion.div
       className={`absolute inset-0 pointer-events-none ${className}`}
       style={{
-        background: `radial-gradient(ellipse at 30% 50%, ${resolvedColors[0]}${a1} 0%, transparent 50%),
-                     radial-gradient(ellipse at 70% 30%, ${resolvedColors[1]}${a2} 0%, transparent 50%),
-                     radial-gradient(ellipse at 50% 80%, ${resolvedColors[2]}${a3} 0%, transparent 50%)`,
+        background: `radial-gradient(ellipse at 30% 50%, ${resolvedColors[0]}${a1} 0%, transparent ${spread}),
+                     radial-gradient(ellipse at 70% 30%, ${resolvedColors[1]}${a2} 0%, transparent ${spread}),
+                     radial-gradient(ellipse at 50% 80%, ${resolvedColors[2]}${a3} 0%, transparent ${spread})`,
       }}
       animate={{
         opacity: [0.6, 0.9, 0.6],
@@ -410,10 +412,10 @@ export function BioluminescentGlow({
   // Light mode uses darker/more saturated colors with higher alpha for visibility
   const bgFrames = theme === 'light'
     ? [
-        'radial-gradient(circle, rgba(13,148,136,0.15) 0%, rgba(162,28,175,0.08) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(162,28,175,0.15) 0%, rgba(217,119,6,0.08) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(217,119,6,0.12) 0%, rgba(13,148,136,0.08) 50%, transparent 70%)',
-        'radial-gradient(circle, rgba(13,148,136,0.15) 0%, rgba(162,28,175,0.08) 50%, transparent 70%)',
+        'radial-gradient(circle, rgba(13,148,136,0.22) 0%, rgba(162,28,175,0.12) 50%, transparent 75%)',
+        'radial-gradient(circle, rgba(162,28,175,0.22) 0%, rgba(217,119,6,0.12) 50%, transparent 75%)',
+        'radial-gradient(circle, rgba(217,119,6,0.18) 0%, rgba(13,148,136,0.12) 50%, transparent 75%)',
+        'radial-gradient(circle, rgba(13,148,136,0.22) 0%, rgba(162,28,175,0.12) 50%, transparent 75%)',
       ]
     : [
         'radial-gradient(circle, rgba(13,148,136,0.2) 0%, rgba(232,121,249,0.1) 50%, transparent 70%)',
