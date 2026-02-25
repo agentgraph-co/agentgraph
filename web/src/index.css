@@ -78,15 +78,11 @@ a:focus-visible,
 
 .glass {
   background: var(--color-surface-glass);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .glass-strong {
-  background: rgba(17, 27, 27, 0.92);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  background: rgba(17, 27, 27, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
