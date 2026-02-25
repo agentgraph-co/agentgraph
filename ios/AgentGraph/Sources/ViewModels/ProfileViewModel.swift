@@ -11,7 +11,7 @@ final class ProfileViewModel {
     var error: String?
     var isFollowing = false
 
-    func loadProfile(entityId: UUID) async {
+    func loadProfile(entityId: UUID, currentUserId: UUID? = nil) async {
         isLoading = true
         error = nil
 
@@ -28,15 +28,13 @@ final class ProfileViewModel {
                 evolutionRecords = []
             }
 
-            // #5: Check follow status — if following endpoint returns data, we're following
-            if !profileResponse.isOwnProfile {
+            // Check follow status by scanning followers for our ID
+            if !profileResponse.isOwnProfile, let myId = currentUserId {
                 do {
                     let followers = try await APIService.shared.getFollowers(entityId: entityId)
-                    // We can't easily check if WE are in their followers list without our ID,
-                    // so we attempt follow and handle 409 conflict gracefully
-                    _ = followers // Suppress unused warning
+                    isFollowing = followers.entities.contains { $0.id == myId }
                 } catch {
-                    // Non-critical
+                    // Non-critical — leave isFollowing as false
                 }
             }
         } catch {

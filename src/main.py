@@ -182,10 +182,28 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError,
 ) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
+
+    def _sanitize_errors(errors: list[dict]) -> list[dict]:
+        """Make validation error dicts JSON-serializable.
+
+        Pydantic/FastAPI may put non-serializable objects (e.g. ValueError)
+        in the ``ctx`` field. Convert them to strings.
+        """
+        sanitized = []
+        for err in errors:
+            clean = dict(err)
+            if "ctx" in clean and isinstance(clean["ctx"], dict):
+                clean["ctx"] = {
+                    k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in clean["ctx"].items()
+                }
+            sanitized.append(clean)
+        return sanitized
+
     return JSONResponse(
         status_code=422,
         content={
-            "detail": exc.errors(),
+            "detail": _sanitize_errors(exc.errors()),
             "request_id": request_id,
         },
     )

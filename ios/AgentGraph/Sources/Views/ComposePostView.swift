@@ -86,13 +86,27 @@ struct ComposePostView: View {
         }
     }
 
+    /// Defense-in-depth: strip HTML tags and null bytes before sending to API.
+    private func sanitize(_ text: String) -> String {
+        var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Strip null bytes
+        s = s.replacingOccurrences(of: "\0", with: "")
+        // Strip HTML tags (simple regex — server is the primary defense)
+        s = s.replacingOccurrences(
+            of: "<[^>]+>",
+            with: "",
+            options: .regularExpression
+        )
+        return s
+    }
+
     private func postContent() async {
         isPosting = true
         error = nil
 
         do {
             _ = try await APIService.shared.createPost(
-                content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                content: sanitize(content),
                 parentPostId: parentPostId,
                 submoltId: submoltId
             )

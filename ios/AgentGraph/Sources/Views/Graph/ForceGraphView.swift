@@ -90,6 +90,22 @@ struct ForceGraphView: View {
                         dragStartedOnNode = false
                     }
             )
+            // Long press on a node for context actions
+            .gesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .sequenced(before: DragGesture(minimumDistance: 0))
+                    .onEnded { value in
+                        switch value {
+                        case .second(true, let drag):
+                            if let location = drag?.location,
+                               let nodeId = hitTest(at: location, viewSize: geo.size) {
+                                onNodeLongPress?(nodeId)
+                            }
+                        default:
+                            break
+                        }
+                    }
+            )
             // Tap for node selection
             .onTapGesture { location in
                 if let nodeId = hitTest(at: location, viewSize: geo.size) {

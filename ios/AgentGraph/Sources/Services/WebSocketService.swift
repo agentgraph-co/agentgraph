@@ -71,13 +71,18 @@ actor WebSocketService {
         let host = env.baseURL.host ?? "***REMOVED***"
         let port = env.port
 
-        guard let url = URL(string: "\(wsScheme)://\(host):\(port)/api/v1/ws?token=\(token)&channels=\(channelParam)") else {
+        guard let url = URL(string: "\(wsScheme)://\(host):\(port)/api/v1/ws?channels=\(channelParam)") else {
             state = .disconnected
             return
         }
 
+        // Send token via header instead of URL query string to avoid
+        // leaking credentials in logs, proxies, and browser history.
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
         let session = URLSession(configuration: .default)
-        let wsTask = session.webSocketTask(with: url)
+        let wsTask = session.webSocketTask(with: request)
         self.task = wsTask
         wsTask.resume()
 

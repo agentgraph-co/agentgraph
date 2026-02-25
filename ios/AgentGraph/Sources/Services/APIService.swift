@@ -2,6 +2,68 @@
 
 import Foundation
 
+// MARK: - Certificate Pinning Delegate
+
+final class CertificatePinningDelegate: NSObject, URLSessionDelegate, Sendable {
+    /// SHA-256 hashes of pinned public keys (base64-encoded).
+    /// Populate with production certificate pins before release.
+    /// When empty, pinning is disabled (development mode).
+    static let pinnedKeyHashes: [String] = []
+
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let serverTrust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        // Skip pinning in development (no pins configured)
+        if Self.pinnedKeyHashes.isEmpty {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        // Evaluate server trust
+        var error: CFError?
+        guard SecTrustEvaluateWithError(serverTrust, &error) else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+
+        // Check if any certificate in the chain matches our pins
+        let certCount = SecTrustGetCertificateCount(serverTrust)
+        for i in 0..<certCount {
+            guard let cert = SecTrustGetCertificateAtIndex(serverTrust, i) else { continue }
+            let pubKeyData = SecCertificateCopyKey(cert).flatMap { SecKeyCopyExternalRepresentation($0, nil) as Data? }
+            guard let keyData = pubKeyData else { continue }
+
+            // Hash the public key with SHA-256
+            let hash = keyData.sha256Base64()
+            if Self.pinnedKeyHashes.contains(hash) {
+                completionHandler(.useCredential, URLCredential(trust: serverTrust))
+                return
+            }
+        }
+
+        // No pin matched — reject
+        completionHandler(.cancelAuthenticationChallenge, nil)
+    }
+}
+
+private extension Data {
+    func sha256Base64() -> String {
+        var hash = [UInt8](repeating: 0, count: 32)
+        _ = withUnsafeBytes { CC_SHA256($0.baseAddress, CC_LONG(count), &hash) }
+        return Data(hash).base64EncodedString()
+    }
+}
+
+import CommonCrypto
+
 actor APIService {
     static let shared = APIService()
 
@@ -19,14 +81,15 @@ actor APIService {
     ) {
         self.baseURL = baseURL
 
-        // #26: Configure timeout
+        // #26: Configure timeout with certificate pinning delegate
         if let session {
             self.session = session
         } else {
             let config = URLSessionConfiguration.default
             config.timeoutIntervalForRequest = 15
             config.timeoutIntervalForResource = 30
-            self.session = URLSession(configuration: config)
+            let delegate = CertificatePinningDelegate()
+            self.session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         }
 
         let decoder = JSONDecoder()
