@@ -352,12 +352,12 @@ export default function Layout() {
         </AnimatePresence>
       </motion.header>
 
-      {/* Main content */}
-      <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
-        <AtmosphericBackground>
+      {/* Main content — AtmosphericBackground is full-width behind content */}
+      <AtmosphericBackground>
+        <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
           <Outlet />
-        </AtmosphericBackground>
-      </main>
+        </main>
+      </AtmosphericBackground>
     </div>
   )
 }
