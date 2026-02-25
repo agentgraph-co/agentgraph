@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
-from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.config import settings
 from src.database import get_db
 from src.enterprise.sso import (
@@ -115,7 +115,7 @@ def _require_sso_enabled() -> None:
 async def saml_login(
     body: SAMLLoginRequest,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(rate_limit_writes),
+    _: None = Depends(rate_limit_auth),
 ) -> dict:
     """Initiate SAML SSO login for an organization.
 
@@ -133,7 +133,7 @@ async def saml_login(
 async def saml_callback(
     body: SAMLCallbackRequest,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(rate_limit_writes),
+    _: None = Depends(rate_limit_auth),
 ) -> dict:
     """SAML Assertion Consumer Service endpoint.
 
@@ -185,7 +185,7 @@ async def saml_metadata(
 async def oidc_login(
     org_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(rate_limit_reads),
+    _: None = Depends(rate_limit_auth),
 ) -> dict:
     """Initiate OIDC SSO login for an organization.
 
@@ -209,7 +209,7 @@ async def oidc_callback(
     state: str,
     org_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(rate_limit_reads),
+    _: None = Depends(rate_limit_auth),
 ) -> dict:
     """OIDC callback endpoint.
 
