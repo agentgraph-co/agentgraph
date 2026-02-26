@@ -225,7 +225,17 @@ a:focus-visible,
   75% { transform: scale(1.04) translate(-3px, -4px); }
 }
 
+@keyframes network-flow {
+  0% { stroke-dashoffset: 400; opacity: 0.2; }
+  50% { stroke-dashoffset: 0; opacity: 0.8; }
+  100% { stroke-dashoffset: -400; opacity: 0.2; }
+}
+
 .animate-hero-breathe { animation: hero-breathe 20s ease-in-out infinite; }
+.animate-network-flow {
+  stroke-dasharray: 80 320;
+  animation: network-flow 12s ease-in-out infinite;
+}
 .animate-gradient-breathe { animation: gradient-breathe 6s ease-in-out infinite; }
 .animate-particle-drift { animation: particle-drift 4s ease-in-out infinite; }
 .animate-mycelium-draw { animation: mycelium-draw 2s ease-out forwards; stroke-dasharray: 1000; }
