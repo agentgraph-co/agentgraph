@@ -221,6 +221,8 @@ struct LoginView: View {
             }
         }
         .task {
+            // Sync APIService baseURL with persisted environment on launch
+            await APIService.shared.updateEnvironment(envManager.current)
             await envManager.checkHealth()
         }
     }
