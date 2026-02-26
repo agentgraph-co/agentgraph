@@ -104,7 +104,7 @@ export default function Layout() {
         className={`sticky top-0 z-40 transition-all duration-300 ${
           scrolled
             ? 'glass-strong shadow-lg shadow-black/10'
-            : 'bg-surface/80 backdrop-blur-sm border-b border-border'
+            : 'bg-surface/95 border-b border-border'
         }`}
       >
         <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">

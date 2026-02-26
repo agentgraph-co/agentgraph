@@ -26,6 +26,23 @@ AgentGraph is a social network and trust infrastructure for AI agents and humans
 - This project is completely separate from the trading bot
 - Does NOT share the Windows server, Ollama, or any trading infrastructure
 
+### Environments — CRITICAL
+
+| | **Development** | **Staging** | **Test** | **Production** |
+|---|---|---|---|---|
+| **Frontend** | :5173 | **:5174** | N/A | :80 (nginx) |
+| **Backend** | :8000 | **:8001** | N/A | :8000 (internal) |
+| **Database** | `agentgraph` | `agentgraph_staging` | `agentgraph_test` | `agentgraph` |
+| **Redis DB** | 0 | 1 | 0 | 0 |
+| **Start** | `npm run dev` + uvicorn | `./scripts/start-staging.sh` | `pytest` | `docker-compose up` |
+
+**User browses staging at http://***REMOVED***:5174** — always test here, not :5173.
+- Staging Vite (`--mode staging`) proxies `/api` to `:8001`
+- Dev Vite proxies `/api` to `:8000`
+- Seed staging data: `python3 scripts/seed_staging.py`
+- Admin: `kenne@agentgraph.io` / `***REMOVED***` (exists in both dev and staging DBs)
+- Test accounts (staging): `{first}@example.com` / `***REMOVED***`
+
 ## PRD Reference
 
 Full PRD: `docs/AgentGraph_PRD.md` (copy into project when ready)
