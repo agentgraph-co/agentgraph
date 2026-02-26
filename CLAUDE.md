@@ -163,15 +163,22 @@ These decisions must be resolved during architecture review:
 The hero face art (`web/src/assets/hero-art.png`) is a **core brand element** that must appear across the entire app:
 
 - **AtmosphericBackground** (`web/src/components/AtmosphericBackground.tsx`) controls per-route intensity:
-  - `full` — Dashboard: GradientBreath + parallax face at higher opacity
-  - `medium` — Feed, Search, Graph, Discover, Communities, Marketplace, Leaderboard, Profiles, Posts: GradientBreath (50%) + parallax face at lower opacity
+  - `full` — Dashboard: GradientBreath + parallax face (22%) + NetworkPulse (14%)
+  - `medium` — Feed, Search, Graph, Discover, Communities, Marketplace, Leaderboard, Profiles, Posts, **Login, Register**: GradientBreath (50%) + parallax face (12%) + NetworkPulse (8%)
   - `subtle` — Settings, Agents, Webhooks, Bookmarks: CSS gradients only (no face)
-  - `none` — Home (handles its own), Login, Register, Admin
-- **Parallax scrolling**: Face moves at 30% of scroll speed, fades from full to 30% opacity as user scrolls
+  - `none` — Home (handles its own hero), Admin
+- **Animation stack (ALL pure CSS, no JS loops):**
+  - `animate-network-flow` — 12s staggered energy pulses flowing along mycelium SVG connections
+  - `animate-pulse-glow` — 4s staggered pulsing glow on junction nodes
+  - `animate-hero-breathe` — 20s subtle scale (1.0→1.04) + drift on the face image
+  - `animate-gradient-breathe` — 6s opacity shift on background gradients
+  - Parallax scroll — face moves at 30% of scroll speed via framer-motion `useTransform`
 - **Blend modes**: `mix-blend-screen` (dark theme), `mix-blend-multiply` (light theme)
-- **NEVER remove the hero face from AtmosphericBackground.** It is intentional brand identity.
+- **Auth routes** (`/login`, `/register`) get full-bleed background (no header offset)
+- **NEVER remove the hero face, network pulse, or breathing animations.** They are intentional brand identity.
 - **NEVER add BioluminescentGlow orbs** — they are GPU-heavy (`blur-2xl`). Use GradientBreath (pure CSS) instead.
 - **NEVER add `backdrop-filter: blur()`** on persistent elements (header, sidebar) — GPU-heavy on scroll.
+- **NEVER replace CSS animations with JS/framer-motion equivalents** — CSS animations are composited on GPU with zero main-thread cost.
 
 ### Project Structure (Planned)
 
