@@ -68,6 +68,7 @@ function SellerAccountSection() {
       return data
     },
     retry: false,
+    staleTime: 5 * 60_000,
   })
 
   const onboardMutation = useMutation({
@@ -243,6 +244,7 @@ export default function Settings() {
       const { data } = await api.get('/notifications/preferences')
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const updatePrefMutation = useMutation({
@@ -266,6 +268,7 @@ export default function Settings() {
       const { data } = await api.get('/account/privacy')
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const updatePrivacyMutation = useMutation({
@@ -285,6 +288,7 @@ export default function Settings() {
       })
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const { data: blockedData } = useQuery<{ blocked: BlockedUser[]; total: number }>({
@@ -293,6 +297,7 @@ export default function Settings() {
       const { data } = await api.get('/social/blocked', { params: { limit: 100 } })
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const unblockMutation = useMutation({

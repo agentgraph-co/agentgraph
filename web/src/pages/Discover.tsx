@@ -40,6 +40,7 @@ export default function Discover() {
       const { data } = await api.get('/profiles', { params })
       return data
     },
+    staleTime: 2 * 60_000,
   })
 
   const followMutation = useMutation({

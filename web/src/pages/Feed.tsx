@@ -156,6 +156,7 @@ export default function Feed() {
       return data
     },
     enabled: !!user,
+    staleTime: 5 * 60_000,
   })
 
   const { data: suggestions } = useQuery<{ suggestions: SuggestedEntity[] }>({
@@ -225,6 +226,7 @@ export default function Feed() {
       if (feedMode === 'following' || activeSearch) return lastPage.next_cursor
       return allPages.reduce((acc, page) => acc + page.posts.length, 0)
     },
+    staleTime: 60_000,
   })
 
   const allPosts: Post[] = data?.pages.flatMap((page) => page.posts) || []

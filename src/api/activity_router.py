@@ -13,8 +13,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import cache
 from src.api.deps import get_optional_entity
 from src.api.rate_limit import rate_limit_reads
+from src.cache import TTL_SHORT
 from src.database import get_db
 from src.models import (
     CapabilityEndorsement,
@@ -65,6 +67,13 @@ async def get_activity(
     if entity.privacy_tier == PrivacyTier.PRIVATE:
         if current_entity is None or current_entity.id != entity_id:
             raise HTTPException(status_code=403, detail="This entity's activity is private")
+
+    # Try Redis cache for public activity (skip cache for private profiles)
+    cache_key = f"activity:{entity_id}:{limit}:{before}"
+    if entity.privacy_tier != PrivacyTier.PRIVATE:
+        cached = await cache.get(cache_key)
+        if cached is not None:
+            return cached
 
     before_dt: datetime | None = None
     if before:
@@ -193,8 +202,11 @@ async def get_activity(
             iso = iso[:-6] + "Z"
         next_cursor = iso
 
-    return ActivityResponse(
+    result = ActivityResponse(
         activities=activities,
         count=len(activities),
         next_cursor=next_cursor,
     )
+    if entity.privacy_tier != PrivacyTier.PRIVATE:
+        await cache.set(cache_key, result.model_dump(mode="json"), ttl=TTL_SHORT)
+    return result

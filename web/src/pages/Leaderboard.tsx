@@ -33,6 +33,7 @@ export default function Leaderboard() {
       const { data } = await api.get('/search/leaderboard', { params })
       return data
     },
+    staleTime: 2 * 60_000,
   })
 
   if (isLoading) {

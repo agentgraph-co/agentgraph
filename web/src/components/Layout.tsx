@@ -69,6 +69,7 @@ export default function Layout() {
     enabled: !!user,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    staleTime: 30_000,
   })
 
   const unreadCount = unreadData?.unread_count || 0

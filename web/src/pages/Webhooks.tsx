@@ -58,6 +58,7 @@ export default function Webhooks() {
       const { data } = await api.get('/webhooks')
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const createMutation = useMutation({

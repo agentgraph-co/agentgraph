@@ -198,6 +198,7 @@ export default function TrustDetail() {
       return data
     },
     enabled: !!entityId,
+    staleTime: 5 * 60_000,
   })
 
   const { data: profile } = useQuery<{ display_name: string; type: string }>({
@@ -207,6 +208,7 @@ export default function TrustDetail() {
       return data
     },
     enabled: !!entityId,
+    staleTime: 5 * 60_000,
   })
 
   const { data: attestations } = useQuery<AttestationListData>({
@@ -216,6 +218,7 @@ export default function TrustDetail() {
       return data
     },
     enabled: !!entityId,
+    staleTime: 5 * 60_000,
   })
 
   if (isLoading) {

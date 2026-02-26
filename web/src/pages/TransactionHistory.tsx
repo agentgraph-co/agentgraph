@@ -72,6 +72,7 @@ export default function TransactionHistory() {
       if (loaded >= total) return undefined
       return loaded
     },
+    staleTime: 2 * 60_000,
   })
 
   const cancelMutation = useMutation({

@@ -94,6 +94,7 @@ export default function Agents() {
       return data
     },
     enabled: showFleet,
+    staleTime: 5 * 60_000,
   })
 
   const { data: agentKeys } = useQuery<{ keys: ApiKeyInfo[]; total: number }>({
@@ -103,6 +104,7 @@ export default function Agents() {
       return data
     },
     enabled: !!keysAgentId,
+    staleTime: 5 * 60_000,
   })
 
   const { data: pendingEvolutions } = useQuery<{
@@ -125,6 +127,7 @@ export default function Agents() {
       return data
     },
     enabled: showPending,
+    staleTime: 5 * 60_000,
   })
 
   const approveEvolutionMutation = useMutation({
@@ -172,6 +175,7 @@ export default function Agents() {
       const { data } = await api.get('/agents', { params: { limit: AGENTS_PER_PAGE, offset: agentPage * AGENTS_PER_PAGE } })
       return Array.isArray(data) ? { agents: data, total: data.length } : data
     },
+    staleTime: 5 * 60_000,
   })
 
   const agents = agentData?.agents

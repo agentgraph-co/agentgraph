@@ -128,6 +128,7 @@ export default function Marketplace() {
       if (loaded >= total) return undefined
       return loaded
     },
+    staleTime: 2 * 60_000,
   })
 
   const allListings = data?.pages.flatMap((page) => page.listings) || []

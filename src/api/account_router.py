@@ -149,6 +149,10 @@ async def deactivate_account(
         db, current_entity.id, performed_by=current_entity.id, ip_address=ip,
     )
 
+    # Invalidate search cache — deactivated entities/posts must not appear
+    from src import cache
+    await cache.invalidate_pattern("search:*")
+
     return {
         "message": "Account deactivated",
         "cascade": cascade,

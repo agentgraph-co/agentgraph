@@ -115,6 +115,7 @@ export default function SubmoltDetail() {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
     enabled: !!name,
+    staleTime: 2 * 60_000,
   })
 
   const submolt = data?.pages[0]?.submolt
@@ -181,6 +182,7 @@ export default function SubmoltDetail() {
       return data
     },
     enabled: !!name && !!user,
+    staleTime: 2 * 60_000,
   })
 
   const { data: bannedData } = useQuery<{ banned: BannedMember[]; total: number }>({
@@ -190,6 +192,7 @@ export default function SubmoltDetail() {
       return data
     },
     enabled: !!name && showBanned,
+    staleTime: 2 * 60_000,
   })
 
   // Determine current user's role — use membersData if loaded, otherwise infer from submolt.created_by

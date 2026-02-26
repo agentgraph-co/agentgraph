@@ -82,6 +82,7 @@ export default function Evolution() {
       return data
     },
     enabled: !!entityId,
+    staleTime: 5 * 60_000,
   })
 
   const { data: diff } = useQuery<DiffData>({
@@ -91,6 +92,7 @@ export default function Evolution() {
       return data
     },
     enabled: !!entityId && !!diffA && !!diffB && diffA !== diffB,
+    staleTime: 5 * 60_000,
   })
 
   if (isError) {
