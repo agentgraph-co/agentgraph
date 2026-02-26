@@ -50,7 +50,8 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: AGSpacing.lg) {
-                    // Environment section
+                    #if DEBUG
+                    // Environment section (debug builds only)
                     GlassCard {
                         VStack(alignment: .leading, spacing: AGSpacing.md) {
                             Text("Server Environment")
@@ -59,7 +60,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.agText)
 
                             Picker("Environment", selection: $env.current) {
-                                ForEach(ServerEnvironment.allCases, id: \.self) { env in
+                                ForEach(ServerEnvironment.selectableCases, id: \.self) { env in
                                     Text(env.displayName).tag(env)
                                 }
                             }
@@ -88,6 +89,7 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    #endif
 
                     // Account section
                     GlassCard {
@@ -130,6 +132,22 @@ struct SettingsView: View {
                             }
 
                             Divider().background(Color.agBorder)
+
+                            NavigationLink {
+                                ChangePasswordView()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "lock.rotation")
+                                        .foregroundStyle(Color.agPrimary)
+                                    Text("Change Password")
+                                        .font(AGTypography.sm)
+                                        .foregroundStyle(Color.agText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(AGTypography.xs)
+                                        .foregroundStyle(Color.agMuted)
+                                }
+                            }
 
                             NavigationLink {
                                 BookmarksView()

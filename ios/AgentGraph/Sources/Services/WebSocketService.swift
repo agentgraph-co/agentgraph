@@ -24,6 +24,7 @@ actor WebSocketService {
     private var reconnectTask: Task<Void, Never>?
     private var token: String?
     private var channels: [String] = []
+    private var environment: ServerEnvironment = .development
     private var reconnectAttempts = 0
     private var shouldReconnect = false
 
@@ -32,9 +33,10 @@ actor WebSocketService {
 
     // MARK: - Public API
 
-    func connect(token: String, channels: [String] = ["feed", "notifications", "activity"]) {
+    func connect(token: String, channels: [String] = ["feed", "notifications", "activity"], environment: ServerEnvironment = .development) {
         self.token = token
         self.channels = channels
+        self.environment = environment
         self.shouldReconnect = true
         self.reconnectAttempts = 0
         doConnect()
@@ -66,12 +68,12 @@ actor WebSocketService {
         state = .connecting
 
         let channelParam = channels.joined(separator: ",")
-        let env = ServerEnvironment.development
-        let wsScheme = "ws"
-        let host = env.baseURL.host ?? "***REMOVED***"
-        let port = env.port
-
-        guard let url = URL(string: "\(wsScheme)://\(host):\(port)/api/v1/ws?channels=\(channelParam)") else {
+        guard var components = URLComponents(url: environment.wsURL, resolvingAgainstBaseURL: false) else {
+            state = .disconnected
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "channels", value: channelParam)]
+        guard let url = components.url else {
             state = .disconnected
             return
         }
@@ -192,15 +194,18 @@ actor WebSocketService {
         guard shouldReconnect else { return }
 
         reconnectAttempts += 1
-        let delay = min(
+        let baseDelay = min(
             pow(2.0, Double(reconnectAttempts - 1)),
             Self.maxReconnectDelay
         )
+        // Add ±25% jitter to prevent thundering herd
+        let jitter = baseDelay * Double.random(in: -0.25...0.25)
+        let delay = max(0.5, baseDelay + jitter)
 
         reconnectTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            await self.doConnect()
+            self.doConnect()
         }
     }
 

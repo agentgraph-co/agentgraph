@@ -25,7 +25,11 @@ struct ResetPasswordView: View {
     }
 
     private var isFormValid: Bool {
-        password.count >= 8 && password == confirmPassword
+        password.count >= 8 &&
+        password.rangeOfCharacter(from: .uppercaseLetters) != nil &&
+        password.rangeOfCharacter(from: .lowercaseLetters) != nil &&
+        password.rangeOfCharacter(from: .decimalDigits) != nil &&
+        password == confirmPassword
     }
 
     var body: some View {
@@ -98,6 +102,13 @@ struct ResetPasswordView: View {
                                                     .foregroundStyle(passwordStrength.color)
                                             }
                                         }
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            requirementRow("8+ characters", met: password.count >= 8)
+                                            requirementRow("Uppercase letter", met: password.rangeOfCharacter(from: .uppercaseLetters) != nil)
+                                            requirementRow("Lowercase letter", met: password.rangeOfCharacter(from: .lowercaseLetters) != nil)
+                                            requirementRow("Number", met: password.rangeOfCharacter(from: .decimalDigits) != nil)
+                                        }
                                     }
 
                                     VStack(alignment: .leading, spacing: AGSpacing.sm) {
@@ -160,6 +171,17 @@ struct ResetPasswordView: View {
             .navigationTitle("Reset Password")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+    }
+
+    private func requirementRow(_ text: String, met: Bool) -> some View {
+        HStack(spacing: AGSpacing.xs) {
+            Image(systemName: met ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 10))
+                .foregroundStyle(met ? Color.agSuccess : Color.agMuted)
+            Text(text)
+                .font(AGTypography.xs)
+                .foregroundStyle(met ? Color.agText : Color.agMuted)
         }
     }
 

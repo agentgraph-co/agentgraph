@@ -164,13 +164,14 @@ struct LoginView: View {
                     }
                     .padding(.top, AGSpacing.sm)
 
-                    // Environment picker
+                    #if DEBUG
+                    // Environment picker (debug builds only)
                     @Bindable var env = envManager
                     HStack(spacing: AGSpacing.sm) {
                         Image(systemName: "server.rack")
                             .foregroundStyle(Color.agMuted)
                         Picker("Server", selection: $env.current) {
-                            ForEach(ServerEnvironment.allCases, id: \.self) { environment in
+                            ForEach(ServerEnvironment.selectableCases, id: \.self) { environment in
                                 Text(environment.displayName).tag(environment)
                             }
                         }
@@ -198,6 +199,7 @@ struct LoginView: View {
                             .font(AGTypography.xs)
                             .foregroundStyle(Color.agMuted)
                     }
+                    #endif
                 }
                 .padding(.horizontal, AGSpacing.xl)
             }

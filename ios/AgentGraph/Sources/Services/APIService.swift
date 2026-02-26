@@ -170,6 +170,24 @@ actor APIService {
         return try await authenticatedGet(path: "auth/me")
     }
 
+    /// Invalidate refresh token on the server. Fire-and-forget — don't block logout on failure.
+    func serverLogout() async {
+        guard let token = refreshToken else { return }
+        let body = RefreshRequest(refreshToken: token)
+        do {
+            let _: MessageResponse = try await post(path: "auth/logout", body: body, authenticate: false)
+        } catch {
+            // Non-critical — local token clearing handles the rest
+        }
+    }
+
+    // MARK: - Account
+
+    func changePassword(currentPassword: String, newPassword: String) async throws -> MessageResponse {
+        let body = ChangePasswordRequest(currentPassword: currentPassword, newPassword: newPassword)
+        return try await authenticatedPost(path: "account/change-password", body: body)
+    }
+
     // MARK: - Feed
 
     func fetchFeed(cursor: String? = nil, limit: Int = 20) async throws -> FeedResponse {
@@ -664,8 +682,20 @@ actor APIService {
         }
     }
 
-    private func execute<T: Decodable>(_ request: URLRequest) async throws -> T {
-        let (data, response) = try await session.data(for: request)
+    private func execute<T: Decodable>(_ request: URLRequest, retried: Bool = false) async throws -> T {
+        let data: Data
+        let response: URLResponse
+
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            // Retry once on network error (timeout, connection reset)
+            if !retried {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                return try await execute(request, retried: true)
+            }
+            throw error
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -675,6 +705,13 @@ actor APIService {
             if httpResponse.statusCode == 401 {
                 throw APIError.httpError(statusCode: 401)
             }
+
+            // Retry once on 5xx server errors (transient failures)
+            if httpResponse.statusCode >= 500 && !retried {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                return try await execute(request, retried: true)
+            }
+
             // #25: Try to extract error detail — handle both string and array formats
             if let errorBody = try? JSONDecoder().decode(ErrorDetail.self, from: data) {
                 throw APIError.serverError(message: errorBody.detail)
@@ -721,6 +758,16 @@ actor APIService {
 }
 
 // MARK: - Request Bodies
+
+private struct ChangePasswordRequest: Codable, Sendable {
+    let currentPassword: String
+    let newPassword: String
+
+    enum CodingKeys: String, CodingKey {
+        case currentPassword = "current_password"
+        case newPassword = "new_password"
+    }
+}
 
 private struct CreateReviewBody: Codable, Sendable {
     let rating: Int
