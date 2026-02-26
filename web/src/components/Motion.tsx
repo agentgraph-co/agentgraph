@@ -3,7 +3,7 @@
  * Import these in any page for scroll-triggered reveals,
  * staggered lists, counters, and ambient effects.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   motion,
   useInView,
@@ -12,19 +12,6 @@ import {
   type Variant,
 } from 'framer-motion'
 import { useTheme } from '../hooks/useTheme'
-
-// ─── Tab Visibility Hook ───
-// Pauses CPU-heavy animations when the browser tab is hidden.
-
-function useTabVisible() {
-  const [visible, setVisible] = useState(!document.hidden)
-  useEffect(() => {
-    const handler = () => setVisible(!document.hidden)
-    document.addEventListener('visibilitychange', handler)
-    return () => document.removeEventListener('visibilitychange', handler)
-  }, [])
-  return visible
-}
 
 // ─── Spring configs ───
 
@@ -276,7 +263,6 @@ export function ParticleField({
 }: ParticleFieldProps) {
   const { theme } = useTheme()
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const tabVisible = useTabVisible()
   const resolvedColors = colors ?? (theme === 'light' ? PARTICLE_COLORS_LIGHT : PARTICLE_COLORS_DARK)
   const connectionColor = theme === 'light' ? '#0D9488' : '#2DD4BF'
   const connectionAlpha = theme === 'light' ? 0.15 : 0.08
@@ -288,9 +274,10 @@ export function ParticleField({
     if (!ctx) return
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = canvas.offsetWidth * dpr
+      canvas.height = canvas.offsetHeight * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     resize()
     window.addEventListener('resize', resize)
@@ -305,13 +292,17 @@ export function ParticleField({
       alpha: Math.random() * 0.6 + 0.2,
     }))
 
-    let raf: number
-    // Throttle to ~30fps instead of 60fps — halves CPU for a negligible visual difference
+    let raf = 0
     let lastFrame = 0
+    let paused = document.hidden
     const FRAME_INTERVAL = 50 // ~20fps — lower CPU with negligible visual difference
+
+    const onVisibility = () => { paused = document.hidden }
+    document.addEventListener('visibilitychange', onVisibility)
 
     const animate = (now: number) => {
       raf = requestAnimationFrame(animate)
+      if (paused) return
       if (now - lastFrame < FRAME_INTERVAL) return
       lastFrame = now
 
@@ -358,11 +349,9 @@ export function ParticleField({
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [count, resolvedColors, speed, connectionColor, connectionAlpha, tabVisible])
-
-  // Don't render canvas at all when tab is hidden
-  if (!tabVisible) return null
+  }, [count, resolvedColors, speed, connectionColor, connectionAlpha])
 
   return (
     <canvas

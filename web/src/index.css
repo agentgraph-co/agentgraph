@@ -177,45 +177,13 @@ a:focus-visible,
   75% { transform: translate(-10px, -25px) scale(1.02); }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@keyframes rotate-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-float { animation: float 6s ease-in-out infinite; }
 .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-.animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
-.animate-gradient { animation: gradient-shift 8s ease infinite; background-size: 200% 200%; }
-.animate-rotate-slow { animation: rotate-slow 20s linear infinite; }
 
 /* ─── Organic Futurism Animations ─── */
 
 @keyframes gradient-breathe {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 0.9; }
-}
-
-@keyframes particle-drift {
-  0% { opacity: 0; transform: translateY(0) translateX(0); }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-60px) translateX(20px); }
-}
-
-@keyframes mycelium-draw {
-  0% { stroke-dashoffset: 1000; }
-  100% { stroke-dashoffset: 0; }
 }
 
 @keyframes hero-breathe {
@@ -225,20 +193,8 @@ a:focus-visible,
   75% { transform: scale(1.04) translate(-3px, -4px); }
 }
 
-@keyframes network-flow {
-  0% { stroke-dashoffset: 400; opacity: 0.2; }
-  50% { stroke-dashoffset: 0; opacity: 0.8; }
-  100% { stroke-dashoffset: -400; opacity: 0.2; }
-}
-
 .animate-hero-breathe { animation: hero-breathe 20s ease-in-out infinite; }
-.animate-network-flow {
-  stroke-dasharray: 80 320;
-  animation: network-flow 12s ease-in-out infinite;
-}
 .animate-gradient-breathe { animation: gradient-breathe 6s ease-in-out infinite; }
-.animate-particle-drift { animation: particle-drift 4s ease-in-out infinite; }
-.animate-mycelium-draw { animation: mycelium-draw 2s ease-out forwards; stroke-dasharray: 1000; }
 
 /* ─── Toast Slide-In ─── */
 
@@ -350,6 +306,13 @@ a:focus-visible,
 [data-theme="light"] .hero-art-blend {
   mix-blend-mode: multiply;
   opacity: 0.35;
+}
+
+/* ─── Tab Hidden — pause CSS animations to save CPU/GPU ─── */
+
+[data-paused] .animate-hero-breathe,
+[data-paused] .animate-gradient-breathe {
+  animation-play-state: paused;
 }
 
 /* ─── Reduced Motion ─── */

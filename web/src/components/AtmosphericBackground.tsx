@@ -1,4 +1,4 @@
-import { useRef, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { GradientBreath } from './Motion'
@@ -15,14 +15,27 @@ function getReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-function subscribe(cb: () => void) {
+function subscribeReducedMotion(cb: () => void) {
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
   mq.addEventListener('change', cb)
   return () => mq.removeEventListener('change', cb)
 }
 
 function useReducedMotion() {
-  return useSyncExternalStore(subscribe, getReducedMotion, () => false)
+  return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
+}
+
+// ─── Tab Visibility Hook ───
+// Pauses animations when the browser tab is hidden to save CPU/GPU.
+
+function useTabVisible() {
+  const [visible, setVisible] = useState(!document.hidden)
+  useEffect(() => {
+    const handler = () => setVisible(!document.hidden)
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [])
+  return visible
 }
 
 // ─── Route → Intensity Mapping ───
@@ -78,7 +91,7 @@ function getIntensity(pathname: string): Intensity {
 // Parallax: moves slower than scroll giving depth.
 // Over content areas it's very subtle; more visible at page top.
 
-function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
+function ParallaxHeroFace({ intensity, reducedMotion }: { intensity: Intensity; reducedMotion: boolean }) {
   const { theme } = useTheme()
   const ref = useRef<HTMLDivElement>(null)
   const { scrollY } = useScroll()
@@ -97,13 +110,13 @@ function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
     <motion.div
       ref={ref}
       className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-      style={{ y, opacity: scrollOpacity }}
+      style={reducedMotion ? { opacity: 0.7 } : { y, opacity: scrollOpacity }}
     >
       <img
         src={heroArt}
         alt=""
         aria-hidden="true"
-        className="w-full h-full object-cover animate-hero-breathe"
+        className={`w-full h-full object-cover ${reducedMotion ? '' : 'animate-hero-breathe'}`}
         style={{
           opacity: baseOpacity,
           mixBlendMode: theme === 'light' ? 'multiply' : 'screen',
@@ -121,94 +134,197 @@ function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
   )
 }
 
-// ─── Network Pulse — animated mycelium lines ───
-// Pure CSS stroke-dashoffset animation. Energy flows along organic curves.
-// Slower and more subtle than the Home page NetworkIllustration.
+// ─── Network Pulse — Canvas-based animated mycelium lines ───
+// Renders 18 flowing connection paths + 11 pulsing junction nodes in a single
+// canvas pass instead of 29 separate CSS-animated SVG elements.
+// - Same visual as previous SVG: quadratic bezier paths with stroke-dash flow
+// - Throttled to ~24fps to minimize CPU/GPU overhead
+// - Pauses automatically when tab is hidden
+// - Draws static frame for prefers-reduced-motion
 
-function NetworkPulse({ opacity = 0.12 }: { opacity?: number }) {
+// Ease-in-out quadratic — matches CSS ease-in-out timing
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+}
+
+// Path data extracted 1:1 from the previous SVG paths.
+// Each entry: [startX, startY, controlX, controlY, endX, endY, color, delaySeconds]
+const PATHS: [number, number, number, number, number, number, string, number][] = [
+  // Central web
+  [600,400, 520,350, 420,380, '#2DD4BF', 0],
+  [600,400, 680,340, 780,360, '#E879F9', 3],
+  [600,400, 560,480, 480,520, '#F59E0B', 6],
+  [600,400, 660,490, 760,510, '#2DD4BF', 9],
+  [600,400, 580,310, 560,240, '#E879F9', 2],
+  [600,400, 640,310, 680,230, '#F59E0B', 5],
+  // Left tendrils
+  [420,380, 350,340, 280,360, '#2DD4BF', 1],
+  [280,360, 220,310, 160,340, '#F59E0B', 4],
+  [420,380, 380,440, 340,480, '#E879F9', 7],
+  [160,340, 110,290, 80,250,  '#2DD4BF', 10],
+  // Right tendrils
+  [780,360, 850,320, 920,350, '#E879F9', 2.5],
+  [920,350, 980,310, 1040,330,'#2DD4BF', 5.5],
+  [780,360, 820,420, 880,450, '#F59E0B', 8],
+  [1040,330,1090,290,1140,310,'#F59E0B', 11],
+  // Top branches
+  [560,240, 500,190, 440,200, '#2DD4BF', 3.5],
+  [680,230, 730,180, 780,190, '#F59E0B', 6.5],
+  // Bottom branches
+  [480,520, 430,570, 380,580, '#2DD4BF', 4.5],
+  [760,510, 810,560, 860,570, '#E879F9', 7.5],
+]
+
+// Node data extracted 1:1 from the previous SVG circles.
+// Each entry: [cx, cy, radius, fillColor, delaySeconds]
+const NODES: [number, number, number, string, number][] = [
+  [600, 400, 3,   '#2DD4BF', 0],
+  [420, 380, 2,   '#2DD4BF', 1],
+  [780, 360, 2.5, '#E879F9', 2],
+  [480, 520, 2,   '#F59E0B', 3],
+  [760, 510, 1.5, '#2DD4BF', 4],
+  [560, 240, 2,   '#E879F9', 5],
+  [680, 230, 1.5, '#F59E0B', 6],
+  [280, 360, 1.5, '#E879F9', 1.5],
+  [920, 350, 2,   '#F59E0B', 3.5],
+  [160, 340, 1.5, '#2DD4BF', 5.5],
+  [1040,330, 1.5, '#E879F9', 7.5],
+]
+
+// Viewbox dimensions matching the previous SVG
+const VW = 1200
+const VH = 800
+const CYCLE = 12   // path flow cycle in seconds
+const PULSE_CYCLE = 4 // node pulse cycle in seconds
+const FRAME_INTERVAL = 42 // ~24fps
+
+function drawFrame(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  // Cover scaling — matches SVG preserveAspectRatio="xMidYMid slice"
+  const scale = Math.max(w / VW, h / VH)
+  const ox = (w - VW * scale) / 2
+  const oy = (h - VH * scale) / 2
+
+  ctx.clearRect(0, 0, w, h)
+
+  // ── Draw flowing paths ──
+  ctx.lineWidth = 0.8 * scale
+  for (const [sx, sy, cpx, cpy, ex, ey, color, delay] of PATHS) {
+    const elapsed = ((t - delay) % CYCLE + CYCLE) % CYCLE
+    const progress = elapsed / CYCLE
+    let dashOffset: number, alpha: number
+    if (progress < 0.5) {
+      const e = easeInOut(progress * 2)
+      dashOffset = 400 * (1 - e)
+      alpha = 0.2 + 0.6 * e
+    } else {
+      const e = easeInOut((progress - 0.5) * 2)
+      dashOffset = -400 * e
+      alpha = 0.8 - 0.6 * e
+    }
+    ctx.setLineDash([80 * scale, 320 * scale])
+    ctx.lineDashOffset = dashOffset * scale
+    ctx.globalAlpha = alpha
+    ctx.strokeStyle = color
+    ctx.beginPath()
+    ctx.moveTo(sx * scale + ox, sy * scale + oy)
+    ctx.quadraticCurveTo(cpx * scale + ox, cpy * scale + oy, ex * scale + ox, ey * scale + oy)
+    ctx.stroke()
+  }
+
+  // ── Draw pulsing nodes ──
+  ctx.setLineDash([])
+  for (const [cx, cy, r, fill, delay] of NODES) {
+    const elapsed = ((t - delay) % PULSE_CYCLE + PULSE_CYCLE) % PULSE_CYCLE
+    const progress = elapsed / PULSE_CYCLE
+    let a: number, s: number
+    if (progress < 0.5) {
+      const e = easeInOut(progress * 2)
+      a = 0.4 + 0.3 * e
+      s = 1 + 0.05 * e
+    } else {
+      const e = easeInOut((progress - 0.5) * 2)
+      a = 0.7 - 0.3 * e
+      s = 1.05 - 0.05 * e
+    }
+    ctx.globalAlpha = a
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    ctx.arc(cx * scale + ox, cy * scale + oy, r * s * scale, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  ctx.globalAlpha = 1
+}
+
+function NetworkPulseCanvas({ opacity = 0.12, reducedMotion = false }: { opacity?: number; reducedMotion?: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let w = 0, h = 0
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1
+      w = canvas.offsetWidth
+      h = canvas.offsetHeight
+      canvas.width = w * dpr
+      canvas.height = h * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // Reduced motion: draw one static frame and stop
+    if (reducedMotion) {
+      drawFrame(ctx, w, h, 6) // t=6s gives a natural mid-cycle snapshot
+      return () => window.removeEventListener('resize', resize)
+    }
+
+    let raf = 0
+    let lastFrame = 0
+    let paused = document.hidden
+
+    const onVisibility = () => { paused = document.hidden }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    const animate = (now: number) => {
+      raf = requestAnimationFrame(animate)
+      if (paused) return
+      if (now - lastFrame < FRAME_INTERVAL) return
+      lastFrame = now
+      drawFrame(ctx, w, h, now / 1000)
+    }
+    raf = requestAnimationFrame(animate)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [reducedMotion])
+
   return (
-    <svg
-      viewBox="0 0 1200 800"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <canvas
+      ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-none"
-      preserveAspectRatio="xMidYMid slice"
       style={{ opacity }}
-    >
-      <defs>
-        <linearGradient id="bgConnTeal" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2DD4BF" />
-          <stop offset="100%" stopColor="#0D9488" />
-        </linearGradient>
-        <linearGradient id="bgConnFuchsia" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#E879F9" />
-          <stop offset="100%" stopColor="#A21CAF" />
-        </linearGradient>
-        <linearGradient id="bgConnAmber" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#D97706" />
-        </linearGradient>
-      </defs>
-
-      {/* Flowing connections — staggered animation delays */}
-      <g strokeWidth="0.8" fill="none">
-        {/* Central web */}
-        <path d="M600 400 Q520 350 420 380" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '0s' }} />
-        <path d="M600 400 Q680 340 780 360" stroke="url(#bgConnFuchsia)" className="animate-network-flow" style={{ animationDelay: '3s' }} />
-        <path d="M600 400 Q560 480 480 520" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '6s' }} />
-        <path d="M600 400 Q660 490 760 510" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '9s' }} />
-        <path d="M600 400 Q580 310 560 240" stroke="url(#bgConnFuchsia)" className="animate-network-flow" style={{ animationDelay: '2s' }} />
-        <path d="M600 400 Q640 310 680 230" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '5s' }} />
-
-        {/* Left tendrils */}
-        <path d="M420 380 Q350 340 280 360" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '1s' }} />
-        <path d="M280 360 Q220 310 160 340" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '4s' }} />
-        <path d="M420 380 Q380 440 340 480" stroke="url(#bgConnFuchsia)" className="animate-network-flow" style={{ animationDelay: '7s' }} />
-        <path d="M160 340 Q110 290 80 250" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '10s' }} />
-
-        {/* Right tendrils */}
-        <path d="M780 360 Q850 320 920 350" stroke="url(#bgConnFuchsia)" className="animate-network-flow" style={{ animationDelay: '2.5s' }} />
-        <path d="M920 350 Q980 310 1040 330" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '5.5s' }} />
-        <path d="M780 360 Q820 420 880 450" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '8s' }} />
-        <path d="M1040 330 Q1090 290 1140 310" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '11s' }} />
-
-        {/* Top branches */}
-        <path d="M560 240 Q500 190 440 200" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '3.5s' }} />
-        <path d="M680 230 Q730 180 780 190" stroke="url(#bgConnAmber)" className="animate-network-flow" style={{ animationDelay: '6.5s' }} />
-
-        {/* Bottom branches */}
-        <path d="M480 520 Q430 570 380 580" stroke="url(#bgConnTeal)" className="animate-network-flow" style={{ animationDelay: '4.5s' }} />
-        <path d="M760 510 Q810 560 860 570" stroke="url(#bgConnFuchsia)" className="animate-network-flow" style={{ animationDelay: '7.5s' }} />
-      </g>
-
-      {/* Nodes — subtle pulsing dots at junctions */}
-      <g>
-        <circle cx="600" cy="400" r="3" fill="#2DD4BF" className="animate-pulse-glow" />
-        <circle cx="420" cy="380" r="2" fill="#2DD4BF" className="animate-pulse-glow" style={{ animationDelay: '1s' }} />
-        <circle cx="780" cy="360" r="2.5" fill="#E879F9" className="animate-pulse-glow" style={{ animationDelay: '2s' }} />
-        <circle cx="480" cy="520" r="2" fill="#F59E0B" className="animate-pulse-glow" style={{ animationDelay: '3s' }} />
-        <circle cx="760" cy="510" r="1.5" fill="#2DD4BF" className="animate-pulse-glow" style={{ animationDelay: '4s' }} />
-        <circle cx="560" cy="240" r="2" fill="#E879F9" className="animate-pulse-glow" style={{ animationDelay: '5s' }} />
-        <circle cx="680" cy="230" r="1.5" fill="#F59E0B" className="animate-pulse-glow" style={{ animationDelay: '6s' }} />
-        <circle cx="280" cy="360" r="1.5" fill="#E879F9" className="animate-pulse-glow" style={{ animationDelay: '1.5s' }} />
-        <circle cx="920" cy="350" r="2" fill="#F59E0B" className="animate-pulse-glow" style={{ animationDelay: '3.5s' }} />
-        <circle cx="160" cy="340" r="1.5" fill="#2DD4BF" className="animate-pulse-glow" style={{ animationDelay: '5.5s' }} />
-        <circle cx="1040" cy="330" r="1.5" fill="#E879F9" className="animate-pulse-glow" style={{ animationDelay: '7.5s' }} />
-      </g>
-    </svg>
+    />
   )
 }
 
 // ─── Subtle Layer (pure CSS, no JS animations) ───
 
-function SubtleLayer() {
+function SubtleLayer({ reducedMotion }: { reducedMotion: boolean }) {
   const { theme } = useTheme()
   // Light mode needs stronger gradients to be visible
   const alpha = theme === 'light' ? 1 : 0.3
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none animate-gradient-breathe"
+      className={`absolute inset-0 pointer-events-none ${reducedMotion ? '' : 'animate-gradient-breathe'}`}
       style={{
         opacity: alpha,
         background: theme === 'light'
@@ -228,27 +344,27 @@ function SubtleLayer() {
 }
 
 // ─── Medium Layer ───
-// GradientBreath + parallax face. No BioluminescentGlow (GPU-heavy).
+// GradientBreath + parallax face + canvas network pulse.
 
-function MediumLayer() {
+function MediumLayer({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <>
-      <GradientBreath className="opacity-50" />
-      <ParallaxHeroFace intensity="medium" />
-      <NetworkPulse opacity={0.08} />
+      <GradientBreath className={reducedMotion ? '' : 'opacity-50'} />
+      <ParallaxHeroFace intensity="medium" reducedMotion={reducedMotion} />
+      <NetworkPulseCanvas opacity={0.08} reducedMotion={reducedMotion} />
     </>
   )
 }
 
 // ─── Full Layer (Dashboard) ───
-// Richer gradients + parallax face + network pulse. No BioluminescentGlow (GPU-heavy).
+// Richer gradients + parallax face + canvas network pulse.
 
-function FullLayer() {
+function FullLayer({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <>
-      <GradientBreath />
-      <ParallaxHeroFace intensity="full" />
-      <NetworkPulse opacity={0.14} />
+      <GradientBreath className={reducedMotion ? '' : ''} />
+      <ParallaxHeroFace intensity="full" reducedMotion={reducedMotion} />
+      <NetworkPulseCanvas opacity={0.14} reducedMotion={reducedMotion} />
     </>
   )
 }
@@ -262,9 +378,10 @@ const authRoutes = new Set(['/login', '/register', '/forgot-password', '/reset-p
 export function AtmosphericBackground({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const reducedMotion = useReducedMotion()
+  const tabVisible = useTabVisible()
   const intensity = getIntensity(location.pathname)
 
-  if (intensity === 'none' || reducedMotion) {
+  if (intensity === 'none') {
     return <>{children}</>
   }
 
@@ -272,11 +389,17 @@ export function AtmosphericBackground({ children }: { children: React.ReactNode 
 
   return (
     <div className="relative flex-1 flex flex-col">
-      {/* Background layers — full viewport width, pinned behind content */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ top: isAuth ? 0 : '3.5rem' }}>
-        {intensity === 'subtle' && <SubtleLayer />}
-        {intensity === 'medium' && <MediumLayer />}
-        {intensity === 'full' && <FullLayer />}
+      {/* Background layers — full viewport width, pinned behind content.
+          data-paused pauses remaining CSS animations (hero-breathe, gradient-breathe)
+          when the tab is hidden, saving CPU/GPU. */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+        style={{ top: isAuth ? 0 : '3.5rem' }}
+        data-paused={!tabVisible || undefined}
+      >
+        {intensity === 'subtle' && <SubtleLayer reducedMotion={reducedMotion} />}
+        {intensity === 'medium' && <MediumLayer reducedMotion={reducedMotion} />}
+        {intensity === 'full' && <FullLayer reducedMotion={reducedMotion} />}
       </div>
       <div className="relative z-10 flex-1 flex flex-col">
         {children}
