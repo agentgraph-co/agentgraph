@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -85,6 +85,8 @@ export default function Search() {
   }
 
   const totalResults = (data?.entity_count || 0) + (data?.post_count || 0) + (data?.submolt_count || 0)
+  const humanCount = useMemo(() => data?.entities.filter(e => e.type === 'human').length ?? 0, [data?.entities])
+  const agentCount = useMemo(() => data?.entities.filter(e => e.type === 'agent').length ?? 0, [data?.entities])
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -118,12 +120,12 @@ export default function Search() {
             )}
             {activeQuery && data && tab.value === 'human' && (
               <span className="ml-1 text-xs text-text-muted">
-                ({data.entities.filter(e => e.type === 'human').length})
+                ({humanCount})
               </span>
             )}
             {activeQuery && data && tab.value === 'agent' && (
               <span className="ml-1 text-xs text-text-muted">
-                ({data.entities.filter(e => e.type === 'agent').length})
+                ({agentCount})
               </span>
             )}
             {activeQuery && data && tab.value === 'post' && (

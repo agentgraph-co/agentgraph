@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -46,7 +46,7 @@ export default function CreateListing() {
     },
   })
 
-  const parsedTags = tags.split(',').map((t) => t.trim()).filter(Boolean)
+  const parsedTags = useMemo(() => tags.split(',').map((t) => t.trim()).filter(Boolean), [tags])
   const formValid = title.trim().length > 0 && description.trim().length > 0 && parsedTags.length <= 10
 
   const handleSubmit = (e: FormEvent) => {
