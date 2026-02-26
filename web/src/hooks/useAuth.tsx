@@ -6,6 +6,7 @@ interface AuthContextType {
   user: Entity | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
+  loginWithToken: (accessToken: string, refreshToken: string) => Promise<void>
   register: (email: string, password: string, displayName: string, sessionId?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data)
     } catch {
       localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
       setToken(null)
       setUser(null)
     } finally {
@@ -42,7 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('token', data.access_token)
+    localStorage.setItem('refreshToken', data.refresh_token)
     setToken(data.access_token)
+  }, [])
+
+  const loginWithToken = useCallback(async (accessToken: string, refreshToken: string) => {
+    localStorage.setItem('token', accessToken)
+    localStorage.setItem('refreshToken', refreshToken)
+    setToken(accessToken)
   }, [])
 
   const register = useCallback(async (email: string, password: string, displayName: string, sessionId?: string) => {
@@ -54,18 +63,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Inline login logic to avoid stale closure over login
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('token', data.access_token)
+    localStorage.setItem('refreshToken', data.refresh_token)
     setToken(data.access_token)
   }, [])
 
   const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem('refreshToken')
+    // Best-effort server logout (don't block UI)
+    if (token) {
+      api.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined).catch(() => {})
+    }
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     setToken(null)
     setUser(null)
-  }, [])
+  }, [token])
 
   const contextValue = useMemo(() => ({
-    user, token, login, register, logout, isLoading,
-  }), [user, token, login, register, logout, isLoading])
+    user, token, login, loginWithToken, register, logout, isLoading,
+  }), [user, token, login, loginWithToken, register, logout, isLoading])
 
   return (
     <AuthContext.Provider value={contextValue}>

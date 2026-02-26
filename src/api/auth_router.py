@@ -19,6 +19,7 @@ from src.api.auth_service import (
     verify_password_reset_token,
 )
 from src.api.deps import get_current_entity
+from src.api.google_auth import exchange_google_code, get_google_auth_url
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
     ChangeEmailRequest,
@@ -91,8 +92,13 @@ async def register(
         ))
         await db.flush()
 
+    # Send verification email (best-effort — don't fail registration if email fails)
+    from src.email import send_verification_email
+
+    await send_verification_email(body.email, verification_token)
+
     return MessageResponse(
-        message=f"Registration successful. Verification token: {verification_token}",
+        message="Registration successful. Please check your email for verification.",
     )
 
 
@@ -201,6 +207,12 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired verification token",
         )
+
+    # Send welcome email (best-effort)
+    from src.email import send_welcome_email
+
+    await send_welcome_email(entity.email, entity.display_name)
+
     return MessageResponse(message="Email verified successfully")
 
 
@@ -221,8 +233,13 @@ async def resend_verification(
         )
 
     token = await create_verification_token(db, current_entity.id)
+
+    from src.email import send_verification_email
+
+    await send_verification_email(current_entity.email, token)
+
     return MessageResponse(
-        message=f"Verification token: {token}",
+        message="Verification email sent. Please check your inbox.",
     )
 
 
@@ -250,6 +267,11 @@ async def forgot_password(
 
     token = await create_password_reset_token(db, entity.id)
 
+    # Send reset email (best-effort)
+    from src.email import send_password_reset_email
+
+    await send_password_reset_email(entity.email, token)
+
     await log_action(
         db,
         action="auth.password_reset_requested",
@@ -258,7 +280,7 @@ async def forgot_password(
     )
 
     return MessageResponse(
-        message=f"Password reset token: {token}",
+        message="If an account with that email exists, a reset link has been sent.",
     )
 
 
@@ -345,6 +367,10 @@ async def change_email(
     # Create verification token for new email
     verification_token = await create_verification_token(db, current_entity.id)
 
+    from src.email import send_verification_email
+
+    await send_verification_email(body.new_email, verification_token)
+
     await log_action(
         db,
         action="auth.email_changed",
@@ -354,7 +380,7 @@ async def change_email(
     )
 
     return MessageResponse(
-        message=f"Email changed. Verification token: {verification_token}",
+        message="Email changed. Please check your new email for verification.",
     )
 
 
@@ -402,3 +428,90 @@ async def logout(
     )
 
     return MessageResponse(message="Logged out successfully")
+
+
+@router.get("/google", dependencies=[Depends(rate_limit_auth)])
+async def google_login(request: Request):
+    """Redirect to Google OAuth2 consent screen."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google OAuth not configured")
+    redirect_uri = f"{settings.base_url}/api/v1/auth/google/callback"
+    url = get_google_auth_url(redirect_uri)
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=url)
+
+
+@router.get("/google/callback", dependencies=[Depends(rate_limit_auth)])
+async def google_callback(
+    code: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle Google OAuth2 callback -- create or link account, return tokens."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google OAuth not configured")
+
+    redirect_uri = f"{settings.base_url}/api/v1/auth/google/callback"
+    userinfo = await exchange_google_code(code, redirect_uri)
+    if userinfo is None:
+        raise HTTPException(status_code=400, detail="Google authentication failed")
+
+    google_email = userinfo.get("email")
+    if not google_email:
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
+    # Check if account exists
+    entity = await get_entity_by_email(db, google_email)
+
+    if entity is None:
+        # Auto-register with Google info
+        import uuid as _uuid
+
+        from src.models import EntityType
+
+        entity_id = _uuid.uuid4()
+        google_name = userinfo.get("name", google_email.split("@")[0])
+        entity = Entity(
+            id=entity_id,
+            type=EntityType.HUMAN,
+            email=google_email,
+            password_hash=None,  # No password for OAuth users
+            display_name=google_name,
+            avatar_url=userinfo.get("picture"),
+            email_verified=True,  # Google already verified
+            did_web=f"did:web:agentgraph.io:users:{entity_id}",
+            sso_provider_id=f"google:{userinfo.get('id', '')}",
+        )
+        db.add(entity)
+        await db.flush()
+
+        await log_action(
+            db,
+            action="auth.register.google",
+            entity_id=entity.id,
+            ip_address=request.client.host if request.client else None,
+        )
+
+    if not entity.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    await log_action(
+        db,
+        action="auth.login.google",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    access_token = create_access_token(entity.id, entity.type.value)
+    refresh_token = create_refresh_token(entity.id)
+
+    # Redirect to frontend with tokens in URL fragment (never sent to server)
+    from fastapi.responses import RedirectResponse
+
+    fragment = (
+        f"access_token={access_token}"
+        f"&refresh_token={refresh_token}"
+        f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
+    )
+    return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")

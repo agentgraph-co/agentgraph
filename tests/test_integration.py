@@ -44,8 +44,8 @@ async def test_full_platform_flow(client: AsyncClient):
         },
     )
     assert resp.status_code == 201
-    alice_verification = resp.json()["message"]
-    assert "Verification token:" in alice_verification
+    alice_msg = resp.json()["message"]
+    assert "verification" in alice_msg.lower() or "email" in alice_msg.lower()
 
     resp = await client.post(
         "/api/v1/auth/register",

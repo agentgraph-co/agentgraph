@@ -45,6 +45,9 @@ from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
 from src.config import settings
+from src.logging_config import setup_logging
+
+setup_logging()
 
 APP_VERSION = "0.1.0"
 
@@ -88,6 +91,22 @@ _TAG_METADATA = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup/shutdown hooks."""
+    # Initialize Sentry if DSN is configured
+    if settings.sentry_dsn:
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.fastapi import FastApiIntegration
+            from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+            sentry_sdk.init(
+                dsn=settings.sentry_dsn,
+                integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+                traces_sample_rate=0.1,
+                environment="production" if not settings.debug else "development",
+            )
+        except ImportError:
+            logging.getLogger(__name__).warning("sentry-sdk not installed, error tracking disabled")
+
     yield
     # Shutdown: clean up Redis connections
     from src.redis_client import close_redis
@@ -126,8 +145,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key"],
 )
 
 
@@ -138,6 +157,39 @@ async def request_id_middleware(request: Request, call_next) -> Response:
     request.state.request_id = request_id
     response: Response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    return response
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next) -> Response:
+    """Log every request with method, path, status, and timing."""
+    import time as _time
+
+    # Skip health checks to reduce noise
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    start = _time.monotonic()
+    response: Response = await call_next(request)
+    duration_ms = round((_time.monotonic() - start) * 1000, 1)
+
+    request_id = getattr(request.state, "request_id", "-")
+    entity_id = getattr(request.state, "entity_id", "-")
+    client_ip = request.client.host if request.client else "-"
+
+    logger.info(
+        "%s %s %s %.1fms",
+        request.method, request.url.path, response.status_code, duration_ms,
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "client_ip": client_ip,
+            "entity_id": entity_id,
+        },
+    )
     return response
 
 

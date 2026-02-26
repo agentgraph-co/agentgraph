@@ -3,9 +3,11 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from src.database import get_db
 from src.main import app
+from src.models import PasswordResetToken
 
 
 @pytest_asyncio.fixture
@@ -53,9 +55,21 @@ async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
 # --- Password Reset Tests ---
 
 
+async def _get_latest_reset_token(db) -> str:
+    """Fetch the most recent unused password reset token from the DB."""
+    result = await db.execute(
+        select(PasswordResetToken)
+        .where(PasswordResetToken.is_used.is_(False))
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(1)
+    )
+    record = result.scalar_one()
+    return record.token
+
+
 @pytest.mark.asyncio
 async def test_forgot_password_returns_token(client: AsyncClient, db):
-    """Forgot password returns a reset token."""
+    """Forgot password creates a reset token (sent via email)."""
     await _setup_user(client, USER)
 
     resp = await client.post(
@@ -63,7 +77,10 @@ async def test_forgot_password_returns_token(client: AsyncClient, db):
         json={"email": USER["email"]},
     )
     assert resp.status_code == 200
-    assert "token" in resp.json()["message"].lower()
+
+    # Verify token was created in DB
+    token = await _get_latest_reset_token(db)
+    assert len(token) > 20
 
 
 @pytest.mark.asyncio
@@ -88,9 +105,10 @@ async def test_reset_password_flow(client: AsyncClient, db):
         "/api/v1/auth/forgot-password",
         json={"email": USER["email"]},
     )
-    msg = resp.json()["message"]
-    # Extract token from message
-    token = msg.split("token: ")[1] if "token: " in msg else None
+    assert resp.status_code == 200
+
+    # Fetch token from DB
+    token = await _get_latest_reset_token(db)
     assert token is not None
 
     # Reset password
@@ -120,12 +138,11 @@ async def test_reset_token_single_use(client: AsyncClient, db):
     """Reset token cannot be reused."""
     await _setup_user(client, USER)
 
-    resp = await client.post(
+    await client.post(
         "/api/v1/auth/forgot-password",
         json={"email": USER["email"]},
     )
-    msg = resp.json()["message"]
-    token = msg.split("token: ")[1]
+    token = await _get_latest_reset_token(db)
 
     # Use it once
     resp = await client.post(

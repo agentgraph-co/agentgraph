@@ -15,6 +15,7 @@ import Register from './pages/Register'
 import NotFound from './pages/NotFound'
 
 // Lazy loaded pages
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const Feed = lazy(() => import('./pages/Feed'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Search = lazy(() => import('./pages/Search'))
@@ -91,6 +92,7 @@ function AppRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />

@@ -22,6 +22,8 @@ dependencies = [
     "networkx>=2.6,<4.0",
     "python-louvain>=0.16,<1.0",
     "nh3>=0.2,<1.0",
+    "aiosmtplib>=3.0,<4.0",
+    "python-json-logger>=2.0,<3.0",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +33,10 @@ dev = [
     "pytest-cov>=4.0,<6.0",
     "ruff>=0.1.0",
     "httpx>=0.25,<1.0",
+    "pip-audit>=2.6,<3.0",
+]
+prod = [
+    "sentry-sdk[fastapi]>=1.40,<3.0",
 ]
 
 [build-system]

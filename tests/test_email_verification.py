@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import re
-
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from src.database import get_db
 from src.main import app
+from src.models import EmailVerification
 
 
 @pytest_asyncio.fixture
@@ -39,28 +39,36 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _extract_token(message: str) -> str:
-    """Extract verification token from registration message."""
-    match = re.search(r"Verification token: (\S+)", message)
-    assert match is not None, f"No token found in: {message}"
-    return match.group(1)
+async def _get_latest_verification_token(db) -> str:
+    """Fetch the most recent unused verification token from the DB."""
+    result = await db.execute(
+        select(EmailVerification)
+        .where(EmailVerification.is_used.is_(False))
+        .order_by(EmailVerification.created_at.desc())
+        .limit(1)
+    )
+    record = result.scalar_one()
+    return record.token
 
 
 @pytest.mark.asyncio
-async def test_register_returns_verification_token(client: AsyncClient):
+async def test_register_returns_verification_token(client: AsyncClient, db):
     resp = await client.post(REGISTER_URL, json=USER)
     assert resp.status_code == 201
     data = resp.json()
-    assert "Verification token:" in data["message"]
-    token = _extract_token(data["message"])
+    msg = data["message"].lower()
+    assert "check your email" in msg or "verification" in msg
+
+    # Verify token was created in DB
+    token = await _get_latest_verification_token(db)
     assert len(token) > 20
 
 
 @pytest.mark.asyncio
-async def test_verify_email(client: AsyncClient):
+async def test_verify_email(client: AsyncClient, db):
     # Register
-    resp = await client.post(REGISTER_URL, json=USER)
-    v_token = _extract_token(resp.json()["message"])
+    await client.post(REGISTER_URL, json=USER)
+    v_token = await _get_latest_verification_token(db)
 
     # Verify email
     resp = await client.post(VERIFY_URL, params={"token": v_token})
@@ -75,9 +83,9 @@ async def test_verify_invalid_token(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_verify_token_cannot_be_reused(client: AsyncClient):
-    resp = await client.post(REGISTER_URL, json=USER)
-    v_token = _extract_token(resp.json()["message"])
+async def test_verify_token_cannot_be_reused(client: AsyncClient, db):
+    await client.post(REGISTER_URL, json=USER)
+    v_token = await _get_latest_verification_token(db)
 
     # First use — success
     resp = await client.post(VERIFY_URL, params={"token": v_token})
@@ -89,8 +97,8 @@ async def test_verify_token_cannot_be_reused(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_resend_verification(client: AsyncClient):
-    resp = await client.post(REGISTER_URL, json=USER)
+async def test_resend_verification(client: AsyncClient, db):
+    await client.post(REGISTER_URL, json=USER)
     resp = await client.post(
         LOGIN_URL, json={"email": USER["email"], "password": USER["password"]},
     )
@@ -98,13 +106,14 @@ async def test_resend_verification(client: AsyncClient):
 
     resp = await client.post(RESEND_URL, headers=_auth(jwt_token))
     assert resp.status_code == 200
-    assert "Verification token:" in resp.json()["message"]
+    msg = resp.json()["message"].lower()
+    assert "email" in msg or "verification" in msg
 
 
 @pytest.mark.asyncio
-async def test_resend_after_verified_fails(client: AsyncClient):
-    resp = await client.post(REGISTER_URL, json=USER)
-    v_token = _extract_token(resp.json()["message"])
+async def test_resend_after_verified_fails(client: AsyncClient, db):
+    await client.post(REGISTER_URL, json=USER)
+    v_token = await _get_latest_verification_token(db)
 
     # Verify email
     await client.post(VERIFY_URL, params={"token": v_token})
