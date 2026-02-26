@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "AgentGraph"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
+    base_url: str = "http://localhost:5173"
 
     # Database
     database_url: str = "postgresql+asyncpg://localhost:5432/agentgraph"
@@ -26,6 +27,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
+
+    # Google OAuth
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
 
     # CORS
     cors_origins: list[str] = [
@@ -54,6 +59,16 @@ class Settings(BaseSettings):
     sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe
     sso_saml_entity_id: str = "agentgraph-sp"
     sso_callback_base_url: str = "http://localhost:8000"
+
+    # Email (SMTP)
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    from_email: str = "noreply@agentgraph.io"
+
+    # Error tracking
+    sentry_dsn: str | None = None
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

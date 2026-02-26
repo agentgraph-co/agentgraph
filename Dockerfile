@@ -1,30 +1,26 @@
-FROM python:3.9-slim AS base
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system deps
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir "." && \
-    pip install --no-cache-dir gunicorn
+COPY pyproject.toml setup.cfg setup.py* ./
+RUN pip install --no-cache-dir -e "."
 
 # Copy application code
 COPY src/ src/
-COPY migrations/ migrations/
+COPY alembic/ alembic/
 COPY alembic.ini ./
 
-# Run as non-root user
-RUN adduser --disabled-password --no-create-home appuser
-USER appuser
+# Run migrations and start (migrations handled by entrypoint)
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
-
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

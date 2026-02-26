@@ -1,7 +1,7 @@
 """WebSocket endpoints for real-time updates.
 
 Provides WebSocket connections for live feed updates, notifications,
-and activity streams. Clients authenticate via query parameter token.
+and activity streams. Clients authenticate via first message or query parameter.
 """
 from __future__ import annotations
 
@@ -56,19 +56,47 @@ async def _authenticate_ws(token: str) -> str | None:
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str = Query(...),
+    token: str | None = Query(None),
     channels: str = Query("feed,notifications"),
 ):
     """WebSocket endpoint for real-time updates.
 
+    Authentication methods (in priority order):
+        1. First message: {"type": "auth", "token": "..."} (preferred — avoids token in URL)
+        2. Query parameter: ?token=... (backward compatible)
+
     Query parameters:
-        token: JWT access token for authentication
         channels: comma-separated channel names (feed, notifications, activity)
     """
-    entity_id = await _authenticate_ws(token)
-    if entity_id is None:
-        await websocket.close(code=4001, reason="Authentication failed")
-        return
+    await websocket.accept()
+
+    entity_id: str | None = None
+
+    # Method 1: token in query param (backward compatible)
+    if token:
+        entity_id = await _authenticate_ws(token)
+        if entity_id is None:
+            await websocket.close(code=4001, reason="Authentication failed")
+            return
+    else:
+        # Method 2: wait for auth message as first message
+        try:
+            raw = await websocket.receive_text()
+            msg = json.loads(raw)
+            if msg.get("type") == "auth" and msg.get("token"):
+                entity_id = await _authenticate_ws(msg["token"])
+            if entity_id is None:
+                await websocket.send_text(
+                    json.dumps({"type": "auth_failed", "reason": "Invalid token"})
+                )
+                await websocket.close(code=4001, reason="Authentication failed")
+                return
+        except (json.JSONDecodeError, WebSocketDisconnect):
+            await websocket.close(code=4001, reason="Authentication failed")
+            return
+
+    # Send auth confirmation
+    await websocket.send_text(json.dumps({"type": "auth_ok"}))
 
     channel_list = [c.strip() for c in channels.split(",") if c.strip()]
     valid_channels = {

@@ -49,7 +49,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.host
       const channelStr = stableChannels.join(',')
-      const url = `${protocol}//${host}/api/v1/ws?token=${encodeURIComponent(token)}&channels=${channelStr}`
+      // Connect without token in URL — send auth as first message
+      const url = `${protocol}//${host}/api/v1/ws?channels=${channelStr}`
 
       const ws = new WebSocket(url)
       wsRef.current = ws
@@ -63,8 +64,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
       ws.onopen = () => {
         clearTimeout(connectTimeout.current)
-        retriesRef.current = 0
-        setConnected(true)
+        // Send auth token as first message instead of query param
+        ws.send(JSON.stringify({ type: 'auth', token }))
       }
 
       ws.onmessage = (event) => {
@@ -72,6 +73,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           const data = JSON.parse(event.data)
           if (data.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong' }))
+            return
+          }
+          if (data.type === 'auth_ok') {
+            retriesRef.current = 0
+            setConnected(true)
+            return
+          }
+          if (data.type === 'auth_failed') {
+            ws.close()
             return
           }
           onMessageRef.current?.(data)

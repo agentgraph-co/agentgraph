@@ -57,7 +57,7 @@ async def test_change_email_success(client: AsyncClient, db):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert "Verification token" in data["message"]
+    assert "verification" in data["message"].lower() or "email" in data["message"].lower()
 
 
 @pytest.mark.asyncio

@@ -76,10 +76,12 @@ struct ProfileView: View {
                             }
                             .buttonStyle(.plain)
 
-                            // Staging CTA (own profile only)
+                            #if DEBUG
+                            // Staging CTA (own profile only, debug builds)
                             if profile.isOwnProfile {
                                 stagingCTA
                             }
+                            #endif
                         }
                         .padding(.horizontal, AGSpacing.base)
                         .padding(.top, AGSpacing.sm)

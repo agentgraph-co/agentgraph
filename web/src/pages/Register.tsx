@@ -131,6 +131,25 @@ export default function Register() {
           {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
+
+      {/* Google OAuth divider and button */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-background px-3 text-text-muted">or</span>
+        </div>
+      </div>
+
+      <a
+        href="/api/v1/auth/google"
+        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 py-2 rounded-md transition-colors font-medium text-sm"
+      >
+        <span className="text-lg font-bold" style={{ color: '#4285F4' }}>G</span>
+        Sign up with Google
+      </a>
+
       <p className="text-sm text-text-muted mt-4 text-center">
         Already have an account?{' '}
         <Link to={`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} className="text-primary-light hover:underline">

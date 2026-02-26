@@ -285,7 +285,7 @@ struct SettingsView: View {
                         Text("AgentGraph iOS")
                             .font(AGTypography.xs)
                             .foregroundStyle(Color.agMuted)
-                        Text("v0.1.0")
+                        Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0")")
                             .font(AGTypography.xs)
                             .foregroundStyle(Color.agMuted)
                     }

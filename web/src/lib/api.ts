@@ -13,17 +13,84 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Token refresh state — shared across concurrent requests
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
+
+function onTokenRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token))
+  refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb)
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Only treat /auth/me 401 as session expiry — other endpoints may
-      // return 401 for permission reasons without meaning the token is bad.
-      const url = error.config?.url || ''
-      const isAuthCheck = url.includes('/auth/me')
-      if (isAuthCheck) {
+  async (error) => {
+    const originalRequest = error.config
+    const url = originalRequest?.url || ''
+
+    // Don't intercept refresh or login failures
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh')
+
+    if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('refreshToken')
+
+      if (refreshToken) {
+        if (isRefreshing) {
+          // Another refresh is in progress — queue this request
+          return new Promise((resolve) => {
+            addRefreshSubscriber((newToken: string) => {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`
+              resolve(api(originalRequest))
+            })
+          })
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
+        try {
+          const { data } = await axios.post(
+            `${api.defaults.baseURL}/auth/refresh`,
+            { refresh_token: refreshToken },
+            { headers: { 'Content-Type': 'application/json' } },
+          )
+
+          localStorage.setItem('token', data.access_token)
+          localStorage.setItem('refreshToken', data.refresh_token)
+
+          originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+          onTokenRefreshed(data.access_token)
+          isRefreshing = false
+
+          return api(originalRequest)
+        } catch {
+          isRefreshing = false
+          refreshSubscribers = []
+
+          // Refresh failed — session is truly expired
+          localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
+
+          const onAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
+            (p) => window.location.pathname.startsWith(p),
+          )
+          if (!onAuthPage) {
+            window.dispatchEvent(new CustomEvent('session-expired'))
+            window.location.href = '/login'
+          }
+          return Promise.reject(error)
+        }
+      }
+
+      // No refresh token — treat /auth/me 401 as session expiry
+      if (url.includes('/auth/me')) {
         const hadToken = !!localStorage.getItem('token')
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         const onAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
           (p) => window.location.pathname.startsWith(p),
         )
