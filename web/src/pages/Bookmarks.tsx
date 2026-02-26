@@ -25,6 +25,7 @@ export default function Bookmarks() {
       const { data } = await api.get('/feed/bookmarks', { params: { limit: 100 } })
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const removeBookmark = useMutation({

@@ -140,6 +140,7 @@ export default function Admin() {
       const { data } = await api.get('/admin/stats')
       return data
     },
+    staleTime: 2 * 60_000,
   })
 
   const { data: modStats } = useQuery<{
@@ -156,6 +157,7 @@ export default function Admin() {
       return data
     },
     enabled: tab === 'overview',
+    staleTime: 2 * 60_000,
   })
 
   const { data: entities } = useQuery<{ entities: EntityItem[]; total: number }>({
@@ -168,6 +170,7 @@ export default function Admin() {
       return data
     },
     enabled: tab === 'users',
+    staleTime: 2 * 60_000,
   })
 
   const { data: flags } = useQuery<{ flags: ModerationFlag[]; total: number }>({
@@ -177,6 +180,7 @@ export default function Admin() {
       return data
     },
     enabled: tab === 'moderation',
+    staleTime: 2 * 60_000,
   })
 
   const { data: auditLogs } = useQuery<{ logs: AuditLogEntry[]; total: number }>({
@@ -186,6 +190,7 @@ export default function Admin() {
       return data
     },
     enabled: tab === 'audit',
+    staleTime: 2 * 60_000,
   })
 
   const deactivateMutation = useMutation({
@@ -257,6 +262,7 @@ export default function Admin() {
       return data
     },
     enabled: tab === 'appeals',
+    staleTime: 2 * 60_000,
   })
 
   const resolveAppealMutation = useMutation({
@@ -297,6 +303,7 @@ export default function Admin() {
       return data
     },
     enabled: !!user?.is_admin && tab === 'growth',
+    staleTime: 2 * 60_000,
   })
 
   const { data: topEntities } = useQuery<{ entities: TopEntity[] }>({
@@ -306,6 +313,7 @@ export default function Admin() {
       return data
     },
     enabled: !!user?.is_admin && tab === 'growth',
+    staleTime: 2 * 60_000,
   })
 
   const [conversionDays, setConversionDays] = useState(30)
@@ -323,6 +331,7 @@ export default function Admin() {
       return data
     },
     enabled: !!user?.is_admin && tab === 'conversion',
+    staleTime: 2 * 60_000,
   })
 
   const { data: dailyConversion } = useQuery<{
@@ -335,6 +344,7 @@ export default function Admin() {
       return data
     },
     enabled: !!user?.is_admin && tab === 'conversion',
+    staleTime: 2 * 60_000,
   })
 
   if (!user?.is_admin) {

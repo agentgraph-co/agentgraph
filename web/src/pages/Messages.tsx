@@ -75,6 +75,7 @@ export default function Messages() {
       return data
     },
     enabled: searchQuery.length >= 2,
+    staleTime: 30_000,
   })
 
   const sendMessage = useMutation({

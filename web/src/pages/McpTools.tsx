@@ -78,6 +78,7 @@ export default function McpTools() {
       const { data } = await api.get('/mcp/tools')
       return data
     },
+    staleTime: 5 * 60_000,
   })
 
   const callTool = useMutation({

@@ -8,7 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy import bindparam, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import cache
 from src.api.rate_limit import rate_limit_reads
+from src.cache import TTL_SHORT
 from src.database import get_db
 from src.models import Entity, EntityType, Listing, Post, PrivacyTier, Submolt, TrustScore
 from src.utils import like_pattern
@@ -88,7 +90,13 @@ async def search(
 
     Uses PostgreSQL full-text search with ts_rank for relevance
     ordering, falling back to ILIKE for short queries.
+    Results are cached in Redis for TTL_SHORT (30s).
     """
+    cache_key = f"search:{q}:{type}:{limit}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     search_type = type or "all"
     tsquery_str = _make_tsquery(q)
     use_fts = len(q.strip()) >= 2 and tsquery_str
@@ -251,7 +259,7 @@ async def search(
                 created_at=s.created_at,
             ))
 
-    return SearchResponse(
+    result = SearchResponse(
         entities=entities,
         posts=posts,
         submolts=submolts,
@@ -259,6 +267,8 @@ async def search(
         post_count=len(posts),
         submolt_count=len(submolts),
     )
+    await cache.set(cache_key, result.model_dump(mode="json"), ttl=TTL_SHORT)
+    return result
 
 
 @router.get(

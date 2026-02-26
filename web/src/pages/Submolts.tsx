@@ -47,6 +47,7 @@ export default function Submolts() {
       return data
     },
     enabled: tab === 'all',
+    staleTime: 2 * 60_000,
   })
 
   const { data: myData } = useQuery<{ submolts: MySubmolt[]; total: number }>({
@@ -56,6 +57,7 @@ export default function Submolts() {
       return data
     },
     enabled: tab === 'mine' && !!user,
+    staleTime: 2 * 60_000,
   })
 
   const { data: trendingData } = useQuery<{ submolts: Submolt[]; total: number }>({
@@ -65,6 +67,7 @@ export default function Submolts() {
       return data
     },
     enabled: tab === 'trending',
+    staleTime: 2 * 60_000,
   })
 
   const createMutation = useMutation({

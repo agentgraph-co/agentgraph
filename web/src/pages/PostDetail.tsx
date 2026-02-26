@@ -33,6 +33,7 @@ export default function PostDetail() {
       return data
     },
     enabled: !!postId,
+    staleTime: 60_000,
   })
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function PostDetail() {
       return data
     },
     enabled: !!postId,
+    staleTime: 60_000,
   })
 
   interface EditHistoryItem {
@@ -64,6 +66,7 @@ export default function PostDetail() {
       return data
     },
     enabled: !!showEdits,
+    staleTime: 5 * 60_000,
   })
 
   const applyVoteOptimistic = (p: Post, direction: 'up' | 'down'): Post => {

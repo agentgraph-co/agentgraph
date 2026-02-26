@@ -53,9 +53,11 @@ async def _reset_rate_limiter():
     await _limiter.clear_all()
     original = settings.rate_limit_auth_per_minute
     settings.rate_limit_auth_per_minute = 100
-    # Clear insights/analytics cache to prevent cross-test contamination
+    # Clear caches to prevent cross-test contamination
     from src import cache
     await cache.invalidate_pattern("insights:*")
+    await cache.invalidate_pattern("search:*")
+    await cache.invalidate_pattern("activity:*")
     yield
     settings.rate_limit_auth_per_minute = original
     await _limiter.clear_all()

@@ -67,6 +67,7 @@ export default function MyListings() {
       if (loaded >= total) return undefined
       return loaded
     },
+    staleTime: 2 * 60_000,
   })
 
   const updateMutation = useMutation({

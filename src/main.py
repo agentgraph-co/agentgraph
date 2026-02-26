@@ -161,6 +161,40 @@ async def auth_identity_middleware(request: Request, call_next) -> Response:
 
 
 @app.middleware("http")
+async def cache_headers_middleware(request: Request, call_next) -> Response:
+    """Set Cache-Control headers on GET responses based on URL path."""
+    response: Response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        path = request.url.path
+        # Public cacheable endpoints — short TTL for high-churn data
+        if any(path.startswith(p) for p in [
+            "/api/v1/search", "/api/v1/feed/trending", "/api/v1/leaderboard",
+        ]):
+            response.headers["Cache-Control"] = (
+                "public, max-age=30, stale-while-revalidate=60"
+            )
+        # Semi-static public data — moderate TTL
+        elif any(path.startswith(p) for p in [
+            "/api/v1/profiles/", "/api/v1/trust/",
+            "/api/v1/graph/", "/api/v1/marketplace/",
+        ]):
+            response.headers["Cache-Control"] = (
+                "public, max-age=60, stale-while-revalidate=120"
+            )
+        # Slow-changing reference data — long TTL
+        elif any(path.startswith(p) for p in [
+            "/api/v1/did/", "/api/v1/insights/",
+        ]):
+            response.headers["Cache-Control"] = (
+                "public, max-age=300, stale-while-revalidate=600"
+            )
+        # All other API endpoints — private, no shared cache
+        elif path.startswith("/api/v1/"):
+            response.headers["Cache-Control"] = "private, no-cache"
+    return response
+
+
+@app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:
     """Add standard security headers to all responses."""
     response: Response = await call_next(request)

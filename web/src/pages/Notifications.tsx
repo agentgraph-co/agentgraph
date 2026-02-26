@@ -80,6 +80,7 @@ export default function Notifications() {
       if (loaded >= (lastPage.total || 0)) return undefined
       return loaded
     },
+    staleTime: 60_000,
   })
 
   const allNotifications = data?.pages.flatMap((page) => page.notifications) || []

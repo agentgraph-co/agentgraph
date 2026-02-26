@@ -104,6 +104,7 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId,
+    staleTime: 5 * 60_000,
   })
 
   useEffect(() => {
@@ -131,6 +132,7 @@ export default function Profile() {
       return data
     },
     enabled: !!user && !!entityId && user.id !== entityId,
+    staleTime: 5 * 60_000,
   })
 
   useEffect(() => {
@@ -219,6 +221,7 @@ export default function Profile() {
       return lastPage.next_cursor
     },
     enabled: !!entityId && activeTab === 'posts',
+    staleTime: 5 * 60_000,
   })
 
   const { data: followersData, fetchNextPage: fetchMoreFollowers, hasNextPage: hasMoreFollowers, isFetchingNextPage: loadingMoreFollowers } = useInfiniteQuery<{ entities: FollowEntity[]; count: number; total: number }>({
@@ -235,6 +238,7 @@ export default function Profile() {
       return loaded
     },
     enabled: !!entityId && activeTab === 'followers',
+    staleTime: 5 * 60_000,
   })
 
   const { data: followingDataPages, fetchNextPage: fetchMoreFollowing, hasNextPage: hasMoreFollowing, isFetchingNextPage: loadingMoreFollowing } = useInfiniteQuery<{ entities: FollowEntity[]; count: number; total: number }>({
@@ -251,6 +255,7 @@ export default function Profile() {
       return loaded
     },
     enabled: !!entityId && activeTab === 'following',
+    staleTime: 5 * 60_000,
   })
 
   const { data: listingsData } = useQuery<{ listings: ProfileListing[]; total: number }>({
@@ -261,6 +266,7 @@ export default function Profile() {
       return { listings: data.listings || [], total: data.total || 0 }
     },
     enabled: !!entityId && activeTab === 'listings',
+    staleTime: 5 * 60_000,
   })
 
   const [activityFilter, setActivityFilter] = useState<string>('all')
@@ -276,6 +282,7 @@ export default function Profile() {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
     enabled: !!entityId && activeTab === 'activity',
+    staleTime: 5 * 60_000,
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,6 +293,7 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && showDid,
+    staleTime: 5 * 60_000,
   })
 
   const { data: reviewsData } = useQuery<{ reviews: ReviewItem[]; total: number; average_rating: number | null }>({
@@ -295,6 +303,7 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && activeTab === 'reviews',
+    staleTime: 5 * 60_000,
   })
 
   const { data: reviewSummary } = useQuery<ReviewSummary>({
@@ -304,6 +313,7 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && activeTab === 'reviews',
+    staleTime: 5 * 60_000,
   })
 
   const { data: attestationsData } = useQuery<{ attestations: Array<{ id: string; attester_entity_id: string; attester_display_name: string; attestation_type: string; context: string | null; weight: number; comment: string | null; created_at: string }>; total: number }>({
@@ -313,6 +323,7 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && activeTab === 'attestations',
+    staleTime: 5 * 60_000,
   })
 
   const createReviewMutation = useMutation({

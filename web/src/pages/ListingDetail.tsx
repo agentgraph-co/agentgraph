@@ -61,6 +61,7 @@ export default function ListingDetail() {
       return data
     },
     enabled: !!listingId,
+    staleTime: 5 * 60_000,
   })
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function ListingDetail() {
       return data
     },
     enabled: !!listingId,
+    staleTime: 5 * 60_000,
   })
 
   const submitReview = useMutation({
