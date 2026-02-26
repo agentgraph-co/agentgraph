@@ -121,6 +121,8 @@ final class AuthViewModel {
 
     func logout() async {
         await WebSocketService.shared.disconnect()
+        // Invalidate refresh token on server before clearing locally
+        await APIService.shared.serverLogout()
         await APIService.shared.clearTokens()
         currentUser = nil
         isAuthenticated = false
