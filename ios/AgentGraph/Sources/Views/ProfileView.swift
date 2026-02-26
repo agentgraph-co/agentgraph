@@ -9,6 +9,7 @@ struct ProfileView: View {
     @State private var showEditSheet = false
     @State private var editDisplayName = ""
     @State private var editBio = ""
+    @State private var editAvatarUrl = ""
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,27 @@ struct ProfileView: View {
                                 .buttonStyle(.plain)
                             }
 
+                            // Activity timeline
+                            NavigationLink {
+                                ActivityTimelineView(entityId: profile.id)
+                            } label: {
+                                GlassCard {
+                                    HStack(spacing: AGSpacing.md) {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .foregroundStyle(Color.agPrimary)
+                                        Text("Activity")
+                                            .font(AGTypography.base)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(Color.agText)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(AGTypography.xs)
+                                            .foregroundStyle(Color.agMuted)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+
                             // Staging CTA (own profile only)
                             if profile.isOwnProfile {
                                 stagingCTA
@@ -94,6 +116,7 @@ struct ProfileView: View {
                         Button {
                             editDisplayName = viewModel.profile?.displayName ?? ""
                             editBio = viewModel.profile?.bioMarkdown ?? ""
+                            editAvatarUrl = viewModel.profile?.avatarUrl ?? ""
                             showEditSheet = true
                         } label: {
                             Image(systemName: "pencil")
@@ -116,20 +139,19 @@ struct ProfileView: View {
     private func profileHeader(_ profile: ProfileResponse) -> some View {
         GlassCard {
             VStack(spacing: AGSpacing.base) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.agPrimary, .agAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                if let avatarUrl = profile.avatarUrl, let url = URL(string: avatarUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        avatarFallback(profile.displayName)
+                    }
                     .frame(width: 80, height: 80)
-                    .overlay(
-                        Text(String((profile.displayName.isEmpty ? "?" : profile.displayName).prefix(1)).uppercased())
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(.white)
-                    )
+                    .clipShape(Circle())
+                } else {
+                    avatarFallback(profile.displayName)
+                }
 
                 VStack(spacing: AGSpacing.xs) {
                     Text(profile.displayName.isEmpty ? "Unknown" : profile.displayName)
@@ -170,8 +192,20 @@ struct ProfileView: View {
     private func statsRow(_ profile: ProfileResponse) -> some View {
         HStack(spacing: AGSpacing.md) {
             StatCard(label: "Posts", value: "\(profile.postCount)")
-            StatCard(label: "Followers", value: "\(profile.followerCount)")
-            StatCard(label: "Following", value: "\(profile.followingCount)")
+
+            NavigationLink {
+                FollowListView(entityId: profile.id, mode: .followers)
+            } label: {
+                StatCard(label: "Followers", value: "\(profile.followerCount)")
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                FollowListView(entityId: profile.id, mode: .following)
+            } label: {
+                StatCard(label: "Following", value: "\(profile.followingCount)")
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -373,6 +407,24 @@ struct ProfileView: View {
                                     RoundedRectangle(cornerRadius: AGRadii.md)
                                         .stroke(Color.agBorder, lineWidth: 1)
                                 )
+
+                            Text("Avatar URL")
+                                .font(AGTypography.sm)
+                                .foregroundStyle(Color.agMuted)
+                            TextField("https://example.com/avatar.png", text: $editAvatarUrl)
+                                .textFieldStyle(.plain)
+                                .font(AGTypography.base)
+                                .foregroundStyle(Color.agText)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .keyboardType(.URL)
+                                .padding(AGSpacing.md)
+                                .background(Color.agSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AGRadii.md)
+                                        .stroke(Color.agBorder, lineWidth: 1)
+                                )
                         }
                     }
                     Spacer()
@@ -391,10 +443,12 @@ struct ProfileView: View {
                     Button("Save") {
                         Task {
                             if let id = auth.currentUser?.id {
+                                let avatarToSave = editAvatarUrl.trimmingCharacters(in: .whitespaces).isEmpty ? nil : editAvatarUrl.trimmingCharacters(in: .whitespaces)
                                 await viewModel.updateProfile(
                                     entityId: id,
                                     displayName: editDisplayName,
-                                    bio: editBio
+                                    bio: editBio,
+                                    avatarUrl: avatarToSave
                                 )
                                 // #24: Refresh current user after profile edit
                                 await auth.refreshCurrentUser()
@@ -407,6 +461,23 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    private func avatarFallback(_ displayName: String) -> some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agPrimary, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 80, height: 80)
+            .overlay(
+                Text(String((displayName.isEmpty ? "?" : displayName).prefix(1)).uppercased())
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(.white)
+            )
     }
 }
 

@@ -135,7 +135,7 @@ final class AuthViewModel {
     private func connectWebSocket(token: String) async {
         await WebSocketService.shared.connect(
             token: token,
-            channels: ["feed", "notifications", "activity"]
+            channels: ["feed", "notifications", "activity", "messages"]
         )
     }
 

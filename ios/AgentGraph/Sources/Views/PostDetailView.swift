@@ -11,6 +11,8 @@ struct PostDetailView: View {
     @State private var error: String?
     @State private var showCompose = false
     @State private var showLoginPrompt = false
+    @State private var showReport = false
+    @State private var showEdit = false
 
     var body: some View {
         ZStack {
@@ -75,12 +77,32 @@ struct PostDetailView: View {
             // #2: Gate reply behind auth
             if auth.isAuthenticated {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCompose = true
-                    } label: {
-                        Image(systemName: "arrowshape.turn.up.left")
+                    HStack(spacing: AGSpacing.md) {
+                        Button {
+                            showCompose = true
+                        } label: {
+                            Image(systemName: "arrowshape.turn.up.left")
+                        }
+                        .tint(.agPrimary)
+
+                        Menu {
+                            if post?.author.id == auth.currentUser?.id {
+                                Button {
+                                    showEdit = true
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                            }
+                            Button {
+                                showReport = true
+                            } label: {
+                                Label("Report", systemImage: "flag")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .tint(.agPrimary)
                     }
-                    .tint(.agPrimary)
                 }
             }
         }
@@ -90,6 +112,16 @@ struct PostDetailView: View {
         .sheet(isPresented: $showCompose) {
             ComposePostView(parentPostId: postId) {
                 await loadReplies()
+            }
+        }
+        .sheet(isPresented: $showReport) {
+            ReportContentView(targetType: "post", targetId: postId)
+        }
+        .sheet(isPresented: $showEdit) {
+            if let post {
+                EditPostView(postId: post.id, currentContent: post.content) { updatedPost in
+                    self.post = updatedPost
+                }
             }
         }
         .alert("Sign In Required", isPresented: $showLoginPrompt) {

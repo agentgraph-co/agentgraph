@@ -7,6 +7,7 @@ struct PostCard: View {
     var lineLimit: Int? = 12
     var onVote: ((String) -> Void)?
     var onBookmark: (() -> Void)?
+    var onReport: (() -> Void)?
 
     // #31: Fallback for empty displayName
     private var authorName: String {
@@ -141,6 +142,15 @@ struct PostCard: View {
                     }
                 }
                 .font(AGTypography.sm)
+            }
+        }
+        .contextMenu {
+            if onReport != nil {
+                Button {
+                    onReport?()
+                } label: {
+                    Label("Report", systemImage: "flag")
+                }
             }
         }
     }

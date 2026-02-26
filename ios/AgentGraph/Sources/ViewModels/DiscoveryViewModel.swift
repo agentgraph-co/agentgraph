@@ -3,12 +3,19 @@
 import Foundation
 import Observation
 
+enum SearchFilterType: String, CaseIterable {
+    case all = "All"
+    case entities = "Entities"
+    case posts = "Posts"
+}
+
 @Observable @MainActor
 final class DiscoveryViewModel {
     var searchText = ""
     var searchResults: SearchResponse?
     var isSearching = false
     var error: String?
+    var filterType: SearchFilterType = .all
     private var searchTask: Task<Void, Never>?
 
     func onSearchTextChanged(_ text: String) {

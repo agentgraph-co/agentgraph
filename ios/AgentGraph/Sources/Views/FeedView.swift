@@ -8,6 +8,7 @@ struct FeedView: View {
     @State private var showCompose = false
     @State private var showLoginPrompt = false
     @State private var notificationsVM = NotificationsViewModel()
+    @State private var messagesVM = MessagesViewModel()
     @State private var wsState: WebSocketService.ConnectionState = .disconnected
 
     var body: some View {
@@ -97,23 +98,42 @@ struct FeedView: View {
                         ConnectionDot(state: wsState)
                     }
                     ToolbarItem(placement: .primaryAction) {
-                        NavigationLink {
-                            NotificationsView()
-                        } label: {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "bell")
-                                if notificationsVM.unreadCount > 0 {
-                                    // #30: Cap badge at 99+
-                                    Text(notificationsVM.unreadCount > 99 ? "99+" : "\(notificationsVM.unreadCount)")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .padding(3)
-                                        .background(Circle().fill(Color.agDanger))
-                                        .offset(x: 8, y: -8)
+                        HStack(spacing: AGSpacing.md) {
+                            NavigationLink {
+                                ConversationsListView()
+                            } label: {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(systemName: "envelope")
+                                    if messagesVM.unreadCount > 0 {
+                                        Text(messagesVM.unreadCount > 99 ? "99+" : "\(messagesVM.unreadCount)")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .padding(3)
+                                            .background(Circle().fill(Color.agDanger))
+                                            .offset(x: 8, y: -8)
+                                    }
                                 }
                             }
+                            .tint(.agPrimary)
+
+                            NavigationLink {
+                                NotificationsView()
+                            } label: {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(systemName: "bell")
+                                    if notificationsVM.unreadCount > 0 {
+                                        // #30: Cap badge at 99+
+                                        Text(notificationsVM.unreadCount > 99 ? "99+" : "\(notificationsVM.unreadCount)")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .padding(3)
+                                            .background(Circle().fill(Color.agDanger))
+                                            .offset(x: 8, y: -8)
+                                    }
+                                }
+                            }
+                            .tint(.agPrimary)
                         }
-                        .tint(.agPrimary)
                     }
                 }
             }
@@ -151,6 +171,12 @@ struct FeedView: View {
                 if auth.isAuthenticated {
                     await notificationsVM.subscribeToLiveUpdates()
                     await notificationsVM.startPolling()
+                }
+            }
+            .task(id: auth.isAuthenticated) {
+                if auth.isAuthenticated {
+                    await messagesVM.loadUnreadCount()
+                    await messagesVM.startPolling()
                 }
             }
             .task {

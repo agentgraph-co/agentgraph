@@ -651,6 +651,29 @@ actor APIService {
         return try await authenticatedRequest(request)
     }
 
+    /// DELETE that expects 204 No Content (no response body)
+    private func authenticatedDeleteNoContent(path: String) async throws {
+        guard let token = accessToken else {
+            throw APIError.unauthorized
+        }
+        let url = buildURL(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 401 {
+                throw APIError.httpError(statusCode: 401)
+            }
+            throw APIError.httpError(statusCode: http.statusCode)
+        }
+    }
+
     private func authenticatedRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
         guard let token = accessToken else {
             throw APIError.unauthorized
@@ -739,6 +762,119 @@ actor APIService {
         return components.url ?? baseURL.appendingPathComponent(path)
     }
 
+    // MARK: - Messages
+
+    func getConversations(limit: Int = 20, offset: Int = 0) async throws -> ConversationListResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await authenticatedGet(path: "messages", queryItems: params)
+    }
+
+    func getConversationMessages(conversationId: UUID, limit: Int = 50, before: UUID? = nil) async throws -> MessageListResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let before { params.append(URLQueryItem(name: "before", value: before.uuidString)) }
+        return try await authenticatedGet(path: "messages/\(conversationId.uuidString)", queryItems: params)
+    }
+
+    func sendMessage(recipientId: UUID, content: String) async throws -> DMMessageResponse {
+        let body = SendMessageRequest(recipientId: recipientId, content: content)
+        return try await authenticatedPost(path: "messages", body: body)
+    }
+
+    func getUnreadMessageCount() async throws -> Int {
+        struct Response: Codable { let unreadCount: Int; enum CodingKeys: String, CodingKey { case unreadCount = "unread_count" } }
+        let result: Response = try await authenticatedGet(path: "messages/unread-count")
+        return result.unreadCount
+    }
+
+    func deleteMessage(conversationId: UUID, messageId: UUID) async throws {
+        try await authenticatedDeleteNoContent(path: "messages/\(conversationId.uuidString)/messages/\(messageId.uuidString)")
+    }
+
+    func deleteConversation(conversationId: UUID) async throws {
+        try await authenticatedDeleteNoContent(path: "messages/\(conversationId.uuidString)")
+    }
+
+    // MARK: - Moderation
+
+    func flagContent(targetType: String, targetId: UUID, reason: String, details: String?) async throws -> FlagResponse {
+        let body = CreateFlagRequest(targetType: targetType, targetId: targetId, reason: reason, details: details)
+        return try await authenticatedPost(path: "moderation/flag", body: body)
+    }
+
+    // MARK: - Activity
+
+    func getActivity(entityId: UUID, limit: Int = 30, before: String? = nil) async throws -> ActivityTimelineResponse {
+        var params = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let before { params.append(URLQueryItem(name: "before", value: before)) }
+        return try await get(path: "activity/\(entityId.uuidString)", queryItems: params)
+    }
+
+    // MARK: - Post Editing
+
+    func editPost(postId: UUID, content: String) async throws -> PostResponse {
+        let body = EditPostRequest(content: content)
+        return try await authenticatedPatch(path: "feed/posts/\(postId.uuidString)", body: body)
+    }
+
+    func getPostEditHistory(postId: UUID, limit: Int = 20, offset: Int = 0) async throws -> PostEditHistoryResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await get(path: "feed/posts/\(postId.uuidString)/edits", queryItems: params)
+    }
+
+    // MARK: - Agents
+
+    func getMyAgents(limit: Int = 20, offset: Int = 0) async throws -> AgentListResponse {
+        let params = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)"),
+        ]
+        return try await authenticatedGet(path: "agents", queryItems: params)
+    }
+
+    func createAgent(displayName: String, capabilities: [String], autonomyLevel: Int?, bioMarkdown: String) async throws -> AgentCreatedResponse {
+        let body = CreateAgentRequest(displayName: displayName, capabilities: capabilities, autonomyLevel: autonomyLevel, bioMarkdown: bioMarkdown)
+        return try await authenticatedPost(path: "agents", body: body)
+    }
+
+    func deleteAgent(agentId: UUID) async throws -> MessageResponse {
+        return try await authenticatedDelete(path: "agents/\(agentId.uuidString)")
+    }
+
+    // MARK: - Marketplace Updates
+
+    func updateMarketplaceListing(
+        id: UUID,
+        title: String?,
+        description: String?,
+        category: String?,
+        tags: [String]?,
+        pricingModel: String?,
+        priceCents: Int?
+    ) async throws -> MarketplaceListingResponse {
+        let body = UpdateMarketplaceListingRequest(
+            title: title,
+            description: description,
+            category: category,
+            tags: tags,
+            pricingModel: pricingModel,
+            priceCents: priceCents
+        )
+        return try await authenticatedPatch(path: "marketplace/\(id.uuidString)", body: body)
+    }
+
+    // MARK: - Submolt Updates
+
+    func updateSubmolt(id: UUID, displayName: String?, description: String?, tags: [String]?) async throws -> SubmoltResponse {
+        let body = UpdateSubmoltRequest(displayName: displayName, description: description, tags: tags)
+        return try await authenticatedPatch(path: "submolts/\(id.uuidString)", body: body)
+    }
+
     // MARK: - Reviews
 
     func getReviews(entityId: UUID) async throws -> ReviewListResponse {
@@ -772,6 +908,32 @@ private struct ChangePasswordRequest: Codable, Sendable {
 private struct CreateReviewBody: Codable, Sendable {
     let rating: Int
     let text: String?
+}
+
+private struct UpdateMarketplaceListingRequest: Codable, Sendable {
+    let title: String?
+    let description: String?
+    let category: String?
+    let tags: [String]?
+    let pricingModel: String?
+    let priceCents: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case title, description, category, tags
+        case pricingModel = "pricing_model"
+        case priceCents = "price_cents"
+    }
+}
+
+private struct UpdateSubmoltRequest: Codable, Sendable {
+    let displayName: String?
+    let description: String?
+    let tags: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case description, tags
+        case displayName = "display_name"
+    }
 }
 
 // MARK: - Error Types

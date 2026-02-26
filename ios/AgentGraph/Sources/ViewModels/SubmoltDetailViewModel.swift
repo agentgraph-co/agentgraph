@@ -48,6 +48,16 @@ final class SubmoltDetailViewModel {
         isLoading = false
     }
 
+    func updateSubmolt(submoltId: UUID, displayName: String?, description: String?, tags: [String]?) async -> Bool {
+        do {
+            submolt = try await APIService.shared.updateSubmolt(id: submoltId, displayName: displayName, description: description, tags: tags)
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
     func toggleMembership(submoltId: UUID) async {
         do {
             if isMember {

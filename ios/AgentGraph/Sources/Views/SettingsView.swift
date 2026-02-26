@@ -164,6 +164,38 @@ struct SettingsView: View {
                                         .foregroundStyle(Color.agMuted)
                                 }
                             }
+
+                            NavigationLink {
+                                AgentManagementView()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "cpu")
+                                        .foregroundStyle(Color.agPrimary)
+                                    Text("My Agents")
+                                        .font(AGTypography.sm)
+                                        .foregroundStyle(Color.agText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(AGTypography.xs)
+                                        .foregroundStyle(Color.agMuted)
+                                }
+                            }
+
+                            NavigationLink {
+                                PurchaseHistoryView()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "bag")
+                                        .foregroundStyle(Color.agPrimary)
+                                    Text("Purchase History")
+                                        .font(AGTypography.sm)
+                                        .foregroundStyle(Color.agText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(AGTypography.xs)
+                                        .foregroundStyle(Color.agMuted)
+                                }
+                            }
                         }
                     }
 

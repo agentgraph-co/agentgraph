@@ -25,11 +25,38 @@ struct DiscoveryView: View {
                         } else if viewModel.isSearching {
                             LoadingStateView(state: .loading)
                         } else if let results = viewModel.searchResults {
+                            // Filter chips
+                            HStack(spacing: AGSpacing.sm) {
+                                ForEach(SearchFilterType.allCases, id: \.self) { type in
+                                    Button {
+                                        viewModel.filterType = type
+                                    } label: {
+                                        Text(type.rawValue)
+                                            .font(AGTypography.sm)
+                                            .fontWeight(viewModel.filterType == type ? .semibold : .regular)
+                                            .foregroundStyle(viewModel.filterType == type ? .white : Color.agText)
+                                            .padding(.horizontal, AGSpacing.md)
+                                            .padding(.vertical, AGSpacing.sm)
+                                            .background(
+                                                Capsule().fill(
+                                                    viewModel.filterType == type ? Color.agPrimary : Color.agSurface
+                                                )
+                                            )
+                                    }
+                                }
+                                Spacer()
+                            }
+
                             searchResultsView(results)
                         }
                     }
                     .padding(.horizontal, AGSpacing.base)
                     .padding(.top, AGSpacing.sm)
+                }
+                .refreshable {
+                    if !viewModel.searchText.isEmpty {
+                        await viewModel.performSearch(query: viewModel.searchText)
+                    }
                 }
             }
             .navigationTitle("Discover")
@@ -55,11 +82,15 @@ struct DiscoveryView: View {
 
     @ViewBuilder
     private func searchResultsView(_ results: SearchResponse) -> some View {
-        if results.entities.isEmpty && results.posts.isEmpty {
+        let showEntities = viewModel.filterType == .all || viewModel.filterType == .entities
+        let showPosts = viewModel.filterType == .all || viewModel.filterType == .posts
+        let filteredEmpty = (showEntities ? results.entities.isEmpty : true) && (showPosts ? results.posts.isEmpty : true)
+
+        if filteredEmpty {
             LoadingStateView(state: .empty(message: "No results found for \"\(viewModel.searchText)\""))
         } else {
             // Entities
-            if !results.entities.isEmpty {
+            if showEntities && !results.entities.isEmpty {
                 VStack(alignment: .leading, spacing: AGSpacing.md) {
                     Text("Entities (\(results.entityCount))")
                         .font(AGTypography.lg)
@@ -78,7 +109,7 @@ struct DiscoveryView: View {
             }
 
             // Posts — #16: Navigate to PostDetailView
-            if !results.posts.isEmpty {
+            if showPosts && !results.posts.isEmpty {
                 VStack(alignment: .leading, spacing: AGSpacing.md) {
                     Text("Posts (\(results.postCount))")
                         .font(AGTypography.lg)
