@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import api from '../lib/api'
 import type { Entity } from '../types'
 
@@ -39,29 +39,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token, fetchMe])
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('token', data.access_token)
     setToken(data.access_token)
-  }
+  }, [])
 
-  const register = async (email: string, password: string, displayName: string, sessionId?: string) => {
+  const register = useCallback(async (email: string, password: string, displayName: string, sessionId?: string) => {
     await api.post('/auth/register', {
       email,
       password,
       display_name: displayName,
     }, sessionId ? { params: { session_id: sessionId } } : undefined)
-    await login(email, password)
-  }
+    // Inline login logic to avoid stale closure over login
+    const { data } = await api.post('/auth/login', { email, password })
+    localStorage.setItem('token', data.access_token)
+    setToken(data.access_token)
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token')
     setToken(null)
     setUser(null)
-  }
+  }, [])
+
+  const contextValue = useMemo(() => ({
+    user, token, login, register, logout, isLoading,
+  }), [user, token, login, register, logout, isLoading])
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   )

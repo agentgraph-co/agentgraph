@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, memo, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -12,6 +12,114 @@ import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
 
 const PAGE_SIZE = 20
+
+// ─── Memoized Post Card ───
+// Prevents 20+ unnecessary re-renders when Feed parent state changes.
+
+interface PostCardProps {
+  post: Post
+  user: { id: string } | null
+  onVote: (postId: string, direction: 'up' | 'down') => void
+  onBookmark: (postId: string) => void
+  onFlag: (postId: string) => void
+  onShare: (postId: string) => void
+}
+
+const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag, onShare }: PostCardProps) {
+  return (
+    <article className="bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors">
+      <div className="flex gap-3">
+        <div className="flex flex-col items-center gap-1 pt-1">
+          <button
+            onClick={() => onVote(post.id, 'up')}
+            aria-label="Upvote"
+            title="Upvote"
+            aria-pressed={post.user_vote === 'up'}
+            className={`text-lg leading-none cursor-pointer transition-colors ${
+              post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
+            }`}
+          >
+            &#9650;
+          </button>
+          <span className={`text-sm font-medium ${
+            post.vote_count > 0 ? 'text-primary-light' : post.vote_count < 0 ? 'text-danger' : 'text-text-muted'
+          }`}>
+            {post.vote_count}
+          </span>
+          <button
+            onClick={() => onVote(post.id, 'down')}
+            aria-label="Downvote"
+            title="Downvote"
+            aria-pressed={post.user_vote === 'down'}
+            className={`text-lg leading-none cursor-pointer transition-colors ${
+              post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
+            }`}
+          >
+            &#9660;
+          </button>
+        </div>
+        <Link to={`/profile/${post.author.id}`}>
+          <Avatar name={post.author.display_name} url={post.author.avatar_url} size="sm" />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+            <Link
+              to={`/profile/${post.author.id}`}
+              className="font-medium text-text hover:text-primary-light transition-colors"
+            >
+              {post.author.display_name}
+            </Link>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+              post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+            }`}>
+              {post.author.type}
+            </span>
+            {post.submolt_id && (
+              <span className="text-text-muted">in community</span>
+            )}
+            <span>{timeAgo(post.created_at)}</span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+          <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
+            <Link
+              to={`/post/${post.id}`}
+              className="hover:text-text transition-colors"
+            >
+              {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
+            </Link>
+            {user ? (
+              <button
+                onClick={() => onBookmark(post.id)}
+                className={`transition-colors cursor-pointer ${
+                  post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
+                }`}
+              >
+                {post.is_bookmarked ? 'Saved' : 'Save'}
+              </button>
+            ) : (
+              <GuestPrompt variant="inline" action="save" />
+            )}
+            {user && user.id !== post.author.id && (
+              <button
+                onClick={() => onFlag(post.id)}
+                className="hover:text-danger transition-colors cursor-pointer"
+              >
+                Report
+              </button>
+            )}
+            <button
+              onClick={() => onShare(post.id)}
+              className="hover:text-text transition-colors cursor-pointer"
+              title="Copy link to post"
+            >
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+})
 
 interface MySubmolt {
   id: string
@@ -211,12 +319,32 @@ export default function Feed() {
     },
   })
 
+  // Stable callbacks for PostCard — prevents re-renders when parent state changes
+  // TanStack Query v5: .mutate is a stable reference, so use it directly as dep
+  const handleVote = useCallback((postId: string, direction: 'up' | 'down') => {
+    if (!user) { navigate('/register?intent=vote'); return }
+    voteMutation.mutate({ postId, direction })
+  }, [user, navigate, voteMutation.mutate])
+
+  const handleBookmark = useCallback((postId: string) => {
+    bookmarkMutation.mutate(postId)
+  }, [bookmarkMutation.mutate])
+
+  const handleFlag = useCallback((postId: string) => {
+    setFlagTarget(postId)
+  }, [])
+
+  const handleShare = useCallback((postId: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`)
+    addToast('Link copied', 'success')
+  }, [addToast])
+
   const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault()
     if (content.trim()) {
       createPost.mutate(content)
     }
-  }, [content, createPost])
+  }, [content, createPost.mutate])
 
   if (isLoading) {
     return (
@@ -372,103 +500,15 @@ export default function Feed() {
 
       <div className="space-y-3">
         {allPosts.map((post) => (
-          <article
+          <PostCard
             key={post.id}
-            className="bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
-          >
-            <div className="flex gap-3">
-              <div className="flex flex-col items-center gap-1 pt-1">
-                <button
-                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'up' }) }}
-                  aria-label="Upvote"
-                  title="Upvote"
-                  aria-pressed={post.user_vote === 'up'}
-                  className={`text-lg leading-none cursor-pointer transition-colors ${
-                    post.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'
-                  }`}
-                >
-                  &#9650;
-                </button>
-                <span className={`text-sm font-medium ${
-                  post.vote_count > 0 ? 'text-primary-light' : post.vote_count < 0 ? 'text-danger' : 'text-text-muted'
-                }`}>
-                  {post.vote_count}
-                </span>
-                <button
-                  onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ postId: post.id, direction: 'down' }) }}
-                  aria-label="Downvote"
-                  title="Downvote"
-                  aria-pressed={post.user_vote === 'down'}
-                  className={`text-lg leading-none cursor-pointer transition-colors ${
-                    post.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'
-                  }`}
-                >
-                  &#9660;
-                </button>
-              </div>
-              <Link to={`/profile/${post.author.id}`}>
-                <Avatar name={post.author.display_name} url={post.author.avatar_url} size="sm" />
-              </Link>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
-                  <Link
-                    to={`/profile/${post.author.id}`}
-                    className="font-medium text-text hover:text-primary-light transition-colors"
-                  >
-                    {post.author.display_name}
-                  </Link>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                    post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
-                  }`}>
-                    {post.author.type}
-                  </span>
-                  {post.submolt_id && (
-                    <span className="text-text-muted">in community</span>
-                  )}
-                  <span>{timeAgo(post.created_at)}</span>
-                </div>
-                <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
-                  <Link
-                    to={`/post/${post.id}`}
-                    className="hover:text-text transition-colors"
-                  >
-                    {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
-                  </Link>
-                  {user ? (
-                    <button
-                      onClick={() => bookmarkMutation.mutate(post.id)}
-                      className={`transition-colors cursor-pointer ${
-                        post.is_bookmarked ? 'text-warning' : 'hover:text-warning'
-                      }`}
-                    >
-                      {post.is_bookmarked ? 'Saved' : 'Save'}
-                    </button>
-                  ) : (
-                    <GuestPrompt variant="inline" action="save" />
-                  )}
-                  {user && user.id !== post.author.id && (
-                    <button
-                      onClick={() => setFlagTarget(post.id)}
-                      className="hover:text-danger transition-colors cursor-pointer"
-                    >
-                      Report
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`)
-                      addToast('Link copied', 'success')
-                    }}
-                    className="hover:text-text transition-colors cursor-pointer"
-                    title="Copy link to post"
-                  >
-                    Share
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
+            post={post}
+            user={user}
+            onVote={handleVote}
+            onBookmark={handleBookmark}
+            onFlag={handleFlag}
+            onShare={handleShare}
+          />
         ))}
 
         {allPosts.length === 0 && (

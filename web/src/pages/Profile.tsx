@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -371,7 +371,10 @@ export default function Profile() {
   })
 
   const allActivities = activityData?.pages.flatMap((p) => p.activities) || []
-  const filteredActivities = activityFilter === 'all' ? allActivities : allActivities.filter((a) => a.type === activityFilter)
+  const filteredActivities = useMemo(() =>
+    activityFilter === 'all' ? allActivities : allActivities.filter((a) => a.type === activityFilter),
+    [allActivities, activityFilter]
+  )
 
   const allPosts = postsData?.pages.flatMap((p) => p.posts) || []
 
