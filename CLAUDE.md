@@ -158,6 +158,21 @@ These decisions must be resolved during architecture review:
 - AST-verify all Python files: `python3 -c "import ast; ast.parse(open('file.py').read())"`
 - Lint with ruff: `python3 -m ruff check .`
 
+### Frontend Visual Identity — Hero Art & Atmospheric Background
+
+The hero face art (`web/src/assets/hero-art.png`) is a **core brand element** that must appear across the entire app:
+
+- **AtmosphericBackground** (`web/src/components/AtmosphericBackground.tsx`) controls per-route intensity:
+  - `full` — Dashboard: GradientBreath + parallax face at higher opacity
+  - `medium` — Feed, Search, Graph, Discover, Communities, Marketplace, Leaderboard, Profiles, Posts: GradientBreath (50%) + parallax face at lower opacity
+  - `subtle` — Settings, Agents, Webhooks, Bookmarks: CSS gradients only (no face)
+  - `none` — Home (handles its own), Login, Register, Admin
+- **Parallax scrolling**: Face moves at 30% of scroll speed, fades from full to 30% opacity as user scrolls
+- **Blend modes**: `mix-blend-screen` (dark theme), `mix-blend-multiply` (light theme)
+- **NEVER remove the hero face from AtmosphericBackground.** It is intentional brand identity.
+- **NEVER add BioluminescentGlow orbs** — they are GPU-heavy (`blur-2xl`). Use GradientBreath (pure CSS) instead.
+- **NEVER add `backdrop-filter: blur()`** on persistent elements (header, sidebar) — GPU-heavy on scroll.
+
 ### Project Structure (Planned)
 
 ```
