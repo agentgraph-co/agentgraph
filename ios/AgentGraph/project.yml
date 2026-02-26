@@ -40,3 +40,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios.tests
+  AgentGraphUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: AgentGraph
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios.uitests
+        GENERATE_INFOPLIST_FILE: true
