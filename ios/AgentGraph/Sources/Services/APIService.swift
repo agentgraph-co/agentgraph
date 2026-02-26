@@ -76,10 +76,17 @@ actor APIService {
     private var isRefreshing = false
 
     init(
-        baseURL: URL = ServerEnvironment.development.baseURL,
+        baseURL: URL? = nil,
         session: URLSession? = nil
     ) {
-        self.baseURL = baseURL
+        // Read persisted environment, falling back to development
+        if let baseURL {
+            self.baseURL = baseURL
+        } else {
+            let saved = UserDefaults.standard.string(forKey: "server_environment") ?? "dev"
+            let env = ServerEnvironment(rawValue: saved) ?? .development
+            self.baseURL = env.baseURL
+        }
 
         // #26: Configure timeout with certificate pinning delegate
         if let session {
