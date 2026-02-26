@@ -29,8 +29,8 @@ function useReducedMotion() {
 
 const exactRoutes: Record<string, Intensity> = {
   '/': 'none',            // Home.tsx handles its own
-  '/login': 'none',
-  '/register': 'none',
+  '/login': 'medium',
+  '/register': 'medium',
   '/verify-email': 'none',
   '/forgot-password': 'none',
   '/reset-password': 'none',
@@ -103,7 +103,7 @@ function ParallaxHeroFace({ intensity }: { intensity: Intensity }) {
         src={heroArt}
         alt=""
         aria-hidden="true"
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover animate-hero-breathe"
         style={{
           opacity: baseOpacity,
           mixBlendMode: theme === 'light' ? 'multiply' : 'screen',
@@ -173,6 +173,10 @@ function FullLayer() {
   )
 }
 
+// ─── Auth routes get full-bleed background (no header offset) ───
+
+const authRoutes = new Set(['/login', '/register', '/forgot-password', '/reset-password'])
+
 // ─── Main Component ───
 
 export function AtmosphericBackground({ children }: { children: React.ReactNode }) {
@@ -184,10 +188,12 @@ export function AtmosphericBackground({ children }: { children: React.ReactNode 
     return <>{children}</>
   }
 
+  const isAuth = authRoutes.has(location.pathname)
+
   return (
     <div className="relative flex-1 flex flex-col">
       {/* Background layers — full viewport width, pinned behind content */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ top: '3.5rem' }}>
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ top: isAuth ? 0 : '3.5rem' }}>
         {intensity === 'subtle' && <SubtleLayer />}
         {intensity === 'medium' && <MediumLayer />}
         {intensity === 'full' && <FullLayer />}

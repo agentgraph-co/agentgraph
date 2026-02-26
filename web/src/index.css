@@ -218,6 +218,14 @@ a:focus-visible,
   100% { stroke-dashoffset: 0; }
 }
 
+@keyframes hero-breathe {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  25% { transform: scale(1.03) translate(4px, -3px); }
+  50% { transform: scale(1.01) translate(-2px, 2px); }
+  75% { transform: scale(1.04) translate(-3px, -4px); }
+}
+
+.animate-hero-breathe { animation: hero-breathe 20s ease-in-out infinite; }
 .animate-gradient-breathe { animation: gradient-breathe 6s ease-in-out infinite; }
 .animate-particle-drift { animation: particle-drift 4s ease-in-out infinite; }
 .animate-mycelium-draw { animation: mycelium-draw 2s ease-out forwards; stroke-dasharray: 1000; }
