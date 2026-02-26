@@ -9,6 +9,7 @@ struct ListingDetailView: View {
     @State private var showReviewForm = false
     @State private var showPurchaseConfirm = false
     @State private var showLoginPrompt = false
+    @State private var showEditListing = false
 
     var body: some View {
         ZStack {
@@ -56,6 +57,25 @@ struct ListingDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            if let listing = viewModel.listing, listing.entityId == auth.currentUser?.id {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showEditListing = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .tint(.agPrimary)
+                }
+            }
+        }
+        .sheet(isPresented: $showEditListing) {
+            if let listing = viewModel.listing {
+                EditListingView(listing: listing) { updated in
+                    viewModel.listing = updated
+                }
+            }
+        }
         .alert("Confirm Purchase", isPresented: $showPurchaseConfirm) {
             Button("Purchase") {
                 Task { await viewModel.purchaseListing(id: listingId) }

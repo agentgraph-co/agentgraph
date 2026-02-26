@@ -5,7 +5,7 @@ import SwiftUI
 struct LoadingStateView: View {
     enum State {
         case loading
-        case empty(message: String)
+        case empty(message: String, icon: String = "tray")
         case error(message: String, retry: (() async -> Void)?)
     }
 
@@ -22,8 +22,8 @@ struct LoadingStateView: View {
                     .font(AGTypography.base)
                     .foregroundStyle(Color.agMuted)
 
-            case .empty(let message):
-                Image(systemName: "tray")
+            case .empty(let message, let icon):
+                Image(systemName: icon)
                     .font(.system(size: 40))
                     .foregroundStyle(Color.agMuted)
                 Text(message)

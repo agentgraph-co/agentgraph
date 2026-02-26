@@ -7,6 +7,10 @@ struct SubmoltDetailView: View {
     @Environment(AuthViewModel.self) private var auth
     @State private var viewModel = SubmoltDetailViewModel()
     @State private var showCompose = false
+    @State private var showEditSubmolt = false
+    @State private var editName = ""
+    @State private var editDescription = ""
+    @State private var editTags = ""
 
     var body: some View {
         ZStack {
@@ -65,14 +69,30 @@ struct SubmoltDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            if auth.isAuthenticated && viewModel.isMember {
+            if auth.isAuthenticated {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCompose = true
-                    } label: {
-                        Image(systemName: "square.and.pencil")
+                    HStack(spacing: AGSpacing.md) {
+                        if viewModel.submolt?.creatorId == auth.currentUser?.id {
+                            Button {
+                                editName = viewModel.submolt?.name ?? ""
+                                editDescription = viewModel.submolt?.description ?? ""
+                                editTags = viewModel.submolt?.tags.joined(separator: ", ") ?? ""
+                                showEditSubmolt = true
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .tint(.agPrimary)
+                        }
+
+                        if viewModel.isMember {
+                            Button {
+                                showCompose = true
+                            } label: {
+                                Image(systemName: "square.and.pencil")
+                            }
+                            .tint(.agPrimary)
+                        }
                     }
-                    .tint(.agPrimary)
                 }
             }
         }
@@ -84,8 +104,101 @@ struct SubmoltDetailView: View {
                 await viewModel.load(submoltId: submoltId)
             }
         }
+        .sheet(isPresented: $showEditSubmolt) {
+            editSubmoltSheet
+        }
         .task {
             await viewModel.load(submoltId: submoltId)
+        }
+    }
+
+    private var editSubmoltSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color.agBackground.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: AGSpacing.lg) {
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: AGSpacing.md) {
+                                Text("Name")
+                                    .font(AGTypography.sm)
+                                    .foregroundStyle(Color.agMuted)
+                                TextField("Community name", text: $editName)
+                                    .textFieldStyle(.plain)
+                                    .font(AGTypography.base)
+                                    .foregroundStyle(Color.agText)
+                                    .padding(AGSpacing.md)
+                                    .background(Color.agSurface)
+                                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AGRadii.md)
+                                            .stroke(Color.agBorder, lineWidth: 1)
+                                    )
+
+                                Text("Description")
+                                    .font(AGTypography.sm)
+                                    .foregroundStyle(Color.agMuted)
+                                TextEditor(text: $editDescription)
+                                    .scrollContentBackground(.hidden)
+                                    .font(AGTypography.base)
+                                    .foregroundStyle(Color.agText)
+                                    .frame(minHeight: 80)
+                                    .padding(AGSpacing.md)
+                                    .background(Color.agSurface)
+                                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AGRadii.md)
+                                            .stroke(Color.agBorder, lineWidth: 1)
+                                    )
+
+                                Text("Tags (comma-separated)")
+                                    .font(AGTypography.sm)
+                                    .foregroundStyle(Color.agMuted)
+                                TextField("ai, agents, research", text: $editTags)
+                                    .textFieldStyle(.plain)
+                                    .font(AGTypography.base)
+                                    .foregroundStyle(Color.agText)
+                                    .padding(AGSpacing.md)
+                                    .background(Color.agSurface)
+                                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AGRadii.md)
+                                            .stroke(Color.agBorder, lineWidth: 1)
+                                    )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, AGSpacing.xl)
+                    .padding(.top, AGSpacing.lg)
+                }
+            }
+            .navigationTitle("Edit Community")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showEditSubmolt = false }
+                        .foregroundStyle(Color.agMuted)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            let tags = editTags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                            let success = await viewModel.updateSubmolt(
+                                submoltId: submoltId,
+                                displayName: editName,
+                                description: editDescription,
+                                tags: tags
+                            )
+                            if success { showEditSubmolt = false }
+                        }
+                    }
+                    .fontWeight(.semibold)
+                    .tint(.agPrimary)
+                    .disabled(editName.isEmpty)
+                }
+            }
         }
     }
 

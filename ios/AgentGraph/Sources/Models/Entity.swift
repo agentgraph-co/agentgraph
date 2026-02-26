@@ -990,3 +990,233 @@ struct MarketplaceTransactionListResponse: Codable, Sendable {
     let transactions: [MarketplaceTransactionResponse]
     let total: Int
 }
+
+// MARK: - Direct Messages
+
+struct DMMessageResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let conversationId: UUID
+    let senderId: UUID
+    let senderName: String
+    let content: String
+    let isRead: Bool
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, content
+        case conversationId = "conversation_id"
+        case senderId = "sender_id"
+        case senderName = "sender_name"
+        case isRead = "is_read"
+        case createdAt = "created_at"
+    }
+}
+
+struct ConversationResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let otherEntityId: UUID
+    let otherEntityName: String
+    let otherEntityType: String
+    let lastMessagePreview: String?
+    let lastMessageAt: String
+    let unreadCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case otherEntityId = "other_entity_id"
+        case otherEntityName = "other_entity_name"
+        case otherEntityType = "other_entity_type"
+        case lastMessagePreview = "last_message_preview"
+        case lastMessageAt = "last_message_at"
+        case unreadCount = "unread_count"
+    }
+}
+
+struct ConversationListResponse: Codable, Sendable {
+    let conversations: [ConversationResponse]
+    let total: Int
+}
+
+struct MessageListResponse: Codable, Sendable {
+    let messages: [DMMessageResponse]
+    let conversationId: UUID
+    let hasMore: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case conversationId = "conversation_id"
+        case hasMore = "has_more"
+    }
+}
+
+struct SendMessageRequest: Codable, Sendable {
+    let recipientId: UUID
+    let content: String
+
+    enum CodingKeys: String, CodingKey {
+        case content
+        case recipientId = "recipient_id"
+    }
+}
+
+// MARK: - Moderation / Reporting
+
+struct CreateFlagRequest: Codable, Sendable {
+    let targetType: String
+    let targetId: UUID
+    let reason: String
+    let details: String?
+
+    enum CodingKeys: String, CodingKey {
+        case reason, details
+        case targetType = "target_type"
+        case targetId = "target_id"
+    }
+}
+
+struct FlagResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let reporterEntityId: UUID?
+    let targetType: String
+    let targetId: UUID
+    let reason: String
+    let details: String?
+    let status: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, reason, details, status
+        case reporterEntityId = "reporter_entity_id"
+        case targetType = "target_type"
+        case targetId = "target_id"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - Activity Timeline
+
+struct ActivityItemResponse: Codable, Sendable, Identifiable {
+    let type: String
+    let entityId: String
+    let entityName: String
+    let targetId: String?
+    let summary: String
+    let createdAt: Date
+
+    var id: String { "\(type)-\(entityId)-\(createdAt.timeIntervalSince1970)" }
+
+    enum CodingKeys: String, CodingKey {
+        case type, summary
+        case entityId = "entity_id"
+        case entityName = "entity_name"
+        case targetId = "target_id"
+        case createdAt = "created_at"
+    }
+}
+
+struct ActivityTimelineResponse: Codable, Sendable {
+    let activities: [ActivityItemResponse]
+    let count: Int
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case activities, count
+        case nextCursor = "next_cursor"
+    }
+}
+
+// MARK: - Post Editing
+
+struct EditPostRequest: Codable, Sendable {
+    let content: String
+}
+
+struct PostEditEntry: Codable, Identifiable, Sendable {
+    let id: UUID
+    let postId: UUID
+    let previousContent: String
+    let newContent: String
+    let editedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case postId = "post_id"
+        case previousContent = "previous_content"
+        case newContent = "new_content"
+        case editedAt = "edited_at"
+    }
+}
+
+struct PostEditHistoryResponse: Codable, Sendable {
+    let edits: [PostEditEntry]
+    let total: Int
+}
+
+// MARK: - Agent Management
+
+struct AgentResponse: Codable, Identifiable, Sendable {
+    let id: UUID
+    let type: String
+    let displayName: String
+    let bioMarkdown: String
+    let avatarUrl: String?
+    let didWeb: String
+    let capabilities: [String]
+    let autonomyLevel: Int?
+    let operatorId: UUID?
+    let isActive: Bool
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, capabilities
+        case displayName = "display_name"
+        case bioMarkdown = "bio_markdown"
+        case avatarUrl = "avatar_url"
+        case didWeb = "did_web"
+        case autonomyLevel = "autonomy_level"
+        case operatorId = "operator_id"
+        case isActive = "is_active"
+        case createdAt = "created_at"
+    }
+}
+
+struct AgentCreatedResponse: Codable, Sendable {
+    let agent: AgentResponse
+    let apiKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case agent
+        case apiKey = "api_key"
+    }
+}
+
+struct CreateAgentRequest: Codable, Sendable {
+    let displayName: String
+    let capabilities: [String]
+    let autonomyLevel: Int?
+    let bioMarkdown: String
+
+    enum CodingKeys: String, CodingKey {
+        case capabilities
+        case displayName = "display_name"
+        case autonomyLevel = "autonomy_level"
+        case bioMarkdown = "bio_markdown"
+    }
+}
+
+struct AgentListResponse: Codable, Sendable {
+    let agents: [AgentResponse]
+    let total: Int
+}
+
+// MARK: - Navigation Helpers (Additional)
+
+/// Wrapper to distinguish entity navigation from post navigation in NotificationsView
+struct EntityNavigation: Hashable {
+    let entityId: UUID
+}
+
+/// Wrapper for conversation navigation
+struct ConversationNavigation: Hashable {
+    let conversationId: UUID
+}

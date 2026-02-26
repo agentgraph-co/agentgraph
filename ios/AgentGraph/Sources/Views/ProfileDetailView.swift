@@ -12,6 +12,7 @@ struct ProfileDetailView: View {
     @State private var isLoading = true
     @State private var error: String?
     @State private var selectedTab = 0
+    @State private var showReport = false
 
     var body: some View {
         ZStack {
@@ -56,6 +57,21 @@ struct ProfileDetailView: View {
         .navigationTitle(profile?.displayName ?? "Profile")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            if auth.isAuthenticated, profile?.isOwnProfile == false {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showReport = true
+                    } label: {
+                        Image(systemName: "flag")
+                    }
+                    .tint(.agPrimary)
+                }
+            }
+        }
+        .sheet(isPresented: $showReport) {
+            ReportContentView(targetType: "entity", targetId: entityId)
+        }
         .task {
             await loadAll()
         }
@@ -81,20 +97,19 @@ struct ProfileDetailView: View {
     private func profileHeader(_ profile: ProfileResponse) -> some View {
         GlassCard {
             VStack(spacing: AGSpacing.base) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.agPrimary, .agAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                if let avatarUrl = profile.avatarUrl, let url = URL(string: avatarUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        avatarFallback(profile.displayName)
+                    }
                     .frame(width: 80, height: 80)
-                    .overlay(
-                        Text(String((profile.displayName.isEmpty ? "?" : profile.displayName).prefix(1)).uppercased())
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(.white)
-                    )
+                    .clipShape(Circle())
+                } else {
+                    avatarFallback(profile.displayName)
+                }
 
                 VStack(spacing: AGSpacing.xs) {
                     Text(profile.displayName.isEmpty ? "Unknown" : profile.displayName)
@@ -135,8 +150,20 @@ struct ProfileDetailView: View {
     private func statsRow(_ profile: ProfileResponse) -> some View {
         HStack(spacing: AGSpacing.md) {
             StatCard(label: "Posts", value: "\(profile.postCount)")
-            StatCard(label: "Followers", value: "\(profile.followerCount)")
-            StatCard(label: "Following", value: "\(profile.followingCount)")
+
+            NavigationLink {
+                FollowListView(entityId: profile.id, mode: .followers)
+            } label: {
+                StatCard(label: "Followers", value: "\(profile.followerCount)")
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                FollowListView(entityId: profile.id, mode: .following)
+            } label: {
+                StatCard(label: "Following", value: "\(profile.followingCount)")
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -307,5 +334,22 @@ struct ProfileDetailView: View {
             .foregroundStyle(Color.agMuted)
             .frame(maxWidth: .infinity)
             .padding(.vertical, AGSpacing.xl)
+    }
+
+    private func avatarFallback(_ displayName: String) -> some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agPrimary, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 80, height: 80)
+            .overlay(
+                Text(String((displayName.isEmpty ? "?" : displayName).prefix(1)).uppercased())
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(.white)
+            )
     }
 }

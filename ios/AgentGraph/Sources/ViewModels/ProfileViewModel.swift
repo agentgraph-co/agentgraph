@@ -94,9 +94,9 @@ final class ProfileViewModel {
         }
     }
 
-    func updateProfile(entityId: UUID, displayName: String?, bio: String?) async {
+    func updateProfile(entityId: UUID, displayName: String?, bio: String?, avatarUrl: String? = nil) async {
         do {
-            let request = UpdateProfileRequest(displayName: displayName, bioMarkdown: bio)
+            let request = UpdateProfileRequest(displayName: displayName, bioMarkdown: bio, avatarUrl: avatarUrl)
             let updated = try await APIService.shared.updateProfile(entityId: entityId, request: request)
             profile = updated
         } catch {
