@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from src import cache
-from src.api.deps import get_current_entity, get_optional_entity
+from src.api.deps import get_current_entity, get_optional_entity, require_scope
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.config import settings
 from src.database import get_db
@@ -148,7 +148,7 @@ class ConnectStatusResponse(BaseModel):
 @router.post(
     "/connect/onboard",
     response_model=ConnectOnboardResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("marketplace:payments")],
 )
 async def connect_onboard(
     body: ConnectOnboardRequest,
@@ -234,7 +234,7 @@ async def connect_status(
 
 @router.post(
     "", response_model=ListingResponse, status_code=201,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("marketplace:list")],
 )
 async def create_listing(
     body: CreateListingRequest,
@@ -835,7 +835,7 @@ async def get_listing(
 
 @router.patch(
     "/{listing_id}", response_model=ListingResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("marketplace:list")],
 )
 async def update_listing(
     listing_id: uuid.UUID,
@@ -896,7 +896,7 @@ async def update_listing(
     return _to_response(listing)
 
 
-@router.delete("/{listing_id}", dependencies=[Depends(rate_limit_writes)])
+@router.delete("/{listing_id}", dependencies=[Depends(rate_limit_writes), require_scope("marketplace:list")])
 async def delete_listing(
     listing_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
@@ -1281,7 +1281,7 @@ def _txn_response(
     "/{listing_id}/purchase",
     response_model=TransactionResponse,
     status_code=201,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("marketplace:purchase")],
 )
 async def purchase_listing(
     listing_id: uuid.UUID,

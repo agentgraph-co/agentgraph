@@ -15,7 +15,7 @@ from sqlalchemy.sql import func
 
 from src.api.auth_service import hash_password, verify_password
 from src.api.deactivation import cascade_deactivate
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_scope
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.config import settings
@@ -66,7 +66,7 @@ class AuditLogListResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("/change-password", dependencies=[Depends(rate_limit_auth)])
+@router.post("/change-password", dependencies=[Depends(rate_limit_auth), require_scope("account:password")])
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,
@@ -124,7 +124,7 @@ async def change_password(
     return {"message": "Password changed successfully. All sessions have been invalidated."}
 
 
-@router.post("/deactivate", dependencies=[Depends(rate_limit_writes)])
+@router.post("/deactivate", dependencies=[Depends(rate_limit_writes), require_scope("account:deactivate")])
 async def deactivate_account(
     request: Request,
     current_entity: Entity = Depends(get_current_entity),
@@ -170,7 +170,7 @@ async def get_privacy_tier(
     }
 
 
-@router.put("/privacy", dependencies=[Depends(rate_limit_writes)])
+@router.put("/privacy", dependencies=[Depends(rate_limit_writes), require_scope("account:update")])
 async def set_privacy_tier(
     body: SetPrivacyTierRequest,
     request: Request,
