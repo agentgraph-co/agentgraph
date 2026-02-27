@@ -495,6 +495,14 @@ async def google_callback(
             ip_address=request.client.host if request.client else None,
         )
 
+    else:
+        # Existing account — backfill avatar and SSO link from Google if missing
+        if not entity.avatar_url and userinfo.get("picture"):
+            entity.avatar_url = userinfo["picture"]
+        if not entity.sso_provider_id:
+            entity.sso_provider_id = f"google:{userinfo.get('id', '')}"
+        await db.flush()
+
     if not entity.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
