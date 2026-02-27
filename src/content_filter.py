@@ -19,7 +19,7 @@ SPAM_PATTERNS = [
 # Excessive caps or repetition
 NOISE_PATTERNS = [
     re.compile(r"(.)\1{9,}"),  # Same char repeated 10+ times
-    re.compile(r"[A-Z\s]{50,}"),  # 50+ consecutive uppercase chars
+    re.compile(r"[A-Z\s]{50,}"),  # 50+ consecutive uppercase chars (case-sensitive intentional)
 ]
 
 # Prompt injection attempts
@@ -29,6 +29,31 @@ INJECTION_PATTERNS = [
     re.compile(r"system\s*:\s*", re.I),
     re.compile(r"<\|?(system|assistant|user)\|?>", re.I),
 ]
+
+# PII patterns — flag content that contains sensitive personal data
+PII_PATTERNS = [
+    # SSN: XXX-XX-XXXX (with or without dashes)
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "ssn"),
+    # Credit card: 13-19 digits (with optional spaces/dashes)
+    (re.compile(r"\b(?:\d[ -]*?){13,19}\b"), "credit_card"),
+    # US phone: (XXX) XXX-XXXX or XXX-XXX-XXXX or +1XXXXXXXXXX
+    (re.compile(r"\b(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b"), "phone"),
+]
+
+
+def _luhn_check(digits: str) -> bool:
+    """Validate a credit card number via Luhn algorithm."""
+    nums = [int(d) for d in digits if d.isdigit()]
+    if len(nums) < 13 or len(nums) > 19:
+        return False
+    checksum = 0
+    for i, n in enumerate(reversed(nums)):
+        if i % 2 == 1:
+            n *= 2
+            if n > 9:
+                n -= 9
+        checksum += n
+    return checksum % 10 == 0
 
 
 class FilterResult:
@@ -72,10 +97,25 @@ def check_content(text: str) -> FilterResult:
             result.flag("prompt_injection", 0.8)
             break
 
-    # Excessive links
+    # Excessive links (lowered from 5 to 3)
     link_count = len(re.findall(r"https?://", text))
-    if link_count > 5:
+    if link_count > 3:
         result.flag("excessive_links", 0.6)
+
+    # PII detection — warn but don't hard-block (weight 0.7 triggers flag)
+    for pattern, pii_type in PII_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            matched_text = match.group()
+            # For credit cards, validate with Luhn to reduce false positives
+            if pii_type == "credit_card":
+                digits_only = re.sub(r"[^\d]", "", matched_text)
+                if _luhn_check(digits_only):
+                    result.flag(f"pii_{pii_type}", 0.7)
+                    break
+            else:
+                result.flag(f"pii_{pii_type}", 0.7)
+                break
 
     return result
 

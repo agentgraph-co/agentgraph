@@ -326,3 +326,151 @@ async def test_resolve_already_resolved_fails(client: AsyncClient, db):
         headers=_auth(admin_token),
     )
     assert resp.status_code == 409
+
+
+# --- Appeal overturn cascade restoration tests ---
+
+
+APPEALS_URL = "/api/v1/moderation/appeals"
+
+
+@pytest.mark.asyncio
+async def test_appeal_overturn_restores_api_keys_and_webhooks(
+    client: AsyncClient, db,
+):
+    """Suspend entity -> appeal -> overturn restores API keys and webhooks."""
+    import hashlib
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
+    from src.models import APIKey, Entity, WebhookSubscription
+
+    # Setup reporter, offender, and admin
+    token_a, _ = await _setup_user(client, USER_A)
+    token_b, id_b = await _setup_user(client, USER_B)
+    admin_token, admin_id = await _setup_user(client, ADMIN)
+    await _make_admin(db, admin_id)
+
+    entity_b_uuid = _uuid.UUID(id_b)
+
+    # Create an API key directly in DB for offender (user B)
+    api_key_obj = APIKey(
+        id=_uuid.uuid4(),
+        entity_id=entity_b_uuid,
+        key_hash=hashlib.sha256(b"test-key-for-appeal").hexdigest(),
+        label="appeal-test-key",
+        is_active=True,
+    )
+    db.add(api_key_obj)
+    await db.flush()
+
+    # Offender creates a webhook subscription via API
+    wh_resp = await client.post(
+        "/api/v1/webhooks",
+        json={
+            "callback_url": "https://hooks.example.com/appeal-test",
+            "event_types": ["entity.followed"],
+        },
+        headers=_auth(token_b),
+    )
+    assert wh_resp.status_code == 201
+
+    # Verify API key and webhook are active before suspension
+    key_check = await db.execute(
+        select(APIKey).where(APIKey.id == api_key_obj.id)
+    )
+    assert key_check.scalar_one().is_active is True
+
+    wh_check = await db.execute(
+        select(WebhookSubscription).where(
+            WebhookSubscription.entity_id == entity_b_uuid,
+        )
+    )
+    assert wh_check.scalar_one().is_active is True
+
+    # Reporter flags the offender
+    flag_resp = await client.post(
+        FLAG_URL,
+        json={
+            "target_type": "entity",
+            "target_id": id_b,
+            "reason": "harassment",
+        },
+        headers=_auth(token_a),
+    )
+    assert flag_resp.status_code == 201
+    flag_id = flag_resp.json()["id"]
+
+    # Admin suspends the entity (triggers cascade_deactivate)
+    resolve_resp = await client.patch(
+        f"{FLAGS_URL}/{flag_id}/resolve",
+        json={"status": "suspended"},
+        headers=_auth(admin_token),
+    )
+    assert resolve_resp.status_code == 200
+
+    # Verify entity is deactivated
+    await db.refresh(api_key_obj)
+    entity = await db.get(Entity, entity_b_uuid)
+    assert entity.is_active is False
+
+    # Verify API key is deactivated after cascade
+    key_after_suspend = await db.execute(
+        select(APIKey).where(APIKey.id == api_key_obj.id)
+    )
+    suspended_key = key_after_suspend.scalar_one()
+    assert suspended_key.is_active is False
+    assert suspended_key.revoked_at is not None
+
+    # Verify webhook is deactivated after cascade
+    wh_after_suspend = await db.execute(
+        select(WebhookSubscription).where(
+            WebhookSubscription.entity_id == entity_b_uuid,
+        )
+    )
+    assert wh_after_suspend.scalar_one().is_active is False
+
+    # Create appeal directly in DB (suspended user can't use API)
+    from src.models import ModerationAppeal
+
+    appeal_obj = ModerationAppeal(
+        id=_uuid.uuid4(),
+        flag_id=_uuid.UUID(flag_id),
+        appellant_id=entity_b_uuid,
+        reason="I did nothing wrong, please reconsider",
+        status="pending",
+    )
+    db.add(appeal_obj)
+    await db.flush()
+    appeal_id = str(appeal_obj.id)
+
+    # Admin overturns the appeal
+    overturn_resp = await client.patch(
+        f"{APPEALS_URL}/{appeal_id}",
+        json={"action": "overturn", "note": "Insufficient evidence"},
+        headers=_auth(admin_token),
+    )
+    assert overturn_resp.status_code == 200
+    assert overturn_resp.json()["status"] == "overturned"
+
+    # Entity should be reactivated
+    await db.refresh(entity)
+    assert entity.is_active is True
+
+    # API key should be restored
+    key_after_overturn = await db.execute(
+        select(APIKey).where(APIKey.id == api_key_obj.id)
+    )
+    restored_key = key_after_overturn.scalar_one()
+    assert restored_key.is_active is True
+    assert restored_key.revoked_at is None
+
+    # Webhook should be restored
+    wh_after_overturn = await db.execute(
+        select(WebhookSubscription).where(
+            WebhookSubscription.entity_id == entity_b_uuid,
+        )
+    )
+    restored_wh = wh_after_overturn.scalar_one()
+    assert restored_wh.is_active is True
