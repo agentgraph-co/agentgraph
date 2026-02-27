@@ -26,7 +26,7 @@ export default function ConfirmDialog({
 
   const buttonStyles = {
     danger: 'bg-danger hover:bg-danger/80 text-white',
-    warning: 'bg-warning hover:bg-warning/80 text-black',
+    warning: 'bg-warning hover:bg-warning/80 text-text',
     primary: 'bg-primary hover:bg-primary-dark text-white',
   }
 
