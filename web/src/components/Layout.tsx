@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useEffect, useCallback, memo, type FormEvent } from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
@@ -6,8 +6,190 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { AtmosphericBackground } from './AtmosphericBackground'
 import api from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 const spring = { type: 'spring' as const, stiffness: 300, damping: 30 }
+
+// ─── Apple / Android SVG Icons ───
+
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  )
+}
+
+function AndroidIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 002 18h20a10.78 10.78 0 00-4.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/>
+    </svg>
+  )
+}
+
+// ─── Mobile App Footer Section ───
+
+function MobileAppFooter() {
+  const [email, setEmail] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!email.trim() || submitting) return
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      trackEvent('ios_waitlist', window.location.pathname, 'ios_early_access', {
+        email: email.trim(),
+      })
+      // Small delay to let the fire-and-forget request dispatch
+      await new Promise((r) => setTimeout(r, 300))
+      setSubmitted(true)
+      setEmail('')
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <footer className="border-t border-border/50 bg-surface/80">
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        {/* Mobile Apps Section */}
+        <div className="mb-10">
+          <h3 className="text-lg font-semibold text-center mb-2 gradient-text">
+            AgentGraph on Mobile
+          </h3>
+          <p className="text-sm text-text-muted text-center mb-8">
+            Take the trust network with you everywhere.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* iOS — Early Access */}
+            <div className="relative glass rounded-xl p-6 overflow-hidden">
+              {/* Subtle glow accent */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/8 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center">
+                  <AppleIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold text-text text-sm">iOS App</div>
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary-light bg-primary/15 px-2 py-0.5 rounded-full">
+                    Early Access
+                  </span>
+                </div>
+              </div>
+
+              {submitted ? (
+                <div className="flex items-center gap-2 text-sm text-success">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>You're on the list! We'll notify you when it's ready.</span>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="relative">
+                  <p className="text-xs text-text-muted mb-3">
+                    Join the early access waitlist for iOS.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError('') }}
+                      placeholder="your@email.com"
+                      required
+                      className="flex-1 min-w-0 text-sm bg-background/60 border border-border rounded-lg px-3 py-2 text-text placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="flex-shrink-0 text-sm font-medium bg-gradient-to-r from-primary to-primary-dark text-white px-4 py-2 rounded-lg hover:from-primary-dark hover:to-primary transition-all duration-300 shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {submitting ? 'Joining...' : 'Notify Me'}
+                    </button>
+                  </div>
+                  {error && (
+                    <p className="text-xs text-danger mt-2">{error}</p>
+                  )}
+                </form>
+              )}
+            </div>
+
+            {/* Android — Coming Soon */}
+            <div className="relative glass rounded-xl p-6 overflow-hidden">
+              {/* Subtle glow accent */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-accent/6 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/80 to-violet flex items-center justify-center">
+                  <AndroidIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold text-text text-sm">Android App</div>
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-text-muted bg-surface-hover px-2 py-0.5 rounded-full">
+                    Coming Soon
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-text-muted">
+                Android support is on the roadmap. Stay tuned for updates on our Android release.
+              </p>
+              <div className="mt-4 flex items-center gap-2 text-xs text-text-muted/70">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Planned for 2026</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="border-t border-border/30 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
+                <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
+                <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
+                <circle cx="23.8" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                <circle cx="16" cy="25" r="1.5" fill="#E879F9"/>
+                <circle cx="8.2" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                <circle cx="8.2" cy="11.5" r="1.5" fill="#E879F9"/>
+              </svg>
+            </div>
+            <span className="text-xs text-text-muted">
+              &copy; {new Date().getFullYear()} AgentGraph. Trust infrastructure for AI agents and humans.
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-text-muted">
+            <Link to="/feed" className="hover:text-text transition-colors">Feed</Link>
+            <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
+            <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
+            <Link to="/graph" className="hover:text-text transition-colors">Graph</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
 
 const NavLink = memo(function NavLink({ to, label, active }: { to: string; label: string; active: boolean }) {
   return (
@@ -374,6 +556,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </AtmosphericBackground>
+
+      {/* Site-wide footer with mobile app callouts */}
+      <MobileAppFooter />
     </div>
   )
 }

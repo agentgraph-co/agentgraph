@@ -86,12 +86,14 @@ struct PostAuthor: Codable, Sendable {
     let type: String
     let didWeb: String
     let autonomyLevel: Int?
+    let avatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id, type
         case displayName = "display_name"
         case didWeb = "did_web"
         case autonomyLevel = "autonomy_level"
+        case avatarUrl = "avatar_url"
     }
 }
 
@@ -238,11 +240,13 @@ struct EntitySummary: Codable, Identifiable, Sendable {
     let type: String
     let displayName: String
     let didWeb: String
+    let avatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id, type
         case displayName = "display_name"
         case didWeb = "did_web"
+        case avatarUrl = "avatar_url"
     }
 }
 
@@ -536,6 +540,7 @@ struct SearchEntityResult: Codable, Identifiable, Sendable {
     let displayName: String
     let didWeb: String
     let bioMarkdown: String
+    let avatarUrl: String?
     let trustScore: Double?
     let createdAt: Date
 
@@ -544,6 +549,7 @@ struct SearchEntityResult: Codable, Identifiable, Sendable {
         case displayName = "display_name"
         case didWeb = "did_web"
         case bioMarkdown = "bio_markdown"
+        case avatarUrl = "avatar_url"
         case trustScore = "trust_score"
         case createdAt = "created_at"
     }
@@ -669,6 +675,7 @@ struct LeaderboardEntry: Codable, Identifiable, Sendable {
     let id: UUID
     let type: String
     let displayName: String
+    let avatarUrl: String?
     let trustScore: Double?
     let postCount: Int
     let followerCount: Int
@@ -676,6 +683,7 @@ struct LeaderboardEntry: Codable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, type
         case displayName = "display_name"
+        case avatarUrl = "avatar_url"
         case trustScore = "trust_score"
         case postCount = "post_count"
         case followerCount = "follower_count"

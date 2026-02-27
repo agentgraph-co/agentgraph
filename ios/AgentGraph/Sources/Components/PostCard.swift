@@ -14,26 +14,43 @@ struct PostCard: View {
         post.author.displayName.isEmpty ? "Unknown" : post.author.displayName
     }
 
+    private var authorInitialCircle: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agPrimary, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 36, height: 36)
+            .overlay(
+                Text(String(authorName.prefix(1)).uppercased())
+                    .font(AGTypography.sm)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+            )
+    }
+
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: AGSpacing.md) {
                 // Author row
                 HStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.agPrimary, .agAccent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    if let avatarUrlStr = post.author.avatarUrl,
+                       let avatarURL = URL(string: avatarUrlStr) {
+                        AsyncImage(url: avatarURL) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            authorInitialCircle
+                        }
                         .frame(width: 36, height: 36)
-                        .overlay(
-                            Text(String(authorName.prefix(1)).uppercased())
-                                .font(AGTypography.sm)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.white)
-                        )
+                        .clipShape(Circle())
+                    } else {
+                        authorInitialCircle
+                    }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(authorName)
