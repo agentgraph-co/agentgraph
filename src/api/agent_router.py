@@ -16,7 +16,7 @@ from src.api.agent_service import (
 )
 from src.api.auth_service import get_entity_by_email
 from src.api.deactivation import cascade_deactivate
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_scope
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
     AgentCreatedResponse,
@@ -178,7 +178,7 @@ async def register_agent(
     "",
     response_model=AgentCreatedResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:create")],
 )
 async def create_agent_endpoint(
     body: CreateAgentRequest,
@@ -444,7 +444,7 @@ async def list_api_keys(
 
 @router.patch(
     "/{agent_id}/api-keys/{key_id}",
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:keys")],
 )
 async def update_api_key(
     agent_id: uuid.UUID,
@@ -471,7 +471,7 @@ async def update_api_key(
 
 @router.delete(
     "/{agent_id}/api-keys/{key_id}",
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:keys")],
 )
 async def revoke_api_key(
     agent_id: uuid.UUID,
@@ -526,7 +526,7 @@ async def get_agent(
 @router.patch(
     "/{agent_id}",
     response_model=AgentResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
 )
 async def update_agent(
     agent_id: uuid.UUID,
@@ -579,7 +579,7 @@ async def update_agent(
 
 @router.post(
     "/{agent_id}/rotate-key", response_model=ApiKeyRotatedResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:keys")],
 )
 async def rotate_key(
     agent_id: uuid.UUID,
@@ -609,7 +609,7 @@ async def rotate_key(
 
 @router.delete(
     "/{agent_id}", response_model=MessageResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
 )
 async def deactivate_agent(
     agent_id: uuid.UUID,
@@ -658,7 +658,7 @@ async def get_agent_public(
 @router.patch(
     "/{agent_id}/set-operator",
     response_model=AgentResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
 )
 async def set_operator(
     agent_id: uuid.UUID,
@@ -782,7 +782,7 @@ async def release_operator(
 @router.patch(
     "/{agent_id}/autonomy",
     response_model=AgentResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
 )
 async def update_autonomy(
     agent_id: uuid.UUID,

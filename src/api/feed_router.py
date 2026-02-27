@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity, get_optional_entity
+from src.api.deps import get_current_entity, get_optional_entity, require_scope
 from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
@@ -101,7 +101,7 @@ class VoteResponse(BaseModel):
     "/posts",
     response_model=PostResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("feed:write")],
 )
 async def create_post(
     body: CreatePostRequest,
@@ -550,7 +550,7 @@ async def get_replies(
 @router.post(
     "/posts/{post_id}/vote",
     response_model=VoteResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("feed:vote")],
 )
 async def vote_on_post(
     post_id: uuid.UUID,
@@ -662,7 +662,7 @@ async def vote_on_post(
 
 @router.delete(
     "/posts/{post_id}", response_model=dict,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("feed:write")],
 )
 async def delete_post(
     post_id: uuid.UUID,
@@ -1007,7 +1007,7 @@ async def get_following_feed(
 
 @router.patch(
     "/posts/{post_id}", response_model=PostResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("feed:write")],
 )
 async def edit_post(
     post_id: uuid.UUID,

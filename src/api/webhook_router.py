@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_scope
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
@@ -90,7 +90,7 @@ class WebhookListResponse(BaseModel):
 
 @router.post(
     "", response_model=WebhookCreatedResponse, status_code=201,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("webhooks:manage")],
 )
 async def create_webhook(
     body: CreateWebhookRequest,
@@ -216,7 +216,7 @@ async def get_webhook(
 
 @router.patch(
     "/{webhook_id}", response_model=WebhookResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("webhooks:manage")],
 )
 async def update_webhook(
     webhook_id: uuid.UUID,
@@ -260,7 +260,7 @@ async def update_webhook(
 
 @router.delete(
     "/{webhook_id}", status_code=204,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("webhooks:manage")],
 )
 async def delete_webhook(
     webhook_id: uuid.UUID,
@@ -284,7 +284,7 @@ async def delete_webhook(
 
 @router.patch(
     "/{webhook_id}/activate", response_model=WebhookResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("webhooks:manage")],
 )
 async def activate_webhook(
     webhook_id: uuid.UUID,
@@ -316,7 +316,7 @@ async def activate_webhook(
 
 @router.patch(
     "/{webhook_id}/deactivate", response_model=WebhookResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), require_scope("webhooks:manage")],
 )
 async def deactivate_webhook(
     webhook_id: uuid.UUID,
