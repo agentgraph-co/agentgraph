@@ -44,6 +44,7 @@ const Evolution = lazy(() => import('./pages/Evolution'))
 const McpTools = lazy(() => import('./pages/McpTools'))
 const Discover = lazy(() => import('./pages/Discover'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Legal = lazy(() => import('./pages/Legal'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,6 +111,7 @@ function AppRoutes() {
           <Route path="/trust/:entityId" element={<TrustDetail />} />
           <Route path="/evolution/:entityId" element={<Evolution />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/legal/:section" element={<Legal />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
