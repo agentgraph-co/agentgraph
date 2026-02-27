@@ -38,7 +38,7 @@ document.getElementById('f').addEventListener('submit',function(ev){
   var code=document.getElementById('c').value;
   var h=dh(code);
   if(h===***REMOVED***){
-    document.cookie='ag_gate='+h+';path=/;max-age=31536000;SameSite=Lax';
+    document.cookie='ag_gate='+h+';path=/;max-age=31536000;SameSite=Lax'+(location.protocol==='https:'?';Secure':'');
     window.location.href='/';
   }else{
     document.getElementById('e').style.display='block';
