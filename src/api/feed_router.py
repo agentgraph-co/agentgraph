@@ -110,6 +110,7 @@ async def create_post(
 ):
     # Content filter + sanitization
     from src.content_filter import check_content, sanitize_html
+    from src.toxicity import score_toxicity
 
     filter_result = check_content(body.content)
     if not filter_result.is_clean:
@@ -117,6 +118,15 @@ async def create_post(
             status_code=400,
             detail=f"Content rejected: {', '.join(filter_result.flags)}",
         )
+
+    # Perspective API toxicity check (non-blocking if API unavailable)
+    tox = await score_toxicity(body.content)
+    if tox.should_block:
+        raise HTTPException(
+            status_code=400,
+            detail="Content rejected: toxicity score too high",
+        )
+
     body.content = sanitize_html(body.content)
 
     if body.parent_post_id is not None:

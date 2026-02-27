@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     from_email: str = "noreply@agentgraph.co"
 
+    # Perspective API (Google text toxicity scoring)
+    perspective_api_key: str | None = None
+    perspective_toxicity_block: float = 0.85
+    perspective_toxicity_flag: float = 0.70
+    perspective_timeout: int = 5
+
     # Error tracking
     sentry_dsn: str | None = None
 
