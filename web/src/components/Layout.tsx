@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { AtmosphericBackground } from './AtmosphericBackground'
 import api from '../lib/api'
-import { trackEvent } from '../lib/analytics'
+import { getSessionId } from '../lib/analytics'
 
 const spring = { type: 'spring' as const, stiffness: 300, damping: 30 }
 
@@ -51,11 +51,13 @@ function MobileAppFooter() {
     setError('')
 
     try {
-      trackEvent('ios_waitlist', window.location.pathname, 'ios_early_access', {
-        email: email.trim(),
+      await api.post('/analytics/event', {
+        event_type: 'ios_waitlist',
+        session_id: getSessionId(),
+        page: window.location.pathname,
+        intent: 'ios_early_access',
+        metadata: { email: email.trim() },
       })
-      // Small delay to let the fire-and-forget request dispatch
-      await new Promise((r) => setTimeout(r, 300))
       setSubmitted(true)
       setEmail('')
     } catch {
