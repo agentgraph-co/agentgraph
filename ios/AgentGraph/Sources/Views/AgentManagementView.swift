@@ -72,24 +72,41 @@ struct AgentManagementView: View {
         }
     }
 
+    private var agentInitialCircle: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agViolet, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 36, height: 36)
+            .overlay(
+                Image(systemName: "cpu")
+                    .font(AGTypography.sm)
+                    .foregroundStyle(.white)
+            )
+    }
+
     private func agentRow(_ agent: AgentResponse) -> some View {
         GlassCard {
             VStack(alignment: .leading, spacing: AGSpacing.sm) {
                 HStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.agViolet, .agAccent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    if let avatarUrlStr = agent.avatarUrl,
+                       let url = URL(string: avatarUrlStr) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            agentInitialCircle
+                        }
                         .frame(width: 36, height: 36)
-                        .overlay(
-                            Image(systemName: "cpu")
-                                .font(AGTypography.sm)
-                                .foregroundStyle(.white)
-                        )
+                        .clipShape(Circle())
+                    } else {
+                        agentInitialCircle
+                    }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(agent.displayName)

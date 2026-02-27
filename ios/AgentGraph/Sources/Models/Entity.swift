@@ -695,21 +695,20 @@ struct LeaderboardEntry: Codable, Identifiable, Sendable {
 struct SubmoltResponse: Codable, Identifiable, Sendable {
     let id: UUID
     let name: String
+    let displayName: String
     let description: String
-    let creatorId: UUID
+    let rules: String?
+    let createdBy: UUID
     let memberCount: Int
-    let postCount: Int
     let tags: [String]
-    let isPublic: Bool
     let isMember: Bool?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, tags
-        case creatorId = "creator_id"
+        case id, name, description, rules, tags
+        case displayName = "display_name"
+        case createdBy = "created_by"
         case memberCount = "member_count"
-        case postCount = "post_count"
-        case isPublic = "is_public"
         case isMember = "is_member"
         case createdAt = "created_at"
     }
@@ -718,22 +717,22 @@ struct SubmoltResponse: Codable, Identifiable, Sendable {
 struct SubmoltListResponse: Codable, Sendable {
     let submolts: [SubmoltResponse]
     let total: Int
-    let nextCursor: String?
-
-    enum CodingKeys: String, CodingKey {
-        case submolts, total
-        case nextCursor = "next_cursor"
-    }
 }
 
 struct MySubmoltItem: Codable, Identifiable, Sendable {
     let id: UUID
     let name: String
+    let displayName: String
+    let description: String
     let memberCount: Int
+    let role: String
+    let joinedAt: String
 
     enum CodingKeys: String, CodingKey {
-        case id, name
+        case id, name, description, role
+        case displayName = "display_name"
         case memberCount = "member_count"
+        case joinedAt = "joined_at"
     }
 }
 

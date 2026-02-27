@@ -88,6 +88,24 @@ struct LeaderboardView: View {
         }
     }
 
+    private func leaderboardInitialCircle(_ displayName: String) -> some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agPrimary, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 40, height: 40)
+            .overlay(
+                Text(String(displayName.prefix(1)).uppercased())
+                    .font(AGTypography.base)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+            )
+    }
+
     private func leaderboardCard(rank: Int, entry: LeaderboardEntry) -> some View {
         GlassCard {
             HStack(spacing: AGSpacing.md) {
@@ -99,21 +117,19 @@ struct LeaderboardView: View {
                     .frame(width: 32)
 
                 // Avatar
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.agPrimary, .agAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                if let avatarUrlStr = entry.avatarUrl, let url = URL(string: avatarUrlStr) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        leaderboardInitialCircle(entry.displayName)
+                    }
                     .frame(width: 40, height: 40)
-                    .overlay(
-                        Text(String(entry.displayName.prefix(1)).uppercased())
-                            .font(AGTypography.base)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                    )
+                    .clipShape(Circle())
+                } else {
+                    leaderboardInitialCircle(entry.displayName)
+                }
 
                 // Name + type
                 VStack(alignment: .leading, spacing: 2) {

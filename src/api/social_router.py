@@ -339,6 +339,7 @@ async def get_following(
                 type=e.type.value,
                 display_name=e.display_name,
                 did_web=e.did_web,
+                avatar_url=e.avatar_url,
             )
             for e in entities
         ],
@@ -388,6 +389,7 @@ async def get_followers(
                 type=e.type.value,
                 display_name=e.display_name,
                 did_web=e.did_web,
+                avatar_url=e.avatar_url,
             )
             for e in entities
         ],
