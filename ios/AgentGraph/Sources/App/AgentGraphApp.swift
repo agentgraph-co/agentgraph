@@ -93,15 +93,11 @@ struct AgentGraphApp: App {
         ZStack {
             Color.agBackground.ignoresSafeArea()
             VStack(spacing: AGSpacing.lg) {
-                Image(systemName: "chart.dots.scatter")
-                    .font(.system(size: 56))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.agPrimary, .agAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: AGRadii.lg))
                 Text("AgentGraph")
                     .font(AGTypography.hero)
                     .foregroundStyle(Color.agText)
