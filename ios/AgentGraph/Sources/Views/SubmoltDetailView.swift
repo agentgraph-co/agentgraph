@@ -72,7 +72,7 @@ struct SubmoltDetailView: View {
             if auth.isAuthenticated {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: AGSpacing.md) {
-                        if viewModel.submolt?.creatorId == auth.currentUser?.id {
+                        if viewModel.submolt?.createdBy == auth.currentUser?.id {
                             Button {
                                 editName = viewModel.submolt?.name ?? ""
                                 editDescription = viewModel.submolt?.description ?? ""
@@ -207,7 +207,7 @@ struct SubmoltDetailView: View {
             VStack(alignment: .leading, spacing: AGSpacing.md) {
                 HStack {
                     VStack(alignment: .leading, spacing: AGSpacing.xs) {
-                        Text(submolt.name)
+                        Text(submolt.displayName)
                             .font(AGTypography.xl)
                             .fontWeight(.bold)
                             .foregroundStyle(Color.agText)

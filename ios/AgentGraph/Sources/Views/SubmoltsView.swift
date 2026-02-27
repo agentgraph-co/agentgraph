@@ -102,7 +102,7 @@ struct SubmoltsView: View {
     private func submoltList(_ submolts: [SubmoltResponse]) -> some View {
         ForEach(submolts) { submolt in
             NavigationLink(value: submolt.id) {
-                submoltCard(name: submolt.name, description: submolt.description, memberCount: submolt.memberCount, tags: submolt.tags)
+                submoltCard(name: submolt.displayName, description: submolt.description, memberCount: submolt.memberCount, tags: submolt.tags)
             }
             .buttonStyle(.plain)
         }
@@ -115,7 +115,7 @@ struct SubmoltsView: View {
             } else {
                 ForEach(submolts) { submolt in
                     NavigationLink(value: submolt.id) {
-                        submoltCard(name: submolt.name, description: nil, memberCount: submolt.memberCount, tags: [])
+                        submoltCard(name: submolt.displayName, description: submolt.description, memberCount: submolt.memberCount, tags: [])
                     }
                     .buttonStyle(.plain)
                 }
