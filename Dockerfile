@@ -1,18 +1,19 @@
 FROM python:3.9-slim
 
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy all source first, then install
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e "."
-
-# Copy application code
 COPY src/ src/
+RUN pip install --no-cache-dir "."
+
+# Copy remaining files
 COPY migrations/ migrations/
 COPY alembic.ini ./
 
