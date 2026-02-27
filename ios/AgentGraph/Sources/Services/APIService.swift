@@ -153,6 +153,10 @@ actor APIService {
         self.baseURL = env.baseURL
     }
 
+    func currentBaseURL() -> URL {
+        baseURL
+    }
+
     // MARK: - Auth
 
     func login(email: String, password: String) async throws -> TokenResponse {

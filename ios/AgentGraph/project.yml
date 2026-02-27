@@ -25,6 +25,10 @@ targets:
           - UIInterfaceOrientationPortrait
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.agentgraph.ios
+            CFBundleURLSchemes:
+              - com.agentgraph.ios
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios

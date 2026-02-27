@@ -143,6 +143,35 @@ struct LoginView: View {
                             .foregroundStyle(Color.agMuted)
                             .frame(maxWidth: .infinity, alignment: .trailing)
 
+                            // Divider
+                            HStack {
+                                Rectangle().fill(Color.agBorder).frame(height: 1)
+                                Text("or")
+                                    .font(AGTypography.xs)
+                                    .foregroundStyle(Color.agMuted)
+                                Rectangle().fill(Color.agBorder).frame(height: 1)
+                            }
+
+                            // Google Sign-In
+                            Button {
+                                Task { await auth.signInWithGoogle() }
+                            } label: {
+                                HStack(spacing: AGSpacing.sm) {
+                                    GoogleLogo()
+                                        .frame(width: 18, height: 18)
+                                    Text("Sign in with Google")
+                                        .fontWeight(.medium)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(AGSpacing.md)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.white)
+                            .foregroundStyle(Color(.label))
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
+                            .disabled(auth.isLoading)
+
                             Button("Create Account") {
                                 showRegister = true
                             }
