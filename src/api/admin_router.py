@@ -14,6 +14,7 @@ from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    AnalyticsEvent,
     AuditLog,
     Bookmark,
     CapabilityEndorsement,
@@ -1061,3 +1062,53 @@ async def email_verification_stats(
         registered_last_24h=registered_last_24h,
         verified_last_24h=verified_last_24h,
     )
+
+
+# ---------------------------------------------------------------------------
+# TestFlight Waitlist
+# ---------------------------------------------------------------------------
+
+
+class WaitlistEntry(BaseModel):
+    email: str
+    submitted_at: str
+    page: str
+    session_id: str
+
+
+class WaitlistResponse(BaseModel):
+    entries: list[WaitlistEntry]
+    total: int
+
+
+@router.get(
+    "/waitlist",
+    response_model=WaitlistResponse,
+    dependencies=[Depends(require_admin), Depends(rate_limit_reads)],
+)
+async def get_waitlist(
+    db: AsyncSession = Depends(get_db),
+) -> WaitlistResponse:
+    """List all iOS TestFlight waitlist signups."""
+    result = await db.execute(
+        select(AnalyticsEvent)
+        .where(AnalyticsEvent.event_type == "ios_waitlist")
+        .order_by(AnalyticsEvent.created_at.desc())
+    )
+    events = result.scalars().all()
+
+    entries = []
+    for ev in events:
+        meta = ev.extra_metadata or {}
+        email = meta.get("email", "")
+        if email:
+            entries.append(
+                WaitlistEntry(
+                    email=email,
+                    submitted_at=ev.created_at.isoformat() if ev.created_at else "",
+                    page=ev.page or "",
+                    session_id=ev.session_id or "",
+                )
+            )
+
+    return WaitlistResponse(entries=entries, total=len(entries))
