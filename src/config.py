@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    from_email: str = "noreply@agentgraph.io"
+    from_email: str = "noreply@agentgraph.co"
 
     # Error tracking
     sentry_dsn: str | None = None
