@@ -32,27 +32,19 @@ button:disabled{opacity:0.5;cursor:not-allowed}
   </form>
 </div>
 <script>
-document.getElementById('f').addEventListener('submit',async function(ev){
+function dh(s){var h=5381;for(var i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0}return h}
+document.getElementById('f').addEventListener('submit',function(ev){
   ev.preventDefault();
-  var btn=document.getElementById('b');
-  btn.disabled=true;
-  try{
-    var code=document.getElementById('c').value;
-    var data=new TextEncoder().encode(code);
-    var buf=await crypto.subtle.digest('SHA-256',data);
-    var hex=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
-    if(hex==='0f4c20c3055ff6d223f54e412b8b8d4b8104dd108c658d716472713981f53dd5'){
-      document.cookie='ag_gate='+hex+';path=/;max-age=31536000;SameSite=Lax';
-      window.location.href='/';
-    }else{
-      document.getElementById('e').style.display='block';
-      document.getElementById('c').value='';
-      document.getElementById('c').focus();
-    }
-  }catch(err){
+  var code=document.getElementById('c').value;
+  var h=dh(code);
+  if(h===***REMOVED***){
+    document.cookie='ag_gate='+h+';path=/;max-age=31536000;SameSite=Lax';
+    window.location.href='/';
+  }else{
     document.getElementById('e').style.display='block';
+    document.getElementById('c').value='';
+    document.getElementById('c').focus();
   }
-  btn.disabled=false;
 });
 </script>
 </body>
