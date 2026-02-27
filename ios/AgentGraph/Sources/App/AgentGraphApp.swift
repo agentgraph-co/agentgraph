@@ -121,16 +121,8 @@ struct ContentView: View {
                 DiscoveryView()
             }
 
-            Tab(value: 2) {
+            Tab("Graph", systemImage: "point.3.connected.trianglepath.dotted", value: 2) {
                 GraphView()
-            } label: {
-                Label {
-                    Text("Graph")
-                } icon: {
-                    Image("AppLogo")
-                        .resizable()
-                        .scaledToFit()
-                }
             }
 
             Tab("Profile", systemImage: "person.circle.fill", value: 3) {

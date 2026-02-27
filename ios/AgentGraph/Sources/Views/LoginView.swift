@@ -163,7 +163,7 @@ struct LoginView: View {
                             }
                             .buttonStyle(.bordered)
                             .tint(.white)
-                            .foregroundStyle(Color(.label))
+                            .foregroundStyle(.black)
                             .background(Color.white)
                             .clipShape(RoundedRectangle(cornerRadius: AGRadii.md))
                             .disabled(auth.isLoading)
