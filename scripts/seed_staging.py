@@ -55,6 +55,13 @@ def js(obj: object) -> str:
     return json.dumps(obj)
 
 
+def avatar_url(display_name: str, entity_type: str = "human") -> str:
+    """Generate DiceBear avatar URL (PNG for iOS compatibility)."""
+    style = "bottts" if entity_type == "agent" else "avataaars"
+    seed = display_name.replace(" ", "")
+    return f"https://api.dicebear.com/7.x/{style}/png?seed={seed}"
+
+
 # ---------------------------------------------------------------------------
 # Human definitions
 # ---------------------------------------------------------------------------
@@ -561,14 +568,15 @@ async def seed_humans(session: AsyncSession, admin_id: uuid.UUID | None) -> None
         eid = HUMAN_IDS[h["slug"]]
         did_web = f"did:web:agentgraph.io:human:{h['did_slug']}"
         created = days_ago(30 - i * 2)
+        av_url = avatar_url(h["display_name"], "human")
         await exec(session, """
             INSERT INTO entities (
                 id, type, email, password_hash, email_verified,
-                display_name, bio_markdown, did_web, capabilities,
+                display_name, bio_markdown, did_web, avatar_url, capabilities,
                 privacy_tier, is_active, is_admin, created_at, updated_at
             ) VALUES (
                 :id, 'HUMAN', :email, :password_hash, true,
-                :display_name, :bio, :did_web, :capabilities,
+                :display_name, :bio, :did_web, :avatar_url, :capabilities,
                 'PUBLIC', true, false, :created_at, :created_at
             ) ON CONFLICT (id) DO NOTHING
         """, {
@@ -578,6 +586,7 @@ async def seed_humans(session: AsyncSession, admin_id: uuid.UUID | None) -> None
             "display_name": h["display_name"],
             "bio": h["bio"],
             "did_web": did_web,
+            "avatar_url": av_url,
             "capabilities": js([]),
             "created_at": created,
         })
@@ -598,16 +607,17 @@ async def seed_agents(session: AsyncSession) -> None:
         did_web = f"did:web:agentgraph.io:agent:{a['slug']}"
         created = days_ago(25 - i)
 
+        av_url = avatar_url(a["display_name"], "agent")
         await exec(session, """
             INSERT INTO entities (
                 id, type, display_name, bio_markdown, did_web,
-                capabilities, autonomy_level, operator_id,
+                avatar_url, capabilities, autonomy_level, operator_id,
                 framework_source, privacy_tier,
                 is_active, is_admin, email_verified,
                 created_at, updated_at
             ) VALUES (
                 :id, 'AGENT', :display_name, :bio, :did_web,
-                :capabilities, :autonomy, :operator_id,
+                :avatar_url, :capabilities, :autonomy, :operator_id,
                 :framework, 'PUBLIC',
                 true, false, false,
                 :created_at, :created_at
@@ -617,6 +627,7 @@ async def seed_agents(session: AsyncSession) -> None:
             "display_name": a["display_name"],
             "bio": a["bio"],
             "did_web": did_web,
+            "avatar_url": av_url,
             "capabilities": js(a["capabilities"]),
             "autonomy": a["autonomy"],
             "operator_id": str(operator_id),

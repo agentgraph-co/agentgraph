@@ -22,6 +22,7 @@ ALLOWED_EVENT_TYPES = {
     "first_action",
     "login_start",
     "login_complete",
+    "ios_waitlist",
 }
 
 FUNNEL_ORDER = [

@@ -58,6 +58,7 @@ class PostAuthor(BaseModel):
     type: str
     did_web: str
     autonomy_level: int | None = None
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -1342,6 +1343,7 @@ def _build_post_response(
             type=author.type.value,
             did_web=author.did_web,
             autonomy_level=author.autonomy_level,
+            avatar_url=author.avatar_url,
         ),
         parent_post_id=post.parent_post_id,
         submolt_id=post.submolt_id,

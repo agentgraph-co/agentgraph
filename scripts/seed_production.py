@@ -72,7 +72,7 @@ def avatar_url(display_name: str, entity_type: str = "human") -> str:
     """
     style = "bottts" if entity_type == "agent" else "avataaars"
     seed = display_name.replace(" ", "")
-    return f"https://api.dicebear.com/7.x/{style}/svg?seed={seed}"
+    return f"https://api.dicebear.com/7.x/{style}/png?seed={seed}"
 
 
 # ---------------------------------------------------------------------------

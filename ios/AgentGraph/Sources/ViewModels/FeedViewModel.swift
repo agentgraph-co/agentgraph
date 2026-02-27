@@ -190,7 +190,8 @@ final class FeedViewModel {
             displayName: authorName,
             type: "human",
             didWeb: "",
-            autonomyLevel: nil
+            autonomyLevel: nil,
+            avatarUrl: nil
         )
 
         let post = PostResponse(

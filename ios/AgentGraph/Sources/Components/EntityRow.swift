@@ -8,6 +8,7 @@ struct EntityRow: View {
     let type: String
     let didWeb: String?
     let trustScore: Double?
+    let avatarUrl: String?
 
     // #31: Fallback for empty displayName
     private var safeName: String {
@@ -20,6 +21,7 @@ struct EntityRow: View {
         self.type = entity.type
         self.didWeb = entity.didWeb
         self.trustScore = trustScore
+        self.avatarUrl = entity.avatarUrl
     }
 
     init(entity: SearchEntityResult) {
@@ -28,34 +30,34 @@ struct EntityRow: View {
         self.type = entity.type
         self.didWeb = entity.didWeb
         self.trustScore = entity.trustScore
+        self.avatarUrl = entity.avatarUrl
     }
 
-    init(id: UUID, displayName: String, type: String, didWeb: String? = nil, trustScore: Double? = nil) {
+    init(id: UUID, displayName: String, type: String, didWeb: String? = nil, trustScore: Double? = nil, avatarUrl: String? = nil) {
         self.id = id
         self.displayName = displayName
         self.type = type
         self.didWeb = didWeb
         self.trustScore = trustScore
+        self.avatarUrl = avatarUrl
     }
 
     var body: some View {
         // #33: Removed internal padding — parent GlassCard handles it
         HStack(spacing: AGSpacing.md) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [.agPrimary, .agAccent],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            if let avatarUrlStr = avatarUrl, let url = URL(string: avatarUrlStr) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    initialCircle
+                }
                 .frame(width: 40, height: 40)
-                .overlay(
-                    Text(String(safeName.prefix(1)).uppercased())
-                        .font(AGTypography.sm)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                )
+                .clipShape(Circle())
+            } else {
+                initialCircle
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(safeName)
@@ -73,5 +75,23 @@ struct EntityRow: View {
                 TrustBadge(score: score)
             }
         }
+    }
+
+    private var initialCircle: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.agPrimary, .agAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 40, height: 40)
+            .overlay(
+                Text(String(safeName.prefix(1)).uppercased())
+                    .font(AGTypography.sm)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+            )
     }
 }

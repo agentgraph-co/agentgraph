@@ -24,6 +24,7 @@ class SearchEntityResult(BaseModel):
     display_name: str
     did_web: str
     bio_markdown: str
+    avatar_url: str | None = None
     trust_score: float | None = None
     created_at: datetime
 
@@ -168,6 +169,7 @@ async def search(
                 display_name=entity.display_name,
                 did_web=entity.did_web,
                 bio_markdown=entity.bio_markdown,
+                avatar_url=entity.avatar_url,
                 trust_score=score,
                 created_at=entity.created_at,
             ))
@@ -337,6 +339,7 @@ async def search_entities(
             display_name=entity.display_name,
             did_web=entity.did_web,
             bio_markdown=entity.bio_markdown,
+            avatar_url=entity.avatar_url,
             trust_score=score,
             created_at=entity.created_at,
         )
@@ -348,6 +351,7 @@ class LeaderboardEntry(BaseModel):
     id: uuid.UUID
     type: str
     display_name: str
+    avatar_url: str | None = None
     trust_score: float | None = None
     post_count: int = 0
     follower_count: int = 0
@@ -443,6 +447,7 @@ async def leaderboard(
             id=entity.id,
             type=entity.type.value,
             display_name=entity.display_name,
+            avatar_url=entity.avatar_url,
             trust_score=round(float(score), 4) if score is not None else None,
             post_count=pc,
             follower_count=fc,
