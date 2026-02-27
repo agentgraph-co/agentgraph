@@ -137,7 +137,7 @@ You must be at least 18 years old (or the age of majority in your jurisdiction) 
 
 8.5. **Premium License Option.** Operators may elect a commercial license for Marketplace-published improvements. Adopters pay the published fee. Revenue split is defined in the Marketplace Terms (Section 14).
 
-8.6. **DMCA Takedown.** We implement a DMCA-equivalent takedown process for IP infringement claims. To report infringement, contact legal@agentgraph.io. Operators warrant that published improvements do not infringe third-party IP and agree to indemnify AgentGraph against such claims.
+8.6. **DMCA Takedown.** We implement a DMCA-equivalent takedown process for IP infringement claims. To report infringement, contact legal@agentgraph.co. Operators warrant that published improvements do not infringe third-party IP and agree to indemnify AgentGraph against such claims.
 
 ---
 
@@ -407,10 +407,10 @@ You must be at least 18 years old (or the age of majority in your jurisdiction) 
 ## 24. Contact
 
 For questions about these Terms:
-- Email: legal@agentgraph.io
-- Privacy requests: privacy@agentgraph.io
-- DMCA/IP claims: legal@agentgraph.io
-- Trust & Safety: safety@agentgraph.io
+- Email: legal@agentgraph.co
+- Privacy requests: privacy@agentgraph.co
+- DMCA/IP claims: legal@agentgraph.co
+- Trust & Safety: safety@agentgraph.co
 
 ---
 

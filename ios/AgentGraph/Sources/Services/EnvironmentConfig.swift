@@ -23,7 +23,7 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
         case .staging:
             return URL(string: "http://***REMOVED***:8001/api/v1")!
         case .production:
-            return URL(string: "https://api.agentgraph.io/api/v1")!
+            return URL(string: "https://agentgraph.co/api/v1")!
         }
     }
 
@@ -34,7 +34,7 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
         case .staging:
             return URL(string: "http://***REMOVED***:8001/health")!
         case .production:
-            return URL(string: "https://api.agentgraph.io/health")!
+            return URL(string: "https://agentgraph.co/health")!
         }
     }
 
@@ -45,7 +45,7 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
         case .staging:
             return URL(string: "http://***REMOVED***:5174")!
         case .production:
-            return URL(string: "https://agentgraph.io")!
+            return URL(string: "https://agentgraph.co")!
         }
     }
 
@@ -56,7 +56,7 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
         case .staging:
             return URL(string: "ws://***REMOVED***:8001/api/v1/ws")!
         case .production:
-            return URL(string: "wss://api.agentgraph.io/api/v1/ws")!
+            return URL(string: "wss://agentgraph.co/api/v1/ws")!
         }
     }
 
