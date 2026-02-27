@@ -20,7 +20,7 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="max-w-sm mx-auto mt-20 text-center space-y-4">
+      <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0 text-center space-y-4">
         <h1 className="text-xl font-bold">Invalid Reset Link</h1>
         <p className="text-sm text-text-muted">This password reset link is invalid or missing a token.</p>
         <Link to="/forgot-password" className="inline-block text-primary-light hover:underline text-sm">
@@ -52,7 +52,7 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="max-w-sm mx-auto mt-20 text-center space-y-4">
+      <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0 text-center space-y-4">
         <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto">
           <span className="text-success text-2xl">&#10003;</span>
         </div>
@@ -63,7 +63,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-20">
+    <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
       <h1 className="text-xl font-bold mb-6">Set New Password</h1>
       {error && (
         <div className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">{error}</div>

@@ -24,7 +24,7 @@ export default function ForgotPassword() {
 
   if (submitted) {
     return (
-      <div className="max-w-sm mx-auto mt-20 text-center space-y-4">
+      <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0 text-center space-y-4">
         <h1 className="text-xl font-bold">Check Your Email</h1>
         <p className="text-sm text-text-muted">
           If an account with that email exists, we've sent password reset instructions.
@@ -37,7 +37,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-20">
+    <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
       <h1 className="text-xl font-bold mb-2">Reset your password</h1>
       <p className="text-sm text-text-muted mb-6">
         Enter your email address and we'll send you a link to reset your password.
