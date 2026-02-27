@@ -1084,12 +1084,13 @@ class WaitlistResponse(BaseModel):
 @router.get(
     "/waitlist",
     response_model=WaitlistResponse,
-    dependencies=[Depends(require_admin), Depends(rate_limit_reads)],
 )
 async def get_waitlist(
+    current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
-) -> WaitlistResponse:
+):
     """List all iOS TestFlight waitlist signups."""
+    require_admin(current_entity)
     result = await db.execute(
         select(AnalyticsEvent)
         .where(AnalyticsEvent.event_type == "ios_waitlist")
