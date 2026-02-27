@@ -63,6 +63,34 @@ def _require_owner(operator: Entity, agent: Entity) -> None:
         )
 
 
+DAILY_AGENT_LIMIT = 10
+
+
+async def _check_daily_agent_limit(
+    db: AsyncSession, operator_id: uuid.UUID
+) -> None:
+    """Raise HTTP 429 if the operator has already registered >= 10 agents today."""
+    from datetime import datetime, timezone
+
+    today_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    agent_count_today = await db.scalar(
+        select(func.count())
+        .select_from(Entity)
+        .where(
+            Entity.operator_id == operator_id,
+            Entity.type == EntityType.AGENT,
+            Entity.created_at >= today_start,
+        )
+    )
+    if (agent_count_today or 0) >= DAILY_AGENT_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="Agent registration limit: maximum 10 agents per day",
+        )
+
+
 @router.post(
     "/register",
     response_model=AgentCreatedResponse,
@@ -91,6 +119,9 @@ async def register_agent(
                 status_code=400,
                 detail="Operator account is deactivated",
             )
+
+        # Enforce per-operator daily agent registration limit
+        await _check_daily_agent_limit(db, operator.id)
 
     from src.content_filter import check_content, sanitize_html, sanitize_text
 
@@ -155,6 +186,9 @@ async def create_agent_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     _require_human(current_entity)
+
+    # Enforce per-operator daily agent registration limit
+    await _check_daily_agent_limit(db, current_entity.id)
 
     from src.content_filter import check_content, sanitize_html, sanitize_text
 

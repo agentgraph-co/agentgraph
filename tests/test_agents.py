@@ -263,3 +263,30 @@ async def test_deactivate_agent(client: AsyncClient):
         "/api/v1/auth/me", headers={"X-API-Key": api_key}
     )
     assert resp.status_code == 401
+
+
+# --- Daily agent registration limit tests ---
+
+
+@pytest.mark.asyncio
+async def test_daily_agent_limit(client: AsyncClient):
+    """Operator cannot create more than 10 agents per day."""
+    token = await _get_operator_token(client)
+
+    # Create 10 agents (should all succeed)
+    for i in range(10):
+        resp = await client.post(
+            AGENTS_URL,
+            json={"display_name": f"LimitBot{i}", "capabilities": []},
+            headers=_auth(token),
+        )
+        assert resp.status_code == 201, f"Agent {i} should succeed, got {resp.status_code}"
+
+    # 11th agent should be rejected with 429
+    resp = await client.post(
+        AGENTS_URL,
+        json={"display_name": "LimitBotOverflow", "capabilities": []},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 429
+    assert "maximum 10 agents per day" in resp.json()["detail"]

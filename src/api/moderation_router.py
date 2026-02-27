@@ -6,7 +6,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
@@ -15,12 +15,14 @@ from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    APIKey,
     Entity,
     ModerationAppeal,
     ModerationFlag,
     ModerationReason,
     ModerationStatus,
     Post,
+    WebhookSubscription,
 )
 
 logger = logging.getLogger(__name__)
@@ -637,6 +639,27 @@ async def resolve_appeal(
                     if target:
                         target.is_active = True
                         target.suspended_until = None
+
+                        # Restore cascade effects: reactivate API keys
+                        key_result = await db.execute(
+                            select(APIKey).where(
+                                APIKey.entity_id == flag.target_id,
+                                APIKey.is_active.is_(False),
+                            )
+                        )
+                        for key in key_result.scalars().all():
+                            key.is_active = True
+                            key.revoked_at = None
+
+                        # Restore cascade effects: reactivate webhook subscriptions
+                        await db.execute(
+                            update(WebhookSubscription)
+                            .where(
+                                WebhookSubscription.entity_id == flag.target_id,
+                                WebhookSubscription.is_active.is_(False),
+                            )
+                            .values(is_active=True)
+                        )
 
             flag.status = ModerationStatus.DISMISSED
             flag.resolution_note = f"Overturned on appeal: {body.note or 'No reason given'}"

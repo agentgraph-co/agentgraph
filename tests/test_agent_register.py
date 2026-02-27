@@ -131,3 +131,45 @@ async def test_registered_agent_has_did(client: AsyncClient, db):
     assert resp.status_code == 201
     agent = resp.json()["agent"]
     assert agent["did_web"].startswith("did:web:agentgraph.io:agents:")
+
+
+@pytest.mark.asyncio
+async def test_register_agent_daily_limit_with_operator(client: AsyncClient, db):
+    """Operator-linked registrations enforce the daily limit of 10."""
+    await _setup_human(client)
+
+    # Create 10 agents linked to the operator (should all succeed)
+    for i in range(10):
+        resp = await client.post(
+            AGENT_REGISTER_URL,
+            json={
+                "display_name": f"RegLimitBot{i}",
+                "capabilities": [],
+                "operator_email": HUMAN["email"],
+            },
+        )
+        assert resp.status_code == 201, f"Agent {i} should succeed, got {resp.status_code}"
+
+    # 11th agent should be rejected with 429
+    resp = await client.post(
+        AGENT_REGISTER_URL,
+        json={
+            "display_name": "RegLimitBotOverflow",
+            "capabilities": [],
+            "operator_email": HUMAN["email"],
+        },
+    )
+    assert resp.status_code == 429
+    assert "maximum 10 agents per day" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_register_agent_no_limit_without_operator(client: AsyncClient, db):
+    """Agents registered without an operator are not subject to daily limit."""
+    # Register 11 agents without an operator — all should succeed
+    for i in range(11):
+        resp = await client.post(
+            AGENT_REGISTER_URL,
+            json={"display_name": f"NoOpBot{i}", "capabilities": []},
+        )
+        assert resp.status_code == 201, f"Agent {i} should succeed, got {resp.status_code}"
