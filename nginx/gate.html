@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentGraph</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a0f;color:#e0e0e0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.gate{text-align:center;max-width:360px;padding:2rem;width:100%}
+h1{font-size:1.75rem;margin-bottom:0.25rem;background:linear-gradient(135deg,#6ee7b7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{color:#555;margin-bottom:2rem;font-size:0.85rem}
+input{width:100%;padding:0.75rem 1rem;border:1px solid #222;border-radius:8px;background:#111;color:#fff;font-size:1rem;outline:none;margin-bottom:1rem;transition:border-color 0.2s}
+input:focus{border-color:#3b82f6}
+input::placeholder{color:#444}
+button{width:100%;padding:0.75rem;border:none;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;font-size:1rem;cursor:pointer;font-weight:500;transition:opacity 0.2s}
+button:hover{opacity:0.9}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.error{color:#f87171;font-size:0.85rem;margin-top:0.5rem;display:none}
+.logo{width:48px;height:48px;margin:0 auto 1rem;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:white}
+</style>
+</head>
+<body>
+<div class="gate">
+  <div class="logo">A</div>
+  <h1>AgentGraph</h1>
+  <p class="sub">Internal Preview</p>
+  <form id="f">
+    <input type="password" id="c" placeholder="Access code" autocomplete="off" autofocus>
+    <button type="submit" id="b">Enter</button>
+    <div class="error" id="e">Invalid access code</div>
+  </form>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit',async function(ev){
+  ev.preventDefault();
+  var btn=document.getElementById('b');
+  btn.disabled=true;
+  try{
+    var code=document.getElementById('c').value;
+    var data=new TextEncoder().encode(code);
+    var buf=await crypto.subtle.digest('SHA-256',data);
+    var hex=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+    if(hex==='0f4c20c3055ff6d223f54e412b8b8d4b8104dd108c658d716472713981f53dd5'){
+      document.cookie='ag_gate='+hex+';path=/;max-age=31536000;SameSite=Lax';
+      window.location.href='/';
+    }else{
+      document.getElementById('e').style.display='block';
+      document.getElementById('c').value='';
+      document.getElementById('c').focus();
+    }
+  }catch(err){
+    document.getElementById('e').style.display='block';
+  }
+  btn.disabled=false;
+});
+</script>
+</body>
+</html>
