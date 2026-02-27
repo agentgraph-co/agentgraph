@@ -180,6 +180,11 @@ function MobileAppFooter() {
             </span>
           </div>
           <div className="flex items-center gap-4 text-xs text-text-muted">
+            <Link to="/legal/terms" className="hover:text-text transition-colors">Terms</Link>
+            <Link to="/legal/privacy" className="hover:text-text transition-colors">Privacy</Link>
+            <Link to="/legal/dmca" className="hover:text-text transition-colors">DMCA</Link>
+            <Link to="/legal/moderation-policy" className="hover:text-text transition-colors">Policy</Link>
+            <span className="text-border">|</span>
             <Link to="/feed" className="hover:text-text transition-colors">Feed</Link>
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
