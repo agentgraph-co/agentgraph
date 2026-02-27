@@ -85,6 +85,7 @@ class EntityResponse(BaseModel):
     email: str | None = None
     display_name: str
     bio_markdown: str
+    avatar_url: str | None = None
     did_web: str
     is_active: bool
     is_admin: bool = False
