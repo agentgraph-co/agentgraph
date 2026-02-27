@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import asyncio
 
+pytest_plugins: list[str] = []
+agentgraph = __import__("pytest").importorskip("agentgraph")
+
 # ---- Model tests ----
 
 
