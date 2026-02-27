@@ -33,7 +33,19 @@ actor WebSocketService {
 
     // MARK: - Public API
 
-    func connect(token: String, channels: [String] = ["feed", "notifications", "activity"], environment: ServerEnvironment = .development) {
+    func connect(token: String, channels: [String] = ["feed", "notifications", "activity"], environment: ServerEnvironment? = nil) {
+        let resolvedEnvironment: ServerEnvironment
+        if let environment {
+            resolvedEnvironment = environment
+        } else {
+            #if DEBUG
+            let saved = UserDefaults.standard.string(forKey: "server_environment") ?? "dev"
+            resolvedEnvironment = ServerEnvironment(rawValue: saved) ?? .development
+            #else
+            resolvedEnvironment = .production
+            #endif
+        }
+        let environment = resolvedEnvironment
         self.token = token
         self.channels = channels
         self.environment = environment
