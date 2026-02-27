@@ -8,12 +8,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY pyproject.toml setup.cfg setup.py* ./
+COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e "."
 
 # Copy application code
 COPY src/ src/
-COPY alembic/ alembic/
+COPY migrations/ migrations/
 COPY alembic.ini ./
 
 # Run migrations and start (migrations handled by entrypoint)
