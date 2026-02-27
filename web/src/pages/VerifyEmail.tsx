@@ -33,7 +33,7 @@ export default function VerifyEmail() {
   }, [token])
 
   return (
-    <div className="max-w-sm mx-auto mt-20 text-center">
+    <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0 text-center">
       {status === 'loading' && (
         <div className="text-text-muted">Verifying your email...</div>
       )}

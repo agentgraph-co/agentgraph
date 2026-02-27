@@ -1179,8 +1179,8 @@ export default function Admin() {
               <div className="text-xs text-text-muted mb-3">
                 {waitlistData.total} signup{waitlistData.total !== 1 ? 's' : ''}
               </div>
-              <div className="bg-surface border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm min-w-[400px]">
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="px-4 py-2 text-xs text-text-muted font-medium">Email</th>
