@@ -17,6 +17,7 @@ from src.models import (
     AuditLog,
     Bookmark,
     CapabilityEndorsement,
+    EmailVerification,
     Entity,
     EntityRelationship,
     EntityType,
@@ -74,6 +75,26 @@ class EntityListItem(BaseModel):
 class EntityListResponse(BaseModel):
     entities: list[EntityListItem]
     total: int
+
+
+class UnverifiedEntityItem(BaseModel):
+    id: uuid.UUID
+    email: str | None
+    display_name: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UnverifiedEntitiesResponse(BaseModel):
+    entities: list[UnverifiedEntityItem]
+    total: int
+
+
+class EmailStatsResponse(BaseModel):
+    unverified_count: int
+    registered_last_24h: int
+    verified_last_24h: int
 
 
 @router.get(
@@ -883,3 +904,160 @@ async def query_audit_logs(
         "limit": limit,
         "offset": offset,
     }
+
+
+# --- Email Verification Management ---
+
+
+@router.get(
+    "/email-verifications",
+    response_model=UnverifiedEntitiesResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_unverified_entities(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List active entities with unverified emails. Admin only.
+
+    Returns paginated list of entities where email_verified=False and is_active=True.
+    Useful for identifying users who may need a verification email resend.
+    """
+    require_admin(current_entity)
+
+    base_filter = (
+        Entity.email_verified.is_(False),
+        Entity.is_active.is_(True),
+    )
+
+    total = await db.scalar(
+        select(func.count()).select_from(Entity).where(*base_filter)
+    ) or 0
+
+    result = await db.execute(
+        select(Entity)
+        .where(*base_filter)
+        .order_by(Entity.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    entities = result.scalars().all()
+
+    return UnverifiedEntitiesResponse(
+        entities=[
+            UnverifiedEntityItem(
+                id=e.id,
+                email=e.email,
+                display_name=e.display_name,
+                created_at=e.created_at,
+            )
+            for e in entities
+        ],
+        total=total,
+    )
+
+
+@router.post(
+    "/email-verifications/{entity_id}/resend",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def resend_verification_email(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resend verification email to an entity. Admin only.
+
+    Creates a new verification token (invalidating any previous ones)
+    and sends a verification email to the entity's address.
+    """
+    require_admin(current_entity)
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if not entity.is_active:
+        raise HTTPException(status_code=400, detail="Entity is deactivated")
+    if entity.email_verified:
+        raise HTTPException(status_code=409, detail="Entity email is already verified")
+    if not entity.email:
+        raise HTTPException(status_code=400, detail="Entity has no email address")
+
+    from src.api.auth_service import create_verification_token
+    from src.email import send_verification_email
+
+    token = await create_verification_token(db, entity.id)
+    sent = await send_verification_email(entity.email, token)
+
+    await log_action(
+        db,
+        action="admin.email_verification.resend",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity.id,
+        details={"email_sent": sent},
+    )
+    await db.flush()
+
+    if not sent:
+        raise HTTPException(
+            status_code=502,
+            detail="Verification token created but email delivery failed",
+        )
+
+    return {"message": f"Verification email resent to {entity.email}"}
+
+
+@router.get(
+    "/email-stats",
+    response_model=EmailStatsResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def email_verification_stats(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Quick email verification health overview. Admin only.
+
+    Returns:
+    - unverified_count: active entities with email_verified=False
+    - registered_last_24h: entities created in the last 24 hours
+    - verified_last_24h: entities that verified their email in the last 24 hours
+    """
+    require_admin(current_entity)
+
+    from datetime import timedelta
+    from datetime import timezone as _tz
+
+    now = datetime.now(_tz.utc)
+    cutoff_24h = now - timedelta(hours=24)
+
+    unverified_count = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.email_verified.is_(False),
+            Entity.is_active.is_(True),
+        )
+    ) or 0
+
+    registered_last_24h = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.created_at >= cutoff_24h,
+        )
+    ) or 0
+
+    # Entities verified in last 24h: look for used verification tokens consumed recently
+    verified_last_24h = await db.scalar(
+        select(func.count(func.distinct(EmailVerification.entity_id)))
+        .where(
+            EmailVerification.is_used.is_(True),
+            EmailVerification.created_at >= cutoff_24h,
+        )
+    ) or 0
+
+    return EmailStatsResponse(
+        unverified_count=unverified_count,
+        registered_last_24h=registered_last_24h,
+        verified_last_24h=verified_last_24h,
+    )
