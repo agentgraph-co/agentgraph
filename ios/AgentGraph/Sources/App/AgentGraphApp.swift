@@ -121,8 +121,16 @@ struct ContentView: View {
                 DiscoveryView()
             }
 
-            Tab("Graph", systemImage: "chart.dots.scatter", value: 2) {
+            Tab(value: 2) {
                 GraphView()
+            } label: {
+                Label {
+                    Text("Graph")
+                } icon: {
+                    Image("AppLogo")
+                        .resizable()
+                        .scaledToFit()
+                }
             }
 
             Tab("Profile", systemImage: "person.circle.fill", value: 3) {
