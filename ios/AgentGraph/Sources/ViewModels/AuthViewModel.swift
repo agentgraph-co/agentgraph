@@ -1,5 +1,6 @@
 // AuthViewModel — Login state, token management, current user
 
+import AuthenticationServices
 import Foundation
 import Observation
 
@@ -64,6 +65,82 @@ final class AuthViewModel {
     func exitGuestMode() {
         isGuestMode = false
         isAuthenticated = false
+    }
+
+    func signInWithGoogle() async {
+        isLoading = true
+        error = nil
+
+        let baseURL = await APIService.shared.currentBaseURL()
+        let authURL = baseURL.appendingPathComponent("auth/google")
+        guard var components = URLComponents(url: authURL, resolvingAgainstBaseURL: false) else {
+            error = "Invalid auth URL"
+            isLoading = false
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "platform", value: "ios")]
+        guard let url = components.url else {
+            error = "Invalid auth URL"
+            isLoading = false
+            return
+        }
+
+        let callbackScheme = "com.agentgraph.ios"
+
+        do {
+            let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                let session = ASWebAuthenticationSession(
+                    url: url,
+                    callbackURLScheme: callbackScheme
+                ) { url, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if let url {
+                        continuation.resume(returning: url)
+                    } else {
+                        continuation.resume(throwing: URLError(.badServerResponse))
+                    }
+                }
+                session.prefersEphemeralWebBrowserSession = false
+                session.presentationContextProvider = GoogleSignInPresenter.shared
+                session.start()
+            }
+
+            // Parse tokens from callback URL fragment: com.agentgraph.ios://auth/callback#access_token=...&refresh_token=...
+            guard let fragment = callbackURL.fragment else {
+                error = "No tokens received from Google"
+                isLoading = false
+                return
+            }
+
+            let params = URLComponents(string: "?\(fragment)")?.queryItems ?? []
+            let accessToken = params.first(where: { $0.name == "access_token" })?.value
+            let refreshToken = params.first(where: { $0.name == "refresh_token" })?.value
+
+            guard let accessToken, let refreshToken else {
+                error = "Invalid token response"
+                isLoading = false
+                return
+            }
+
+            _ = KeychainService.save(key: KeychainService.accessTokenKey, value: accessToken)
+            _ = KeychainService.save(key: KeychainService.refreshTokenKey, value: refreshToken)
+            await APIService.shared.setTokens(access: accessToken, refresh: refreshToken)
+
+            let user = try await APIService.shared.getMe()
+            currentUser = user
+            isGuestMode = false
+            isAuthenticated = true
+            await connectWebSocket(token: accessToken)
+        } catch {
+            if (error as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                // User cancelled — not an error
+            } else {
+                self.error = error.localizedDescription
+            }
+        }
+
+        isLoading = false
     }
 
     func login(email: String, password: String) async {

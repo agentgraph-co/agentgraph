@@ -431,12 +431,13 @@ async def logout(
 
 
 @router.get("/google", dependencies=[Depends(rate_limit_auth)])
-async def google_login(request: Request):
+async def google_login(request: Request, platform: str | None = None):
     """Redirect to Google OAuth2 consent screen."""
     if not settings.google_client_id:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
     redirect_uri = f"{settings.base_url}/api/v1/auth/google/callback"
-    url = get_google_auth_url(redirect_uri)
+    state = platform or ""
+    url = get_google_auth_url(redirect_uri, state=state)
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url=url)
@@ -447,6 +448,7 @@ async def google_callback(
     code: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    state: str | None = None,
 ):
     """Handle Google OAuth2 callback -- create or link account, return tokens."""
     if not settings.google_client_id:
@@ -480,7 +482,7 @@ async def google_callback(
             display_name=google_name,
             avatar_url=userinfo.get("picture"),
             email_verified=True,  # Google already verified
-            did_web=f"did:web:agentgraph.io:users:{entity_id}",
+            did_web=f"did:web:agentgraph.co:users:{entity_id}",
             sso_provider_id=f"google:{userinfo.get('id', '')}",
         )
         db.add(entity)
@@ -506,7 +508,7 @@ async def google_callback(
     access_token = create_access_token(entity.id, entity.type.value)
     refresh_token = create_refresh_token(entity.id)
 
-    # Redirect to frontend with tokens in URL fragment (never sent to server)
+    # Redirect with tokens — use custom scheme for iOS, web URL for browsers
     from fastapi.responses import RedirectResponse
 
     fragment = (
@@ -514,4 +516,6 @@ async def google_callback(
         f"&refresh_token={refresh_token}"
         f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
     )
+    if state == "ios":
+        return RedirectResponse(url=f"com.agentgraph.ios://auth/callback#{fragment}")
     return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")
