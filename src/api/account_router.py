@@ -66,7 +66,10 @@ class AuditLogListResponse(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("/change-password", dependencies=[Depends(rate_limit_auth), require_scope("account:password")])
+@router.post(
+    "/change-password",
+    dependencies=[Depends(rate_limit_auth), require_scope("account:password")],
+)
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,
@@ -124,7 +127,10 @@ async def change_password(
     return {"message": "Password changed successfully. All sessions have been invalidated."}
 
 
-@router.post("/deactivate", dependencies=[Depends(rate_limit_writes), require_scope("account:deactivate")])
+@router.post(
+    "/deactivate",
+    dependencies=[Depends(rate_limit_writes), require_scope("account:deactivate")],
+)
 async def deactivate_account(
     request: Request,
     current_entity: Entity = Depends(get_current_entity),

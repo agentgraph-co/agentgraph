@@ -896,7 +896,10 @@ async def update_listing(
     return _to_response(listing)
 
 
-@router.delete("/{listing_id}", dependencies=[Depends(rate_limit_writes), require_scope("marketplace:list")])
+@router.delete(
+    "/{listing_id}",
+    dependencies=[Depends(rate_limit_writes), require_scope("marketplace:list")],
+)
 async def delete_listing(
     listing_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
