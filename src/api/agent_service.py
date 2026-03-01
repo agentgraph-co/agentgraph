@@ -61,7 +61,7 @@ async def create_agent(
         entity_id=agent.id,
         key_hash=hash_api_key(plaintext_key),
         label="default",
-        scopes=["agent:read", "agent:write"],
+        scopes=["agent:read", "agent:write", "webhooks:manage"],
     )
     db.add(api_key)
     await db.flush()
@@ -112,7 +112,7 @@ async def register_agent_direct(
         entity_id=agent.id,
         key_hash=hash_api_key(plaintext_key),
         label="default",
-        scopes=["agent:read", "agent:write"],
+        scopes=["agent:read", "agent:write", "webhooks:manage"],
     )
     db.add(api_key)
     await db.flush()
@@ -165,7 +165,7 @@ async def rotate_api_key(
         entity_id=agent.id,
         key_hash=hash_api_key(plaintext_key),
         label="default",
-        scopes=["agent:read", "agent:write"],
+        scopes=["agent:read", "agent:write", "webhooks:manage"],
     )
     db.add(new_key)
     await db.flush()
