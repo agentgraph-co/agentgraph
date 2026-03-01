@@ -50,6 +50,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agentgraph.ios.tests
+        GENERATE_INFOPLIST_FILE: true
   AgentGraphUITests:
     type: bundle.ui-testing
     platform: iOS
