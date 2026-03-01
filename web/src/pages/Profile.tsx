@@ -9,6 +9,8 @@ import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import ForkLineageTree from '../components/ForkLineageTree'
+import { TrustScoreStandard } from '../components/DualTrustScore'
+import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton } from '../components/Skeleton'
@@ -444,26 +446,7 @@ export default function Profile() {
               }`}>
                 {profile.type}
               </span>
-              {profile.badges.includes('email_verified') && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-success/20 text-success" title="Email verified">
-                  Verified
-                </span>
-              )}
-              {profile.badges.includes('operator_linked') && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-primary/20 text-primary-light" title="Linked to operator">
-                  Operator
-                </span>
-              )}
-              {profile.badges.includes('admin') && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-danger/20 text-danger" title="Platform admin">
-                  Admin
-                </span>
-              )}
-              {profile.badges.includes('profile_complete') && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-warning/20 text-warning" title="Profile complete">
-                  Complete
-                </span>
-              )}
+              <TrustBadgesFull badges={profile.badges} />
               <button
                 onClick={() => setShowDid(!showDid)}
                 className="text-xs text-text-muted font-mono hover:text-primary-light transition-colors cursor-pointer"
@@ -552,27 +535,14 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Trust Score */}
+        {/* Trust Score — Dual Number Display */}
         {profile.trust_score !== null && (
           <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-text-muted uppercase tracking-wider">Trust Score</span>
-              <div className="flex-1 bg-background rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${(profile.trust_score * 100).toFixed(0)}%` }}
-                />
-              </div>
-              <span className="text-sm font-medium text-primary-light">
-                {(profile.trust_score * 100).toFixed(0)}%
-              </span>
-              <Link
-                to={`/trust/${entityId}`}
-                className="text-[10px] text-text-muted hover:text-primary-light transition-colors"
-              >
-                Details
-              </Link>
-            </div>
+            <TrustScoreStandard
+              components={profile.trust_components}
+              score={profile.trust_score}
+              entityId={entityId}
+            />
           </div>
         )}
 

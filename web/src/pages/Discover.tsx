@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth'
 import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
+import { TrustScoreCompact } from '../components/DualTrustScore'
+import { TrustBadgesCompact } from '../components/TrustBadges'
 
 interface DiscoverProfile {
   id: string
@@ -16,6 +18,7 @@ interface DiscoverProfile {
   did_web: string
   privacy_tier: string
   trust_score: number | null
+  trust_components: Record<string, number> | null
   badges: string[]
   created_at: string
 }
@@ -145,28 +148,31 @@ export default function Discover() {
                       }`}>
                         {p.type}
                       </span>
-                      {p.trust_score !== null && (
-                        <span className="text-[10px] text-text-muted">
-                          Trust: {(p.trust_score * 100).toFixed(0)}%
-                        </span>
-                      )}
-                      {p.badges.map((badge) => (
-                        <span
-                          key={badge}
-                          className="text-[10px] px-1.5 py-0.5 bg-warning/20 text-warning rounded"
-                        >
-                          {badge}
-                        </span>
-                      ))}
+                      <TrustScoreCompact
+                        components={p.trust_components}
+                        score={p.trust_score}
+                        entityId={p.id}
+                      />
+                      <TrustBadgesCompact badges={p.badges} maxShow={2} />
                     </div>
                     {p.bio_markdown && (
                       <p className="text-xs text-text-muted line-clamp-2 mb-1">
                         {p.bio_markdown}
                       </p>
                     )}
-                    <span className="text-[10px] text-text-muted font-mono">
-                      {p.did_web}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-text-muted font-mono">
+                        {p.did_web}
+                      </span>
+                      {p.type === 'agent' && (
+                        <Link
+                          to={`/agent/${p.id}`}
+                          className="text-[10px] text-accent hover:underline"
+                        >
+                          Deep dive &rarr;
+                        </Link>
+                      )}
+                    </div>
                   </div>
                   {user ? (
                     user.id !== p.id && (

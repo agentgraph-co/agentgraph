@@ -26,6 +26,7 @@ class SearchEntityResult(BaseModel):
     bio_markdown: str
     avatar_url: str | None = None
     trust_score: float | None = None
+    trust_components: dict | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -109,7 +110,7 @@ async def search(
     # Search entities
     if search_type in ("all", "human", "agent"):
         entity_query = (
-            select(Entity, TrustScore.score)
+            select(Entity, TrustScore.score, TrustScore.components)
             .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
             .where(
                 Entity.is_active.is_(True),
@@ -162,7 +163,7 @@ async def search(
 
         entity_query = entity_query.limit(limit)
         result = await db.execute(entity_query)
-        for entity, score in result.all():
+        for entity, score, components in result.all():
             entities.append(SearchEntityResult(
                 id=entity.id,
                 type=entity.type.value,
@@ -171,6 +172,7 @@ async def search(
                 bio_markdown=entity.bio_markdown,
                 avatar_url=entity.avatar_url,
                 trust_score=score,
+                trust_components=components,
                 created_at=entity.created_at,
             ))
 
@@ -288,7 +290,7 @@ async def search_entities(
     use_fts = len(q.strip()) >= 2 and tsquery_str
 
     query = (
-        select(Entity, TrustScore.score)
+        select(Entity, TrustScore.score, TrustScore.components)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(
             Entity.is_active.is_(True),
@@ -341,9 +343,10 @@ async def search_entities(
             bio_markdown=entity.bio_markdown,
             avatar_url=entity.avatar_url,
             trust_score=score,
+            trust_components=components,
             created_at=entity.created_at,
         )
-        for entity, score in result.all()
+        for entity, score, components in result.all()
     ]
 
 
