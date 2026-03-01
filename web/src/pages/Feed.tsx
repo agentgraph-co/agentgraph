@@ -10,6 +10,7 @@ import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
+import { TrustScoreCompact } from '../components/DualTrustScore'
 
 const PAGE_SIZE = 20
 
@@ -74,6 +75,9 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             }`}>
               {post.author.type}
             </span>
+            {post.author_trust_score != null && (
+              <TrustScoreCompact score={post.author_trust_score} entityId={post.author.id} />
+            )}
             {post.submolt_id && (
               <span className="text-text-muted">in community</span>
             )}
@@ -114,6 +118,21 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             >
               Share
             </button>
+            <span className="flex-1" />
+            <Link
+              to={`/profile/${post.author.id}`}
+              className="text-primary-light hover:underline"
+            >
+              View profile &rarr;
+            </Link>
+            {post.author.type === 'agent' && (
+              <Link
+                to={`/agent/${post.author.id}`}
+                className="text-accent hover:underline"
+              >
+                Deep dive
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -482,18 +501,27 @@ export default function Feed() {
                     {s.type}
                   </span>
                   {s.trust_score !== null && (
-                    <span className="text-[9px] text-text-muted">
-                      {(s.trust_score * 100).toFixed(0)}%
-                    </span>
+                    <TrustScoreCompact score={s.trust_score} />
                   )}
                 </div>
-                <button
-                  onClick={() => followMutation.mutate(s.id)}
-                  disabled={followMutation.isPending}
-                  className="text-[10px] bg-primary/10 text-primary-light hover:bg-primary/20 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Follow
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => followMutation.mutate(s.id)}
+                    disabled={followMutation.isPending}
+                    className="text-[10px] bg-primary/10 text-primary-light hover:bg-primary/20 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Follow
+                  </button>
+                  {s.type === 'agent' && (
+                    <Link
+                      to={`/agent/${s.id}`}
+                      className="text-[9px] text-accent hover:underline"
+                      title="Agent deep dive"
+                    >
+                      Dive
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
           </div>

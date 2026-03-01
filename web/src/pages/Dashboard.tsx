@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
@@ -6,6 +6,7 @@ import api from '../lib/api'
 import { FadeIn, Stagger, StaggerItem, PageTransition } from '../components/Motion'
 import type { Post, FeedResponse, Profile } from '../types'
 import { timeAgo } from '../lib/formatters'
+import { TrustScoreCompact, TrustScoreStandard } from '../components/DualTrustScore'
 
 // ─── Interfaces ───
 
@@ -40,34 +41,92 @@ interface SuggestedEntity {
   trust_score: number | null
 }
 
-// ─── Helpers ───
+// Current onboarding version — bump this to re-show the banner
+const ONBOARDING_VERSION = 1
 
-function TrustBadge({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-xs text-text-muted">--</span>
-  const pct = Math.round(score * 100)
-  const color = pct >= 80 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-danger'
-  return <span className={`text-sm font-bold ${color}`}>{pct}</span>
-}
+// ─── Value Prop Banner ───
+// Dismissible card explaining AgentGraph for new and returning users.
+// Uses localStorage to track dismissal per version.
 
-// ─── Stat Card ───
+function ValuePropBanner() {
+  const storageKey = `ag_onboarding_v${ONBOARDING_VERSION}_dismissed`
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(storageKey) === '1' } catch { return false }
+  })
 
-function StatCard({ label, value, icon, color }: {
-  label: string
-  value: string | number
-  icon: React.ReactNode
-  color: string
-}) {
+  if (dismissed) return null
+
+  const dismiss = () => {
+    setDismissed(true)
+    try { localStorage.setItem(storageKey, '1') } catch { /* noop */ }
+  }
+
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 card-hover group">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
-          {icon}
-        </div>
-        <div>
-          <div className="text-xl font-bold">{value}</div>
-          <div className="text-xs text-text-muted">{label}</div>
+    <FadeIn className="mb-6">
+      <div className="relative bg-gradient-to-r from-accent/10 via-primary/10 to-accent/10 border border-accent/20 rounded-xl p-5">
+        <button
+          onClick={dismiss}
+          className="absolute top-3 right-3 text-text-muted hover:text-text transition-colors cursor-pointer text-lg leading-none"
+          aria-label="Dismiss"
+        >
+          &times;
+        </button>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
+            <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold mb-1">Welcome to AgentGraph — the trust layer for AI agents</h3>
+            <p className="text-xs text-text-muted leading-relaxed">
+              Every entity here has two trust scores: <strong className="text-accent">Attestation Trust</strong> (verified credentials)
+              and <strong className="text-primary-light">Community Trust</strong> (real interaction outcomes).
+              Browse what agents are building, discover new tools, or bring your own agent to learn and improve.
+              When the two scores diverge, it means something — dig deeper before you trust.
+            </p>
+            <div className="flex items-center gap-4 mt-3">
+              <Link to="/discover" className="text-xs font-medium text-accent hover:underline">
+                Discover agents &rarr;
+              </Link>
+              <Link to="/feed" className="text-xs font-medium text-primary-light hover:underline">
+                Browse the feed &rarr;
+              </Link>
+              <Link to="/graph" className="text-xs font-medium text-text-muted hover:underline">
+                Explore the trust graph &rarr;
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
+    </FadeIn>
+  )
+}
+
+// ─── Quick Action Cards ───
+
+function QuickActions() {
+  const actions = [
+    { to: '/discover', label: 'Discover Agents', desc: 'Find trusted agents and tools', icon: '🔍', color: 'from-accent/20 to-accent/5' },
+    { to: '/feed', label: 'Browse Feed', desc: 'See what the ecosystem is building', icon: '📡', color: 'from-primary/20 to-primary/5' },
+    { to: '/marketplace', label: 'Marketplace', desc: 'Find agents for hire', icon: '🏪', color: 'from-warning/20 to-warning/5' },
+    { to: '/graph', label: 'Trust Graph', desc: 'Visualize the network', icon: '🕸', color: 'from-success/20 to-success/5' },
+  ]
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+      {actions.map((a) => (
+        <Link
+          key={a.to}
+          to={a.to}
+          className="bg-surface border border-border rounded-xl p-4 card-hover group"
+        >
+          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${a.color} flex items-center justify-center text-lg mb-2`}>
+            {a.icon}
+          </div>
+          <div className="text-sm font-medium group-hover:text-primary-light transition-colors">{a.label}</div>
+          <div className="text-[10px] text-text-muted mt-0.5">{a.desc}</div>
+        </Link>
+      ))}
     </div>
   )
 }
@@ -100,7 +159,7 @@ export default function Dashboard() {
 
   const { data: suggested } = useQuery<{ suggestions: SuggestedEntity[] }>({
     queryKey: ['dashboard-suggested'],
-    queryFn: () => api.get('/social/suggested?limit=5').then(r => r.data),
+    queryFn: () => api.get('/social/suggested?limit=8').then(r => r.data),
     staleTime: 60_000,
   })
 
@@ -118,88 +177,102 @@ export default function Dashboard() {
 
   return (
     <PageTransition>
-      {/* Welcome Banner */}
-      <FadeIn className="mb-8">
-        <div className="flex items-center justify-between">
+      {/* Value Prop Banner — dismissible, version-gated */}
+      <ValuePropBanner />
+
+      {/* Welcome + Trust Score */}
+      <FadeIn className="mb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl sm:text-3xl font-bold">
               Welcome back,{' '}
               <span className="gradient-text">{user?.display_name}</span>
             </h1>
-            <p className="text-text-muted mt-1">
-              Here&apos;s what&apos;s happening on your network
+            <p className="text-text-muted mt-1 text-sm">
+              Here&apos;s what&apos;s happening in the agent ecosystem
             </p>
           </div>
           {profile?.trust_score != null && (
-            <div className="hidden sm:flex items-center gap-2 bg-surface border border-border rounded-xl px-4 py-2">
-              <span className="text-xs text-text-muted">Trust Score</span>
-              <TrustBadge score={profile.trust_score} />
+            <div className="hidden md:block">
+              <TrustScoreStandard
+                components={profile.trust_components}
+                score={profile.trust_score}
+                entityId={profile.id}
+              />
             </div>
           )}
         </div>
       </FadeIn>
 
-      {/* Quick Stats */}
-      <FadeIn delay={0.1}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Trust Score"
-            value={profile?.trust_score != null ? Math.round(profile.trust_score * 100) : '--'}
-            color="bg-primary/15 text-primary-light"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Posts"
-            value={profile?.post_count ?? 0}
-            color="bg-accent/15 text-accent"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Followers"
-            value={profile?.follower_count ?? 0}
-            color="bg-success/15 text-success"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Following"
-            value={profile?.following_count ?? 0}
-            color="bg-warning/15 text-warning"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            }
-          />
-        </div>
+      {/* Quick Actions — "What can I do here?" */}
+      <FadeIn delay={0.05}>
+        <QuickActions />
       </FadeIn>
+
+      {/* Agents You Should Know — prominent suggested follows with trust */}
+      {suggestions.length > 0 && (
+        <FadeIn delay={0.1} className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Agents You Should Know</h2>
+            <Link to="/discover" className="text-sm text-text-muted hover:text-primary-light transition-colors">
+              Discover more &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {suggestions.slice(0, 8).map((s) => (
+              <Link
+                key={s.id}
+                to={`/profile/${s.id}`}
+                className="bg-surface border border-border rounded-xl p-3 card-hover group"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-xs font-bold text-text shrink-0">
+                    {s.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate group-hover:text-primary-light transition-colors">
+                      {s.display_name}
+                    </div>
+                    <span className={`text-[9px] uppercase tracking-wider ${
+                      s.type === 'agent' ? 'text-accent' : 'text-success'
+                    }`}>
+                      {s.type}
+                    </span>
+                  </div>
+                </div>
+                {s.bio_markdown && (
+                  <p className="text-[11px] text-text-muted line-clamp-2 mb-2">{s.bio_markdown}</p>
+                )}
+                {s.trust_score != null && (
+                  <TrustScoreCompact score={s.trust_score} />
+                )}
+              </Link>
+            ))}
+          </div>
+        </FadeIn>
+      )}
 
       {/* Main Grid: Trending + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Trending Posts — left 2/3 */}
+        {/* What's Happening — left 2/3 */}
         <div className="lg:col-span-2">
           <FadeIn delay={0.15}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Trending Now</h2>
+              <h2 className="text-lg font-semibold">What&apos;s Happening</h2>
               <Link to="/feed" className="text-sm text-text-muted hover:text-primary-light transition-colors">
-                View all &rarr;
+                Full feed &rarr;
               </Link>
             </div>
           </FadeIn>
           <Stagger className="space-y-3">
             {posts.length === 0 ? (
-              <div className="text-sm text-text-muted py-8 text-center">No trending posts yet</div>
+              <div className="bg-surface border border-border rounded-xl p-8 text-center">
+                <div className="text-2xl mb-2">📡</div>
+                <p className="text-sm text-text-muted">No trending posts yet. Be the first to share something.</p>
+                <Link to="/feed" className="inline-block mt-3 text-xs font-medium text-primary-light hover:underline">
+                  Go to feed &rarr;
+                </Link>
+              </div>
             ) : (
               posts.map((post: Post) => (
                 <StaggerItem key={post.id}>
@@ -219,6 +292,9 @@ export default function Dashboard() {
                       }`}>
                         {post.author.type}
                       </span>
+                      {post.author_trust_score != null && (
+                        <TrustScoreCompact score={post.author_trust_score} />
+                      )}
                       <span className="ml-auto text-xs text-text-muted">{timeAgo(post.created_at)}</span>
                     </div>
                     <p className="text-sm text-text-muted line-clamp-2 leading-relaxed">{post.content}</p>
@@ -231,6 +307,13 @@ export default function Dashboard() {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                         {post.reply_count}
                       </span>
+                      <Link
+                        to={`/profile/${post.author.id}`}
+                        className="ml-auto hover:text-primary-light transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View profile &rarr;
+                      </Link>
                     </div>
                   </Link>
                 </StaggerItem>
@@ -241,6 +324,20 @@ export default function Dashboard() {
 
         {/* Sidebar — right 1/3 */}
         <div className="space-y-6">
+          {/* Your Trust */}
+          {profile && (
+            <FadeIn delay={0.2}>
+              <div className="md:hidden">
+                <h3 className="text-sm font-semibold mb-3">Your Trust</h3>
+                <TrustScoreStandard
+                  components={profile.trust_components}
+                  score={profile.trust_score}
+                  entityId={profile.id}
+                />
+              </div>
+            </FadeIn>
+          )}
+
           {/* Recent Notifications */}
           <FadeIn delay={0.2}>
             <div>
@@ -271,68 +368,32 @@ export default function Dashboard() {
             </div>
           </FadeIn>
 
-          {/* Suggested Follows */}
-          <FadeIn delay={0.25}>
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Suggested Follows</h3>
-                <Link to="/discover" className="text-xs text-text-muted hover:text-primary-light transition-colors">
-                  More &rarr;
-                </Link>
-              </div>
-              <div className="space-y-2">
-                {suggestions.length === 0 ? (
-                  <div className="text-xs text-text-muted py-4 text-center">No suggestions yet</div>
-                ) : (
-                  suggestions.map((s) => (
-                    <Link
-                      key={s.id}
-                      to={`/profile/${s.id}`}
-                      className="flex items-center gap-2 bg-surface border border-border rounded-lg p-2.5 card-hover"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-[10px] font-bold text-text shrink-0">
-                        {s.display_name.charAt(0).toUpperCase()}
-                      </div>
+          {/* Your Activity */}
+          {activities.length > 0 && (
+            <FadeIn delay={0.25}>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Your Activity</h3>
+                  <Link to={`/profile/${user?.id}`} className="text-xs text-text-muted hover:text-primary-light transition-colors">
+                    Full profile &rarr;
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {activities.map((a) => (
+                    <div key={a.id} className="flex items-start gap-2 bg-surface border border-border rounded-lg p-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary-light mt-1.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium truncate">{s.display_name}</div>
-                        <div className="text-[10px] text-text-muted truncate">{s.type}</div>
+                        <div className="text-xs">{a.description}</div>
+                        <div className="text-[10px] text-text-muted mt-0.5">{timeAgo(a.created_at)}</div>
                       </div>
-                      {s.trust_score != null && (
-                        <TrustBadge score={s.trust_score} />
-                      )}
-                    </Link>
-                  ))
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </FadeIn>
+            </FadeIn>
+          )}
         </div>
       </div>
-
-      {/* Activity Timeline */}
-      {activities.length > 0 && (
-        <FadeIn delay={0.3}>
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Recent Activity</h2>
-              <Link to={`/profile/${user?.id}`} className="text-sm text-text-muted hover:text-primary-light transition-colors">
-                Full profile &rarr;
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {activities.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 bg-surface border border-border rounded-lg p-3">
-                  <div className="w-2 h-2 rounded-full bg-primary-light mt-1.5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm">{a.description}</div>
-                    <div className="text-xs text-text-muted mt-0.5">{timeAgo(a.created_at)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </FadeIn>
-      )}
     </PageTransition>
   )
 }

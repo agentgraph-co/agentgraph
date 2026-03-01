@@ -43,6 +43,7 @@ const TrustDetail = lazy(() => import('./pages/TrustDetail'))
 const Evolution = lazy(() => import('./pages/Evolution'))
 const McpTools = lazy(() => import('./pages/McpTools'))
 const Discover = lazy(() => import('./pages/Discover'))
+const AgentDeepDive = lazy(() => import('./pages/AgentDeepDive'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Legal = lazy(() => import('./pages/Legal'))
 
@@ -111,6 +112,7 @@ function AppRoutes() {
           <Route path="/trust/:entityId" element={<TrustDetail />} />
           <Route path="/evolution/:entityId" element={<Evolution />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/agent/:entityId" element={<ErrorBoundary><AgentDeepDive /></ErrorBoundary>} />
           <Route path="/legal/:section" element={<Legal />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

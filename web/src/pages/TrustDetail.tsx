@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 import { ProfileSkeleton } from '../components/Skeleton'
+import { computeDualTrust } from '../components/DualTrustScore'
 
 interface TrustComponentDetail {
   raw: number
@@ -256,47 +257,101 @@ export default function TrustDetail() {
         <span>Trust Score</span>
       </div>
 
-      {/* Overall Score */}
-      <div className="bg-surface border border-border rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold">Trust Score</h1>
-            {profile && (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-text-muted">{profile.display_name}</span>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                  profile.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
-                }`}>
-                  {profile.type}
+      {/* Dual Trust Display */}
+      {(() => {
+        const dual = computeDualTrust(trust.components)
+        return (
+          <div className="bg-surface border border-border rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-xl font-bold">Trust Profile</h1>
+                {profile && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-text-muted">{profile.display_name}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                      profile.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    }`}>
+                      {profile.type}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-text-muted">
+                  Computed {timeAgo(trust.computed_at)}
+                </div>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => refreshMutation.mutate()}
+                    disabled={refreshMutation.isPending}
+                    className="text-[10px] text-primary-light hover:underline cursor-pointer disabled:opacity-50 mt-1"
+                  >
+                    {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Score'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Dual Trust Numbers */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-background rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span className="text-xs text-text-muted uppercase tracking-wider">Attestation Trust</span>
+                </div>
+                <div className="text-3xl font-bold text-accent">{dual?.attestation ?? '--'}</div>
+                <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
+                  <div
+                    className="h-full rounded-full transition-all bg-accent"
+                    style={{ width: `${dual?.attestation ?? 0}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-text-muted mt-1.5">Verified credentials, identity, account age</p>
+              </div>
+              <div className="bg-background rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-xs text-text-muted uppercase tracking-wider">Community Trust</span>
+                </div>
+                <div className="text-3xl font-bold text-primary-light">{dual?.community ?? '--'}</div>
+                <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
+                  <div
+                    className="h-full rounded-full transition-all bg-primary"
+                    style={{ width: `${dual?.community ?? 0}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-text-muted mt-1.5">Activity, peer reviews, attestations</p>
+              </div>
+            </div>
+
+            {/* Divergence warning */}
+            {dual?.divergent && (
+              <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 mb-2">
+                <span className="text-warning text-sm font-bold">!</span>
+                <span className="text-xs text-warning">
+                  Attestation and Community trust diverge significantly. This may indicate the entity looks different on paper than in practice.
                 </span>
               </div>
             )}
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-primary-light">{overallPct}%</div>
-            <div className="text-[10px] text-text-muted">
-              Computed {timeAgo(trust.computed_at)}
-            </div>
-            {isOwnProfile && (
-              <button
-                onClick={() => refreshMutation.mutate()}
-                disabled={refreshMutation.isPending}
-                className="text-[10px] text-primary-light hover:underline cursor-pointer disabled:opacity-50 mt-1"
-              >
-                {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Score'}
-              </button>
-            )}
-          </div>
-        </div>
 
-        {/* Overall progress bar */}
-        <div className="bg-background rounded-full h-3 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all bg-gradient-to-r from-primary/80 to-primary"
-            style={{ width: `${overallPct}%` }}
-          />
-        </div>
-      </div>
+            {/* Overall composite */}
+            <div className="flex items-center gap-2 text-xs text-text-muted pt-2 border-t border-border">
+              <span>Composite Score:</span>
+              <span className="font-semibold text-text">{overallPct}%</span>
+              <div className="flex-1 bg-background rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all bg-gradient-to-r from-accent to-primary"
+                  style={{ width: `${overallPct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Component Breakdown */}
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
@@ -564,14 +619,26 @@ export default function TrustDetail() {
             {methodology.methodology}
           </pre>
         ) : (
-          <p className="text-xs text-text-muted leading-relaxed">
-            Trust scores are computed from five weighted components: <strong>Verification</strong> (35%) — email,
-            DID, and attestation status; <strong>Account Age</strong> (10%) — linear scale up to 365 days;{' '}
-            <strong>Activity</strong> (20%) — recent posts and votes with log-scaling to prevent gaming;{' '}
-            <strong>Reputation</strong> (15%) — review ratings and endorsement count;{' '}
-            <strong>Community</strong> (20%) — trust attestations from other entities. Scores range from 0-100%
-            and are recomputed daily.
-          </p>
+          <div className="text-xs text-text-muted leading-relaxed space-y-2">
+            <p>
+              Every entity on AgentGraph has two trust dimensions:
+            </p>
+            <p>
+              <strong className="text-accent">Attestation Trust</strong> — "Who vouches for this entity?" Based on{' '}
+              <strong>Verification</strong> (35%) — email, DID, and attestation status, and{' '}
+              <strong>Account Age</strong> (10%) — time since registration (up to 1 year).
+            </p>
+            <p>
+              <strong className="text-primary-light">Community Trust</strong> — "What is it like to interact with this entity?" Based on{' '}
+              <strong>Activity</strong> (20%) — recent posts and votes (log-scaled);{' '}
+              <strong>Reputation</strong> (15%) — review ratings and endorsements;{' '}
+              <strong>Community</strong> (20%) — trust attestations from other entities.
+            </p>
+            <p>
+              When the two scores diverge significantly, a warning indicator appears — high attestation but low community trust
+              may mean an entity looks good on paper but underperforms in practice.
+            </p>
+          </div>
         )}
       </div>
     </div>

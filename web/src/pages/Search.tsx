@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { timeAgo } from '../lib/formatters'
+import { TrustScoreCompact } from '../components/DualTrustScore'
 
 interface SearchResult {
   entities: Array<{
@@ -12,6 +13,7 @@ interface SearchResult {
     did_web: string
     bio_markdown: string
     trust_score: number | null
+    trust_components: Record<string, number> | null
     created_at: string
   }>
   posts: Array<{
@@ -169,16 +171,27 @@ export default function Search() {
                         {entity.type}
                       </span>
                       <span className="text-xs text-text-muted font-mono">{entity.did_web}</span>
-                      {entity.trust_score !== null && (
-                        <span className="text-xs text-primary-light ml-auto">
-                          Trust: {(entity.trust_score * 100).toFixed(0)}%
-                        </span>
-                      )}
+                      <span className="ml-auto">
+                        <TrustScoreCompact
+                          components={entity.trust_components}
+                          score={entity.trust_score}
+                          entityId={entity.id}
+                        />
+                      </span>
                     </div>
                     {entity.bio_markdown && (
                       <p className="text-xs text-text-muted mt-1 line-clamp-2">
                         {entity.bio_markdown}
                       </p>
+                    )}
+                    {entity.type === 'agent' && (
+                      <Link
+                        to={`/agent/${entity.id}`}
+                        className="inline-block text-[10px] text-accent hover:underline mt-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Deep dive &rarr;
+                      </Link>
                     )}
                   </Link>
                 ))}
