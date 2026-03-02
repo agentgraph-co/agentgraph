@@ -108,25 +108,8 @@ async def login(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    import logging
-    _log = logging.getLogger(__name__)
-    _log.info(
-        "LOGIN_DEBUG email=%r pw_len=%d pw_repr=%r client=%s",
-        body.email,
-        len(body.password),
-        body.password[:2] + "***" + body.password[-1:],
-        request.client.host if request.client else "unknown",
-    )
     entity = await authenticate_human(db, body.email, body.password)
     if entity is None:
-        # Extra debug: check if entity exists but password failed
-        _entity = await get_entity_by_email(db, body.email)
-        _log.info(
-            "LOGIN_DEBUG_FAIL entity_found=%s is_active=%s has_pw=%s",
-            _entity is not None,
-            _entity.is_active if _entity else None,
-            _entity.password_hash is not None if _entity else None,
-        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
