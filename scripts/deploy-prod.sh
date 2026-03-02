@@ -205,9 +205,13 @@ if $DRY_RUN; then
   echo "    Would run: docker-compose exec backend python3 -c '...httpx login test...'"
 else
   # Run the login test inside the backend container to avoid SSH quoting issues
-  # with the ! character in the password.
-  LOGIN_RESULT=$(remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} exec -T backend python3 -c '
-import httpx, sys
+  # with the ! character in the password. Retry up to 5 times with 2s delay
+  # since the backend may still be starting after container recreation.
+  LOGIN_RESULT=""
+  for attempt in $(seq 1 5); do
+    LOGIN_RESULT=$(remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} exec -T backend python3 -c '
+import httpx, sys, time
+time.sleep(1)
 r = httpx.post(\"http://localhost:8000/api/v1/auth/login\", json={\"email\": \"kenne@agentgraph.io\", \"password\": \"***REMOVED***\"})
 if r.status_code == 200:
     print(\"LOGIN_OK\")
@@ -215,6 +219,12 @@ else:
     print(f\"LOGIN_FAIL status={r.status_code} body={r.text[:200]}\")
     sys.exit(1)
 '" 2>&1) || true
+    if echo "$LOGIN_RESULT" | grep -q "LOGIN_OK"; then
+      break
+    fi
+    echo "    Attempt $attempt/5 — retrying in 2s..."
+    sleep 2
+  done
 
   if echo "$LOGIN_RESULT" | grep -q "LOGIN_OK"; then
     ok "Login verified (kenne@agentgraph.io)"
