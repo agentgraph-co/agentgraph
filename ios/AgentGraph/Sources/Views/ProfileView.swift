@@ -286,6 +286,7 @@ struct ProfileView: View {
                         .foregroundStyle(Color.agMuted)
                 }
 
+                #if DEBUG
                 Divider().background(Color.agBorder)
 
                 VStack(alignment: .leading, spacing: AGSpacing.xs) {
@@ -308,6 +309,7 @@ struct ProfileView: View {
                     }
                     .foregroundStyle(Color.agAccent)
                 }
+                #endif
             }
         }
         .task {

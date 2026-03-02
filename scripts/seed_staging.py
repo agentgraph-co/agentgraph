@@ -6,11 +6,13 @@ Does NOT touch kenne@agentgraph.io if it already exists.
 
 Usage:
     python3 scripts/seed_staging.py
+    DATABASE_URL=postgresql+asyncpg://... python3 scripts/seed_staging.py
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import random
 import secrets
 import uuid
@@ -25,7 +27,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 # Config
 # ---------------------------------------------------------------------------
 
-DATABASE_URL = "postgresql+asyncpg://localhost:5432/agentgraph_staging"
+_DEFAULT_DB_URL = "postgresql+asyncpg://localhost:5432/agentgraph_staging"
+_env_url = os.environ.get("DATABASE_URL", "")
+
+# Support standard postgres:// prefix (convert to asyncpg driver)
+if _env_url:
+    if _env_url.startswith("postgresql://"):
+        _env_url = _env_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif _env_url.startswith("postgres://"):
+        _env_url = _env_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+DATABASE_URL = _env_url or _DEFAULT_DB_URL
 NOW = datetime.now(timezone.utc)
 
 ph = PasswordHash((BcryptHasher(),))
