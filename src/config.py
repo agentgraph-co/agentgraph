@@ -38,6 +38,8 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://***REMOVED***:5173",
         "http://***REMOVED***:5174",
+        "https://agentgraph.io",
+        "http://***REMOVED***",
     ]
 
     # Rate limiting
