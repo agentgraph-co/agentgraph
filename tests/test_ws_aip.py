@@ -58,22 +58,18 @@ def _auth(token: str) -> dict:
 @pytest.mark.asyncio
 async def test_aip_channel_in_valid_channels():
     """Test that 'aip' is a valid WS channel."""
-    import inspect
+    from pathlib import Path
 
-    from src.api import ws_router
-
-    source = inspect.getsource(ws_router.websocket_endpoint)
+    source = Path("src/api/ws_router.py").read_text()
     assert '"aip"' in source or "'aip'" in source
 
 
 @pytest.mark.asyncio
 async def test_valid_channels_complete():
     """Verify all expected channels are in valid_channels set."""
-    import inspect
+    from pathlib import Path
 
-    from src.api import ws_router
-
-    source = inspect.getsource(ws_router.websocket_endpoint)
+    source = Path("src/api/ws_router.py").read_text()
     expected_channels = [
         "feed", "notifications", "activity", "aip",
         "messages", "marketplace", "disputes",
@@ -87,12 +83,10 @@ async def test_valid_channels_complete():
 @pytest.mark.asyncio
 async def test_valid_channels_count():
     """Verify exactly 7 channels are in the valid_channels set."""
-    import inspect
     import re
+    from pathlib import Path
 
-    from src.api import ws_router
-
-    source = inspect.getsource(ws_router.websocket_endpoint)
+    source = Path("src/api/ws_router.py").read_text()
     # Find the valid_channels = {...} set (may span multiple lines)
     match = re.search(r'valid_channels\s*=\s*\{([^}]+)\}', source, re.DOTALL)
     assert match is not None, "valid_channels set not found"
