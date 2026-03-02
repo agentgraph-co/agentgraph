@@ -8,6 +8,8 @@ import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { computeDualTrust } from '../components/DualTrustScore'
+import { computeTier, progressToNextTier } from '../components/trust/trustTiers'
+import { getAttestationIcon, getCommunityIcon } from '../components/trust/TrustIcons'
 
 interface TrustComponentDetail {
   raw: number
@@ -292,41 +294,78 @@ export default function TrustDetail() {
               </div>
             </div>
 
-            {/* Dual Trust Numbers */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-background rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span className="text-xs text-text-muted uppercase tracking-wider">Attestation Trust</span>
+            {/* Dual Trust Numbers — Tier Icons */}
+            {(() => {
+              const attScore = dual?.attestation ?? 0
+              const comScore = dual?.community ?? 0
+              const attTier = computeTier(attScore, 'attestation')
+              const comTier = computeTier(comScore, 'community')
+              const AttIcon = getAttestationIcon(attTier.level)
+              const ComIcon = getCommunityIcon(comTier.level)
+              const attProgress = progressToNextTier(attScore)
+              const comProgress = progressToNextTier(comScore)
+
+              return (
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-background rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span style={{ color: attTier.color }}>
+                        <AttIcon size={20} />
+                      </span>
+                      <span className="text-xs text-text-muted uppercase tracking-wider">Attestation Trust</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl font-bold" style={{ color: attTier.color }}>
+                        {dual?.attestation ?? '--'}
+                      </span>
+                      <span className="text-xs font-medium" style={{ color: attTier.color }}>
+                        {attTier.label}
+                      </span>
+                    </div>
+                    <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${dual?.attestation ?? 0}%`, background: attTier.gradient ?? attTier.color }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[10px] text-text-muted">Verified credentials, identity, account age</p>
+                      {attProgress != null && attTier.nextThreshold != null && (
+                        <span className="text-[9px] text-text-muted">{attProgress}% to {attTier.nextThreshold}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-background rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span style={{ color: comTier.color }}>
+                        <ComIcon size={20} />
+                      </span>
+                      <span className="text-xs text-text-muted uppercase tracking-wider">Community Trust</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl font-bold" style={{ color: comTier.color }}>
+                        {dual?.community ?? '--'}
+                      </span>
+                      <span className="text-xs font-medium" style={{ color: comTier.color }}>
+                        {comTier.label}
+                      </span>
+                    </div>
+                    <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${dual?.community ?? 0}%`, background: comTier.gradient ?? comTier.color }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[10px] text-text-muted">Activity, peer reviews, attestations</p>
+                      {comProgress != null && comTier.nextThreshold != null && (
+                        <span className="text-[9px] text-text-muted">{comProgress}% to {comTier.nextThreshold}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-3xl font-bold text-accent">{dual?.attestation ?? '--'}</div>
-                <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
-                  <div
-                    className="h-full rounded-full transition-all bg-accent"
-                    style={{ width: `${dual?.attestation ?? 0}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-text-muted mt-1.5">Verified credentials, identity, account age</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-xs text-text-muted uppercase tracking-wider">Community Trust</span>
-                </div>
-                <div className="text-3xl font-bold text-primary-light">{dual?.community ?? '--'}</div>
-                <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
-                  <div
-                    className="h-full rounded-full transition-all bg-primary"
-                    style={{ width: `${dual?.community ?? 0}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-text-muted mt-1.5">Activity, peer reviews, attestations</p>
-              </div>
-            </div>
+              )
+            })()}
 
             {/* Divergence warning */}
             {dual?.divergent && (

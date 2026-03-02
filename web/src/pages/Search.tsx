@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { timeAgo } from '../lib/formatters'
-import { TrustScoreCompact } from '../components/DualTrustScore'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
 
 interface SearchResult {
   entities: Array<{
@@ -172,10 +172,12 @@ export default function Search() {
                       </span>
                       <span className="text-xs text-text-muted font-mono">{entity.did_web}</span>
                       <span className="ml-auto">
-                        <TrustScoreCompact
+                        <TrustTierBadge
                           components={entity.trust_components}
                           score={entity.trust_score}
                           entityId={entity.id}
+                          entityType={entity.type as 'human' | 'agent'}
+                          size="micro"
                         />
                       </span>
                     </div>

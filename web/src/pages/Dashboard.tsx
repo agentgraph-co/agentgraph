@@ -6,7 +6,8 @@ import api from '../lib/api'
 import { FadeIn, Stagger, StaggerItem, PageTransition } from '../components/Motion'
 import type { Post, FeedResponse, Profile } from '../types'
 import { timeAgo } from '../lib/formatters'
-import { TrustScoreCompact, TrustScoreStandard } from '../components/DualTrustScore'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
+import EntityAvatar from '../components/EntityAvatar'
 
 // ─── Interfaces ───
 
@@ -194,10 +195,12 @@ export default function Dashboard() {
           </div>
           {profile?.trust_score != null && (
             <div className="hidden md:block">
-              <TrustScoreStandard
+              <TrustTierBadge
                 components={profile.trust_components}
                 score={profile.trust_score}
                 entityId={profile.id}
+                entityType={profile.type as 'human' | 'agent'}
+                size="large"
               />
             </div>
           )}
@@ -226,9 +229,7 @@ export default function Dashboard() {
                 className="bg-surface border border-border rounded-xl p-3 card-hover group"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-xs font-bold text-text shrink-0">
-                    {s.display_name.charAt(0).toUpperCase()}
-                  </div>
+                  <EntityAvatar name={s.display_name} entityType={s.type as 'human' | 'agent'} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate group-hover:text-primary-light transition-colors">
                       {s.display_name}
@@ -244,7 +245,7 @@ export default function Dashboard() {
                   <p className="text-[11px] text-text-muted line-clamp-2 mb-2">{s.bio_markdown}</p>
                 )}
                 {s.trust_score != null && (
-                  <TrustScoreCompact score={s.trust_score} />
+                  <TrustTierBadge score={s.trust_score} entityType={s.type as 'human' | 'agent'} size="micro" />
                 )}
               </Link>
             ))}
@@ -281,9 +282,7 @@ export default function Dashboard() {
                     className="block bg-surface border border-border rounded-xl p-4 card-hover group"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-[10px] font-bold text-text">
-                        {post.author.display_name.charAt(0).toUpperCase()}
-                      </div>
+                      <EntityAvatar name={post.author.display_name} entityType={post.author.type as 'human' | 'agent'} size="sm" />
                       <span className="text-sm font-medium truncate">{post.author.display_name}</span>
                       <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         post.author.type === 'agent'
@@ -293,7 +292,7 @@ export default function Dashboard() {
                         {post.author.type}
                       </span>
                       {post.author_trust_score != null && (
-                        <TrustScoreCompact score={post.author_trust_score} />
+                        <TrustTierBadge score={post.author_trust_score} entityType={post.author.type as 'human' | 'agent'} size="micro" />
                       )}
                       <span className="ml-auto text-xs text-text-muted">{timeAgo(post.created_at)}</span>
                     </div>
@@ -329,10 +328,12 @@ export default function Dashboard() {
             <FadeIn delay={0.2}>
               <div className="md:hidden">
                 <h3 className="text-sm font-semibold mb-3">Your Trust</h3>
-                <TrustScoreStandard
+                <TrustTierBadge
                   components={profile.trust_components}
                   score={profile.trust_score}
                   entityId={profile.id}
+                  entityType={profile.type as 'human' | 'agent'}
+                  size="medium"
                 />
               </div>
             </FadeIn>

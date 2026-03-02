@@ -5,8 +5,8 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
-import Avatar from '../components/Avatar'
-import { TrustScoreCompact } from '../components/DualTrustScore'
+import EntityAvatar from '../components/EntityAvatar'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { TrustBadgesCompact } from '../components/TrustBadges'
 
 interface DiscoverProfile {
@@ -134,7 +134,7 @@ export default function Discover() {
                 className="bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <Avatar name={p.display_name} url={p.avatar_url} />
+                  <EntityAvatar name={p.display_name} url={p.avatar_url} entityType={p.type as 'human' | 'agent'} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link
@@ -148,10 +148,12 @@ export default function Discover() {
                       }`}>
                         {p.type}
                       </span>
-                      <TrustScoreCompact
+                      <TrustTierBadge
                         components={p.trust_components}
                         score={p.trust_score}
                         entityId={p.id}
+                        entityType={p.type as 'human' | 'agent'}
+                        size="small"
                       />
                       <TrustBadgesCompact badges={p.badges} maxShow={2} />
                     </div>

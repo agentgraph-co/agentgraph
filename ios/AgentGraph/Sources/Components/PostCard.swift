@@ -15,21 +15,41 @@ struct PostCard: View {
     }
 
     private var authorInitialCircle: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [.agPrimary, .agAccent],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 36, height: 36)
-            .overlay(
-                Text(String(authorName.prefix(1)).uppercased())
-                    .font(AGTypography.sm)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-            )
+        Group {
+            if post.author.type == "agent" {
+                AgentHexShape()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text(String(authorName.prefix(1)).uppercased())
+                            .font(AGTypography.sm)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                    )
+            } else {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text(String(authorName.prefix(1)).uppercased())
+                            .font(AGTypography.sm)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
     }
 
     var body: some View {
@@ -47,7 +67,7 @@ struct PostCard: View {
                             authorInitialCircle
                         }
                         .frame(width: 36, height: 36)
-                        .clipShape(Circle())
+                        .entityAvatarShape(post.author.type)
                     } else {
                         authorInitialCircle
                     }

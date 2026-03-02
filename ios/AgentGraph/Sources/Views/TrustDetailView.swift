@@ -106,15 +106,21 @@ struct TrustDetailView: View {
                     }
                 }
 
-                Text(scoreTier(trust.score))
-                    .font(AGTypography.sm)
-                    .fontWeight(.medium)
-                    .foregroundStyle(scoreColor(trust.score))
-                    .padding(.horizontal, AGSpacing.md)
-                    .padding(.vertical, AGSpacing.xs)
-                    .background(
-                        Capsule().fill(scoreColor(trust.score).opacity(0.15))
-                    )
+                HStack(spacing: AGSpacing.sm) {
+                    let tier = TrustTierLevel.from(score: trust.score)
+                    Image(systemName: tier.attestationIcon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(tier.color)
+                    Text(scoreTier(trust.score))
+                        .font(AGTypography.sm)
+                        .fontWeight(.medium)
+                        .foregroundStyle(scoreColor(trust.score))
+                }
+                .padding(.horizontal, AGSpacing.md)
+                .padding(.vertical, AGSpacing.xs)
+                .background(
+                    Capsule().fill(scoreColor(trust.score).opacity(0.15))
+                )
             }
             .frame(maxWidth: .infinity)
         }
@@ -567,18 +573,11 @@ struct TrustDetailView: View {
     // MARK: - Helpers
 
     private func scoreColor(_ score: Double) -> Color {
-        if score >= 0.8 { return .agSuccess }
-        if score >= 0.5 { return .agWarning }
-        return .agDanger
+        TrustTierLevel.from(score: score).color
     }
 
     private func scoreTier(_ score: Double) -> String {
-        if score >= 0.9 { return "Excellent" }
-        if score >= 0.8 { return "Very Good" }
-        if score >= 0.7 { return "Good" }
-        if score >= 0.5 { return "Moderate" }
-        if score >= 0.3 { return "Low" }
-        return "Very Low"
+        TrustTierLevel.from(score: score).attestationLabel
     }
 
     private func attestationIcon(_ type: String) -> String {

@@ -190,26 +190,149 @@ struct FeedView: View {
     }
 }
 
-// MARK: - Trust Badge
+// MARK: - Trust Tier System
+
+/// Tier level (0-5) computed from a 0-1 trust score
+enum TrustTierLevel: Int, CaseIterable {
+    case unverified = 0
+    case basic = 1
+    case confirmed = 2
+    case validated = 3
+    case verified = 4
+    case certified = 5
+
+    static func from(score: Double) -> TrustTierLevel {
+        let pct = score * 100
+        if pct >= 90 { return .certified }
+        if pct >= 80 { return .verified }
+        if pct >= 60 { return .validated }
+        if pct >= 40 { return .confirmed }
+        if pct >= 20 { return .basic }
+        return .unverified
+    }
+
+    var color: Color {
+        switch self {
+        case .unverified: return Color(red: 108/255, green: 112/255, blue: 134/255)
+        case .basic: return Color(red: 245/255, green: 158/255, blue: 11/255)
+        case .confirmed: return Color(red: 13/255, green: 148/255, blue: 136/255)
+        case .validated: return Color(red: 45/255, green: 212/255, blue: 191/255)
+        case .verified: return .agAccent
+        case .certified: return Color(red: 245/255, green: 158/255, blue: 11/255)
+        }
+    }
+
+    var attestationLabel: String {
+        switch self {
+        case .unverified: return "Unverified"
+        case .basic: return "Basic"
+        case .confirmed: return "Confirmed"
+        case .validated: return "Validated"
+        case .verified: return "Verified"
+        case .certified: return "Certified"
+        }
+    }
+
+    var communityLabel: String {
+        switch self {
+        case .unverified: return "Unknown"
+        case .basic: return "Emerging"
+        case .confirmed: return "Connected"
+        case .validated: return "Established"
+        case .verified: return "Trusted"
+        case .certified: return "Pillar"
+        }
+    }
+
+    /// SF Symbol for attestation (shield) axis
+    var attestationIcon: String {
+        switch self {
+        case .unverified: return "shield.slash"
+        case .basic: return "shield"
+        case .confirmed: return "shield.checkered"
+        case .validated: return "shield.lefthalf.filled"
+        case .verified: return "shield.fill"
+        case .certified: return "shield.fill"
+        }
+    }
+
+    /// SF Symbol for community (network) axis
+    var communityIcon: String {
+        switch self {
+        case .unverified: return "circle.dotted"
+        case .basic: return "person.2"
+        case .confirmed: return "person.3"
+        case .validated: return "person.3.fill"
+        case .verified: return "hexagon"
+        case .certified: return "sparkles"
+        }
+    }
+}
+
+// MARK: - Trust Badge (Tier-Aware)
 
 struct TrustBadge: View {
     let score: Double
+    var showLabel: Bool = false
 
-    var body: some View {
-        Text(String(format: "%.0f%%", score * 100))
-            .font(AGTypography.xs)
-            .fontWeight(.semibold)
-            .foregroundStyle(.white)
-            .padding(.horizontal, AGSpacing.sm)
-            .padding(.vertical, AGSpacing.xs)
-            .background(
-                Capsule().fill(trustColor.opacity(0.8))
-            )
+    private var tier: TrustTierLevel {
+        TrustTierLevel.from(score: score)
     }
 
-    private var trustColor: Color {
-        if score >= 0.8 { return .agSuccess }
-        if score >= 0.5 { return .agWarning }
-        return .agDanger
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: tier.attestationIcon)
+                .font(.system(size: 10))
+            Text(String(format: "%.0f", score * 100))
+                .font(AGTypography.xs)
+                .fontWeight(.semibold)
+            if showLabel {
+                Text(tier.attestationLabel)
+                    .font(.system(size: 9))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, AGSpacing.sm)
+        .padding(.vertical, AGSpacing.xs)
+        .background(
+            Capsule().fill(tier.color.opacity(0.8))
+        )
+    }
+}
+
+// MARK: - Entity Avatar Shape
+
+struct EntityAvatarShape: ViewModifier {
+    let entityType: String
+
+    func body(content: Content) -> some View {
+        if entityType == "agent" {
+            content.clipShape(AgentHexShape())
+        } else {
+            content.clipShape(Circle())
+        }
+    }
+}
+
+/// Hexagonal clip shape for agent avatars
+struct AgentHexShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        var path = Path()
+        path.move(to: CGPoint(x: w * 0.5, y: 0))
+        path.addLine(to: CGPoint(x: w, y: h * 0.25))
+        path.addLine(to: CGPoint(x: w, y: h * 0.75))
+        path.addLine(to: CGPoint(x: w * 0.5, y: h))
+        path.addLine(to: CGPoint(x: 0, y: h * 0.75))
+        path.addLine(to: CGPoint(x: 0, y: h * 0.25))
+        path.closeSubpath()
+        return path
+    }
+}
+
+extension View {
+    func entityAvatarShape(_ entityType: String) -> some View {
+        modifier(EntityAvatarShape(entityType: entityType))
     }
 }

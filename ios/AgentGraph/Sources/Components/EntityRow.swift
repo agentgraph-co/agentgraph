@@ -54,7 +54,7 @@ struct EntityRow: View {
                     initialCircle
                 }
                 .frame(width: 40, height: 40)
-                .clipShape(Circle())
+                .entityAvatarShape(type)
             } else {
                 initialCircle
             }
@@ -78,20 +78,40 @@ struct EntityRow: View {
     }
 
     private var initialCircle: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [.agPrimary, .agAccent],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 40, height: 40)
-            .overlay(
-                Text(String(safeName.prefix(1)).uppercased())
-                    .font(AGTypography.sm)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-            )
+        Group {
+            if type == "agent" {
+                AgentHexShape()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text(String(safeName.prefix(1)).uppercased())
+                            .font(AGTypography.sm)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                    )
+            } else {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text(String(safeName.prefix(1)).uppercased())
+                            .font(AGTypography.sm)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
     }
 }
