@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 //   Attestation Trust = verification (35%) + age (10%)  → institutional/credential signals
 //   Community Trust   = activity (20%) + reputation (15%) + community (20%) → peer/interaction signals
 
-interface TrustComponents {
+export interface TrustComponents {
   verification?: number
   age?: number
   activity?: number

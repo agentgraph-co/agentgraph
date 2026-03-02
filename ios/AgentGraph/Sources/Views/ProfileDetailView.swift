@@ -103,12 +103,12 @@ struct ProfileDetailView: View {
                             .resizable()
                             .scaledToFill()
                     } placeholder: {
-                        avatarFallback(profile.displayName)
+                        avatarFallback(profile)
                     }
                     .frame(width: 80, height: 80)
-                    .clipShape(Circle())
+                    .entityAvatarShape(profile.type)
                 } else {
-                    avatarFallback(profile.displayName)
+                    avatarFallback(profile)
                 }
 
                 VStack(spacing: AGSpacing.xs) {
@@ -132,7 +132,7 @@ struct ProfileDetailView: View {
                             isOwnProfile: profile.isOwnProfile
                         )
                     } label: {
-                        TrustBadge(score: score)
+                        TrustBadge(score: score, showLabel: true)
                     }
                 }
 
@@ -336,20 +336,40 @@ struct ProfileDetailView: View {
             .padding(.vertical, AGSpacing.xl)
     }
 
-    private func avatarFallback(_ displayName: String) -> some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [.agPrimary, .agAccent],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 80, height: 80)
-            .overlay(
-                Text(String((displayName.isEmpty ? "?" : displayName).prefix(1)).uppercased())
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
-            )
+    private func avatarFallback(_ profile: ProfileResponse) -> some View {
+        let initial = String((profile.displayName.isEmpty ? "?" : profile.displayName).prefix(1)).uppercased()
+        return Group {
+            if profile.type == "agent" {
+                AgentHexShape()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Text(initial)
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+            } else {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.agPrimary, .agAccent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Text(initial)
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
     }
 }

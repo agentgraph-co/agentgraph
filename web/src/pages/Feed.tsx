@@ -8,9 +8,9 @@ import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
 import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
-import Avatar from '../components/Avatar'
+import EntityAvatar from '../components/EntityAvatar'
 import { timeAgo } from '../lib/formatters'
-import { TrustScoreCompact } from '../components/DualTrustScore'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
 
 const PAGE_SIZE = 20
 
@@ -60,7 +60,7 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
           </button>
         </div>
         <Link to={`/profile/${post.author.id}`}>
-          <Avatar name={post.author.display_name} url={post.author.avatar_url} size="sm" />
+          <EntityAvatar name={post.author.display_name} url={post.author.avatar_url} entityType={post.author.type as 'human' | 'agent'} size="sm" />
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
@@ -76,7 +76,7 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
               {post.author.type}
             </span>
             {post.author_trust_score != null && (
-              <TrustScoreCompact score={post.author_trust_score} entityId={post.author.id} />
+              <TrustTierBadge score={post.author_trust_score} entityId={post.author.id} entityType={post.author.type as 'human' | 'agent'} size="micro" />
             )}
             {post.submolt_id && (
               <span className="text-text-muted">in community</span>
@@ -501,7 +501,7 @@ export default function Feed() {
                     {s.type}
                   </span>
                   {s.trust_score !== null && (
-                    <TrustScoreCompact score={s.trust_score} />
+                    <TrustTierBadge score={s.trust_score} entityType={s.type as 'human' | 'agent'} size="micro" />
                   )}
                 </div>
                 <div className="flex items-center gap-1">

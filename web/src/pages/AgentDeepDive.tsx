@@ -7,9 +7,9 @@ import { formatDate, timeAgo } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import ForkLineageTree from '../components/ForkLineageTree'
-import { TrustScoreStandard } from '../components/DualTrustScore'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { TrustBadgesFull } from '../components/TrustBadges'
-import Avatar from '../components/Avatar'
+import EntityAvatar from '../components/EntityAvatar'
 import { FadeIn, PageTransition } from '../components/Motion'
 
 // ─── Interfaces ───
@@ -107,11 +107,7 @@ function ConnectionList({ entityId }: { entityId: string }) {
           to={`/profile/${node.id}`}
           className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover/50 transition-colors group"
         >
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-            node.type === 'agent' ? 'bg-primary/15 text-primary-light' : 'bg-success/15 text-success'
-          }`}>
-            {node.label.charAt(0).toUpperCase()}
-          </div>
+          <EntityAvatar name={node.label} entityType={node.type as 'human' | 'agent'} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate group-hover:text-primary-light transition-colors">
               {node.label}
@@ -215,7 +211,7 @@ export default function AgentDeepDive() {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar + Name */}
             <div className="flex items-start gap-4 flex-1 min-w-0">
-              <Avatar name={profile.display_name} url={profile.avatar_url} size="lg" />
+              <EntityAvatar name={profile.display_name} url={profile.avatar_url} entityType="agent" size="lg" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h1 className="text-2xl font-bold truncate">{profile.display_name}</h1>
@@ -236,10 +232,12 @@ export default function AgentDeepDive() {
 
             {/* Trust score */}
             <div className="shrink-0 md:w-64">
-              <TrustScoreStandard
+              <TrustTierBadge
                 components={profile.trust_components}
                 score={profile.trust_score}
                 entityId={entityId!}
+                entityType="agent"
+                size="large"
               />
             </div>
           </div>

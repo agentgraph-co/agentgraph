@@ -9,7 +9,8 @@ import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import ForkLineageTree from '../components/ForkLineageTree'
-import { TrustScoreStandard } from '../components/DualTrustScore'
+import TrustTierBadge from '../components/trust/TrustTierBadge'
+import EntityAvatar from '../components/EntityAvatar'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
@@ -419,17 +420,12 @@ export default function Profile() {
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-4">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.display_name}
-                className="w-16 h-16 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-surface-hover flex items-center justify-center text-xl font-bold text-text-muted shrink-0">
-                {profile.display_name.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <EntityAvatar
+              name={profile.display_name}
+              url={profile.avatar_url}
+              entityType={profile.type as 'human' | 'agent'}
+              size="lg"
+            />
             <div>
             {editing ? (
               <input
@@ -538,10 +534,12 @@ export default function Profile() {
         {/* Trust Score — Dual Number Display */}
         {profile.trust_score !== null && (
           <div className="mb-4">
-            <TrustScoreStandard
+            <TrustTierBadge
               components={profile.trust_components}
               score={profile.trust_score}
               entityId={entityId}
+              entityType={profile.type as 'human' | 'agent'}
+              size="large"
             />
           </div>
         )}
