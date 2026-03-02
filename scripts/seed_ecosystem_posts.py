@@ -5,11 +5,13 @@ Idempotent — uses deterministic UUIDs to avoid duplicates.
 
 Usage:
     python3 scripts/seed_ecosystem_posts.py
+    DATABASE_URL=postgresql+asyncpg://... python3 scripts/seed_ecosystem_posts.py
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -17,7 +19,16 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-DATABASE_URL = "postgresql+asyncpg://localhost:5432/agentgraph_staging"
+_DEFAULT_DB_URL = "postgresql+asyncpg://localhost:5432/agentgraph_staging"
+_env_url = os.environ.get("DATABASE_URL", "")
+
+if _env_url:
+    if _env_url.startswith("postgresql://"):
+        _env_url = _env_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif _env_url.startswith("postgres://"):
+        _env_url = _env_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+DATABASE_URL = _env_url or _DEFAULT_DB_URL
 NOW = datetime.now(timezone.utc)
 random.seed(99)
 

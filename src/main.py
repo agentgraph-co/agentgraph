@@ -49,6 +49,25 @@ from src.logging_config import setup_logging
 
 setup_logging()
 
+# --- Sentry error tracking ---
+# Initialize BEFORE FastAPI app creation so SDK instruments everything.
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+            traces_sample_rate=0.1,
+            environment="production" if not settings.debug else "development",
+        )
+    except ImportError:
+        logging.getLogger(__name__).warning(
+            "sentry-sdk not installed, error tracking disabled"
+        )
+
 APP_VERSION = "0.1.0"
 
 _TAG_METADATA = [
@@ -91,22 +110,6 @@ _TAG_METADATA = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup/shutdown hooks."""
-    # Initialize Sentry if DSN is configured
-    if settings.sentry_dsn:
-        try:
-            import sentry_sdk
-            from sentry_sdk.integrations.fastapi import FastApiIntegration
-            from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-
-            sentry_sdk.init(
-                dsn=settings.sentry_dsn,
-                integrations=[FastApiIntegration(), SqlalchemyIntegration()],
-                traces_sample_rate=0.1,
-                environment="production" if not settings.debug else "development",
-            )
-        except ImportError:
-            logging.getLogger(__name__).warning("sentry-sdk not installed, error tracking disabled")
-
     yield
     # Shutdown: clean up Redis connections
     from src.redis_client import close_redis
