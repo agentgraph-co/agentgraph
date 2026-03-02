@@ -19,6 +19,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 
 
+async def _safe_send(ws: WebSocket, data: dict) -> None:
+    """Send JSON to WebSocket, ignoring errors if client already disconnected."""
+    try:
+        await ws.send_text(json.dumps(data))
+    except (RuntimeError, WebSocketDisconnect):
+        pass
+
+
+async def _safe_close(ws: WebSocket, code: int = 1000, reason: str = "") -> None:
+    """Close WebSocket, ignoring errors if already closed."""
+    try:
+        await ws.close(code=code, reason=reason)
+    except (RuntimeError, WebSocketDisconnect):
+        pass
+
+
 async def _authenticate_ws(token: str) -> str | None:
     """Validate a JWT token and return entity_id or None."""
     payload = decode_token(token)
@@ -68,7 +84,10 @@ async def websocket_endpoint(
     Query parameters:
         channels: comma-separated channel names (feed, notifications, activity)
     """
-    await websocket.accept()
+    try:
+        await websocket.accept()
+    except RuntimeError:
+        return
 
     entity_id: str | None = None
 
@@ -76,7 +95,7 @@ async def websocket_endpoint(
     if token:
         entity_id = await _authenticate_ws(token)
         if entity_id is None:
-            await websocket.close(code=4001, reason="Authentication failed")
+            await _safe_close(websocket, 4001, "Authentication failed")
             return
     else:
         # Method 2: wait for auth message as first message
@@ -86,17 +105,15 @@ async def websocket_endpoint(
             if msg.get("type") == "auth" and msg.get("token"):
                 entity_id = await _authenticate_ws(msg["token"])
             if entity_id is None:
-                await websocket.send_text(
-                    json.dumps({"type": "auth_failed", "reason": "Invalid token"})
-                )
-                await websocket.close(code=4001, reason="Authentication failed")
+                await _safe_send(websocket, {"type": "auth_failed", "reason": "Invalid token"})
+                await _safe_close(websocket, 4001, "Authentication failed")
                 return
-        except (json.JSONDecodeError, WebSocketDisconnect):
-            await websocket.close(code=4001, reason="Authentication failed")
+        except (json.JSONDecodeError, WebSocketDisconnect, RuntimeError):
+            await _safe_close(websocket, 4001, "Authentication failed")
             return
 
     # Send auth confirmation
-    await websocket.send_text(json.dumps({"type": "auth_ok"}))
+    await _safe_send(websocket, {"type": "auth_ok"})
 
     channel_list = [c.strip() for c in channels.split(",") if c.strip()]
     valid_channels = {
@@ -116,9 +133,7 @@ async def websocket_endpoint(
                 msg = json.loads(data)
                 # Handle ping/pong for keepalive
                 if msg.get("type") == "ping":
-                    await websocket.send_text(
-                        json.dumps({"type": "pong"})
-                    )
+                    await _safe_send(websocket, {"type": "pong"})
                 # Handle AIP protocol messages
                 elif msg.get("type") in (
                     "discover_request",
@@ -136,7 +151,7 @@ async def websocket_endpoint(
                             )
                             await aip_db.commit()
                         if response:
-                            await websocket.send_text(json.dumps(response))
+                            await _safe_send(websocket, response)
                     except Exception:
                         logger.exception(
                             "Error handling AIP message for entity %s",
