@@ -1,7 +1,7 @@
 """Add interaction_events table for unified pairwise interaction history.
 
 Revision ID: l01_add_interaction_events
-Revises: k02_audit_indexes
+Revises: 430d35e8855c
 Create Date: 2026-03-03 12:00:00.000000
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "l01_add_interaction_events"
-down_revision = "k02_audit_indexes"
+down_revision = "430d35e8855c"
 branch_labels = None
 depends_on = None
 
