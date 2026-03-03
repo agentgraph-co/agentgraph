@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -123,6 +124,9 @@ class Entity(Base):
 
     # SSO provider identity
     sso_provider_id = Column(String(255), nullable=True)
+
+    # Primary trust context (auto-computed from attestation frequency)
+    primary_context = Column(String(100), nullable=True)
 
     # Organization membership
     organization_id = Column(
@@ -1428,14 +1432,67 @@ class Delegation(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
     )
 
+    # Recurring delegation fields
+    recurrence = Column(String(20), nullable=True)  # null=one-shot, "daily", "weekly", "monthly"
+    recurrence_count = Column(Integer, default=0, nullable=False, server_default="0")
+    max_recurrences = Column(Integer, nullable=True)  # null = unlimited
+    parent_delegation_id = Column(
+        UUID(as_uuid=True), ForeignKey("delegations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     delegator = relationship("Entity", foreign_keys=[delegator_entity_id])
     delegate = relationship("Entity", foreign_keys=[delegate_entity_id])
+    parent_delegation = relationship(
+        "Delegation", remote_side="Delegation.id", foreign_keys=[parent_delegation_id],
+    )
 
     __table_args__ = (
         Index("ix_delegations_delegator", "delegator_entity_id"),
         Index("ix_delegations_delegate", "delegate_entity_id"),
         Index("ix_delegations_status", "status"),
         Index("ix_delegations_correlation", "correlation_id"),
+        Index("ix_delegations_parent", "parent_delegation_id"),
+        Index("ix_delegations_recurrence", "recurrence"),
+    )
+
+
+class ServiceContract(Base):
+    """Service contract between a provider and consumer entity."""
+
+    __tablename__ = "service_contracts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    provider_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    consumer_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    listing_id = Column(
+        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    terms = Column(JSONB, nullable=True)
+    status = Column(String(20), default="active", nullable=False)  # active, paused, terminated
+    paused_by = Column(UUID(as_uuid=True), nullable=True)  # who paused it
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
+    terminated_at = Column(DateTime(timezone=True), nullable=True)
+
+    provider = relationship("Entity", foreign_keys=[provider_entity_id])
+    consumer = relationship("Entity", foreign_keys=[consumer_entity_id])
+    listing = relationship("Listing", foreign_keys=[listing_id])
+
+    __table_args__ = (
+        Index("ix_service_contracts_provider", "provider_entity_id"),
+        Index("ix_service_contracts_consumer", "consumer_entity_id"),
+        Index("ix_service_contracts_status", "status"),
+        Index("ix_service_contracts_listing", "listing_id"),
     )
 
 
@@ -1510,6 +1567,35 @@ class AnomalyAlert(Base):
     )
 
 
+class PopulationAlert(Base):
+    """Population composition monitoring alert.
+
+    Detects Sybil attacks, framework monoculture, operator floods, and
+    registration spikes at the platform level (not tied to a single entity).
+    """
+
+    __tablename__ = "population_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_type = Column(
+        String(50), nullable=False, index=True,
+    )  # "framework_monoculture", "operator_flood", "registration_spike", "sybil_cluster"
+    severity = Column(
+        String(20), nullable=False,
+    )  # "low", "medium", "high"
+    details = Column(JSONB, nullable=True)
+    is_resolved = Column(Boolean, default=False, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_population_alerts_type", "alert_type"),
+        Index("ix_population_alerts_resolved", "is_resolved"),
+        Index("ix_population_alerts_created", "created_at"),
+    )
+
+
 class InteractionEvent(Base):
     """Unified pairwise interaction event for tracking all entity-to-entity interactions."""
 
@@ -1542,4 +1628,36 @@ class InteractionEvent(Base):
         Index("ix_interaction_entity_b", "entity_b_id"),
         Index("ix_interaction_type", "interaction_type"),
         Index("ix_interaction_created_at", "created_at"),
+    )
+
+
+class BehavioralBaseline(Base):
+    """Rolling behavioral baseline metrics for an entity over a time period.
+
+    Captures aggregated activity metrics (posts, votes, follows, attestations, etc.)
+    to enable future shaping-dynamics detection.  No alerting or anomaly detection
+    logic lives here — this is pure data collection.
+    """
+
+    __tablename__ = "behavioral_baselines"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    metrics = Column(JSONB, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity", foreign_keys=[entity_id])
+
+    __table_args__ = (
+        Index("ix_behavioral_baselines_entity", "entity_id"),
+        Index("ix_behavioral_baselines_period", "period_start", "period_end"),
     )

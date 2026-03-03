@@ -12,7 +12,8 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
-    "interaction_events",
+    "behavioral_baselines", "interaction_events", "service_contracts",
+    "population_alerts",
     "anomaly_alerts", "propagation_alerts", "org_usage_records",
     "delegations", "agent_capability_registry", "organization_memberships",
     "organizations", "audit_records", "verification_badges",
@@ -69,6 +70,65 @@ async def _clean_db_once():
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_interaction_pairwise "
             "ON interaction_events (entity_a_id, entity_b_id, interaction_type)"
+        ))
+        # Ensure primary_context column exists on entities (migration m01)
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "primary_context VARCHAR(100)"
+        ))
+        # Ensure recurring delegation columns exist (migration n01)
+        await conn.execute(text(
+            "ALTER TABLE delegations ADD COLUMN IF NOT EXISTS "
+            "recurrence VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE delegations ADD COLUMN IF NOT EXISTS "
+            "recurrence_count INTEGER DEFAULT 0 NOT NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE delegations ADD COLUMN IF NOT EXISTS "
+            "max_recurrences INTEGER"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE delegations ADD COLUMN IF NOT EXISTS "
+            "parent_delegation_id UUID REFERENCES delegations(id) ON DELETE SET NULL"
+        ))
+        # Ensure population_alerts table exists (migration m02)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS population_alerts ("
+            "  id UUID PRIMARY KEY,"
+            "  alert_type VARCHAR(50) NOT NULL,"
+            "  severity VARCHAR(20) NOT NULL,"
+            "  details JSONB,"
+            "  is_resolved BOOLEAN NOT NULL DEFAULT false,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        # Ensure service_contracts table exists (migration n01)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS service_contracts ("
+            "  id UUID PRIMARY KEY,"
+            "  provider_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  consumer_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,"
+            "  terms JSONB,"
+            "  status VARCHAR(20) NOT NULL DEFAULT 'active',"
+            "  paused_by UUID,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  terminated_at TIMESTAMPTZ"
+            ")"
+        ))
+        # Ensure behavioral_baselines table exists (migration n02)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS behavioral_baselines ("
+            "  id UUID PRIMARY KEY,"
+            "  entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  period_start DATE NOT NULL,"
+            "  period_end DATE NOT NULL,"
+            "  metrics JSONB NOT NULL,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

@@ -21,6 +21,8 @@ VALID_INTERACTION_TYPES = frozenset({
     "attestation",
     "endorsement",
     "delegation",
+    "recurring_delegation",
+    "service_contract",
     "vote",
     "reply",
     "dm",
