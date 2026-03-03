@@ -35,6 +35,13 @@ ATTESTATION_MAX_PER_ATTESTER = 10  # gaming cap
 ATTESTATION_DECAY_90_DAYS = 0.5
 ATTESTATION_DECAY_180_DAYS = 0.25
 
+# Contextual attestation boost: matching-context attestations count 1.5x
+CONTEXTUAL_MATCH_MULTIPLIER = 1.5
+
+# Blended score weights when context parameter is provided
+CONTEXT_BLEND_BASE_WEIGHT = 0.70
+CONTEXT_BLEND_CONTEXTUAL_WEIGHT = 0.30
+
 
 def _verification_factor(entity: Entity) -> float:
     """0.0 (unverified) to 1.0 (fully verified)."""
@@ -130,7 +137,9 @@ async def _reputation_factor(
 
 
 async def _community_factor(
-    db: AsyncSession, entity_id: uuid.UUID
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    boost_context: str | None = None,
 ) -> tuple[float, dict[str, float]]:
     """Community attestation factor based on trust attestations.
 
@@ -139,6 +148,10 @@ async def _community_factor(
     Attestations are weighted by the attester's trust score at creation time.
     Decay: >90 days = 50% weight, >180 days = 25% weight.
     Gaming cap: max 10 attestations per attester for this target.
+
+    When ``boost_context`` is provided, attestations whose context matches
+    are weighted at CONTEXTUAL_MATCH_MULTIPLIER (1.5x) in the overall
+    community score calculation.
     """
     now = datetime.now(timezone.utc)
     cutoff_90 = now - timedelta(days=90)
@@ -186,10 +199,16 @@ async def _community_factor(
         elif created and created < cutoff_90:
             w *= ATTESTATION_DECAY_90_DAYS
 
-        weighted_sum += w
+        # Apply contextual match boost: attestations in the requested context
+        # are weighted 1.5x to promote contextual trust into the overall score.
+        effective_w = w
+        if boost_context and att.context and att.context == boost_context:
+            effective_w = w * CONTEXTUAL_MATCH_MULTIPLIER
+
+        weighted_sum += effective_w
         total_weight += 1.0
 
-        # Per-context tracking
+        # Per-context tracking (uses base weight, not boosted)
         ctx = att.context
         if ctx:
             context_sums[ctx] = context_sums.get(ctx, 0.0) + w
@@ -206,6 +225,66 @@ async def _community_factor(
         contextual_scores[ctx] = round(min(ctx_score, 1.0), 4)
 
     return overall, contextual_scores
+
+
+def _update_primary_context(
+    entity: Entity,
+    contextual_scores: dict[str, float],
+) -> None:
+    """Set entity.primary_context to the most frequent context.
+
+    Uses the contextual_scores dict (which is keyed by context) as a proxy
+    for attestation frequency — the context with the highest score is
+    selected as the primary domain for this entity.
+
+    Skips silently if no contextual attestations exist.
+    """
+    if not contextual_scores:
+        return
+    # Pick the context with the highest score (ties broken arbitrarily)
+    best_ctx = max(contextual_scores, key=lambda c: contextual_scores[c])
+    entity.primary_context = best_ctx
+
+
+async def compute_contextual_blend(
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    context: str,
+) -> dict:
+    """Compute a blended trust score: 70% base + 30% contextual for *context*.
+
+    Returns a dict with ``base_score``, ``contextual_score``, and the blended
+    ``score``.  If no contextual data exists for *context*, the base score is
+    returned as-is (with ``contextual_score`` set to ``None``).
+    """
+    # Get or compute the base trust score
+    ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == entity_id)
+    )
+    if ts is None:
+        ts = await compute_trust_score(db, entity_id)
+
+    base_score = ts.score
+    contextual_scores = ts.contextual_scores or {}
+    ctx_score = contextual_scores.get(context)
+
+    if ctx_score is None:
+        return {
+            "score": base_score,
+            "base_score": base_score,
+            "contextual_score": None,
+        }
+
+    blended = round(
+        CONTEXT_BLEND_BASE_WEIGHT * base_score
+        + CONTEXT_BLEND_CONTEXTUAL_WEIGHT * ctx_score,
+        4,
+    )
+    return {
+        "score": blended,
+        "base_score": base_score,
+        "contextual_score": ctx_score,
+    }
 
 
 async def compute_trust_score(
@@ -242,6 +321,9 @@ async def compute_trust_score(
         "reputation": round(reputation, 4),
         "community": round(community, 4),
     }
+
+    # Compute primary_context from attestation frequency
+    _update_primary_context(entity, contextual_scores)
 
     # Upsert trust score
     existing = await db.scalar(
@@ -392,6 +474,9 @@ async def batch_recompute(db: AsyncSession) -> int:
             "reputation": round(reputation, 4),
             "community": round(community, 4),
         }
+
+        # Update primary_context from attestation frequency
+        _update_primary_context(entity, contextual_scores)
 
         # Upsert
         existing = await db.scalar(

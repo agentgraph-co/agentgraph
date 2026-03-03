@@ -32,8 +32,25 @@ async def create_delegation(
     task_description: str,
     constraints: dict | None = None,
     timeout_seconds: int = 3600,
+    recurrence: str | None = None,
+    max_recurrences: int | None = None,
+    parent_delegation_id: uuid.UUID | None = None,
 ) -> Delegation:
-    """Create a new delegation request."""
+    """Create a new delegation request.
+
+    Parameters
+    ----------
+    recurrence : str, optional
+        Recurrence schedule: "daily", "weekly", or "monthly".
+        None means one-shot delegation.
+    max_recurrences : int, optional
+        Maximum number of recurring executions.  None = unlimited.
+    parent_delegation_id : UUID, optional
+        If this is a recurring instance, links to the original delegation.
+    """
+    if recurrence and recurrence not in ("daily", "weekly", "monthly"):
+        raise ValueError(f"Invalid recurrence: {recurrence}")
+
     now = datetime.now(timezone.utc)
     correlation_id = uuid.uuid4().hex[:16]
 
@@ -47,6 +64,9 @@ async def create_delegation(
         correlation_id=correlation_id,
         timeout_at=now + timedelta(seconds=timeout_seconds),
         created_at=now,
+        recurrence=recurrence,
+        max_recurrences=max_recurrences,
+        parent_delegation_id=parent_delegation_id,
     )
     db.add(delegation)
     await db.flush()
@@ -95,6 +115,9 @@ async def update_delegation_progress(
         delegation.result = result
     if status in ("completed", "failed"):
         delegation.completed_at = datetime.now(timezone.utc)
+    # Increment recurrence count for recurring delegations on completion
+    if status == "completed" and delegation.recurrence:
+        delegation.recurrence_count = (delegation.recurrence_count or 0) + 1
     await db.flush()
     return delegation
 

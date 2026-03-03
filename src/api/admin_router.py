@@ -17,6 +17,7 @@ from src.models import (
     AnalyticsEvent,
     AnomalyAlert,
     AuditLog,
+    BehavioralBaseline,
     Bookmark,
     CapabilityEndorsement,
     EmailVerification,
@@ -28,6 +29,7 @@ from src.models import (
     ModerationFlag,
     ModerationStatus,
     Notification,
+    PopulationAlert,
     Post,
     Review,
     Submolt,
@@ -64,6 +66,7 @@ class PlatformStats(BaseModel):
     total_transactions: int
     total_revenue_cents: int
     active_entities_30d: int
+    population_alerts_unresolved: int = 0
     framework_distribution: list[FrameworkDistributionEntry] = []
 
 
@@ -201,6 +204,12 @@ async def platform_stats(
         for fw, cnt in fw_result.all()
     ]
 
+    pop_alerts_unresolved = await db.scalar(
+        select(func.count()).select_from(PopulationAlert).where(
+            PopulationAlert.is_resolved.is_(False),
+        )
+    ) or 0
+
     return PlatformStats(
         total_entities=total_entities,
         total_humans=total_humans,
@@ -219,6 +228,7 @@ async def platform_stats(
         total_transactions=total_transactions,
         total_revenue_cents=total_revenue,
         active_entities_30d=active_30d,
+        population_alerts_unresolved=pop_alerts_unresolved,
         framework_distribution=framework_distribution,
     )
 
@@ -1240,3 +1250,314 @@ async def trigger_collusion_scan(
     summary = await run_collusion_scan(db, auto_flag=True)
     await db.commit()
     return CollusionScanResponse(**summary)
+
+
+# ---------------------------------------------------------------------------
+# Population Composition Monitoring
+# ---------------------------------------------------------------------------
+
+
+class PopulationCompositionResponse(BaseModel):
+    total_entities: int
+    total_humans: int
+    total_agents: int
+    human_agent_ratio: float
+    framework_distribution: list[FrameworkDistributionEntry]
+    top_operators: list[dict]
+
+
+class PopulationAlertResponse(BaseModel):
+    id: uuid.UUID
+    alert_type: str
+    severity: str
+    details: dict | None = None
+    is_resolved: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PopulationAlertsListResponse(BaseModel):
+    alerts: list[PopulationAlertResponse]
+    total: int
+
+
+class PopulationScanResponse(BaseModel):
+    total_alerts: int
+    framework_monoculture: int
+    operator_flood: int
+    registration_spike: int
+    sybil_cluster: int
+
+
+@router.get(
+    "/population/composition",
+    response_model=PopulationCompositionResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_population_composition(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current population composition: framework distribution,
+    human/agent ratio, and top operators by agent count. Admin only."""
+    require_admin(current_entity)
+
+    total_entities = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.is_active.is_(True),
+        )
+    ) or 0
+
+    total_humans = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.type == EntityType.HUMAN,
+            Entity.is_active.is_(True),
+        )
+    ) or 0
+
+    total_agents = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+        )
+    ) or 0
+
+    human_agent_ratio = (
+        round(total_humans / total_agents, 4) if total_agents > 0 else 0.0
+    )
+
+    # Framework distribution (active agents only)
+    fw_label = func.coalesce(Entity.framework_source, "unknown").label("fw")
+    fw_result = await db.execute(
+        select(fw_label, func.count().label("cnt"))
+        .where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+        )
+        .group_by(fw_label)
+        .order_by(func.count().desc())
+    )
+    framework_distribution = [
+        FrameworkDistributionEntry(framework=fw, count=cnt)
+        for fw, cnt in fw_result.all()
+    ]
+
+    # Top operators by agent count
+    op_result = await db.execute(
+        select(
+            Entity.operator_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+            Entity.operator_id.isnot(None),
+        )
+        .group_by(Entity.operator_id)
+        .order_by(func.count().desc())
+        .limit(20)
+    )
+    op_rows = op_result.all()
+
+    # Fetch operator display names
+    if op_rows:
+        op_ids = [row[0] for row in op_rows]
+        name_result = await db.execute(
+            select(Entity.id, Entity.display_name).where(Entity.id.in_(op_ids))
+        )
+        name_map = {eid: name for eid, name in name_result.all()}
+    else:
+        name_map = {}
+
+    top_operators = [
+        {
+            "operator_id": str(op_id),
+            "display_name": name_map.get(op_id, "unknown"),
+            "agent_count": cnt,
+        }
+        for op_id, cnt in op_rows
+    ]
+
+    return PopulationCompositionResponse(
+        total_entities=total_entities,
+        total_humans=total_humans,
+        total_agents=total_agents,
+        human_agent_ratio=human_agent_ratio,
+        framework_distribution=framework_distribution,
+        top_operators=top_operators,
+    )
+
+
+@router.get(
+    "/population/alerts",
+    response_model=PopulationAlertsListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_population_alerts(
+    alert_type: str | None = Query(None),
+    severity: str | None = Query(None),
+    is_resolved: bool | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get population alerts with optional filtering. Admin only."""
+    require_admin(current_entity)
+
+    base = select(PopulationAlert)
+    count_base = select(func.count()).select_from(PopulationAlert)
+
+    if alert_type is not None:
+        base = base.where(PopulationAlert.alert_type == alert_type)
+        count_base = count_base.where(PopulationAlert.alert_type == alert_type)
+
+    if severity is not None:
+        base = base.where(PopulationAlert.severity == severity)
+        count_base = count_base.where(PopulationAlert.severity == severity)
+
+    if is_resolved is not None:
+        base = base.where(PopulationAlert.is_resolved.is_(is_resolved))
+        count_base = count_base.where(PopulationAlert.is_resolved.is_(is_resolved))
+
+    total = await db.scalar(count_base) or 0
+
+    result = await db.execute(
+        base.order_by(PopulationAlert.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    alerts = result.scalars().all()
+
+    return PopulationAlertsListResponse(
+        alerts=[PopulationAlertResponse.model_validate(a) for a in alerts],
+        total=total,
+    )
+
+
+@router.post(
+    "/population/scan",
+    response_model=PopulationScanResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def trigger_population_scan(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually trigger a population composition scan. Admin only."""
+    require_admin(current_entity)
+
+    from src.jobs.population_scan import run_population_scan
+
+    summary = await run_population_scan(db)
+    await db.commit()
+    return PopulationScanResponse(**summary)
+
+
+# ---------------------------------------------------------------------------
+# Behavioral Baselines
+# ---------------------------------------------------------------------------
+
+
+class BehavioralBaselineResponse(BaseModel):
+    id: uuid.UUID
+    entity_id: uuid.UUID
+    period_start: str
+    period_end: str
+    metrics: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BehavioralBaselineListResponse(BaseModel):
+    baselines: list[BehavioralBaselineResponse]
+    total: int
+
+
+class WeeklyBaselinesSummary(BaseModel):
+    entities_processed: int
+    baselines_created: int
+    pruned: int
+    period_start: str
+    period_end: str
+    duration_seconds: float
+
+
+@router.get(
+    "/baselines/{entity_id}",
+    response_model=BehavioralBaselineListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_entity_baselines(
+    entity_id: uuid.UUID,
+    limit: int = Query(12, ge=1, le=52),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get behavioral baseline history for an entity (up to 12 weeks).
+
+    Returns the list of BehavioralBaseline records for the entity,
+    ordered by period_start descending.  Admin only.
+    """
+    require_admin(current_entity)
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    count_query = (
+        select(func.count())
+        .select_from(BehavioralBaseline)
+        .where(BehavioralBaseline.entity_id == entity_id)
+    )
+    total = await db.scalar(count_query) or 0
+
+    result = await db.execute(
+        select(BehavioralBaseline)
+        .where(BehavioralBaseline.entity_id == entity_id)
+        .order_by(BehavioralBaseline.period_start.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    baselines = result.scalars().all()
+
+    return BehavioralBaselineListResponse(
+        baselines=[
+            BehavioralBaselineResponse(
+                id=b.id,
+                entity_id=b.entity_id,
+                period_start=b.period_start.isoformat(),
+                period_end=b.period_end.isoformat(),
+                metrics=b.metrics or {},
+                created_at=b.created_at,
+            )
+            for b in baselines
+        ],
+        total=total,
+    )
+
+
+@router.post(
+    "/baselines/compute",
+    response_model=WeeklyBaselinesSummary,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def trigger_weekly_baselines(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually trigger weekly behavioral baseline computation. Admin only.
+
+    Computes baselines for all active entities for the last 7 days and
+    prunes baselines older than 12 weeks.
+    """
+    require_admin(current_entity)
+
+    from src.jobs.behavioral_baseline import run_weekly_baselines
+
+    summary = await run_weekly_baselines(db)
+    await db.commit()
+    return WeeklyBaselinesSummary(**summary)

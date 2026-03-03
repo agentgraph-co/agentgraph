@@ -21,7 +21,7 @@ from src.models import (
     TrustAttestation,
     TrustScore,
 )
-from src.trust.score import compute_trust_score
+from src.trust.score import compute_contextual_blend, compute_trust_score
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,9 @@ class TrustScoreResponse(BaseModel):
     component_details: dict[str, TrustComponentDetail] | None = None
     computed_at: str
     methodology_url: str = "/api/v1/trust/methodology"
+    # Contextual blend fields (populated when ?context= is provided)
+    base_score: float | None = None
+    contextual_score: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -181,6 +184,10 @@ def _build_component_details(components: dict | None) -> dict:
 )
 async def get_trust_score(
     entity_id: uuid.UUID,
+    context: str | None = Query(
+        None, max_length=100,
+        description="Optional context to compute a blended contextual trust score",
+    ),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -199,8 +206,12 @@ async def get_trust_score(
             detail="This entity's trust score is private",
         )
 
-    # Try cache first (after is_active check)
+    # Build a context-specific cache key when context is provided
     cache_key = f"trust:{entity_id}"
+    if context:
+        cache_key = f"trust:{entity_id}:ctx:{context}"
+
+    # Try cache first (after is_active check)
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached
@@ -214,12 +225,25 @@ async def get_trust_score(
 
     component_details = _build_component_details(existing.components)
 
+    # When context is provided, compute a blended score
+    base_score = None
+    contextual_score = None
+    effective_score = existing.score
+
+    if context:
+        blend = await compute_contextual_blend(db, entity_id, context)
+        effective_score = blend["score"]
+        base_score = blend["base_score"]
+        contextual_score = blend["contextual_score"]
+
     response = TrustScoreResponse(
         entity_id=existing.entity_id,
-        score=existing.score,
+        score=effective_score,
         components=existing.components,
         component_details=component_details,
         computed_at=existing.computed_at.isoformat(),
+        base_score=base_score,
+        contextual_score=contextual_score,
     )
 
     # Cache for 5 minutes

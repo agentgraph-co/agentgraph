@@ -26,6 +26,7 @@ from src.models import (
     ListingReview,
     Transaction,
     TransactionStatus,
+    TrustScore,
 )
 from src.ssrf import validate_url
 from src.utils import like_pattern
@@ -82,6 +83,10 @@ class ListingResponse(BaseModel):
     source_evolution_record_id: uuid.UUID | None = None
     created_at: str
     updated_at: str
+    # Seller trust context (populated in listing detail when applicable)
+    seller_trust_score: float | None = None
+    seller_contextual_trust_score: float | None = None
+    seller_trust_context: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -797,7 +802,12 @@ async def get_listing(
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific listing by ID. Increments view count."""
+    """Get a specific listing by ID. Increments view count.
+
+    When the listing's category maps to a trust context, the response
+    includes the seller's contextual trust score for that capability
+    alongside their overall trust score.
+    """
     listing = await db.get(Listing, listing_id)
     if listing is None or not listing.is_active:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -823,6 +833,19 @@ async def get_listing(
 
     avg_rating, review_count = await _get_listing_review_stats(db, listing_id)
     response = _to_response(listing, avg_rating=avg_rating, review_count=review_count)
+
+    # Surface seller's contextual trust score for the listing's category
+    seller_ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == listing.entity_id)
+    )
+    if seller_ts:
+        response.seller_trust_score = seller_ts.score
+        # Use listing category as the trust context
+        ctx = listing.category
+        contextual_scores = seller_ts.contextual_scores or {}
+        if ctx and ctx in contextual_scores:
+            response.seller_contextual_trust_score = contextual_scores[ctx]
+            response.seller_trust_context = ctx
 
     await cache.set(
         f"listing:{listing_id}",
