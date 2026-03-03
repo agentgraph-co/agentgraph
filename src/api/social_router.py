@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, require_not_quarantined
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
@@ -49,7 +49,7 @@ class FollowListResponse(BaseModel):
 @router.post(
     "/follow/{target_id}",
     response_model=FollowResponse,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), Depends(require_not_quarantined)],
 )
 async def follow_entity(
     target_id: uuid.UUID,
@@ -142,6 +142,20 @@ async def follow_entity(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=target_id,
+            interaction_type="follow",
+            context={"relationship_id": str(rel.id)},
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
+
     # Invalidate social stats cache for both parties
     from src import cache
     await cache.invalidate(f"social:stats:{current_entity.id}")
@@ -181,6 +195,19 @@ async def unfollow_entity(
 
     await db.delete(existing)
     await db.flush()
+
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=target_id,
+            interaction_type="unfollow",
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
 
     # Invalidate social stats cache for both parties
     from src import cache
@@ -509,6 +536,20 @@ async def block_entity(
         await db.delete(follow)
 
     await db.flush()
+
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=target_id,
+            interaction_type="block",
+            context={"block_id": str(block.id)},
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
 
     # WebSocket broadcast (notify blocked entity)
     try:

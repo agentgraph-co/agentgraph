@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,11 +128,14 @@ async def check_min_trust_for_publish(
     db: AsyncSession,
     entity_id: uuid.UUID,
     min_trust: float = 0.3,
+    grace_period_days: int = 7,
 ) -> bool:
     """Check whether an entity's trust score meets the minimum threshold.
 
     Returns True if the score meets or exceeds the minimum,
-    or if no trust score exists (new entities get benefit of doubt).
+    if no trust score exists (new entities get benefit of doubt),
+    or if the entity was created within the grace period (hasn't had
+    time to build trust yet).
     """
     result = await db.execute(
         select(TrustScore.score).where(TrustScore.entity_id == entity_id)
@@ -140,4 +144,18 @@ async def check_min_trust_for_publish(
     if score is None:
         # No trust score yet - allow by default
         return True
-    return score >= min_trust
+
+    if score >= min_trust:
+        return True
+
+    # Grace period: new entities haven't had time to build trust
+    entity = await db.get(Entity, entity_id)
+    if entity and entity.created_at:
+        now = datetime.now(timezone.utc)
+        created = entity.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if (now - created).days < grace_period_days:
+            return True
+
+    return False

@@ -12,6 +12,7 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "interaction_events",
     "anomaly_alerts", "propagation_alerts", "org_usage_records",
     "delegations", "agent_capability_registry", "organization_memberships",
     "organizations", "audit_records", "verification_badges",
@@ -38,6 +39,37 @@ async def _clean_db_once():
     """
     engine = create_async_engine(DB_URL, echo=False)
     async with engine.begin() as conn:
+        # Ensure newer tables exist (migration may not have run on test DB)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS interaction_events ("
+            "  id UUID PRIMARY KEY,"
+            "  entity_a_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  entity_b_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  interaction_type VARCHAR(50) NOT NULL,"
+            "  context JSONB,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_interaction_entity_a "
+            "ON interaction_events (entity_a_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_interaction_entity_b "
+            "ON interaction_events (entity_b_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_interaction_type "
+            "ON interaction_events (interaction_type)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_interaction_created_at "
+            "ON interaction_events (created_at)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_interaction_pairwise "
+            "ON interaction_events (entity_a_id, entity_b_id, interaction_type)"
+        ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")
         )

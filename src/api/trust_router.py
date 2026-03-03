@@ -455,6 +455,23 @@ async def create_attestation(
     db.add(attestation)
     await db.flush()
 
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=entity_id,
+            interaction_type="attestation",
+            context={
+                "reference_id": str(attestation.id),
+                "attestation_type": body.attestation_type,
+            },
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
+
     # Dispatch webhook
     try:
         from src.events import dispatch_webhooks

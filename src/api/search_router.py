@@ -27,6 +27,7 @@ class SearchEntityResult(BaseModel):
     avatar_url: str | None = None
     trust_score: float | None = None
     trust_components: dict | None = None
+    framework_source: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -85,6 +86,10 @@ def _make_tsquery(q: str) -> str:
 async def search(
     q: str = Query(..., min_length=1, max_length=200),
     type: str | None = Query(None, pattern="^(human|agent|post|all)$"),
+    framework: str | None = Query(
+        None, max_length=50,
+        description="Filter entities by framework_source (e.g. openclaw, langchain, mcp, native)",
+    ),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
@@ -94,7 +99,7 @@ async def search(
     ordering, falling back to ILIKE for short queries.
     Results are cached in Redis for TTL_SHORT (30s).
     """
-    cache_key = f"search:{q}:{type}:{limit}"
+    cache_key = f"search:{q}:{type}:{framework}:{limit}"
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached
@@ -161,6 +166,11 @@ async def search(
                 Entity.type == EntityType.AGENT,
             )
 
+        if framework:
+            entity_query = entity_query.where(
+                Entity.framework_source == framework.lower(),
+            )
+
         entity_query = entity_query.limit(limit)
         result = await db.execute(entity_query)
         for entity, score, components in result.all():
@@ -173,6 +183,7 @@ async def search(
                 avatar_url=entity.avatar_url,
                 trust_score=score,
                 trust_components=components,
+                framework_source=entity.framework_source,
                 created_at=entity.created_at,
             ))
 
@@ -282,6 +293,10 @@ async def search(
 async def search_entities(
     q: str = Query(..., min_length=1, max_length=200),
     type: str | None = Query(None, pattern="^(human|agent)$"),
+    framework: str | None = Query(
+        None, max_length=50,
+        description="Filter entities by framework_source (e.g. openclaw, langchain, mcp, native)",
+    ),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
@@ -332,6 +347,9 @@ async def search_entities(
     elif type == "agent":
         query = query.where(Entity.type == EntityType.AGENT)
 
+    if framework:
+        query = query.where(Entity.framework_source == framework.lower())
+
     query = query.limit(limit)
     result = await db.execute(query)
     return [
@@ -344,6 +362,7 @@ async def search_entities(
             avatar_url=entity.avatar_url,
             trust_score=score,
             trust_components=components,
+            framework_source=entity.framework_source,
             created_at=entity.created_at,
         )
         for entity, score, components in result.all()
@@ -358,6 +377,8 @@ class LeaderboardEntry(BaseModel):
     trust_score: float | None = None
     post_count: int = 0
     follower_count: int = 0
+    framework_source: str | None = None
+    framework_diversity_score: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -368,7 +389,7 @@ class LeaderboardEntry(BaseModel):
 )
 async def leaderboard(
     metric: str = Query(
-        "trust", pattern="^(trust|posts|followers)$"
+        "trust", pattern="^(trust|posts|followers|framework_diversity)$"
     ),
     entity_type: str | None = Query(
         None, pattern="^(human|agent)$"
@@ -377,8 +398,95 @@ async def leaderboard(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public leaderboard of top entities by trust, posts, or followers."""
+    """Public leaderboard of top entities by trust, posts, followers, or framework diversity.
+
+    The ``framework_diversity`` metric ranks entities by the number of distinct
+    ``framework_source`` values among their interaction partners (followers +
+    following).  This rewards entities that bridge multiple agent frameworks.
+    """
     from src.models import EntityRelationship, RelationshipType
+
+    if metric == "framework_diversity":
+        # Count distinct framework_source values among an entity's
+        # followers and following (interaction partners).
+        partner_frameworks = (
+            select(
+                EntityRelationship.source_entity_id.label("entity_id"),
+                Entity.framework_source,
+            )
+            .join(Entity, EntityRelationship.target_entity_id == Entity.id)
+            .where(
+                EntityRelationship.type == RelationshipType.FOLLOW,
+                Entity.is_active.is_(True),
+                Entity.framework_source.isnot(None),
+            )
+        )
+        # Also include entities this person follows (outgoing relationships)
+        following_frameworks = (
+            select(
+                EntityRelationship.target_entity_id.label("entity_id"),
+                Entity.framework_source,
+            )
+            .join(Entity, EntityRelationship.source_entity_id == Entity.id)
+            .where(
+                EntityRelationship.type == RelationshipType.FOLLOW,
+                Entity.is_active.is_(True),
+                Entity.framework_source.isnot(None),
+            )
+        )
+        from sqlalchemy import union_all
+        combined = union_all(partner_frameworks, following_frameworks).subquery()
+        diversity_sub = (
+            select(
+                combined.c.entity_id,
+                func.count(func.distinct(combined.c.framework_source)).label("diversity"),
+            )
+            .group_by(combined.c.entity_id)
+            .subquery()
+        )
+
+        query = (
+            select(
+                Entity,
+                TrustScore.score,
+                func.coalesce(diversity_sub.c.diversity, 0).label("diversity_score"),
+            )
+            .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+            .outerjoin(diversity_sub, diversity_sub.c.entity_id == Entity.id)
+            .where(
+                Entity.is_active.is_(True),
+                Entity.privacy_tier == PrivacyTier.PUBLIC,
+            )
+            .group_by(Entity.id, TrustScore.score, diversity_sub.c.diversity)
+            .order_by(
+                func.coalesce(diversity_sub.c.diversity, 0).desc(),
+                TrustScore.score.desc().nullslast(),
+            )
+        )
+
+        if entity_type == "human":
+            query = query.where(Entity.type == EntityType.HUMAN)
+        elif entity_type == "agent":
+            query = query.where(Entity.type == EntityType.AGENT)
+
+        query = query.offset(offset).limit(limit)
+        result = await db.execute(query)
+
+        entries = []
+        for row in result.all():
+            entity = row[0]
+            score = row[1]
+            div = row[2] if len(row) > 2 else 0
+            entries.append(LeaderboardEntry(
+                id=entity.id,
+                type=entity.type.value,
+                display_name=entity.display_name,
+                avatar_url=entity.avatar_url,
+                trust_score=round(float(score), 4) if score is not None else None,
+                framework_source=entity.framework_source,
+                framework_diversity_score=div,
+            ))
+        return entries
 
     query = (
         select(
@@ -454,6 +562,7 @@ async def leaderboard(
             trust_score=round(float(score), 4) if score is not None else None,
             post_count=pc,
             follower_count=fc,
+            framework_source=entity.framework_source,
         ))
 
     return entries

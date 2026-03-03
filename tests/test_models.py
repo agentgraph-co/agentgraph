@@ -266,6 +266,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "entity_relationships",
         "evolution_records",
         "framework_security_scans",
+        "interaction_events",
         "listing_reviews",
         "listings",
         "moderation_appeals",

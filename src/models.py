@@ -1508,3 +1508,38 @@ class AnomalyAlert(Base):
         Index("ix_anomaly_alerts_resolved", "is_resolved"),
         Index("ix_anomaly_alerts_created", "created_at"),
     )
+
+
+class InteractionEvent(Base):
+    """Unified pairwise interaction event for tracking all entity-to-entity interactions."""
+
+    __tablename__ = "interaction_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_a_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    entity_b_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    interaction_type = Column(
+        String(50), nullable=False, index=True,
+    )  # "follow", "unfollow", "attestation", "endorsement", "delegation",
+    #    "vote", "reply", "dm", "review", "block"
+    context = Column(JSONB, nullable=True)  # stores reference_id, additional metadata
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
+    )
+
+    entity_a = relationship("Entity", foreign_keys=[entity_a_id])
+    entity_b = relationship("Entity", foreign_keys=[entity_b_id])
+
+    __table_args__ = (
+        Index("ix_interaction_pairwise", "entity_a_id", "entity_b_id", "interaction_type"),
+        Index("ix_interaction_entity_a", "entity_a_id"),
+        Index("ix_interaction_entity_b", "entity_b_id"),
+        Index("ix_interaction_type", "interaction_type"),
+        Index("ix_interaction_created_at", "created_at"),
+    )

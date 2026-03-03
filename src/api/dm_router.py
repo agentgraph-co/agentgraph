@@ -226,6 +226,23 @@ async def send_message(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=body.recipient_id,
+            interaction_type="dm",
+            context={
+                "reference_id": str(msg.id),
+                "conversation_id": str(conv.id),
+            },
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
+
     # Audit log
     from src.audit import log_action
 

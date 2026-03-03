@@ -149,6 +149,29 @@ def require_admin(entity: Entity) -> None:
         )
 
 
+async def require_not_quarantined(
+    current_entity: Entity = Depends(get_current_entity),
+) -> Entity:
+    """Reject request if entity is quarantined."""
+    if getattr(current_entity, "is_quarantined", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is quarantined. Contact support for details.",
+        )
+    return current_entity
+
+
+async def require_not_frozen():
+    """Reject write operations if propagation freeze is active."""
+    from src.safety.propagation import is_propagation_frozen
+
+    if await is_propagation_frozen():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Platform safety pause in effect. Please try again later.",
+        )
+
+
 async def get_optional_entity(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Header(None),

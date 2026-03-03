@@ -167,7 +167,10 @@ async def test_min_trust_check_fails(client, db):
     db.add(ts)
     await db.flush()
 
-    result = await check_min_trust_for_publish(db, entity_id, min_trust=0.3)
+    # grace_period_days=0 to test pure trust threshold without newbie grace
+    result = await check_min_trust_for_publish(
+        db, entity_id, min_trust=0.3, grace_period_days=0,
+    )
     assert result is False
 
 
