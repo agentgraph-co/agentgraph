@@ -15,6 +15,7 @@ from src.audit import log_action
 from src.database import get_db
 from src.models import (
     AnalyticsEvent,
+    AnomalyAlert,
     AuditLog,
     Bookmark,
     CapabilityEndorsement,
@@ -40,6 +41,11 @@ from src.utils import like_pattern
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+class FrameworkDistributionEntry(BaseModel):
+    framework: str
+    count: int
+
+
 class PlatformStats(BaseModel):
     total_entities: int
     total_humans: int
@@ -58,6 +64,7 @@ class PlatformStats(BaseModel):
     total_transactions: int
     total_revenue_cents: int
     active_entities_30d: int
+    framework_distribution: list[FrameworkDistributionEntry] = []
 
 
 class EntityListItem(BaseModel):
@@ -179,6 +186,21 @@ async def platform_stats(
         )
     ) or 0
 
+    # Framework distribution: count of entities per framework_source
+    fw_label = func.coalesce(
+        Entity.framework_source, "unknown",
+    ).label("fw")
+    fw_result = await db.execute(
+        select(fw_label, func.count().label("cnt"))
+        .where(Entity.is_active.is_(True))
+        .group_by(fw_label)
+        .order_by(func.count().desc())
+    )
+    framework_distribution = [
+        FrameworkDistributionEntry(framework=fw, count=cnt)
+        for fw, cnt in fw_result.all()
+    ]
+
     return PlatformStats(
         total_entities=total_entities,
         total_humans=total_humans,
@@ -197,6 +219,7 @@ async def platform_stats(
         total_transactions=total_transactions,
         total_revenue_cents=total_revenue,
         active_entities_30d=active_30d,
+        framework_distribution=framework_distribution,
     )
 
 
@@ -1113,3 +1136,107 @@ async def get_waitlist(
             )
 
     return WaitlistResponse(entries=entries, total=len(entries))
+
+
+# ---------------------------------------------------------------------------
+# Collusion Detection
+# ---------------------------------------------------------------------------
+
+
+class CollusionAlertResponse(BaseModel):
+    id: uuid.UUID
+    entity_id: uuid.UUID
+    alert_type: str
+    severity: str
+    z_score: float
+    details: dict | None = None
+    is_resolved: bool
+    resolved_by: uuid.UUID | None = None
+    resolved_at: datetime | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CollusionAlertsListResponse(BaseModel):
+    alerts: list[CollusionAlertResponse]
+    total: int
+
+
+class CollusionScanResponse(BaseModel):
+    total_alerts: int
+    mutual_attestation: int
+    attestation_cluster: int
+    voting_ring: int
+
+
+@router.get(
+    "/collusion/alerts",
+    response_model=CollusionAlertsListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_collusion_alerts(
+    alert_type: str | None = Query(None),
+    severity: str | None = Query(None),
+    is_resolved: bool | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get collusion alerts with optional filtering. Admin only."""
+    require_admin(current_entity)
+
+    from src.safety.collusion import COLLUSION_ALERT_TYPES
+
+    base = select(AnomalyAlert).where(
+        AnomalyAlert.alert_type.in_(COLLUSION_ALERT_TYPES)
+    )
+    count_base = select(func.count()).select_from(AnomalyAlert).where(
+        AnomalyAlert.alert_type.in_(COLLUSION_ALERT_TYPES)
+    )
+
+    if alert_type is not None:
+        base = base.where(AnomalyAlert.alert_type == alert_type)
+        count_base = count_base.where(AnomalyAlert.alert_type == alert_type)
+
+    if severity is not None:
+        base = base.where(AnomalyAlert.severity == severity)
+        count_base = count_base.where(AnomalyAlert.severity == severity)
+
+    if is_resolved is not None:
+        base = base.where(AnomalyAlert.is_resolved.is_(is_resolved))
+        count_base = count_base.where(AnomalyAlert.is_resolved.is_(is_resolved))
+
+    total = await db.scalar(count_base) or 0
+
+    result = await db.execute(
+        base.order_by(AnomalyAlert.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    alerts = result.scalars().all()
+
+    return CollusionAlertsListResponse(
+        alerts=[CollusionAlertResponse.model_validate(a) for a in alerts],
+        total=total,
+    )
+
+
+@router.post(
+    "/collusion/scan",
+    response_model=CollusionScanResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def trigger_collusion_scan(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually trigger a collusion detection scan. Admin only."""
+    require_admin(current_entity)
+
+    from src.jobs.collusion_scan import run_collusion_scan
+
+    summary = await run_collusion_scan(db, auto_flag=True)
+    await db.commit()
+    return CollusionScanResponse(**summary)

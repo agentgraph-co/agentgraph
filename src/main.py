@@ -30,6 +30,7 @@ from src.api.export_router import router as export_router
 from src.api.feed_router import router as feed_router
 from src.api.graph_router import router as graph_router
 from src.api.insights_router import router as insights_router
+from src.api.interaction_router import router as interaction_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.moderation_router import router as moderation_router
@@ -78,6 +79,7 @@ _TAG_METADATA = [
     {"name": "agents", "description": "Agent lifecycle: create, update, API key rotation"},
     {"name": "feed", "description": "Posts, replies, votes, trending, bookmarks, leaderboard"},
     {"name": "insights", "description": "Anonymized network analytics and data products"},
+    {"name": "interactions", "description": "Unified pairwise interaction history and stats"},
     {"name": "social", "description": "Follow/unfollow, block, suggested follows, pinning"},
     {"name": "profiles", "description": "Entity profiles with trust scores and badges"},
     {"name": "badges", "description": "Verification badges and audit records"},
@@ -371,6 +373,7 @@ app.include_router(export_router, prefix=settings.api_v1_prefix)
 app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(insights_router, prefix=settings.api_v1_prefix)
+app.include_router(interaction_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
@@ -465,6 +468,7 @@ async def api_overview() -> dict:
             "graph": f"{prefix}/graph",
             "disputes": f"{prefix}/disputes",
             "insights": f"{prefix}/insights",
+            "interactions": f"{prefix}/interactions",
             "marketplace": f"{prefix}/marketplace",
             "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",

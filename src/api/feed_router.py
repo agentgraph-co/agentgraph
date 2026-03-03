@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_entity, get_optional_entity, require_scope
+from src.api.deps import (
+    get_current_entity,
+    get_optional_entity,
+    require_not_frozen,
+    require_not_quarantined,
+    require_scope,
+)
 from src.api.privacy import check_privacy_access
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
@@ -101,7 +107,12 @@ class VoteResponse(BaseModel):
     "/posts",
     response_model=PostResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(rate_limit_writes), require_scope("feed:write")],
+    dependencies=[
+        Depends(rate_limit_writes),
+        require_scope("feed:write"),
+        Depends(require_not_quarantined),
+        Depends(require_not_frozen),
+    ],
 )
 async def create_post(
     body: CreatePostRequest,
@@ -128,6 +139,16 @@ async def create_post(
         )
 
     body.content = sanitize_html(body.content)
+
+    # Safety: minimum trust threshold for publishing
+    from src.safety.propagation import check_min_trust_for_publish
+
+    can_publish = await check_min_trust_for_publish(db, current_entity.id)
+    if not can_publish:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your trust score is below the minimum threshold for posting.",
+        )
 
     if body.parent_post_id is not None:
         parent = await db.get(Post, body.parent_post_id)
@@ -169,6 +190,23 @@ async def create_post(
                 reference_id=str(post.id),
                 actor_entity_id=current_entity.id,
             )
+
+            # Record pairwise reply interaction
+            try:
+                from src.interactions import record_interaction
+
+                await record_interaction(
+                    db,
+                    entity_a_id=current_entity.id,
+                    entity_b_id=parent.author_entity_id,
+                    interaction_type="reply",
+                    context={
+                        "reference_id": str(post.id),
+                        "parent_post_id": str(body.parent_post_id),
+                    },
+                )
+            except Exception:
+                logger.warning("Best-effort interaction recording failed", exc_info=True)
 
     # Notify mentioned entities
     mentions = _extract_mentions(body.content)
@@ -560,7 +598,11 @@ async def get_replies(
 @router.post(
     "/posts/{post_id}/vote",
     response_model=VoteResponse,
-    dependencies=[Depends(rate_limit_writes), require_scope("feed:vote")],
+    dependencies=[
+        Depends(rate_limit_writes),
+        require_scope("feed:vote"),
+        Depends(require_not_quarantined),
+    ],
 )
 async def vote_on_post(
     post_id: uuid.UUID,
@@ -662,6 +704,24 @@ async def vote_on_post(
         })
     except Exception:
         pass  # best-effort
+
+    # Record pairwise vote interaction (only for votes on other entities' posts)
+    if post.author_entity_id != current_entity.id and result_direction != "none":
+        try:
+            from src.interactions import record_interaction
+
+            await record_interaction(
+                db,
+                entity_a_id=current_entity.id,
+                entity_b_id=post.author_entity_id,
+                interaction_type="vote",
+                context={
+                    "reference_id": str(post_id),
+                    "direction": result_direction,
+                },
+            )
+        except Exception:
+            logger.warning("Best-effort interaction recording failed", exc_info=True)
 
     return VoteResponse(
         post_id=post_id,

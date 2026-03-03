@@ -53,6 +53,7 @@ class ProfileResponse(BaseModel):
     did_web: str
     capabilities: list | None = None
     autonomy_level: int | None = None
+    framework_source: str | None = None
     privacy_tier: str = "public"
     is_active: bool
     email_verified: bool = False
@@ -166,8 +167,17 @@ async def _get_profile_stats(
     }
 
 
-def _compute_badges(entity: Entity) -> list[str]:
-    """Compute verification badges for an entity."""
+def _compute_badges(
+    entity: Entity, framework_diversity_count: int = 0,
+) -> list[str]:
+    """Compute verification badges for an entity.
+
+    Args:
+        entity: The entity to compute badges for.
+        framework_diversity_count: Number of distinct framework_source values
+            among the entity's interaction partners.  When >= 2 the entity
+            earns the ``multi_framework`` badge.
+    """
     badges = []
     if entity.email_verified:
         badges.append("email_verified")
@@ -177,7 +187,48 @@ def _compute_badges(entity: Entity) -> list[str]:
         badges.append("operator_linked")
     if entity.is_admin:
         badges.append("admin")
+    if framework_diversity_count >= 2:
+        badges.append("multi_framework")
     return badges
+
+
+async def _get_framework_diversity_count(
+    db: AsyncSession, entity_id: uuid.UUID,
+) -> int:
+    """Count distinct framework_source values among an entity's interaction partners.
+
+    Interaction partners = entities that follow this entity + entities this
+    entity follows.  Only partners with a non-null framework_source are counted.
+    """
+    from sqlalchemy import union_all
+
+    # Followers' frameworks
+    follower_fw = (
+        select(Entity.framework_source)
+        .join(EntityRelationship, EntityRelationship.source_entity_id == Entity.id)
+        .where(
+            EntityRelationship.target_entity_id == entity_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
+            Entity.framework_source.isnot(None),
+        )
+    )
+    # Following's frameworks
+    following_fw = (
+        select(Entity.framework_source)
+        .join(EntityRelationship, EntityRelationship.target_entity_id == Entity.id)
+        .where(
+            EntityRelationship.source_entity_id == entity_id,
+            EntityRelationship.type == RelationshipType.FOLLOW,
+            Entity.is_active.is_(True),
+            Entity.framework_source.isnot(None),
+        )
+    )
+    combined = union_all(follower_fw, following_fw).subquery()
+    result = await db.scalar(
+        select(func.count(func.distinct(combined.c.framework_source)))
+    )
+    return result or 0
 
 
 class ProfileListResponse(BaseModel):
@@ -255,6 +306,7 @@ async def browse_profiles(
                 bio_markdown=entity.bio_markdown or "",
                 avatar_url=entity.avatar_url,
                 did_web=entity.did_web,
+                framework_source=entity.framework_source,
                 privacy_tier=entity.privacy_tier.value,
                 is_active=entity.is_active,
                 email_verified=entity.email_verified,
@@ -332,6 +384,7 @@ async def get_profile(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
     stats = await _get_profile_stats(db, entity_id)
+    fw_diversity = await _get_framework_diversity_count(db, entity_id)
 
     response = ProfileResponse(
         id=entity.id,
@@ -346,12 +399,13 @@ async def get_profile(
             else None
         ),
         autonomy_level=entity.autonomy_level,
+        framework_source=entity.framework_source,
         privacy_tier=entity.privacy_tier.value,
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         trust_components=ts.components if ts else None,
-        badges=_compute_badges(entity),
+        badges=_compute_badges(entity, framework_diversity_count=fw_diversity),
         average_rating=stats["average_rating"],
         review_count=stats["review_count"],
         endorsement_count=stats["endorsement_count"],
@@ -443,6 +497,7 @@ async def update_profile(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
     stats = await _get_profile_stats(db, entity_id)
+    fw_diversity = await _get_framework_diversity_count(db, entity_id)
 
     return ProfileResponse(
         id=entity.id,
@@ -457,12 +512,13 @@ async def update_profile(
             else None
         ),
         autonomy_level=entity.autonomy_level,
+        framework_source=entity.framework_source,
         privacy_tier=entity.privacy_tier.value,
         is_active=entity.is_active,
         email_verified=entity.email_verified,
         trust_score=ts.score if ts else None,
         trust_components=ts.components if ts else None,
-        badges=_compute_badges(entity),
+        badges=_compute_badges(entity, framework_diversity_count=fw_diversity),
         average_rating=stats["average_rating"],
         review_count=stats["review_count"],
         endorsement_count=stats["endorsement_count"],

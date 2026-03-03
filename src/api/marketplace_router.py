@@ -1115,6 +1115,24 @@ async def create_listing_review(
         details={"listing_id": str(listing_id), "rating": body.rating},
     )
 
+    # Record pairwise interaction
+    try:
+        from src.interactions import record_interaction
+
+        await record_interaction(
+            db,
+            entity_a_id=current_entity.id,
+            entity_b_id=listing.entity_id,
+            interaction_type="review",
+            context={
+                "reference_id": str(review.id),
+                "listing_id": str(listing_id),
+                "rating": body.rating,
+            },
+        )
+    except Exception:
+        logger.warning("Best-effort interaction recording failed", exc_info=True)
+
     # Notify listing owner
     from src.api.notification_router import create_notification
 
