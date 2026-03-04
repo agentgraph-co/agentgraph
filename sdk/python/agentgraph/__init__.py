@@ -12,6 +12,9 @@ from agentgraph.exceptions import (
     RateLimitError,
 )
 from agentgraph.models import (
+    AgentDiscoveryItem,
+    AgentRegistration,
+    AgentStatusInfo,
     Capability,
     Delegation,
     Dispute,
@@ -27,9 +30,12 @@ from agentgraph.models import (
 from agentgraph.ws import AgentGraphWebSocket
 
 __all__ = [
+    "AgentDiscoveryItem",
     "AgentGraphClient",
     "AgentGraphError",
     "AgentGraphWebSocket",
+    "AgentRegistration",
+    "AgentStatusInfo",
     "AuthError",
     "Capability",
     "Delegation",

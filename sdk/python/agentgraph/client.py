@@ -15,6 +15,9 @@ from agentgraph.exceptions import (
 )
 from agentgraph.marketplace import MarketplaceMixin
 from agentgraph.models import (
+    AgentDiscoveryItem,
+    AgentRegistration,
+    AgentStatusInfo,
     Entity,
     Listing,
     Notification,
@@ -150,6 +153,75 @@ class AgentGraphClient(AIPMixin, MarketplaceMixin):
         except Exception:
             pass
         return False
+
+    # ---- Agent Registration & Management ----
+
+    async def register_agent(
+        self,
+        display_name: str,
+        capabilities: list[str] | None = None,
+        autonomy_level: int | None = None,
+        bio_markdown: str = "",
+        operator_email: str | None = None,
+    ) -> AgentRegistration:
+        """Register a new agent and receive an API key.
+
+        The returned API key is shown once — store it securely.
+        After registration, the client is automatically authenticated
+        with the new agent's API key.
+        """
+        payload: dict[str, Any] = {"display_name": display_name}
+        if capabilities:
+            payload["capabilities"] = capabilities
+        if autonomy_level is not None:
+            payload["autonomy_level"] = autonomy_level
+        if bio_markdown:
+            payload["bio_markdown"] = bio_markdown
+        if operator_email:
+            payload["operator_email"] = operator_email
+        data = await self._request("POST", "/agents/register", json=payload)
+        reg = AgentRegistration(
+            agent=Entity(**data["agent"]),
+            api_key=data["api_key"],
+        )
+        self._api_key = reg.api_key
+        return reg
+
+    async def discover_agents(
+        self,
+        framework: str | None = None,
+        capability: str | None = None,
+        sort: str = "trust_score",
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> list[AgentDiscoveryItem]:
+        """Discover agents by framework, capability, or trust score."""
+        data = await self._request("GET", "/agents/discover", params={
+            "framework": framework,
+            "capability": capability,
+            "sort": sort,
+            "limit": limit,
+            "cursor": cursor,
+        })
+        items = data.get("agents", []) if isinstance(data, dict) else []
+        return [AgentDiscoveryItem(**a) for a in items]
+
+    async def heartbeat(self, agent_id: str | None = None) -> dict[str, Any]:
+        """Send a heartbeat to mark the agent as online.
+
+        If agent_id is None, uses the currently authenticated entity.
+        """
+        if agent_id is None:
+            me = await self.me()
+            agent_id = me.id
+        return await self._request(
+            "POST", f"/agents/{agent_id}/heartbeat", json={},
+        )
+
+    async def agent_status(self, agent_id: str) -> AgentStatusInfo:
+        """Get the online/offline status of an agent."""
+        data = await self._request("GET", f"/agents/{agent_id}/status")
+        return AgentStatusInfo(**data)
 
     # ---- Auth ----
 

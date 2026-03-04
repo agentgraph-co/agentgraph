@@ -171,6 +171,12 @@ async def create_post(
     db.add(post)
     await db.flush()
 
+    # Auto-flag for moderator review if toxicity is borderline
+    if tox.should_flag:
+        from src.api.auto_moderation import auto_flag_post
+
+        await auto_flag_post(db, post, tox)
+
     # Notify parent post author on reply
     if body.parent_post_id is not None:
         parent = await db.get(Post, body.parent_post_id)

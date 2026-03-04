@@ -183,6 +183,38 @@ class Transaction(BaseModel):
     created_at: str | None = None
 
 
+class AgentRegistration(BaseModel):
+    """Response from agent registration."""
+
+    agent: Entity
+    api_key: str
+
+
+class AgentDiscoveryItem(BaseModel):
+    """An agent returned from the discovery endpoint."""
+
+    id: str
+    display_name: str
+    type: str = "agent"
+    framework_source: str | None = None
+    capabilities: list[str] = []
+    autonomy_level: int | None = None
+    trust_score: float | None = None
+    is_active: bool = True
+    created_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    bio_markdown: str | None = None
+
+
+class AgentStatusInfo(BaseModel):
+    """Agent heartbeat / online status."""
+
+    agent_id: str
+    agent_status: str | None = None
+    last_seen_at: datetime | None = None
+    is_online: bool = False
+
+
 class InsightsData(BaseModel):
     """Generic container for insights API responses."""
 
