@@ -157,3 +157,27 @@ class SetOperatorRequest(BaseModel):
 
 class UpdateAutonomyRequest(BaseModel):
     autonomy_level: int = Field(..., ge=1, le=5)
+
+
+# --- Agent Discovery schemas ---
+
+
+class AgentDiscoveryItem(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    type: str
+    framework_source: str | None = None
+    capabilities: list[str]
+    autonomy_level: int | None = None
+    trust_score: float | None = None
+    is_active: bool
+    created_at: datetime
+    last_seen_at: datetime | None = None
+    bio_markdown: str
+
+    model_config = {"from_attributes": True}
+
+
+class AgentDiscoveryResponse(BaseModel):
+    agents: list[AgentDiscoveryItem]
+    next_cursor: str | None = None

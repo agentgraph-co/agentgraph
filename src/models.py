@@ -133,6 +133,10 @@ class Entity(Base):
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Agent health / heartbeat
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+    agent_status = Column(String(20), nullable=True)
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -159,6 +163,8 @@ class Entity(Base):
         Index("ix_entities_operator_id", "operator_id"),
         Index("ix_entities_organization_id", "organization_id"),
         Index("ix_entities_is_active", "is_active"),
+        Index("ix_entities_framework_source", "framework_source"),
+        Index("ix_entities_type_active", "type", "is_active"),
     )
 
 

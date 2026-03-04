@@ -2,17 +2,33 @@
 
 Supports per-IP and per-entity limits for reads, writes, and auth.
 Falls back to in-memory tracking if Redis is unavailable.
+
+Tiered rate limiting (rate_limit_reads_tiered / rate_limit_writes_tiered)
+applies different limits based on entity type and trust score:
+  - anonymous: lowest limits (no auth)
+  - human: default limits (authenticated human)
+  - agent: higher limits (entity.type == "agent")
+  - trusted_agent: highest limits (agent with trust_score > threshold)
 """
 from __future__ import annotations
 
+import enum
 import logging
 import time
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 
 from src.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class RateLimitTier(str, enum.Enum):
+    """Rate limit tier based on entity type and trust score."""
+    ANONYMOUS = "anonymous"
+    HUMAN = "human"
+    AGENT = "agent"
+    TRUSTED_AGENT = "trusted_agent"
 
 
 class RedisRateLimiter:
@@ -263,3 +279,211 @@ async def rate_limit_auth(request: Request) -> None:
             headers=_rate_limit_response(0, limit),
         )
     await _set_rate_limit_headers(request, key, limit)
+
+
+# ---------------------------------------------------------------------------
+# Tiered rate limiting — entity-type-aware limits
+# ---------------------------------------------------------------------------
+
+
+async def _get_optional_entity_safe(
+    request: Request,
+) -> object | None:
+    """Resolve the authenticated entity without raising on anonymous requests.
+
+    This is a lightweight wrapper that extracts credentials from the request
+    headers and resolves the entity via the existing auth service helpers.
+    Returns ``None`` for unauthenticated requests or on any error.
+
+    Note: This is intentionally NOT a FastAPI ``Depends()`` on
+    ``get_optional_entity`` to avoid adding ``get_db`` as a sub-dependency
+    (which would open a second DB session in the rate-limiter dependency
+    chain). Instead it manually opens a short-lived session only when
+    credentials are present.
+    """
+    try:
+        auth_header = request.headers.get("authorization", "")
+        api_key_header = request.headers.get("x-api-key")
+
+        if not auth_header.startswith("Bearer ") and api_key_header is None:
+            return None
+
+        from src.api.auth_service import decode_token, get_entity_by_id
+        from src.database import async_session
+
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            payload = decode_token(token)
+            if payload is None or payload.get("kind") != "access":
+                return None
+            import uuid as _uuid
+
+            try:
+                entity_id = _uuid.UUID(payload["sub"])
+            except (ValueError, KeyError):
+                return None
+            async with async_session() as session:
+                return await get_entity_by_id(session, entity_id)
+
+        if api_key_header is not None:
+            from src.api.agent_service import authenticate_by_api_key
+
+            async with async_session() as session:
+                return await authenticate_by_api_key(session, api_key_header)
+    except Exception:
+        logger.debug("Tiered rate limiter: failed to resolve entity", exc_info=True)
+    return None
+
+
+async def _get_entity_trust_score(entity_id: str) -> float | None:
+    """Fetch cached trust score for an entity. Returns None if unavailable."""
+    try:
+        from src import cache
+
+        cached = await cache.get(f"trust:{entity_id}")
+        if cached is not None:
+            # cached value is a dict with a "score" key from the trust router
+            if isinstance(cached, dict):
+                return cached.get("score")
+            # In case it's stored as a bare float
+            return float(cached)
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_tier(entity: object | None) -> RateLimitTier:
+    """Determine the rate limit tier for an entity.
+
+    Args:
+        entity: The Entity model instance, or None for anonymous requests.
+                Uses duck-typing to avoid importing the Entity model here.
+
+    Returns:
+        The appropriate RateLimitTier.
+    """
+    if entity is None:
+        return RateLimitTier.ANONYMOUS
+
+    entity_type = getattr(entity, "type", None)
+    if entity_type is None:
+        return RateLimitTier.HUMAN
+
+    # EntityType is a str enum — getattr(entity_type, "value", entity_type)
+    # handles both raw strings and enum instances.
+    type_value = getattr(entity_type, "value", entity_type)
+    if str(type_value).lower() == "agent":
+        return RateLimitTier.AGENT  # May be upgraded to TRUSTED_AGENT later
+
+    return RateLimitTier.HUMAN
+
+
+async def _maybe_upgrade_to_trusted(
+    tier: RateLimitTier, entity: object | None,
+) -> RateLimitTier:
+    """Upgrade an AGENT tier to TRUSTED_AGENT if their trust score exceeds
+    the configured threshold. Only queries cache — no DB hit.
+    """
+    if tier != RateLimitTier.AGENT or entity is None:
+        return tier
+
+    entity_id = getattr(entity, "id", None)
+    if entity_id is None:
+        return tier
+
+    score = await _get_entity_trust_score(str(entity_id))
+    if score is not None and score > settings.rate_limit_trusted_agent_threshold:
+        return RateLimitTier.TRUSTED_AGENT
+
+    return tier
+
+
+def _tier_read_limit(tier: RateLimitTier) -> int:
+    """Return the per-minute read limit for a given tier."""
+    if tier == RateLimitTier.ANONYMOUS:
+        return settings.rate_limit_anon_reads_per_minute
+    if tier == RateLimitTier.AGENT:
+        return settings.rate_limit_agent_reads_per_minute
+    if tier == RateLimitTier.TRUSTED_AGENT:
+        return settings.rate_limit_trusted_agent_reads_per_minute
+    # HUMAN (default)
+    return settings.rate_limit_reads_per_minute
+
+
+def _tier_write_limit(tier: RateLimitTier) -> int:
+    """Return the per-minute write limit for a given tier."""
+    if tier == RateLimitTier.ANONYMOUS:
+        return settings.rate_limit_anon_writes_per_minute
+    if tier == RateLimitTier.AGENT:
+        return settings.rate_limit_agent_writes_per_minute
+    if tier == RateLimitTier.TRUSTED_AGENT:
+        return settings.rate_limit_trusted_agent_writes_per_minute
+    # HUMAN (default)
+    return settings.rate_limit_writes_per_minute
+
+
+async def _check_tiered(
+    request: Request,
+    kind: str,
+    limit: int,
+    entity: object | None,
+    tier: RateLimitTier,
+) -> None:
+    """Core tiered rate-limit check for both reads and writes.
+
+    Applies per-IP limit first, then per-entity limit if authenticated.
+    """
+    ip = _get_client_ip(request)
+    key = f"{kind}:{ip}"
+
+    if not await _limiter.check(key, limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers=_rate_limit_response(0, limit),
+        )
+
+    await _set_rate_limit_headers(request, key, limit)
+
+    # Per-entity check (only for authenticated callers)
+    entity_id = getattr(entity, "id", None) if entity else None
+    if entity_id is not None:
+        entity_key = f"{kind}:entity:{entity_id}"
+        if not await _limiter.check(entity_key, limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded",
+                headers=_rate_limit_response(0, limit),
+            )
+
+
+async def rate_limit_reads_tiered(
+    request: Request,
+    entity: object | None = Depends(_get_optional_entity_safe),
+) -> None:
+    """Rate-limit reads using entity-aware tiers.
+
+    Automatically resolves the caller's tier (anonymous / human / agent /
+    trusted_agent) and applies the corresponding per-minute read limit.
+    Drop-in replacement for ``rate_limit_reads`` on routes that also
+    resolve authentication.
+    """
+    tier = _resolve_tier(entity)
+    tier = await _maybe_upgrade_to_trusted(tier, entity)
+    limit = _tier_read_limit(tier)
+    await _check_tiered(request, "read", limit, entity, tier)
+
+
+async def rate_limit_writes_tiered(
+    request: Request,
+    entity: object | None = Depends(_get_optional_entity_safe),
+) -> None:
+    """Rate-limit writes using entity-aware tiers.
+
+    Automatically resolves the caller's tier and applies the corresponding
+    per-minute write limit.
+    """
+    tier = _resolve_tier(entity)
+    tier = await _maybe_upgrade_to_trusted(tier, entity)
+    limit = _tier_write_limit(tier)
+    await _check_tiered(request, "write", limit, entity, tier)
