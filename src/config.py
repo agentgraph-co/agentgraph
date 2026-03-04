@@ -90,6 +90,9 @@ class Settings(BaseSettings):
     perspective_toxicity_flag: float = 0.70
     perspective_timeout: int = 5
 
+    # Auto-moderation: auto-hide posts with this many flags
+    auto_hide_flag_threshold: int = 5
+
     # Error tracking
     sentry_dsn: str | None = None
 

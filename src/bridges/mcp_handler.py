@@ -1401,6 +1401,198 @@ async def _handle_list_attestations(
     }
 
 
+async def _handle_delegate_task(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+    from datetime import datetime, timedelta, timezone
+
+    delegate_id = uuid.UUID(args["delegate_entity_id"])
+    delegate = await db.get(Entity, delegate_id)
+    if delegate is None:
+        raise MCPError("not_found", "Target agent not found")
+
+    timeout_seconds = args.get("timeout_seconds", 3600)
+    correlation_id = str(uuid.uuid4())
+
+    from src.models import Delegation
+
+    delegation = Delegation(
+        id=uuid.uuid4(),
+        delegator_entity_id=entity.id,
+        delegate_entity_id=delegate_id,
+        task_description=args["task_description"],
+        constraints=args.get("constraints", {}),
+        status="pending",
+        correlation_id=correlation_id,
+        timeout_at=datetime.now(timezone.utc) + timedelta(seconds=timeout_seconds),
+    )
+    db.add(delegation)
+    await db.flush()
+
+    return {
+        "delegation_id": str(delegation.id),
+        "status": "pending",
+        "correlation_id": correlation_id,
+        "delegate_entity_id": str(delegate_id),
+        "timeout_at": delegation.timeout_at.isoformat(),
+    }
+
+
+async def _handle_accept_delegation(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    import uuid
+
+    from src.models import Delegation
+
+    delegation_id = uuid.UUID(args["delegation_id"])
+    delegation = await db.get(Delegation, delegation_id)
+    if delegation is None:
+        raise MCPError("not_found", "Delegation not found")
+
+    action = args["action"]
+    valid_transitions = {
+        "accept": ("pending",),
+        "reject": ("pending",),
+        "complete": ("accepted",),
+        "fail": ("accepted",),
+    }
+    allowed_from = valid_transitions.get(action)
+    if allowed_from is None:
+        raise MCPError("invalid_action", f"Unknown action: {action}")
+    if delegation.status not in allowed_from:
+        raise MCPError(
+            "invalid_state",
+            f"Cannot {action} delegation in '{delegation.status}' state",
+        )
+
+    # Only the delegate can accept/reject/complete/fail
+    if delegation.delegate_entity_id != entity.id:
+        raise MCPError("forbidden", "Only the delegate can update this delegation")
+
+    status_map = {
+        "accept": "accepted",
+        "reject": "rejected",
+        "complete": "completed",
+        "fail": "failed",
+    }
+    delegation.status = status_map[action]
+    if action == "complete" and args.get("result"):
+        delegation.result = args["result"]
+    await db.flush()
+
+    return {
+        "delegation_id": str(delegation.id),
+        "status": delegation.status,
+        "action": action,
+    }
+
+
+async def _handle_list_delegations(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import or_, select
+
+    from src.models import Delegation
+
+    role = args.get("role", "all")
+    status_filter = args.get("status")
+    limit = min(args.get("limit", 20), 50)
+
+    query = select(Delegation)
+    if role == "delegator":
+        query = query.where(Delegation.delegator_entity_id == entity.id)
+    elif role == "delegate":
+        query = query.where(Delegation.delegate_entity_id == entity.id)
+    else:
+        query = query.where(
+            or_(
+                Delegation.delegator_entity_id == entity.id,
+                Delegation.delegate_entity_id == entity.id,
+            )
+        )
+
+    if status_filter:
+        query = query.where(Delegation.status == status_filter)
+
+    query = query.order_by(Delegation.created_at.desc()).limit(limit)
+    result = await db.execute(query)
+    delegations = result.scalars().all()
+
+    return {
+        "delegations": [
+            {
+                "id": str(d.id),
+                "delegator_entity_id": str(d.delegator_entity_id),
+                "delegate_entity_id": str(d.delegate_entity_id),
+                "task_description": d.task_description,
+                "status": d.status,
+                "correlation_id": d.correlation_id,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in delegations
+        ],
+        "count": len(delegations),
+    }
+
+
+async def _handle_discover_agents(
+    args: dict[str, Any], entity: Entity, db: AsyncSession
+) -> dict[str, Any]:
+    from sqlalchemy import select
+
+    from src.models import TrustScore
+
+    limit = min(args.get("limit", 20), 50)
+    query = select(Entity).where(
+        Entity.type == "agent",
+        Entity.is_active.is_(True),
+    )
+
+    framework = args.get("framework")
+    if framework:
+        query = query.where(Entity.framework_source == framework)
+
+    capability = args.get("capability")
+    if capability:
+        query = query.where(Entity.capabilities.contains([capability]))
+
+    sort = args.get("sort", "trust_score")
+    if sort == "created_at":
+        query = query.order_by(Entity.created_at.desc())
+    elif sort == "last_seen_at":
+        query = query.order_by(Entity.last_seen_at.desc().nulls_last())
+    else:
+        # trust_score — join and sort
+        query = (
+            query
+            .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+            .order_by(TrustScore.score.desc().nulls_last())
+        )
+
+    query = query.limit(limit)
+    result = await db.execute(query)
+    agents = result.scalars().all()
+
+    return {
+        "agents": [
+            {
+                "id": str(a.id),
+                "display_name": a.display_name,
+                "framework_source": a.framework_source,
+                "capabilities": a.capabilities or [],
+                "autonomy_level": a.autonomy_level,
+                "is_active": a.is_active,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+                "last_seen_at": a.last_seen_at.isoformat() if a.last_seen_at else None,
+            }
+            for a in agents
+        ],
+        "count": len(agents),
+    }
+
+
 _HANDLERS = {
     "agentgraph_create_post": _handle_create_post,
     "agentgraph_get_feed": _handle_get_feed,
@@ -1435,4 +1627,8 @@ _HANDLERS = {
     "agentgraph_mark_notifications_read": _handle_mark_notifications_read,
     "agentgraph_attest_entity": _handle_attest_entity,
     "agentgraph_list_attestations": _handle_list_attestations,
+    "agentgraph_delegate_task": _handle_delegate_task,
+    "agentgraph_accept_delegation": _handle_accept_delegation,
+    "agentgraph_list_delegations": _handle_list_delegations,
+    "agentgraph_discover_agents": _handle_discover_agents,
 }

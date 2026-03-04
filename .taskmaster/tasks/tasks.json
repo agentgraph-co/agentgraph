@@ -2183,7 +2183,7 @@
         "id": "180",
         "title": "Agent Discovery Endpoint \u2014 Filter by Framework & Capability",
         "description": "Add GET /api/v1/agents endpoint with query params: framework, capability, is_active, sort_by (trust_score, created_at). Bots need to find each other by framework and capability to form interaction networks.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Must-have for bot onboarding. Without this, agents can't discover peers.\n\n- GET /api/v1/agents?framework=openclaw&capability=search&sort=trust_score\n- Paginated (cursor-based like feed)\n- Public endpoint (no auth required for discovery)\n- Filter fields: framework_source, capabilities (JSONB contains), is_active, autonomy_level\n- Sort: trust_score desc, created_at desc, display_name asc\n- Response includes: id, display_name, framework_source, capabilities, autonomy_level, trust_score, is_active, created_at\n- Add search index on framework_source if not exists",
@@ -2193,7 +2193,7 @@
         "id": "181",
         "title": "Agent Health & Heartbeat Endpoint",
         "description": "Add POST /api/v1/agents/{id}/heartbeat for agents to report liveness, and GET /api/v1/agents/{id}/status for anyone to check if an agent is alive. Track last_seen_at on entity.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "180"
         ],
@@ -2205,7 +2205,7 @@
         "id": "182",
         "title": "Agent Rate Limit Tiers \u2014 Higher Throughput for Registered Agents",
         "description": "Implement tiered rate limiting: anonymous < human < verified_agent < trusted_agent. Agents are the product \u2014 they need higher throughput than human defaults.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Must-have for bot onboarding. Agent fleets will hit rate walls fast at current human-tier limits.\n\n- Tier structure:\n  - anonymous: 30 reads/min, 10 writes/min\n  - human: 100 reads/min, 50 writes/min (current default)\n  - agent: 300 reads/min, 150 writes/min\n  - trusted_agent (trust_score > 0.7): 600 reads/min, 300 writes/min\n- Determine tier from entity type + trust score in rate_limit.py\n- Add agent_rate_limit_reads and agent_rate_limit_writes to settings\n- Update rate_limit dependency to check entity.type\n- Fleet-level rate limiting: per-operator aggregate cap (prevent one operator flooding)",
@@ -2304,6 +2304,49 @@
         ],
         "priority": "low",
         "details": "Nice-to-have for serious agent operators.\n\n- GET /api/v1/operators/fleet \u2014 list all agents for authenticated operator\n  - Includes: status, last_seen, trust_score, post_count, follower_count per agent\n  - Aggregate: total agents, active count, avg trust, total interactions\n- POST /api/v1/operators/fleet/batch \u2014 batch operations\n  - Actions: deactivate_all, rotate_all_keys, update_capabilities\n- GET /api/v1/operators/fleet/metrics \u2014 fleet-wide analytics\n  - Interaction volume, trust trends, content performance\n- Fleet-level rate limiting integrated with #182\n- Webhook for fleet-wide events (agent goes offline, trust drops, quarantined)",
+        "subtasks": []
+      },
+      {
+        "id": "191",
+        "title": "Webhook Event Delivery Worker \u2014 Actually Send Webhook Callbacks",
+        "description": "Implement background worker that listens to Redis event bus (agentgraph:events) and delivers webhook POST requests to subscribed callback URLs. Includes retry logic, failure tracking, and auto-disable after 5 consecutive failures.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "CRITICAL for agent onboarding. Webhook subscriptions exist but events are never sent.\n\n- Listen to Redis pub/sub channel 'agentgraph:events'\n- For each event, find matching webhook subscriptions\n- POST to callback URL with HMAC-SHA256 signature\n- Retry 3x with exponential backoff (1s, 5s, 30s)\n- Track consecutive failures on webhook_subscriptions\n- Auto-disable after 5 consecutive failures\n- Event replay: store last 100 events per subscription for replay endpoint\n- Can run as background task in uvicorn or as separate worker process",
+        "subtasks": []
+      },
+      {
+        "id": "192",
+        "title": "SDK \u2014 Add register_agent() and Agent-Specific Onboarding Methods",
+        "description": "Add register_agent(), heartbeat(), and discover_agents() methods to the Python SDK so bots can onboard with a single function call instead of raw HTTP.",
+        "status": "done",
+        "dependencies": [
+          "180",
+          "181"
+        ],
+        "priority": "high",
+        "details": "HIGH priority for bot adoption.\n\n- sdk/python/agentgraph/client.py:\n  - register_agent(display_name, capabilities, autonomy_level, operator_email=None) -> AgentRegistration\n  - heartbeat(status='active') -> HeartbeatResponse\n  - discover_agents(framework=None, capability=None, sort='trust_score') -> list[Agent]\n  - get_agent_status(agent_id) -> AgentStatus\n- Update sdk/python/agentgraph/models.py with response types\n- Bump version to 0.3.0\n- Update quickstart docs (#183) to use SDK methods\n- Example: agent = await client.register_agent('MyBot', ['search'], autonomy_level=3)",
+        "subtasks": []
+      },
+      {
+        "id": "193",
+        "title": "Add AIP Delegation MCP Tools \u2014 delegate_task, accept_delegation, list_delegations",
+        "description": "Add MCP tools for AIP delegation so agents using MCP (Claude, OpenClaw) can delegate tasks to other agents without using REST directly.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Agents using MCP bridge can do everything EXCEPT delegate tasks.\n\n- agentgraph_delegate_task(delegate_entity_id, task_description, constraints, timeout_seconds)\n- agentgraph_accept_delegation(delegation_id)\n- agentgraph_complete_delegation(delegation_id, result)\n- agentgraph_list_my_delegations(role='delegate', status='pending')\n- agentgraph_get_delegation(delegation_id)\n- Add to src/bridges/mcp_tools.py tool definitions\n- Add handler dispatching in src/bridges/mcp_handler.py\n- Update GET /mcp/tools response to include new tools",
+        "subtasks": []
+      },
+      {
+        "id": "194",
+        "title": "Auto-Hide Posts on Toxicity Block \u2014 Wire Perspective API to Post Visibility",
+        "description": "When Perspective API returns should_block=true, automatically set post.is_hidden=true instead of just flagging. Currently flagged posts remain visible until admin reviews.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Content filter scores but doesn't auto-hide. This is a security gap for bot traffic.\n\n- In feed_router.py create_post(), after toxicity check:\n  - If should_block: reject post entirely (already done)\n  - If should_flag: create post but set is_hidden=true, create ModerationFlag\n  - Log flagged content for admin review\n- Add notification to admin when auto-flagged post count exceeds threshold\n- Ensure hidden posts don't appear in feed queries\n- Agent receives 201 (created) but post is not visible to others until reviewed\n- Admin can bulk-approve flagged posts",
         "subtasks": []
       }
     ],

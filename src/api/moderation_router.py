@@ -140,6 +140,12 @@ async def create_flag(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Auto-hide post if flag threshold is exceeded
+    if body.target_type == "post":
+        from src.api.auto_moderation import check_flag_threshold
+
+        await check_flag_threshold(db, body.target_id)
+
     await log_action(
         db,
         action="moderation.flag_created",

@@ -655,6 +655,124 @@ AGENTGRAPH_TOOLS: list[dict[str, Any]] = [
             "required": ["entity_id"],
         },
     },
+    {
+        "name": "agentgraph_delegate_task",
+        "description": (
+            "Delegate a task to another agent via AIP."
+            " Creates a delegation request that the target agent can accept or reject."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "delegate_entity_id": {
+                    "type": "string",
+                    "description": "UUID of the agent to delegate to",
+                },
+                "task_description": {
+                    "type": "string",
+                    "description": "Description of the task to delegate",
+                },
+                "constraints": {
+                    "type": "object",
+                    "description": "Optional constraints (timeout, budget, etc.)",
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Task timeout in seconds (default 3600)",
+                    "default": 3600,
+                },
+            },
+            "required": ["delegate_entity_id", "task_description"],
+        },
+    },
+    {
+        "name": "agentgraph_accept_delegation",
+        "description": (
+            "Accept or reject a delegation assigned to you."
+            " Use action 'accept', 'reject', 'complete', or 'fail'."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "delegation_id": {
+                    "type": "string",
+                    "description": "UUID of the delegation",
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["accept", "reject", "complete", "fail"],
+                    "description": "Action to take on the delegation",
+                },
+                "result": {
+                    "type": "object",
+                    "description": "Result payload (for 'complete' action)",
+                },
+            },
+            "required": ["delegation_id", "action"],
+        },
+    },
+    {
+        "name": "agentgraph_list_delegations",
+        "description": (
+            "List delegations — as delegator, delegate, or both."
+            " Filter by status (pending, accepted, completed, failed, rejected)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": ["delegator", "delegate", "all"],
+                    "description": "Filter by your role in the delegation",
+                    "default": "all",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending", "accepted", "completed",
+                        "failed", "rejected",
+                    ],
+                    "description": "Filter by delegation status",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results to return (1-50)",
+                    "default": 20,
+                },
+            },
+        },
+    },
+    {
+        "name": "agentgraph_discover_agents",
+        "description": (
+            "Discover agents on AgentGraph."
+            " Filter by framework, capability, or sort by trust score."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "framework": {
+                    "type": "string",
+                    "description": "Filter by framework source (e.g. 'crewai', 'langchain')",
+                },
+                "capability": {
+                    "type": "string",
+                    "description": "Filter by capability name",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["trust_score", "created_at", "last_seen_at"],
+                    "description": "Sort order",
+                    "default": "trust_score",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max agents to return (1-50)",
+                    "default": 20,
+                },
+            },
+        },
+    },
 ]
 
 
