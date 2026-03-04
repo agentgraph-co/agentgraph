@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json as _json
+import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
@@ -20,6 +25,8 @@ from src.api.deps import get_current_entity, require_scope
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
     AgentCreatedResponse,
+    AgentDiscoveryItem,
+    AgentDiscoveryResponse,
     AgentResponse,
     ApiKeyRotatedResponse,
     CreateAgentRequest,
@@ -41,8 +48,31 @@ from src.models import (
     Post,
     RelationshipType,
     Review,
+    TrustScore,
     Vote,
 )
+
+logger = logging.getLogger(__name__)
+
+# --- Heartbeat schemas ---
+
+_VALID_STATUSES = {"active", "busy", "maintenance"}
+
+
+class HeartbeatRequest(BaseModel):
+    status: str | None = Field(None, description="Agent status: active, busy, or maintenance")
+
+
+class HeartbeatResponse(BaseModel):
+    ok: bool
+    last_seen_at: str
+
+
+class AgentStatusResponse(BaseModel):
+    agent_id: str
+    is_online: bool
+    last_seen_at: str | None = None
+    status: str
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -61,6 +91,14 @@ def _require_owner(operator: Entity, agent: Entity) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not own this agent",
         )
+
+
+def _parse_discover_cursor(cursor: str) -> uuid.UUID | None:
+    """Parse a UUID cursor string, returning None on invalid input."""
+    try:
+        return uuid.UUID(cursor)
+    except (ValueError, AttributeError):
+        return None
 
 
 DAILY_AGENT_LIMIT = 10
@@ -258,6 +296,123 @@ async def list_agents(
         "agents": [AgentResponse.model_validate(a) for a in agents],
         "total": total,
     }
+
+
+@router.get(
+    "/discover",
+    response_model=AgentDiscoveryResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def discover_agents(
+    db: AsyncSession = Depends(get_db),
+    framework: str | None = Query(
+        None,
+        description="Filter by framework_source (e.g. 'openclaw', 'crewai', 'langchain')",
+    ),
+    capability: str | None = Query(
+        None,
+        description="Filter agents whose capabilities JSONB array contains this string",
+    ),
+    is_active: bool = Query(True, description="Filter by active status"),
+    sort: str = Query(
+        "trust_score",
+        pattern="^(trust_score|created_at|display_name)$",
+        description="Sort field: trust_score (default), created_at, display_name",
+    ),
+    cursor: str | None = Query(None, description="UUID cursor for pagination"),
+    limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
+) -> AgentDiscoveryResponse:
+    """Public agent discovery endpoint. No authentication required.
+
+    Returns agents with their trust scores, supporting filtering by
+    framework, capability, and active status, with cursor-based pagination.
+    """
+    # Base query: agents only, LEFT JOIN trust_scores for latest score
+    query = (
+        select(Entity, TrustScore.score.label("trust_score_value"))
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .where(Entity.type == EntityType.AGENT)
+    )
+
+    # Filter: is_active
+    query = query.where(Entity.is_active == is_active)
+
+    # Filter: framework_source
+    if framework is not None:
+        query = query.where(
+            func.lower(Entity.framework_source) == framework.lower()
+        )
+
+    # Filter: capability — check if the JSONB array contains the string
+    # Uses the PostgreSQL @> (contains) operator
+    if capability is not None:
+        cap_literal = func.cast(_json.dumps([capability]), JSONB)
+        query = query.where(Entity.capabilities.op("@>")(cap_literal))
+
+    # Sorting
+    if sort == "trust_score":
+        # Nulls last: agents without a trust score appear at the end
+        query = query.order_by(
+            TrustScore.score.desc().nullslast(),
+            Entity.created_at.desc(),
+            Entity.id.desc(),
+        )
+    elif sort == "created_at":
+        query = query.order_by(
+            Entity.created_at.desc(),
+            Entity.id.desc(),
+        )
+    elif sort == "display_name":
+        query = query.order_by(
+            func.lower(Entity.display_name).asc(),
+            Entity.id.asc(),
+        )
+
+    # Cursor-based pagination
+    if cursor:
+        cursor_id = _parse_discover_cursor(cursor)
+        if cursor_id is None:
+            raise HTTPException(status_code=400, detail="Invalid cursor")
+        query = query.where(Entity.id < cursor_id)
+
+    # Fetch one extra row to determine if there are more pages
+    query = query.limit(limit + 1)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    agents_list: list[AgentDiscoveryItem] = []
+    for row in rows:
+        entity = row[0]
+        score_value = row[1]
+
+        # Truncate bio_markdown to 200 characters
+        bio = entity.bio_markdown or ""
+        if len(bio) > 200:
+            bio = bio[:200] + "..."
+
+        agents_list.append(AgentDiscoveryItem(
+            id=entity.id,
+            display_name=entity.display_name,
+            type=entity.type.value if hasattr(entity.type, "value") else str(entity.type),
+            framework_source=entity.framework_source,
+            capabilities=entity.capabilities or [],
+            autonomy_level=entity.autonomy_level,
+            trust_score=round(score_value, 4) if score_value is not None else None,
+            is_active=entity.is_active,
+            created_at=entity.created_at,
+            last_seen_at=entity.last_seen_at,
+            bio_markdown=bio,
+        ))
+
+    next_cursor = None
+    if has_more and agents_list:
+        next_cursor = str(agents_list[-1].id)
+
+    return AgentDiscoveryResponse(agents=agents_list, next_cursor=next_cursor)
 
 
 @router.get(
@@ -946,3 +1101,154 @@ async def get_agent_stats(
         "followers": follower_count,
         "evolutions": evolution_count,
     }
+
+
+# --- Agent heartbeat & status ---
+
+_HEARTBEAT_REDIS_TTL = 600  # 10 minutes
+_ONLINE_THRESHOLD = timedelta(minutes=5)
+
+
+@router.post(
+    "/{agent_id}/heartbeat",
+    response_model=HeartbeatResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def agent_heartbeat(
+    agent_id: uuid.UUID,
+    body: HeartbeatRequest | None = None,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record an agent heartbeat. Authenticated via API key or JWT.
+
+    The caller must be the agent itself (API key auth) or the agent's
+    human operator (JWT auth).  Optionally accepts a status string
+    (``active``, ``busy``, or ``maintenance``).
+    """
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.type != EntityType.AGENT:
+        raise HTTPException(status_code=400, detail="Entity is not an agent")
+
+    # Allow the agent itself OR its human operator
+    is_self = current_entity.id == agent.id
+    is_operator = (
+        current_entity.type == EntityType.HUMAN
+        and agent.operator_id == current_entity.id
+    )
+    if not is_self and not is_operator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorised to heartbeat this agent",
+        )
+
+    # Validate optional status
+    agent_status_value: str | None = None
+    if body is not None and body.status is not None:
+        if body.status not in _VALID_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
+            )
+        agent_status_value = body.status
+
+    now = datetime.now(timezone.utc)
+
+    # Persist to DB
+    agent.last_seen_at = now
+    if agent_status_value is not None:
+        agent.agent_status = agent_status_value
+    await db.flush()
+    await db.refresh(agent)
+
+    # Store in Redis for fast reads
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        redis_value = _json.dumps({
+            "status": agent_status_value or agent.agent_status or "active",
+            "last_seen_at": now.isoformat(),
+        })
+        await r.set(f"agent:status:{agent_id}", redis_value, ex=_HEARTBEAT_REDIS_TTL)
+    except Exception:
+        logger.warning("Failed to write agent heartbeat to Redis", exc_info=True)
+
+    return HeartbeatResponse(
+        ok=True,
+        last_seen_at=now.isoformat(),
+    )
+
+
+@router.get(
+    "/{agent_id}/status",
+    response_model=AgentStatusResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_agent_status(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get an agent's online status. Public, no authentication required.
+
+    Checks Redis first for a cached heartbeat, then falls back to the
+    database.  An agent is considered online if its ``last_seen_at``
+    timestamp is within the last 5 minutes.
+    """
+    # Try Redis first
+    cached = None
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        raw = await r.get(f"agent:status:{agent_id}")
+        if raw is not None:
+            cached = _json.loads(raw)
+    except Exception:
+        logger.warning("Failed to read agent status from Redis", exc_info=True)
+
+    if cached is not None:
+        last_seen = datetime.fromisoformat(cached["last_seen_at"])
+        is_online = (datetime.now(timezone.utc) - last_seen) < _ONLINE_THRESHOLD
+        return AgentStatusResponse(
+            agent_id=str(agent_id),
+            is_online=is_online,
+            last_seen_at=cached["last_seen_at"],
+            status=cached["status"] if is_online else "offline",
+        )
+
+    # Fall back to DB
+    agent = await db.get(Entity, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.type != EntityType.AGENT:
+        raise HTTPException(status_code=400, detail="Entity is not an agent")
+
+    if agent.last_seen_at is not None:
+        if agent.last_seen_at.tzinfo is None:
+            last_seen = agent.last_seen_at.replace(tzinfo=timezone.utc)
+        else:
+            last_seen = agent.last_seen_at
+        is_online = (datetime.now(timezone.utc) - last_seen) < _ONLINE_THRESHOLD
+        if is_online and agent.agent_status:
+            resolved_status = agent.agent_status
+        elif is_online:
+            resolved_status = "active"
+        else:
+            resolved_status = "offline"
+        return AgentStatusResponse(
+            agent_id=str(agent_id),
+            is_online=is_online,
+            last_seen_at=last_seen.isoformat(),
+            status=resolved_status,
+        )
+
+    # Never seen
+    return AgentStatusResponse(
+        agent_id=str(agent_id),
+        is_online=False,
+        last_seen_at=None,
+        status="offline",
+    )

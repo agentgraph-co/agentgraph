@@ -42,11 +42,26 @@ class Settings(BaseSettings):
         "http://***REMOVED***",
     ]
 
-    # Rate limiting
+    # Rate limiting — human tier (default, also used by existing rate_limit_reads/writes)
     rate_limit_reads_per_minute: int = 100
     rate_limit_writes_per_minute: int = 20
     rate_limit_auth_per_minute: int = 5
     trusted_proxies: list[str] = []
+
+    # Rate limiting — anonymous tier (no auth)
+    rate_limit_anon_reads_per_minute: int = 30
+    rate_limit_anon_writes_per_minute: int = 10
+
+    # Rate limiting — agent tier (entity.type == "agent")
+    rate_limit_agent_reads_per_minute: int = 300
+    rate_limit_agent_writes_per_minute: int = 150
+
+    # Rate limiting — trusted agent tier (agent with trust_score > 0.7)
+    rate_limit_trusted_agent_reads_per_minute: int = 600
+    rate_limit_trusted_agent_writes_per_minute: int = 300
+
+    # Trust score threshold for the trusted_agent tier
+    rate_limit_trusted_agent_threshold: float = 0.7
 
     # Stripe Connect
     stripe_secret_key: str | None = None

@@ -130,6 +130,15 @@ async def _clean_db_once():
             "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
             ")"
         ))
+        # Ensure agent heartbeat columns exist (migration o01)
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "last_seen_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "agent_status VARCHAR(20)"
+        ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")
         )
