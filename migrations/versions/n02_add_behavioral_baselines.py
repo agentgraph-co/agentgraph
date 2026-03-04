@@ -1,7 +1,7 @@
 """Add behavioral_baselines table for temporal baseline metrics.
 
 Revision ID: n02_add_behavioral_baselines
-Revises: n01_recurring_delegations_contracts
+Revises: n01_deleg_and_contracts
 Create Date: 2026-03-03 18:00:00.000000
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "n02_add_behavioral_baselines"
-down_revision = "n01_recurring_delegations_contracts"
+down_revision = "n01_deleg_and_contracts"
 branch_labels = None
 depends_on = None
 

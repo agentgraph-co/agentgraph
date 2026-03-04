@@ -1,6 +1,6 @@
 """Add recurring delegation columns and service_contracts table.
 
-Revision ID: n01_recurring_delegations_contracts
+Revision ID: n01_deleg_and_contracts
 Revises: m02_add_population_alerts
 Create Date: 2026-03-03 16:00:00.000000
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "n01_recurring_delegations_contracts"
+revision = "n01_deleg_and_contracts"
 down_revision = "m02_add_population_alerts"
 branch_labels = None
 depends_on = None
