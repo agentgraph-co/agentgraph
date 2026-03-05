@@ -12,6 +12,7 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "aip_messages", "aip_channels",
     "content_links",
     "behavioral_baselines", "interaction_events", "service_contracts",
     "population_alerts", "attestation_providers", "formal_attestations",
@@ -195,6 +196,70 @@ async def _clean_db_once():
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_formal_attestations_revoked "
             "ON formal_attestations (is_revoked)"
+        ))
+        # Ensure provisional registration + onboarding columns exist on entities
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "is_provisional BOOLEAN NOT NULL DEFAULT false"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "claim_token VARCHAR(64) UNIQUE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "provisional_expires_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "onboarding_data JSONB DEFAULT '{}'::jsonb"
+        ))
+        # Ensure aip_channels table exists (migration r05)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS aip_channels ("
+            "  id UUID PRIMARY KEY,"
+            "  name VARCHAR(200) NOT NULL,"
+            "  description TEXT,"
+            "  created_by_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  participant_ids JSONB DEFAULT '[]'::jsonb,"
+            "  is_active BOOLEAN NOT NULL DEFAULT true,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_aip_channels_created_by "
+            "ON aip_channels (created_by_entity_id)"
+        ))
+        # Ensure aip_messages table exists (migration r05)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS aip_messages ("
+            "  id UUID PRIMARY KEY,"
+            "  sender_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  recipient_entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,"
+            "  channel_id UUID REFERENCES aip_channels(id) ON DELETE CASCADE,"
+            "  message_type VARCHAR(20) NOT NULL,"
+            "  payload JSONB DEFAULT '{}'::jsonb,"
+            "  sender_trust_score DOUBLE PRECISION,"
+            "  is_read BOOLEAN NOT NULL DEFAULT false,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_aip_messages_sender "
+            "ON aip_messages (sender_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_aip_messages_recipient "
+            "ON aip_messages (recipient_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_aip_messages_channel "
+            "ON aip_messages (channel_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_aip_messages_created_at "
+            "ON aip_messages (created_at)"
         ))
         # Ensure content_links table exists (migration r02)
         await conn.execute(text(

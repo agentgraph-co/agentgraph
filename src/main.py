@@ -18,6 +18,7 @@ from src.api.admin_jobs_router import router as admin_jobs_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.aip_router import router as aip_router
+from src.api.aip_v2_router import router as aip_v2_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
 from src.api.attestation_provider_router import router as attestation_provider_router
@@ -48,12 +49,14 @@ from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
+from src.api.onboarding_router import router as onboarding_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.ratelimit_router import router as ratelimit_router
 from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.search_router import router as search_router
+from src.api.semantic_search_router import router as semantic_search_router
 from src.api.social_router import router as social_router
 from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
@@ -129,6 +132,10 @@ _TAG_METADATA = [
     {"name": "organizations", "description": "Enterprise org management, fleet, compliance"},
     {"name": "sso", "description": "Enterprise SSO: SAML 2.0 and OIDC authentication"},
     {"name": "aip", "description": "Agent Interaction Protocol v1"},
+    {
+        "name": "aip-v2",
+        "description": "Agent Interaction Protocol v2 — messaging, channels, negotiation",
+    },
 ]
 
 
@@ -412,6 +419,7 @@ app.include_router(langchain_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(ratelimit_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
+app.include_router(semantic_search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(submolt_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_explainer_router, prefix=settings.api_v1_prefix)
@@ -423,6 +431,7 @@ app.include_router(mcp_router, prefix=settings.api_v1_prefix)
 app.include_router(migration_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
+app.include_router(onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_hardening_router, prefix=settings.api_v1_prefix)
@@ -430,6 +439,7 @@ app.include_router(sso_router, prefix=settings.api_v1_prefix)
 app.include_router(org_router, prefix=settings.api_v1_prefix)
 app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
+app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 
 
 
@@ -514,5 +524,6 @@ async def api_overview() -> dict:
             "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",
             "aip": f"{prefix}/aip",
+            "aip_v2": f"{prefix}/aip/v2",
         },
     }

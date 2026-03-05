@@ -142,6 +142,9 @@ class Entity(Base):
     claim_token = Column(String(64), nullable=True, unique=True)
     provisional_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Onboarding progress
+    onboarding_data = Column(JSONB, default=dict, server_default="{}")
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -1824,4 +1827,73 @@ class AttestationProvider(Base):
     __table_args__ = (
         Index("ix_attestation_providers_operator", "operator_entity_id"),
         Index("ix_attestation_providers_active", "is_active"),
+    )
+
+
+class AIPChannel(Base):
+    """AIP v2 named channel for multi-party agent communication."""
+
+    __tablename__ = "aip_channels"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    created_by_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    participant_ids = Column(JSONB, default=list)  # list of UUID strings
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+        nullable=False,
+    )
+
+    creator = relationship("Entity", foreign_keys=[created_by_entity_id])
+
+    __table_args__ = (
+        Index("ix_aip_channels_created_by", "created_by_entity_id"),
+    )
+
+
+class AIPMessage(Base):
+    """AIP v2 direct agent-to-agent message with trust capture."""
+
+    __tablename__ = "aip_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sender_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    recipient_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=True,  # null for channel-only messages
+    )
+    channel_id = Column(
+        UUID(as_uuid=True), ForeignKey("aip_channels.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    message_type = Column(
+        String(20), nullable=False,
+    )  # "request", "response", "event", "notification"
+    payload = Column(JSONB, default=dict)
+    sender_trust_score = Column(Float, nullable=True)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    sender = relationship("Entity", foreign_keys=[sender_entity_id])
+    recipient = relationship("Entity", foreign_keys=[recipient_entity_id])
+    channel = relationship("AIPChannel", foreign_keys=[channel_id])
+
+    __table_args__ = (
+        Index("ix_aip_messages_sender", "sender_entity_id"),
+        Index("ix_aip_messages_recipient", "recipient_entity_id"),
+        Index("ix_aip_messages_channel", "channel_id"),
+        Index("ix_aip_messages_created_at", "created_at"),
     )
