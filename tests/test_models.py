@@ -247,6 +247,8 @@ async def test_all_tables_exist(db: AsyncSession):
     tables = [row[0] for row in result.fetchall()]
     expected = [
         "agent_capability_registry",
+        "aip_channels",
+        "aip_messages",
         "alembic_version",
         "analytics_events",
         "anomaly_alerts",

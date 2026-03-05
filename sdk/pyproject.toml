@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentgraph-sdk"
+version = "0.1.0"
+description = "Python SDK and CLI for the AgentGraph trust and identity platform"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "AgentGraph", email = "sdk@agentgraph.io" },
+]
+dependencies = [
+    "httpx>=0.24.0",
+    "click>=8.0",
+    "pydantic>=2.0.0",
+    "eval-type-backport>=0.1.3; python_version < '3.10'",
+]
+
+[project.scripts]
+agentgraph = "agentgraph_sdk.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentgraph_sdk"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
