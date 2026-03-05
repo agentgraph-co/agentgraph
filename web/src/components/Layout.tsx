@@ -68,7 +68,9 @@ function MobileAppFooter() {
   }
 
   return (
-    <footer className="border-t border-border/50 bg-surface/80">
+    <footer className="relative border-t border-border/50 bg-surface/80">
+      {/* Gradient band along the top of footer */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Mobile Apps Section */}
         <div className="mb-10">
@@ -83,7 +85,7 @@ function MobileAppFooter() {
             {/* iOS — Early Access */}
             <div className="relative glass rounded-xl p-6 overflow-hidden">
               {/* Subtle glow accent */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/8 to-transparent rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/8 to-transparent rounded-full blur-2xl pointer-events-none" aria-hidden="true" />
 
               <div className="relative flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center">
@@ -99,7 +101,7 @@ function MobileAppFooter() {
 
               {submitted ? (
                 <div className="flex items-center gap-2 text-sm text-success">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span>You're on the list! We'll notify you when it's ready.</span>
@@ -115,6 +117,7 @@ function MobileAppFooter() {
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setError('') }}
                       placeholder="your@email.com"
+                      aria-label="Email address for iOS early access"
                       required
                       className="flex-1 min-w-0 text-sm bg-background/60 border border-border rounded-lg px-3 py-2 text-text placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
                     />
@@ -136,7 +139,7 @@ function MobileAppFooter() {
             {/* Android — Coming Soon */}
             <div className="relative glass rounded-xl p-6 overflow-hidden">
               {/* Subtle glow accent */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-accent/6 to-transparent rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-accent/6 to-transparent rounded-full blur-2xl pointer-events-none" aria-hidden="true" />
 
               <div className="relative flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/80 to-violet flex items-center justify-center">
@@ -154,7 +157,7 @@ function MobileAppFooter() {
                 Android support is on the roadmap. Stay tuned for updates on our Android release.
               </p>
               <div className="mt-4 flex items-center gap-2 text-xs text-text-muted/70">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>Planned for 2026</span>
@@ -167,7 +170,7 @@ function MobileAppFooter() {
         <div className="border-t border-border/30 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none">
+              <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
                 <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
                 <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
@@ -181,7 +184,7 @@ function MobileAppFooter() {
               &copy; {new Date().getFullYear()} AgentGraph. Trust infrastructure for AI agents and humans.
             </span>
           </div>
-          <div className="flex items-center gap-4 text-xs text-text-muted">
+          <nav aria-label="Footer navigation" className="flex items-center gap-4 text-xs text-text-muted">
             <Link to="/legal/terms" className="hover:text-text transition-colors">Terms</Link>
             <Link to="/legal/privacy" className="hover:text-text transition-colors">Privacy</Link>
             <Link to="/legal/dmca" className="hover:text-text transition-colors">DMCA</Link>
@@ -191,7 +194,7 @@ function MobileAppFooter() {
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
             <Link to="/graph" className="hover:text-text transition-colors">Graph</Link>
-          </div>
+          </nav>
         </div>
       </div>
     </footer>
@@ -231,17 +234,21 @@ export default function Layout() {
   // Glassmorphism on scroll — debounced to avoid re-rendering 60x/sec
   useEffect(() => {
     let ticking = false
+    let rafId = 0
     const onScroll = () => {
       if (!ticking) {
         ticking = true
-        requestAnimationFrame(() => {
+        rafId = requestAnimationFrame(() => {
           setScrolled(window.scrollY > 10)
           ticking = false
         })
       }
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(rafId)
+    }
   }, [])
 
   const isActive = useCallback(
@@ -297,7 +304,7 @@ export default function Layout() {
             : 'bg-surface/95 border-b border-border'
         }`}
       >
-        <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <nav aria-label="Main navigation" className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2 group">
@@ -307,7 +314,7 @@ export default function Layout() {
                 whileTap={{ scale: 0.95 }}
                 transition={spring}
               >
-                <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
+                <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                   <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
                   <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
                   <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
@@ -381,8 +388,8 @@ export default function Layout() {
                 </Link>
 
                 {/* Notification bell with badge */}
-                <Link to="/notifications" className="relative p-1 group">
-                  <svg className={`w-4.5 h-4.5 transition-colors ${isActive('/notifications') ? 'text-primary-light' : 'text-text-muted group-hover:text-text'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Link to="/notifications" className="relative p-1 group" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}>
+                  <svg aria-hidden="true" className={`w-4.5 h-4.5 transition-colors ${isActive('/notifications') ? 'text-primary-light' : 'text-text-muted group-hover:text-text'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
                   {unreadCount > 0 && (

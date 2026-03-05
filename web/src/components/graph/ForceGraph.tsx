@@ -157,6 +157,11 @@ export default function ForceGraph({
     return () => el.removeEventListener('wheel', handler)
   }, [])
 
+  // Cancel pending zoom rAF on unmount to prevent setState after unmount
+  useEffect(() => {
+    return () => cancelAnimationFrame(zoomRAFRef.current)
+  }, [])
+
   // Zoom tracking — use ref + debounced state to avoid re-render during d3 handler
   const handleZoom = useCallback((transform: { k: number }) => {
     currentZoomRef.current = transform.k

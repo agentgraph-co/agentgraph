@@ -247,6 +247,7 @@ export default function Messages() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search for a user or agent..."
+                aria-label="Search for a user or agent"
                 autoFocus
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
@@ -288,6 +289,7 @@ export default function Messages() {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Write your message first, then pick a recipient above..."
+                aria-label="Compose new message"
                 rows={3}
                 maxLength={5000}
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
@@ -381,6 +383,7 @@ export default function Messages() {
                     }
                   }}
                   placeholder="Type a message..."
+                  aria-label="Type a message"
                   maxLength={5000}
                   className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                 />

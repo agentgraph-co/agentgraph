@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 112 / 165 total | Remaining: 53**
+**Done: 116 / 165 total | Remaining: 49**
 
 ---
 
@@ -9,7 +9,7 @@
 - **#119** SSL/TLS — Let's Encrypt + nginx HTTPS **(HIGH)**
 - **#120** Domain Setup — Point agentgraph.io DNS to EC2 **(HIGH)**
 - #125 Sentry DSN Configuration
-- #126 Daily Backup Cron Setup
+- ~~#126 Daily Backup Cron Setup~~ ✅
 
 ### Email & Legal/Compliance — 4 items
 
@@ -25,7 +25,7 @@
 - #99 Accessibility — ARIA Labels, Tab Roles, Table Captions
 - #101 Standardize Loading States to Skeleton Components
 - #102 Fix setTimeout Memory Leaks and ParticleField Re-render Bug
-- #103 Remove Dead Code, Extract Constants, Clean Up
+- ~~#103 Remove Dead Code, Extract Constants, Clean Up~~ ✅
 - #104 Header Nav Highlight on Scroll + Footer Gradient Band
 
 ### Database & Performance — 1 item
@@ -41,7 +41,7 @@
 - ~~#140 Subscription & Usage-Based Pricing Models~~ ✅
 - ~~#141 Scheduled Trust Recomputation — Production Scheduler~~ ✅
 - ~~#142 Formal Attestation & Verification Badge Framework~~ ✅
-- #143 Disputes UI — Web Frontend
+- ~~#143 Disputes UI — Web Frontend~~ ✅
 - ~~#144 Trust-Scaled Rate Limiting~~ ✅
 - ~~#161 Enhanced Profiles — Reviews Tab, Attestations Display~~ ✅
 - #162 iOS Marketplace — Browse, Listing Detail, Purchase Flow
@@ -62,7 +62,7 @@
 
 ### Phase 4 — Marketplace & Ecosystem — 4 items
 
-- #154 Token Economics Design & Implementation
+- ~~#154 Token Economics Design & Implementation~~ ✅
 - ~~#155 Data Products — Monetized Analytics API~~ ✅
 - ~~#156 AIP v2 Protocol Ecosystem — Cross-Platform Tools~~ ✅
 - ~~#157 Trust Portability — Verifiable Credentials Export~~ ✅
@@ -114,4 +114,4 @@
 
 ---
 
-**Summary: 4 high, 8 medium, 32 low, 9 deferred = 53 remaining**
+**Summary: 4 high, 7 medium, 29 low, 9 deferred = 49 remaining**

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { timeAgo } from '../lib/formatters'
+import { McpToolSkeleton } from '../components/Skeleton'
 
 interface ToolInputProperty {
   type: string
@@ -139,10 +140,7 @@ export default function McpTools() {
     return (
       <div className="max-w-3xl mx-auto space-y-3 mt-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="bg-surface border border-border rounded-lg p-4 animate-pulse">
-            <div className="h-4 bg-surface-hover rounded w-1/3 mb-2" />
-            <div className="h-3 bg-surface-hover rounded w-2/3" />
-          </div>
+          <McpToolSkeleton key={i} />
         ))}
       </div>
     )

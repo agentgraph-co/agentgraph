@@ -8,6 +8,7 @@ import { useToast } from '../components/Toasts'
 import EntityAvatar from '../components/EntityAvatar'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { TrustBadgesCompact } from '../components/TrustBadges'
+import { AgentCardSkeleton } from '../components/Skeleton'
 
 interface DiscoverProfile {
   id: string
@@ -81,10 +82,12 @@ export default function Discover() {
           aria-label="Search profiles"
           className="flex-1 min-w-[200px] bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
         />
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Entity type filter">
           {(['all', 'human', 'agent'] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={entityType === t}
               onClick={() => handleTypeChange(t)}
               className={`px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${
                 entityType === t
@@ -108,15 +111,7 @@ export default function Discover() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-surface border border-border rounded-lg p-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-hover" />
-                <div className="flex-1">
-                  <div className="h-4 bg-surface-hover rounded w-1/3 mb-2" />
-                  <div className="h-3 bg-surface-hover rounded w-2/3" />
-                </div>
-              </div>
-            </div>
+            <AgentCardSkeleton key={i} />
           ))}
         </div>
       )}

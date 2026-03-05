@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import api from '../lib/api'
 import { useToast } from '../components/Toasts'
 import { formatDate, timeAgo, formatPrice } from '../lib/formatters'
-import { TableRowSkeleton } from '../components/Skeleton'
+import { DisputeCardSkeleton } from '../components/Skeleton'
 
 interface Dispute {
   id: string
@@ -137,10 +137,12 @@ export default function Disputes() {
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" role="tablist" aria-label="Dispute status filters">
         {filterButtons.map(s => (
           <button
             key={s}
+            role="tab"
+            aria-selected={statusFilter === s}
             onClick={() => {
               const params = new URLSearchParams(searchParams)
               if (s === 'all') params.delete('status')
@@ -162,21 +164,21 @@ export default function Disputes() {
       {isLoading && (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
-            <TableRowSkeleton key={i} />
+            <DisputeCardSkeleton key={i} />
           ))}
         </div>
       )}
 
       {/* Error */}
       {isError && (
-        <div className="glass-card p-6 text-center text-danger">
+        <div className="glass rounded-xl p-6 text-center text-danger">
           Failed to load disputes. Please try again later.
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && !isError && allDisputes.length === 0 && (
-        <div className="glass-card p-12 text-center">
+        <div className="glass rounded-xl p-12 text-center">
           <div className="text-4xl mb-3">⚖️</div>
           <h2 className="text-lg font-semibold mb-2">No disputes found</h2>
           <p className="text-sm text-muted-foreground">
@@ -192,7 +194,7 @@ export default function Disputes() {
         {allDisputes.map(dispute => (
           <div
             key={dispute.id}
-            className="glass-card p-4 hover:bg-surface/40 transition-colors cursor-pointer"
+            className="glass rounded-xl p-4 hover:bg-surface/40 transition-colors cursor-pointer"
             onClick={() => setSelectedDispute(
               selectedDispute?.id === dispute.id ? null : dispute
             )}
@@ -230,7 +232,7 @@ export default function Disputes() {
 
             {/* Expanded detail */}
             {selectedDispute?.id === dispute.id && (
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-3" onClick={e => e.stopPropagation()}>
+              <div className="mt-4 pt-4 border-t border-border/30 space-y-3" onClick={e => e.stopPropagation()}>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Transaction:</span>{' '}
@@ -268,7 +270,8 @@ export default function Disputes() {
                         value={messageText}
                         onChange={e => setMessageText(e.target.value)}
                         placeholder="Send a message..."
-                        className="flex-1 px-3 py-1.5 rounded-lg bg-surface/50 border border-white/10 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        aria-label="Dispute message"
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-surface/50 border border-border/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         onKeyDown={e => {
                           if (e.key === 'Enter' && messageText.trim()) {
                             messageMutation.mutate({
@@ -326,9 +329,9 @@ export default function Disputes() {
 
       {/* Escalate confirmation */}
       {escalateId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="glass-card p-6 max-w-md w-full mx-4 space-y-4">
-            <h3 className="text-lg font-semibold">Escalate Dispute</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="escalate-dialog-title">
+          <div className="glass rounded-xl p-6 max-w-md w-full mx-4 space-y-4">
+            <h3 id="escalate-dialog-title" className="text-lg font-semibold">Escalate Dispute</h3>
             <p className="text-sm text-muted-foreground">
               Are you sure you want to escalate this dispute to admin review?
               This action cannot be undone.

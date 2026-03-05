@@ -11,6 +11,7 @@ import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import EntityAvatar from '../components/EntityAvatar'
 import { FadeIn, PageTransition } from '../components/Motion'
+import { AgentDeepDiveSkeleton, ConnectionSkeleton } from '../components/Skeleton'
 
 // ─── Interfaces ───
 
@@ -89,7 +90,11 @@ function ConnectionList({ entityId }: { entityId: string }) {
     staleTime: 5 * 60_000,
   })
 
-  if (isLoading) return <div className="text-sm text-text-muted">Loading connections...</div>
+  if (isLoading) return (
+    <div className="space-y-1">
+      {Array.from({ length: 4 }).map((_, i) => <ConnectionSkeleton key={i} />)}
+    </div>
+  )
   if (!data || data.nodes.length <= 1) return <div className="text-sm text-text-muted">No connections yet</div>
 
   const connections = data.nodes.filter(n => n.id !== entityId)
@@ -177,13 +182,7 @@ export default function AgentDeepDive() {
   if (isLoading) {
     return (
       <PageTransition className="max-w-5xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-48 bg-surface border border-border rounded-2xl" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 h-96 bg-surface border border-border rounded-2xl" />
-            <div className="h-64 bg-surface border border-border rounded-2xl" />
-          </div>
-        </div>
+        <AgentDeepDiveSkeleton />
       </PageTransition>
     )
   }

@@ -274,10 +274,13 @@ a:focus-visible,
   --color-text: #1e293b;
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
+  --color-primary-light: #0F766E;
+  --color-primary-dark: #115E59;
   --color-success: #16a34a;
   --color-warning: #ca8a04;
   --color-danger: #dc2626;
   --color-accent: #A21CAF;
+  --color-violet-light: #6D28D9;
   --color-primary-glow: #0D948840;
   --color-accent-glow: #A21CAF30;
   --color-success-glow: #16a34a30;
@@ -306,6 +309,31 @@ a:focus-visible,
 [data-theme="light"] .hero-art-blend {
   mix-blend-mode: multiply;
   opacity: 0.35;
+}
+
+/* Light mode: boost low-opacity backgrounds so they're visible on white */
+[data-theme="light"] .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.06) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Light mode: stronger card hover shadows */
+[data-theme="light"] .card-hover:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10), 0 0 20px var(--color-primary-glow);
+}
+
+/* Light mode: glow effects need adjustment */
+[data-theme="light"] .glow-primary {
+  box-shadow: 0 0 20px var(--color-primary-glow), 0 0 40px rgba(13, 148, 136, 0.08);
+}
+
+[data-theme="light"] .glow-accent {
+  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 40px rgba(162, 28, 175, 0.06);
 }
 
 /* ─── Tab Hidden — pause CSS animations to save CPU/GPU ─── */

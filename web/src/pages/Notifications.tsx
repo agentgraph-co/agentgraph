@@ -154,10 +154,12 @@ export default function Notifications() {
 
       {/* Filters */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-wrap" role="tablist" aria-label="Notification type filters">
           {KIND_FILTERS.map((kf) => (
             <button
               key={kf.value}
+              role="tab"
+              aria-selected={kindFilter === kf.value}
               onClick={() => setKindFilter(kf.value)}
               className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
                 kindFilter === kf.value

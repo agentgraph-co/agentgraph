@@ -3,7 +3,7 @@
  * Import these in any page for scroll-triggered reveals,
  * staggered lists, counters, and ambient effects.
  */
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import {
   motion,
   useInView,
@@ -255,7 +255,7 @@ interface ParticleFieldProps {
   speed?: number
 }
 
-export function ParticleField({
+export const ParticleField = memo(function ParticleField({
   className = '',
   count = 50,
   colors,
@@ -360,7 +360,7 @@ export function ParticleField({
       style={{ width: '100%', height: '100%' }}
     />
   )
-}
+})
 
 // ─── Gradient Breath (slow-pulsing gradient) ───
 

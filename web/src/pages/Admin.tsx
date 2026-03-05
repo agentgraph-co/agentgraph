@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
+import { InlineSkeleton } from '../components/Skeleton'
 
 interface PlatformStats {
   total_entities: number
@@ -383,10 +384,12 @@ export default function Admin() {
     <div className="max-w-4xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Admin Dashboard</h1>
 
-      <div className="flex gap-1 mb-6 border-b border-border">
+      <div className="flex gap-1 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
         {tabs.map((t) => (
           <button
             key={t.value}
+            role="tab"
+            aria-selected={tab === t.value}
             onClick={() => setTab(t.value)}
             className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
               tab === t.value
@@ -408,7 +411,7 @@ export default function Admin() {
       {tab === 'overview' && (
         <div>
           {statsLoading ? (
-            <div className="text-text-muted text-center py-10">Loading stats...</div>
+            <div className="py-10"><InlineSkeleton /></div>
           ) : stats ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -532,6 +535,7 @@ export default function Admin() {
             <select
               value={userTypeFilter}
               onChange={(e) => setUserTypeFilter(e.target.value)}
+              aria-label="Filter by entity type"
               className="bg-surface border border-border rounded-md px-3 py-2 text-sm text-text"
             >
               <option value="">All types</option>
@@ -587,6 +591,7 @@ export default function Admin() {
                           <select
                             value={suspendDays}
                             onChange={(e) => setSuspendDays(Number(e.target.value))}
+                            aria-label="Suspension duration in days"
                             className="bg-background border border-border rounded px-1 py-0.5 text-[10px] text-text"
                           >
                             {[1, 3, 7, 14, 30, 90, 365].map((d) => (
@@ -646,10 +651,12 @@ export default function Admin() {
       {tab === 'moderation' && (
         <div>
           {/* Status filter pills */}
-          <div className="flex gap-1.5 mb-4 flex-wrap">
+          <div className="flex gap-1.5 mb-4 flex-wrap" role="tablist" aria-label="Moderation flag status filters">
             {FLAG_STATUS_FILTERS.map((s) => (
               <button
                 key={s}
+                role="tab"
+                aria-selected={flagStatusFilter === s}
                 onClick={() => setFlagStatusFilter(s)}
                 className={`px-2.5 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
                   flagStatusFilter === s
@@ -712,6 +719,7 @@ export default function Admin() {
                             value={resolutionNote}
                             onChange={(e) => setResolutionNote(e.target.value)}
                             placeholder="Resolution note..."
+                            aria-label="Resolution note"
                             rows={2}
                             maxLength={2000}
                             className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary resize-none"
@@ -756,10 +764,12 @@ export default function Admin() {
       {/* Appeals */}
       {tab === 'appeals' && (
         <div>
-          <div className="flex gap-1.5 mb-4 flex-wrap">
+          <div className="flex gap-1.5 mb-4 flex-wrap" role="tablist" aria-label="Appeal status filters">
             {(['pending', 'upheld', 'overturned'] as const).map((s) => (
               <button
                 key={s}
+                role="tab"
+                aria-selected={appealStatusFilter === s}
                 onClick={() => setAppealStatusFilter(s)}
                 className={`px-2.5 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
                   appealStatusFilter === s
@@ -824,6 +834,7 @@ export default function Admin() {
                             value={appealNote}
                             onChange={(e) => setAppealNote(e.target.value)}
                             placeholder="Resolution note..."
+                            aria-label="Appeal resolution note"
                             rows={2}
                             maxLength={2000}
                             className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary resize-none"
@@ -925,7 +936,7 @@ export default function Admin() {
           </div>
 
           {growthLoading ? (
-            <div className="text-text-muted text-center py-10">Loading growth data...</div>
+            <div className="py-10"><InlineSkeleton /></div>
           ) : growthData ? (
             <div className="space-y-6">
               {/* Signups chart */}
@@ -1051,7 +1062,7 @@ export default function Admin() {
           </div>
 
           {conversionLoading ? (
-            <div className="text-text-muted text-center py-10">Loading conversion data...</div>
+            <div className="py-10"><InlineSkeleton /></div>
           ) : conversionData ? (
             <div className="space-y-6">
               {/* Funnel bars */}
@@ -1173,7 +1184,7 @@ export default function Admin() {
           </h2>
 
           {waitlistLoading ? (
-            <div className="text-text-muted text-center py-10">Loading waitlist...</div>
+            <div className="py-10"><InlineSkeleton /></div>
           ) : waitlistData && waitlistData.entries.length > 0 ? (
             <div className="space-y-2">
               <div className="text-xs text-text-muted mb-3">
@@ -1181,6 +1192,7 @@ export default function Admin() {
               </div>
               <div className="bg-surface border border-border rounded-lg overflow-x-auto">
                 <table className="w-full text-sm min-w-[400px]">
+                  <caption className="sr-only">iOS TestFlight waitlist signups</caption>
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="px-4 py-2 text-xs text-text-muted font-medium">Email</th>

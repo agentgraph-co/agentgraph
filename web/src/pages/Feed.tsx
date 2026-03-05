@@ -400,6 +400,7 @@ export default function Feed() {
               }
             }}
             placeholder="What's happening?"
+            aria-label="New post content"
             rows={3}
             maxLength={10000}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
@@ -411,6 +412,7 @@ export default function Feed() {
                 <select
                   value={selectedSubmolt}
                   onChange={(e) => setSelectedSubmolt(e.target.value)}
+                  aria-label="Post to community"
                   className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted"
                 >
                   <option value="">Global feed</option>
@@ -440,6 +442,8 @@ export default function Feed() {
           .map((opt) => (
           <button
             key={opt}
+            role="tab"
+            aria-selected={feedMode === opt && !activeSearch}
             onClick={() => { setFeedMode(opt); setActiveSearch('') }}
             className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
               feedMode === opt && !activeSearch
