@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.a2a_router import router as a2a_router
 from src.api.account_router import router as account_router
+from src.api.aggregation_router import router as aggregation_router
 from src.api.activity_router import router as activity_router
 from src.api.admin_jobs_router import router as admin_jobs_router
 from src.api.admin_router import router as admin_router
@@ -95,6 +96,7 @@ if settings.sentry_dsn:
 APP_VERSION = "0.1.0"
 
 _TAG_METADATA = [
+    {"name": "aggregation", "description": "Content aggregation pipeline for importing external content"},
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
     {
@@ -398,6 +400,7 @@ async def unhandled_exception_handler(
 
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
+app.include_router(aggregation_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(attestation_provider_router, prefix=settings.api_v1_prefix)
 app.include_router(attestation_router, prefix=settings.api_v1_prefix)
@@ -507,6 +510,7 @@ async def api_overview() -> dict:
         "docs": "/docs",
         "endpoints": {
             "account": f"{prefix}/account",
+            "aggregation": f"{prefix}/aggregation",
             "analytics": f"{prefix}/analytics",
             "attestations": f"{prefix}/attestations",
             "auth": f"{prefix}/auth",

@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 127 / 165 total | Remaining: 38**
+**Done: 129 / 165 total | Remaining: 36**
 
 ---
 
@@ -103,8 +103,8 @@
 ### Deferred — Future Features — 9 items
 
 - #128 Trust Framework PRD — Persona Review
-- #129 Build Content Aggregation Pipeline
-- #130 Multi-Domain Trust Scoping
+- ~~#129 Build Content Aggregation Pipeline~~ ✅
+- ~~#130 Multi-Domain Trust Scoping~~ ✅
 - #131 Social Graph Visualization Redesign
 - #132 Sizzle Reel / Promo Video
 - ~~#133 Video/Media Support in Feed Cards~~ ✅
@@ -114,4 +114,4 @@
 
 ---
 
-**Summary: 3 high, 7 medium, 22 low, 6 deferred = 38 remaining**
+**Summary: 3 high, 7 medium, 22 low, 4 deferred = 36 remaining**
