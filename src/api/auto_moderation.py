@@ -70,24 +70,44 @@ async def check_flag_threshold(db: AsyncSession, post_id: uuid.UUID) -> None:
 
 
 async def _check_auto_hide(db: AsyncSession, post: Post) -> None:
-    """Auto-hide a post if it has too many flags."""
+    """Auto-hide a post if trust-weighted flag score exceeds threshold.
+
+    Each flag contributes its reporter's trust score (default 0.5 for
+    unknown/system flags). A post is auto-hidden when the sum of
+    reporter trust scores meets or exceeds the threshold.
+    """
     if post.is_hidden:
         return
 
     threshold = getattr(settings, "auto_hide_flag_threshold", 5)
 
-    flag_count = await db.scalar(
-        select(func.count(ModerationFlag.id)).where(
+    # Use trust-weighted score: sum of reporter_trust_score values
+    # Flags without a trust score (system flags) contribute 1.0 each
+    # Low-trust reporters contribute less weight toward auto-hide
+    from sqlalchemy import case
+    weighted_score = await db.scalar(
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (ModerationFlag.reporter_trust_score.isnot(None),
+                         ModerationFlag.reporter_trust_score),
+                        else_=1.0,
+                    )
+                ),
+                0.0,
+            )
+        ).where(
             ModerationFlag.target_type == "post",
             ModerationFlag.target_id == post.id,
         )
     )
 
-    if flag_count is not None and flag_count >= threshold:
+    if weighted_score is not None and weighted_score >= threshold:
         post.is_hidden = True
         await db.flush()
 
         logger.warning(
-            "Auto-hidden post %s — reached %d flags (threshold: %d)",
-            post.id, flag_count, threshold,
+            "Auto-hidden post %s — trust-weighted score %.2f (threshold: %d)",
+            post.id, weighted_score, threshold,
         )

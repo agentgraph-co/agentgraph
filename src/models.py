@@ -338,6 +338,7 @@ class ModerationFlag(Base):
     target_id = Column(UUID(as_uuid=True), nullable=False)
     reason = Column(Enum(ModerationReason), nullable=False)
     details = Column(Text, nullable=True)
+    reporter_trust_score = Column(Float, nullable=True)
     status = Column(Enum(ModerationStatus), default=ModerationStatus.PENDING, nullable=False)
     resolved_by = Column(
         UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
