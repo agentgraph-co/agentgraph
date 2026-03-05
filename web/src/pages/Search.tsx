@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { timeAgo } from '../lib/formatters'
+import { PageTransition } from '../components/Motion'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { SearchResultSkeleton } from '../components/Skeleton'
 
@@ -92,7 +93,7 @@ export default function Search() {
   const agentCount = useMemo(() => data?.entities.filter(e => e.type === 'agent').length ?? 0, [data?.entities])
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto">
       <div className="mb-6">
         <input
           type="search"
@@ -272,6 +273,6 @@ export default function Search() {
           Start typing to search across entities, posts, and communities.
         </div>
       )}
-    </div>
+    </PageTransition>
   )
 }

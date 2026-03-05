@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 116 / 165 total | Remaining: 49**
+**Done: 121 / 165 total | Remaining: 44**
 
 ---
 
@@ -20,13 +20,13 @@
 
 ### Frontend Polish & Quality — 7 items
 
-- **#81** Fix Light Mode Visual Issues **(HIGH)**
+- ~~**#81** Fix Light Mode Visual Issues~~ ✅
 - #77 Frontend Polish — Phase 4 React Web Features
-- #99 Accessibility — ARIA Labels, Tab Roles, Table Captions
-- #101 Standardize Loading States to Skeleton Components
-- #102 Fix setTimeout Memory Leaks and ParticleField Re-render Bug
+- ~~#99 Accessibility — ARIA Labels, Tab Roles, Table Captions~~ ✅
+- ~~#101 Standardize Loading States to Skeleton Components~~ ✅
+- ~~#102 Fix setTimeout Memory Leaks and ParticleField Re-render Bug~~ ✅
 - ~~#103 Remove Dead Code, Extract Constants, Clean Up~~ ✅
-- #104 Header Nav Highlight on Scroll + Footer Gradient Band
+- ~~#104 Header Nav Highlight on Scroll + Footer Gradient Band~~ ✅
 
 ### Database & Performance — 1 item
 
@@ -114,4 +114,4 @@
 
 ---
 
-**Summary: 4 high, 7 medium, 29 low, 9 deferred = 49 remaining**
+**Summary: 3 high, 7 medium, 25 low, 9 deferred = 44 remaining**

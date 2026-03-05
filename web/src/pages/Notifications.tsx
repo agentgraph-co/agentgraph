@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { NotificationSkeleton } from '../components/Skeleton'
+import { PageTransition } from '../components/Motion'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 
@@ -130,7 +131,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Notifications</h1>
@@ -242,6 +243,6 @@ export default function Notifications() {
           <p className="text-center text-xs text-text-muted py-4">No more notifications</p>
         )}
       </div>
-    </div>
+    </PageTransition>
   )
 }

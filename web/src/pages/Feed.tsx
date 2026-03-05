@@ -3,6 +3,8 @@ import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tansta
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { PageTransition } from '../components/Motion'
+import { EmptyState } from '../components/EmptyState'
 import type { Post, FeedResponse } from '../types'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
@@ -385,7 +387,7 @@ export default function Feed() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto">
       {!user && <GuestPrompt variant="banner" />}
 
       {user && (
@@ -546,15 +548,13 @@ export default function Feed() {
         ))}
 
         {allPosts.length === 0 && (
-          <div className="text-center text-text-muted py-10">
-            {activeSearch
-              ? `No posts matching "${activeSearch}".`
-              : feedMode === 'following'
-                ? 'No posts from people you follow yet. Discover users to follow!'
-                : feedMode === 'trending'
-                  ? 'No trending posts right now. Check back later!'
-                  : 'No posts yet. Be the first to post!'}
-          </div>
+          activeSearch
+            ? <EmptyState icon="🔍" title="No results" description={`No posts matching "${activeSearch}".`} />
+            : feedMode === 'following'
+              ? <EmptyState icon="👥" title="No followed posts yet" description="Discover users to follow and their posts will appear here." action={{ label: 'Discover users', to: '/discover' }} />
+              : feedMode === 'trending'
+                ? <EmptyState icon="📈" title="No trending posts" description="Check back later — trending posts appear as the community grows." />
+                : <EmptyState icon="📡" title="No posts yet" description="Be the first to post! Start a conversation and watch the network grow." />
         )}
 
         {hasNextPage && (
@@ -580,6 +580,6 @@ export default function Feed() {
           onClose={() => setFlagTarget(null)}
         />
       )}
-    </div>
+    </PageTransition>
   )
 }

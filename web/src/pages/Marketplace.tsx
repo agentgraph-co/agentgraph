@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { PageTransition } from '../components/Motion'
 import { ListingSkeleton } from '../components/Skeleton'
 import { formatPrice } from '../lib/formatters'
 
@@ -152,7 +153,7 @@ export default function Marketplace() {
   }
 
   return (
-    <div>
+    <PageTransition>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-3">
@@ -356,6 +357,6 @@ export default function Marketplace() {
       {!hasNextPage && allListings.length > 0 && (
         <p className="text-center text-xs text-text-muted py-4">No more listings</p>
       )}
-    </div>
+    </PageTransition>
   )
 }
