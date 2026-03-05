@@ -658,3 +658,139 @@ async def get_trust_gates(
     from src.api.trust_gate import get_trust_gates_info
 
     return await get_trust_gates_info(db, current_entity.id)
+
+
+# --- Multi-Domain Trust Scoping (#130) ---
+
+# Predefined trust domains (plus any custom ones from attestations)
+PREDEFINED_DOMAINS = [
+    {"id": "code_review", "label": "Code Review",
+     "description": "Reviewing and auditing code"},
+    {"id": "data_analysis", "label": "Data Analysis",
+     "description": "Data processing and insights"},
+    {"id": "security_audit", "label": "Security Audit",
+     "description": "Security testing and audits"},
+    {"id": "content_creation", "label": "Content Creation",
+     "description": "Writing and media production"},
+    {"id": "customer_support", "label": "Customer Support",
+     "description": "Helping users resolve issues"},
+    {"id": "research", "label": "Research",
+     "description": "Academic and technical research"},
+    {"id": "trading", "label": "Trading",
+     "description": "Financial trading and market analysis"},
+    {"id": "devops", "label": "DevOps",
+     "description": "Infrastructure and deployment"},
+]
+
+PREDEFINED_DOMAIN_IDS = {d["id"] for d in PREDEFINED_DOMAINS}
+
+
+@router.get(
+    "/trust/domains",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_trust_domains(
+    db: AsyncSession = Depends(get_db),
+):
+    """List all trust domains with entity counts."""
+    # Get distinct contexts from attestations
+    from sqlalchemy import distinct
+
+    result = await db.execute(
+        select(
+            TrustAttestation.context,
+            func.count(distinct(TrustAttestation.target_entity_id)),
+        )
+        .where(TrustAttestation.context.isnot(None))
+        .group_by(TrustAttestation.context)
+    )
+    context_counts = {row[0]: row[1] for row in result.all()}
+
+    domains = []
+    seen = set()
+    # Predefined first
+    for d in PREDEFINED_DOMAINS:
+        domains.append({
+            **d,
+            "entity_count": context_counts.get(d["id"], 0),
+        })
+        seen.add(d["id"])
+    # Custom domains from attestations
+    for ctx, count in sorted(context_counts.items(), key=lambda x: -x[1]):
+        if ctx not in seen:
+            domains.append({
+                "id": ctx,
+                "label": ctx.replace("_", " ").title(),
+                "description": f"Custom domain: {ctx}",
+                "entity_count": count,
+            })
+
+    return {"domains": domains}
+
+
+@router.get(
+    "/trust/domains/{domain}/leaders",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_domain_leaders(
+    domain: str,
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top entities in a trust domain, ranked by contextual score."""
+    # Find entities with contextual scores in this domain
+    from sqlalchemy import Float, cast
+
+    # Use JSONB extraction to get contextual score for the domain
+    scores = await db.execute(
+        select(
+            TrustScore.entity_id,
+            TrustScore.score,
+            TrustScore.contextual_scores,
+        )
+        .where(
+            TrustScore.contextual_scores[domain].isnot(None),
+        )
+        .order_by(
+            cast(
+                TrustScore.contextual_scores[domain].as_string(),
+                Float,
+            ).desc()
+        )
+        .limit(limit)
+    )
+    rows = scores.all()
+
+    leaders = []
+    entity_ids = [r[0] for r in rows]
+    if entity_ids:
+        entities = await db.execute(
+            select(Entity).where(
+                Entity.id.in_(entity_ids),
+                Entity.is_active.is_(True),
+            )
+        )
+        entity_map = {e.id: e for e in entities.scalars().all()}
+
+        for entity_id, base_score, ctx_scores in rows:
+            entity = entity_map.get(entity_id)
+            if not entity:
+                continue
+            ctx_score = (ctx_scores or {}).get(domain, 0.0)
+            leaders.append({
+                "entity_id": str(entity_id),
+                "display_name": entity.display_name,
+                "type": entity.type.value,
+                "avatar_url": entity.avatar_url,
+                "base_score": base_score,
+                "domain_score": ctx_score,
+                "blended_score": round(
+                    0.7 * base_score + 0.3 * ctx_score, 4
+                ),
+            })
+
+    return {
+        "domain": domain,
+        "leaders": leaders,
+        "count": len(leaders),
+    }
