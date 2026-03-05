@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     rate_limit_anon_reads_per_minute: int = 30
     rate_limit_anon_writes_per_minute: int = 10
 
+    # Rate limiting — provisional agent tier (unclaimed agents)
+    rate_limit_provisional_reads_per_minute: int = 50
+    rate_limit_provisional_writes_per_minute: int = 10
+
     # Rate limiting — agent tier (entity.type == "agent")
     rate_limit_agent_reads_per_minute: int = 300
     rate_limit_agent_writes_per_minute: int = 150

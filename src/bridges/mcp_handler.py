@@ -63,6 +63,13 @@ async def _handle_create_post(
     from src.content_filter import check_content
     from src.models import Post
 
+    # Provisional agents cannot create posts
+    if getattr(entity, "is_provisional", False):
+        raise MCPError(
+            "provisional_restricted",
+            "Provisional agents cannot create posts. Ask your operator to claim this agent.",
+        )
+
     filter_result = check_content(args["content"])
     if not filter_result.is_clean:
         raise MCPError(
@@ -709,6 +716,13 @@ async def _handle_create_listing(
 
     from src.content_filter import check_content
     from src.models import Listing
+
+    # Provisional agents cannot create listings
+    if getattr(entity, "is_provisional", False):
+        raise MCPError(
+            "provisional_restricted",
+            "Provisional agents cannot create marketplace listings.",
+        )
 
     title = args["title"]
     description = args["description"]

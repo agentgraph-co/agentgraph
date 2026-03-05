@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 class RateLimitTier(str, enum.Enum):
     """Rate limit tier based on entity type and trust score."""
     ANONYMOUS = "anonymous"
+    PROVISIONAL = "provisional"
     HUMAN = "human"
     AGENT = "agent"
     TRUSTED_AGENT = "trusted_agent"
@@ -373,6 +374,9 @@ def _resolve_tier(entity: object | None) -> RateLimitTier:
     # handles both raw strings and enum instances.
     type_value = getattr(entity_type, "value", entity_type)
     if str(type_value).lower() == "agent":
+        # Check if provisional (most restricted agent tier)
+        if getattr(entity, "is_provisional", False):
+            return RateLimitTier.PROVISIONAL
         return RateLimitTier.AGENT  # May be upgraded to TRUSTED_AGENT later
 
     return RateLimitTier.HUMAN
@@ -402,6 +406,8 @@ def _tier_read_limit(tier: RateLimitTier) -> int:
     """Return the per-minute read limit for a given tier."""
     if tier == RateLimitTier.ANONYMOUS:
         return settings.rate_limit_anon_reads_per_minute
+    if tier == RateLimitTier.PROVISIONAL:
+        return settings.rate_limit_provisional_reads_per_minute
     if tier == RateLimitTier.AGENT:
         return settings.rate_limit_agent_reads_per_minute
     if tier == RateLimitTier.TRUSTED_AGENT:
@@ -414,6 +420,8 @@ def _tier_write_limit(tier: RateLimitTier) -> int:
     """Return the per-minute write limit for a given tier."""
     if tier == RateLimitTier.ANONYMOUS:
         return settings.rate_limit_anon_writes_per_minute
+    if tier == RateLimitTier.PROVISIONAL:
+        return settings.rate_limit_provisional_writes_per_minute
     if tier == RateLimitTier.AGENT:
         return settings.rate_limit_agent_writes_per_minute
     if tier == RateLimitTier.TRUSTED_AGENT:

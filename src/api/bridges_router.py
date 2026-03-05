@@ -1,7 +1,7 @@
 """Bridges API router — endpoints for framework bridge operations.
 
-Supports OpenClaw, LangChain, CrewAI, AutoGen, and Semantic Kernel agent
-import, security scanning, discovery, health, and framework status.
+Supports OpenClaw, LangChain, CrewAI, AutoGen, Semantic Kernel, and Pydantic AI
+agent import, security scanning, discovery, health, and framework status.
 """
 from __future__ import annotations
 
@@ -139,6 +139,29 @@ class SemanticKernelRescanRequest(BaseModel):
 
     plugins: list[dict[str, Any]] = Field(default_factory=list)
     planner_config: dict[str, Any] = Field(default_factory=dict)
+    code: str = Field(default="")
+
+
+class PydanticAIManifest(BaseModel):
+    """Pydantic AI agent manifest for import."""
+
+    name: str = Field(default="Pydantic AI Agent", max_length=100)
+    description: str = Field(default="", max_length=5000)
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    result_type: str | None = Field(default=None)
+    deps_type: str | None = Field(default=None)
+    model: str = Field(default="unknown")
+    system_prompt: str = Field(default="")
+    retries: int = Field(default=1)
+    version: str = Field(default="1.0.0")
+    code: str = Field(default="")
+
+
+class PydanticAIRescanRequest(BaseModel):
+    """Manifest for rescanning a Pydantic AI entity."""
+
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    system_prompt: str = Field(default="")
     code: str = Field(default="")
 
 
@@ -559,6 +582,7 @@ async def bridge_status(
     # Ensure all frameworks are listed
     stats["supported_frameworks"] = [
         "mcp", "openclaw", "langchain", "crewai", "autogen", "semantic_kernel",
+        "pydantic_ai",
     ]
     return FrameworkStatusOut(**stats)
 
@@ -793,6 +817,124 @@ async def rescan_sk_entity(
         details={
             "scan_result": scan.scan_result,
             "framework": entity.framework_source or "semantic_kernel",
+        },
+    )
+
+    return _scan_to_out(scan)
+
+
+# --- Pydantic AI Endpoints ---
+
+
+@router.post(
+    "/pydantic-ai/import",
+    response_model=ImportResult,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def import_pydantic_ai_agent(
+    manifest: PydanticAIManifest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a Pydantic AI agent manifest into AgentGraph.
+
+    Creates an entity profile, runs security scanning, and applies
+    framework trust modifiers. The importing user becomes the agent operator.
+    """
+    from src.audit import log_action
+    from src.bridges.pydantic_ai.registry import import_pydantic_ai_agent as do_import
+
+    agent, scan = await do_import(
+        db=db,
+        manifest=manifest.model_dump(),
+        operator_entity=current_entity,
+    )
+
+    await log_action(
+        db,
+        action="bridges.pydantic_ai.import",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "agent_name": agent.display_name,
+            "scan_result": scan.scan_result,
+            "framework": "pydantic_ai",
+        },
+    )
+
+    return ImportResult(
+        entity_id=str(agent.id),
+        display_name=agent.display_name,
+        framework_source=agent.framework_source or "pydantic_ai",
+        framework_trust_modifier=agent.framework_trust_modifier or 1.0,
+        scan=_scan_to_out(scan),
+    )
+
+
+@router.get(
+    "/pydantic-ai/scan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_pydantic_ai_scan(
+    entity_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the latest security scan result for a Pydantic AI entity."""
+    from src.bridges.pydantic_ai.registry import get_latest_scan
+
+    scan = await get_latest_scan(db, entity_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="No scan found for this entity")
+
+    return _scan_to_out(scan)
+
+
+@router.post(
+    "/pydantic-ai/rescan/{entity_id}",
+    response_model=ScanResultOut,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def rescan_pydantic_ai_entity(
+    entity_id: uuid.UUID,
+    body: PydanticAIRescanRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a rescan of a Pydantic AI entity with updated tools/code.
+
+    Only the operator or an admin can rescan an entity.
+    A clean rescan removes the trust penalty (sets modifier to 1.0).
+    """
+    from src.audit import log_action
+    from src.bridges.pydantic_ai.registry import rescan_entity as do_rescan
+
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Authorization: must be operator or admin
+    if entity.operator_id != current_entity.id and not current_entity.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to rescan this entity")
+
+    manifest = {
+        "tools": body.tools,
+        "system_prompt": body.system_prompt,
+        "code": body.code,
+    }
+    scan = await do_rescan(db, entity, manifest)
+
+    await log_action(
+        db,
+        action="bridges.pydantic_ai.rescan",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=entity_id,
+        details={
+            "scan_result": scan.scan_result,
+            "framework": entity.framework_source or "pydantic_ai",
         },
     )
 

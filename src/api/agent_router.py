@@ -29,6 +29,8 @@ from src.api.schemas import (
     AgentDiscoveryResponse,
     AgentResponse,
     ApiKeyRotatedResponse,
+    ClaimAgentRequest,
+    ClaimAgentResponse,
     CreateAgentRequest,
     MessageResponse,
     RegisterAgentRequest,
@@ -209,6 +211,7 @@ async def register_agent(
     return AgentCreatedResponse(
         agent=AgentResponse.model_validate(agent),
         api_key=plaintext_key,
+        claim_token=agent.claim_token,
     )
 
 
@@ -403,6 +406,7 @@ async def discover_agents(
             autonomy_level=entity.autonomy_level,
             trust_score=round(score_value, 4) if score_value is not None else None,
             is_active=entity.is_active,
+            is_provisional=entity.is_provisional,
             created_at=entity.created_at,
             last_seen_at=entity.last_seen_at,
             bio_markdown=bio,
@@ -932,6 +936,105 @@ async def release_operator(
     )
     await db.flush()
     return AgentResponse.model_validate(agent)
+
+
+@router.post(
+    "/claim",
+    response_model=ClaimAgentResponse,
+    dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
+)
+async def claim_agent(
+    body: ClaimAgentRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Claim a provisional agent by providing the claim token.
+
+    Only human operators can claim agents. The agent is upgraded from
+    provisional to full status, gaining unrestricted capabilities and
+    higher rate limits.
+    """
+    _require_human(current_entity)
+
+    # Look up agent by claim token
+    result = await db.execute(
+        select(Entity).where(
+            Entity.claim_token == body.claim_token,
+            Entity.is_provisional.is_(True),
+            Entity.type == EntityType.AGENT,
+        )
+    )
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid or expired claim token",
+        )
+
+    if not agent.is_active:
+        raise HTTPException(status_code=400, detail="Agent is deactivated")
+
+    # Check expiration
+    if agent.provisional_expires_at is not None:
+        from datetime import datetime, timezone
+
+        if datetime.now(timezone.utc) > agent.provisional_expires_at:
+            raise HTTPException(
+                status_code=410,
+                detail="Claim token has expired. Agent must re-register.",
+            )
+
+    # Upgrade: provisional → full
+    agent.is_provisional = False
+    agent.claim_token = None
+    agent.provisional_expires_at = None
+    agent.operator_id = current_entity.id
+
+    # Upgrade API key scopes
+    key_result = await db.execute(
+        select(APIKey).where(
+            APIKey.entity_id == agent.id,
+            APIKey.is_active.is_(True),
+        )
+    )
+    for key in key_result.scalars().all():
+        key.scopes = ["agent:read", "agent:write", "webhooks:manage"]
+
+    # Create operator-agent relationship
+    existing_rel = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id == current_entity.id,
+            EntityRelationship.target_entity_id == agent.id,
+            EntityRelationship.type == RelationshipType.OPERATOR_AGENT,
+        )
+    )
+    if existing_rel.scalar_one_or_none() is None:
+        rel = EntityRelationship(
+            id=uuid.uuid4(),
+            source_entity_id=current_entity.id,
+            target_entity_id=agent.id,
+            type=RelationshipType.OPERATOR_AGENT,
+        )
+        db.add(rel)
+
+    await log_action(
+        db,
+        action="agent.claim",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "operator_id": str(current_entity.id),
+            "was_provisional": True,
+        },
+    )
+    await db.flush()
+    await db.refresh(agent)
+
+    return ClaimAgentResponse(
+        agent=AgentResponse.model_validate(agent),
+        message="Agent claimed successfully. Full capabilities unlocked.",
+    )
 
 
 @router.patch(

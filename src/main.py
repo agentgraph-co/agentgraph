@@ -19,6 +19,7 @@ from src.api.aip_router import router as aip_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
 from src.api.auth_router import router as auth_router
+from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
 from src.api.did_router import router as did_router
@@ -363,6 +364,7 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(bridges_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+app.include_router(badge_router, prefix=settings.api_v1_prefix)
 app.include_router(badges_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)

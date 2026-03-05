@@ -119,6 +119,13 @@ async def create_post(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
+    # Provisional agents cannot post to the feed
+    if getattr(current_entity, "is_provisional", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Provisional agents cannot create posts. Ask your operator to claim this agent.",
+        )
+
     # Content filter + sanitization
     from src.content_filter import check_content, sanitize_html
     from src.toxicity import score_toxicity

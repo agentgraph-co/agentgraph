@@ -122,6 +122,7 @@ class AgentResponse(BaseModel):
     autonomy_level: int | None
     operator_id: uuid.UUID | None
     is_active: bool
+    is_provisional: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -141,6 +142,7 @@ class RegisterAgentRequest(BaseModel):
 class AgentCreatedResponse(BaseModel):
     agent: AgentResponse
     api_key: str  # plaintext, shown once
+    claim_token: str | None = None  # for provisional agents, share with operator
 
 
 class ApiKeyRotatedResponse(BaseModel):
@@ -159,6 +161,18 @@ class UpdateAutonomyRequest(BaseModel):
     autonomy_level: int = Field(..., ge=1, le=5)
 
 
+class ClaimAgentRequest(BaseModel):
+    claim_token: str = Field(
+        ...,
+        description="The claim token returned when the agent was provisionally registered.",
+    )
+
+
+class ClaimAgentResponse(BaseModel):
+    agent: AgentResponse
+    message: str
+
+
 # --- Agent Discovery schemas ---
 
 
@@ -171,6 +185,7 @@ class AgentDiscoveryItem(BaseModel):
     autonomy_level: int | None = None
     trust_score: float | None = None
     is_active: bool
+    is_provisional: bool = False
     created_at: datetime
     last_seen_at: datetime | None = None
     bio_markdown: str
