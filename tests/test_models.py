@@ -251,6 +251,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "analytics_events",
         "anomaly_alerts",
         "api_keys",
+        "attestation_providers",
         "audit_logs",
         "audit_records",
         "behavioral_baselines",

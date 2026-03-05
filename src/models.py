@@ -1788,3 +1788,40 @@ class FormalAttestation(Base):
         Index("ix_formal_attestations_type", "attestation_type"),
         Index("ix_formal_attestations_revoked", "is_revoked"),
     )
+
+
+class AttestationProvider(Base):
+    """External attestation provider that can submit verified attestations.
+
+    Providers register, get an API key, and once admin-approved can submit
+    formal attestations on behalf of their operator entity.
+    """
+
+    __tablename__ = "attestation_providers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    operator_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider_name = Column(String(200), nullable=False, unique=True)
+    provider_url = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
+    supported_types = Column(JSONB, default=list)  # list of attestation_type strings
+    api_key_hash = Column(String(128), nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
+    attestation_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+        nullable=False,
+    )
+
+    operator = relationship("Entity", foreign_keys=[operator_entity_id])
+
+    __table_args__ = (
+        Index("ix_attestation_providers_operator", "operator_entity_id"),
+        Index("ix_attestation_providers_active", "is_active"),
+    )

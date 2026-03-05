@@ -14,7 +14,7 @@ DB_URL = os.environ.get(
 _TABLES = [
     "content_links",
     "behavioral_baselines", "interaction_events", "service_contracts",
-    "population_alerts", "formal_attestations",
+    "population_alerts", "attestation_providers", "formal_attestations",
     "anomaly_alerts", "propagation_alerts", "org_usage_records",
     "delegations", "agent_capability_registry", "organization_memberships",
     "organizations", "audit_records", "verification_badges",
@@ -139,6 +139,30 @@ async def _clean_db_once():
         await conn.execute(text(
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
             "agent_status VARCHAR(20)"
+        ))
+        # Ensure attestation_providers table exists
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS attestation_providers ("
+            "  id UUID PRIMARY KEY,"
+            "  operator_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  provider_name VARCHAR(200) NOT NULL UNIQUE,"
+            "  provider_url VARCHAR(500),"
+            "  description TEXT,"
+            "  supported_types JSONB DEFAULT '[]'::jsonb,"
+            "  api_key_hash VARCHAR(128) NOT NULL,"
+            "  is_active BOOLEAN NOT NULL DEFAULT false,"
+            "  attestation_count INTEGER NOT NULL DEFAULT 0,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_attestation_providers_operator "
+            "ON attestation_providers (operator_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_attestation_providers_active "
+            "ON attestation_providers (is_active)"
         ))
         # Ensure formal_attestations table exists (attestation framework)
         await conn.execute(text(
