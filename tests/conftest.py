@@ -12,8 +12,9 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "content_links",
     "behavioral_baselines", "interaction_events", "service_contracts",
-    "population_alerts",
+    "population_alerts", "formal_attestations",
     "anomaly_alerts", "propagation_alerts", "org_usage_records",
     "delegations", "agent_capability_registry", "organization_memberships",
     "organizations", "audit_records", "verification_badges",
@@ -138,6 +139,79 @@ async def _clean_db_once():
         await conn.execute(text(
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
             "agent_status VARCHAR(20)"
+        ))
+        # Ensure formal_attestations table exists (attestation framework)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS formal_attestations ("
+            "  id UUID PRIMARY KEY,"
+            "  issuer_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  subject_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  attestation_type VARCHAR(50) NOT NULL,"
+            "  evidence TEXT,"
+            "  expires_at TIMESTAMPTZ,"
+            "  is_revoked BOOLEAN NOT NULL DEFAULT false,"
+            "  revoked_at TIMESTAMPTZ,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  CONSTRAINT uq_formal_attestation"
+            "    UNIQUE (issuer_entity_id, subject_entity_id, attestation_type)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_formal_attestations_issuer "
+            "ON formal_attestations (issuer_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_formal_attestations_subject "
+            "ON formal_attestations (subject_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_formal_attestations_type "
+            "ON formal_attestations (attestation_type)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_formal_attestations_revoked "
+            "ON formal_attestations (is_revoked)"
+        ))
+        # Ensure content_links table exists (migration r02)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS content_links ("
+            "  id UUID PRIMARY KEY,"
+            "  source_type VARCHAR(30) NOT NULL,"
+            "  source_id UUID NOT NULL,"
+            "  target_type VARCHAR(30) NOT NULL,"
+            "  target_id UUID NOT NULL,"
+            "  link_type VARCHAR(30) NOT NULL,"
+            "  created_by UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  CONSTRAINT ck_content_link_source_type"
+            "    CHECK (source_type IN ('post', 'entity', 'evolution_record', 'listing')),"
+            "  CONSTRAINT ck_content_link_target_type"
+            "    CHECK (target_type IN ('post', 'entity', 'evolution_record', 'listing')),"
+            "  CONSTRAINT ck_content_link_link_type"
+            "    CHECK (link_type IN ('mentions', 'references', 'related', 'replies_about')),"
+            "  CONSTRAINT uq_content_link"
+            "    UNIQUE (source_type, source_id, target_type, target_id, link_type)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_content_links_source "
+            "ON content_links (source_type, source_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_content_links_target "
+            "ON content_links (target_type, target_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_content_links_created_by "
+            "ON content_links (created_by)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_content_links_link_type "
+            "ON content_links (link_type)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_content_links_created_at "
+            "ON content_links (created_at)"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

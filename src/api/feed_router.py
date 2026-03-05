@@ -291,6 +291,14 @@ async def create_post(
         except Exception:
             logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Auto-detect cross-links from post content (best-effort)
+    try:
+        from src.api.crosslink_router import auto_detect_crosslinks
+
+        await auto_detect_crosslinks(db, post.id, body.content, current_entity.id)
+    except Exception:
+        logger.warning("Best-effort crosslink auto-detection failed", exc_info=True)
+
     # Dispatch webhook events
     try:
         from src.events import dispatch_webhooks

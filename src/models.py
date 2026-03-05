@@ -235,6 +235,7 @@ class Post(Base):
         Index("ix_posts_parent", "parent_post_id"),
         Index("ix_posts_submolt", "submolt_id"),
         Index("ix_posts_vote_count", "vote_count"),
+        Index("ix_posts_hidden", "is_hidden"),
     )
 
 
@@ -349,10 +350,15 @@ class ModerationFlag(Base):
 
     reporter = relationship("Entity", foreign_keys=[reporter_entity_id])
 
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
     __table_args__ = (
         Index("ix_moderation_status", "status"),
         Index("ix_moderation_target", "target_type", "target_id"),
         Index("ix_moderation_reporter", "reporter_entity_id"),
+        Index("ix_moderation_created_at", "created_at"),
     )
 
 
@@ -410,6 +416,10 @@ class EvolutionRecord(Base):
     approver = relationship("Entity", foreign_keys=[approved_by])
     source_listing = relationship("Listing", foreign_keys=[source_listing_id])
 
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
     __table_args__ = (
         Index("ix_evolution_entity", "entity_id"),
         Index("ix_evolution_entity_version", "entity_id", "version", unique=True),
@@ -417,6 +427,8 @@ class EvolutionRecord(Base):
         Index("ix_evolution_source_listing", "source_listing_id"),
         Index("ix_evolution_parent", "parent_record_id"),
         Index("ix_evolution_approval_status", "approval_status"),
+        Index("ix_evolution_created_at", "created_at"),
+        Index("ix_evolution_change_type", "change_type"),
     )
 
 
@@ -743,6 +755,7 @@ class Notification(Base):
     __table_args__ = (
         Index("ix_notifications_entity", "entity_id"),
         Index("ix_notifications_entity_unread", "entity_id", "is_read"),
+        Index("ix_notifications_created_at", "created_at"),
     )
 
 
@@ -1675,3 +1688,103 @@ class BehavioralBaseline(Base):
     )
 
 
+class ContentLink(Base):
+    """Cross-reference between content items (posts, entities, evolution records, listings).
+
+    Enables a rich graph of related content: @mentions auto-detected in posts,
+    explicit references, editorial "related" links, and replies_about links.
+    """
+
+    __tablename__ = "content_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_type = Column(
+        String(30), nullable=False,
+    )  # "post", "entity", "evolution_record", "listing"
+    source_id = Column(UUID(as_uuid=True), nullable=False)
+    target_type = Column(
+        String(30), nullable=False,
+    )  # "post", "entity", "evolution_record", "listing"
+    target_id = Column(UUID(as_uuid=True), nullable=False)
+    link_type = Column(
+        String(30), nullable=False,
+    )  # "mentions", "references", "related", "replies_about"
+    created_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    creator = relationship("Entity", foreign_keys=[created_by])
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('post', 'entity', 'evolution_record', 'listing')",
+            name="ck_content_link_source_type",
+        ),
+        CheckConstraint(
+            "target_type IN ('post', 'entity', 'evolution_record', 'listing')",
+            name="ck_content_link_target_type",
+        ),
+        CheckConstraint(
+            "link_type IN ('mentions', 'references', 'related', 'replies_about')",
+            name="ck_content_link_link_type",
+        ),
+        UniqueConstraint(
+            "source_type", "source_id", "target_type", "target_id", "link_type",
+            name="uq_content_link",
+        ),
+        Index("ix_content_links_source", "source_type", "source_id"),
+        Index("ix_content_links_target", "target_type", "target_id"),
+        Index("ix_content_links_created_by", "created_by"),
+        Index("ix_content_links_link_type", "link_type"),
+        Index("ix_content_links_created_at", "created_at"),
+    )
+
+
+class FormalAttestation(Base):
+    """Formal attestation issued by one entity about another.
+
+    Unlike lightweight TrustAttestations (competent/reliable/safe/responsive),
+    formal attestations represent structured, typed verification claims such as
+    identity_verified, capability_certified, security_audited, operator_verified,
+    and community_endorsed.  They can carry evidence text, expire, and be revoked.
+    """
+
+    __tablename__ = "formal_attestations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    issuer_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    subject_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attestation_type = Column(
+        String(50), nullable=False,
+    )  # identity_verified, capability_certified, security_audited, etc.
+    evidence = Column(Text, nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_revoked = Column(Boolean, default=False, nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    issuer = relationship("Entity", foreign_keys=[issuer_entity_id])
+    subject = relationship("Entity", foreign_keys=[subject_entity_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "issuer_entity_id", "subject_entity_id", "attestation_type",
+            name="uq_formal_attestation",
+        ),
+        Index("ix_formal_attestations_issuer", "issuer_entity_id"),
+        Index("ix_formal_attestations_subject", "subject_entity_id"),
+        Index("ix_formal_attestations_type", "attestation_type"),
+        Index("ix_formal_attestations_revoked", "is_revoked"),
+    )
