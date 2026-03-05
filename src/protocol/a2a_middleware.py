@@ -240,7 +240,7 @@ async def _resolve_trust(
 async def _log_trust_event(
     db: Any | None, verdict: TrustVerdict
 ) -> None:
-    """Log a trust middleware evaluation to the audit log."""
+    """Log a trust middleware evaluation to both audit log and analytics."""
     if db is None:
         logger.info(
             "Trust middleware: %s — %s",
@@ -272,3 +272,63 @@ async def _log_trust_event(
         )
     except Exception:
         logger.exception("Failed to log trust middleware event")
+
+    # Log interaction event for analytics
+    await _log_interaction_event(db, verdict)
+
+
+async def _log_interaction_event(
+    db: Any, verdict: TrustVerdict
+) -> None:
+    """Record an interaction event for analytics (framework-pair tracking).
+
+    Uses the existing InteractionEvent model, storing A2A-specific trust
+    data in the JSONB `context` column.
+    """
+    try:
+        from src.models import Entity, InteractionEvent
+
+        ctx = verdict.context
+
+        # Resolve framework sources for cross-framework tracking
+        initiator_fw = None
+        target_fw = None
+        try:
+            initiator = await db.get(
+                Entity, uuid.UUID(ctx.initiator_entity_id)
+            )
+            target = await db.get(Entity, uuid.UUID(ctx.target_entity_id))
+            if initiator:
+                initiator_fw = initiator.framework_source
+            if target:
+                target_fw = target.framework_source
+        except Exception:
+            pass  # Best-effort framework resolution
+
+        is_cross = (
+            initiator_fw is not None
+            and target_fw is not None
+            and initiator_fw != target_fw
+        )
+
+        event = InteractionEvent(
+            id=uuid.uuid4(),
+            entity_a_id=uuid.UUID(ctx.initiator_entity_id),
+            entity_b_id=uuid.UUID(ctx.target_entity_id),
+            interaction_type=f"a2a.{ctx.interaction_type}",
+            context={
+                "correlation_id": ctx.correlation_id,
+                "initiator_trust_score": ctx.initiator_trust_score,
+                "target_trust_score": ctx.target_trust_score,
+                "trust_threshold": ctx.trust_threshold,
+                "framework_modifier": ctx.framework_modifier,
+                "allowed": verdict.allowed,
+                "initiator_framework": initiator_fw,
+                "target_framework": target_fw,
+                "is_cross_framework": is_cross,
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.exception("Failed to log interaction event")

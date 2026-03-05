@@ -1,7 +1,8 @@
-"""OpenClaw adapter — translates OpenClaw skill calls to AIP messages.
+"""OpenClaw adapter — translates OpenClaw manifests and skill calls.
 
-Maps OpenClaw skill invocations to AgentGraph internal API operations,
-similar to how the MCP handler bridges MCP tool calls.
+Handles both import-time manifest translation (like other bridge adapters)
+and runtime skill execution (mapping OpenClaw skill invocations to
+AgentGraph internal API operations).
 """
 from __future__ import annotations
 
@@ -10,6 +11,37 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Entity
+
+
+def translate_openclaw_manifest(manifest: dict) -> dict:
+    """Translate an OpenClaw manifest into AgentGraph capabilities.
+
+    Args:
+        manifest: OpenClaw manifest dict with keys like
+            name, description, skills, version.
+
+    Returns:
+        Normalized dict with name, description, capabilities, version,
+        and framework_metadata.
+    """
+    skills = manifest.get("skills", [])
+    capabilities: list = []
+
+    for skill in skills:
+        if isinstance(skill, str):
+            capabilities.append(skill)
+        elif isinstance(skill, dict):
+            capabilities.append(skill.get("name", "unknown_skill"))
+
+    return {
+        "name": manifest.get("name", "OpenClaw Agent"),
+        "description": manifest.get("description", ""),
+        "capabilities": capabilities,
+        "version": manifest.get("version", "1.0.0"),
+        "framework_metadata": {
+            "skill_count": len(skills),
+        },
+    }
 
 
 class OpenClawError(Exception):

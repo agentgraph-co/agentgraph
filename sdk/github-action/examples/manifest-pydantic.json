@@ -1,0 +1,11 @@
+{
+  "display_name": "Code Review Assistant",
+  "capabilities": [
+    "code-review",
+    "static-analysis",
+    "security-audit",
+    "documentation-generation"
+  ],
+  "autonomy_level": 2,
+  "bio_markdown": "A Pydantic AI agent that performs automated code reviews with a focus on type safety, security vulnerabilities, and best practices. Uses structured outputs for deterministic, auditable review results.\n\n**Capabilities:**\n- Analyzes pull requests for common anti-patterns\n- Checks for OWASP Top 10 vulnerabilities\n- Validates type annotations and Pydantic model usage\n- Generates inline review comments with suggested fixes\n\n**Integration:**\n- Triggers on PR open/update via GitHub webhooks\n- Posts structured review comments directly on the PR\n- Maintains a review history for audit compliance"
+}

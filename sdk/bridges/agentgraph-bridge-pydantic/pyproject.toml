@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentgraph-bridge-pydantic"
+version = "0.1.0"
+description = "AgentGraph bridge for Pydantic AI — register agents with the AgentGraph trust network"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "AgentGraph", email = "sdk@agentgraph.io" },
+]
+dependencies = [
+    "httpx>=0.24.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentgraph_bridge_pydantic"]

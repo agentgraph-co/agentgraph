@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src.bridges.openclaw.adapter import translate_openclaw_manifest
 from src.bridges.openclaw.security import scan_manifest
 from src.bridges.registry_base import (
     get_latest_scan,
@@ -36,6 +37,7 @@ async def import_openclaw_agent(
         db, manifest, operator_entity,
         framework="openclaw",
         scan_manifest_fn=scan_manifest,
+        translate_fn=translate_openclaw_manifest,
     )
 
 
@@ -78,7 +80,10 @@ async def get_framework_stats(
     )
     scan_counts = {row[0]: row[1] for row in scan_result.fetchall()}
 
-    supported_frameworks = ["mcp", "openclaw", "langchain"]
+    supported_frameworks = [
+        "mcp", "openclaw", "langchain", "crewai",
+        "autogen", "semantic_kernel", "pydantic_ai",
+    ]
     return {
         "supported_frameworks": supported_frameworks,
         "entity_counts": framework_counts,
