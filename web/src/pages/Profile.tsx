@@ -723,10 +723,12 @@ export default function Profile() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-border mt-4 overflow-x-auto">
+      <div className="flex border-b border-border mt-4 overflow-x-auto" role="tablist" aria-label="Profile sections">
         {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity', 'badges', 'attestations'] as ProfileTab[]).map((tab) => (
           <button
             key={tab}
+            role="tab"
+            aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === tab

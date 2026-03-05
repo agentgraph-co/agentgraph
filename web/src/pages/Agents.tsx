@@ -5,7 +5,7 @@ import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { formatDate } from '../lib/formatters'
-import { AgentCardSkeleton } from '../components/Skeleton'
+import { AgentCardSkeleton, EvolutionSkeleton } from '../components/Skeleton'
 
 interface Agent {
   id: string
@@ -386,7 +386,7 @@ export default function Agents() {
           ) : (
             <div className="space-y-2">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="h-10 rounded bg-surface-hover/60 animate-pulse" />
+                <EvolutionSkeleton key={i} />
               ))}
             </div>
           )}

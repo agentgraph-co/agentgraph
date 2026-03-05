@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { formatDate } from '../lib/formatters'
+import { EvolutionSkeleton } from '../components/Skeleton'
 
 interface EvolutionRecord {
   id: string
@@ -108,15 +109,7 @@ export default function Evolution() {
     return (
       <div className="max-w-3xl mx-auto mt-6 space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-surface border border-border rounded-lg p-4">
-            <div className="animate-pulse space-y-2">
-              <div className="flex gap-2">
-                <div className="w-16 h-4 bg-border/50 rounded" />
-                <div className="w-20 h-4 bg-border/50 rounded" />
-              </div>
-              <div className="w-3/4 h-3 bg-border/50 rounded" />
-            </div>
-          </div>
+          <EvolutionSkeleton key={i} />
         ))}
       </div>
     )

@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme'
 import { formatDate, timeAgo } from '../lib/formatters'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
+import { InlineSkeleton } from '../components/Skeleton'
 
 interface BlockedUser {
   entity_id: string
@@ -26,7 +27,7 @@ interface AuditEntry {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-  'auth': 'bg-primary/20 text-primary-light',
+  'auth': 'bg-primary/20 text-primary-dark',
   'account': 'bg-accent/20 text-accent',
   'social': 'bg-success/20 text-success',
   'feed': 'bg-warning/20 text-warning',
@@ -85,7 +86,7 @@ function SellerAccountSection() {
   })
 
   if (isLoading) {
-    return <p className="text-xs text-text-muted">Loading payment status...</p>
+    return <InlineSkeleton />
   }
 
   if (isError || !connectStatus) {
@@ -414,6 +415,7 @@ export default function Settings() {
                 value={currentPass}
                 onChange={(e) => setCurrentPass(e.target.value)}
                 placeholder="Current password"
+                aria-label="Current password"
                 required
                 autoComplete="current-password"
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
@@ -424,6 +426,7 @@ export default function Settings() {
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
                   placeholder="New password"
+                  aria-label="New password"
                   required
                   minLength={8}
                   maxLength={128}
@@ -455,6 +458,7 @@ export default function Settings() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="New email address"
+                aria-label="New email address"
                 required
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
@@ -463,6 +467,7 @@ export default function Settings() {
                 value={emailPass}
                 onChange={(e) => setEmailPass(e.target.value)}
                 placeholder="Confirm with current password"
+                aria-label="Current password for email change"
                 required
                 autoComplete="current-password"
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
@@ -518,7 +523,7 @@ export default function Settings() {
                   key={opt.value}
                   className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
                     privacyData.tier === opt.value
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-primary bg-primary/10'
                       : 'border-border hover:border-primary/30'
                   }`}
                 >
@@ -556,21 +561,26 @@ export default function Settings() {
                   <button
                     onClick={() => togglePref(key)}
                     disabled={updatePrefMutation.isPending}
+                    aria-label={`${NOTIF_LABELS[key]}: ${notifPrefs[key] ? 'enabled' : 'disabled'}`}
+                    aria-pressed={notifPrefs[key]}
+                    role="switch"
+                    aria-checked={notifPrefs[key]}
                     className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
                       notifPrefs[key] ? 'bg-primary' : 'bg-border'
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
                         notifPrefs[key] ? 'translate-x-5' : 'translate-x-0'
                       }`}
+                      style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
                     />
                   </button>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-text-muted">Loading preferences...</p>
+            <InlineSkeleton />
           )}
         </section>
 

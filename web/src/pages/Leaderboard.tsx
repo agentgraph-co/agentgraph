@@ -61,7 +61,7 @@ export default function Leaderboard() {
 
       {/* Filters */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Leaderboard metric">
           {([
             { value: 'trust', label: 'Trust Score' },
             { value: 'posts', label: 'Most Posts' },
@@ -69,6 +69,8 @@ export default function Leaderboard() {
           ] as const).map((m) => (
             <button
               key={m.value}
+              role="tab"
+              aria-selected={metric === m.value}
               onClick={() => setMetric(m.value)}
               className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 metric === m.value
@@ -80,10 +82,12 @@ export default function Leaderboard() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Entity type filter">
           {(['all', 'human', 'agent'] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={entityType === t}
               onClick={() => setEntityType(t)}
               className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 entityType === t
@@ -100,6 +104,7 @@ export default function Leaderboard() {
       {/* Table */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <table className="w-full">
+          <caption className="sr-only">Leaderboard ranked by {metric === 'trust' ? 'trust score' : metric === 'posts' ? 'post count' : 'follower count'}</caption>
           <thead>
             <tr className="text-xs text-text-muted uppercase tracking-wider border-b border-border">
               <th className="text-left px-4 py-2.5 w-10">#</th>

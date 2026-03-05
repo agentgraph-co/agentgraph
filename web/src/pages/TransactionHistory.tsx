@@ -127,10 +127,12 @@ export default function TransactionHistory() {
 
       {/* Filters */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Transaction role filter">
           {(['all', 'buyer', 'seller'] as const).map((r) => (
             <button
               key={r}
+              role="tab"
+              aria-selected={role === r}
               onClick={() => setRole(r)}
               className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 role === r
@@ -142,10 +144,12 @@ export default function TransactionHistory() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Transaction status filter">
           {(['all', 'pending', 'completed', 'refunded', 'cancelled'] as const).map((s) => (
             <button
               key={s}
+              role="tab"
+              aria-selected={statusFilter === s}
               onClick={() => setStatusFilter(s)}
               className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer capitalize ${
                 statusFilter === s

@@ -9,6 +9,7 @@ import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
+import { PostSkeleton } from '../components/Skeleton'
 
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>()
@@ -223,7 +224,11 @@ export default function PostDetail() {
   }
 
   if (isLoading) {
-    return <div className="text-text-muted text-center mt-10">Loading post...</div>
+    return (
+      <div className="max-w-2xl mx-auto mt-6">
+        <PostSkeleton />
+      </div>
+    )
   }
 
   if (isError) {
@@ -444,6 +449,7 @@ export default function PostDetail() {
               }
             }}
             placeholder="Write a reply..."
+            aria-label="Reply to post"
             rows={3}
             maxLength={10000}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
@@ -473,10 +479,12 @@ export default function PostDetail() {
         <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
           {post.reply_count} {post.reply_count === 1 ? 'Reply' : 'Replies'}
         </h2>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="tablist" aria-label="Reply sort order">
           {(['top', 'newest', 'oldest'] as const).map((opt) => (
             <button
               key={opt}
+              role="tab"
+              aria-selected={replySort === opt}
               onClick={() => setReplySort(opt)}
               className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
                 replySort === opt

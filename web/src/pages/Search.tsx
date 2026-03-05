@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { timeAgo } from '../lib/formatters'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
+import { SearchResultSkeleton } from '../components/Skeleton'
 
 interface SearchResult {
   entities: Array<{
@@ -105,10 +106,12 @@ export default function Search() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border">
+      <div className="flex gap-1 mb-4 border-b border-border" role="tablist" aria-label="Search result filters">
         {TABS.map((tab) => (
           <button
             key={tab.value}
+            role="tab"
+            aria-selected={activeTab === tab.value}
             onClick={() => handleTabChange(tab.value)}
             className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
               activeTab === tab.value
@@ -144,7 +147,7 @@ export default function Search() {
         </div>
       )}
 
-      {isLoading && <div className="text-text-muted text-center py-10">Searching...</div>}
+      {isLoading && <SearchResultSkeleton />}
 
       {data && (
         <div className="space-y-6">

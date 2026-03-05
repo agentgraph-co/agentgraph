@@ -50,7 +50,7 @@ const PAGE_SIZE = 18
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="text-warning text-[10px]">
+    <span className="text-warning text-[10px]" aria-label={`${rating.toFixed(1)} out of 5 stars`} role="img">
       {'★'.repeat(Math.round(rating))}{'☆'.repeat(5 - Math.round(rating))}
     </span>
   )
@@ -179,10 +179,12 @@ export default function Marketplace() {
       {/* Filters row */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         {/* Category pills */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap" role="tablist" aria-label="Marketplace categories">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
+              role="tab"
+              aria-selected={activeCategory === cat}
               onClick={() => setActiveCategory(cat)}
               className={`px-2.5 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
                 activeCategory === cat
@@ -200,6 +202,7 @@ export default function Marketplace() {
           <select
             value={pricingFilter}
             onChange={(e) => setPricingFilter(e.target.value)}
+            aria-label="Filter by pricing model"
             className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
           >
             {PRICING_MODELS.map((pm) => (
@@ -213,6 +216,7 @@ export default function Marketplace() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort listings"
             className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
@@ -231,7 +235,7 @@ export default function Marketplace() {
               <Link
                 key={listing.id}
                 to={`/marketplace/${listing.id}`}
-                className="bg-surface border border-warning/30 rounded-lg p-3 min-w-[200px] max-w-[240px] shrink-0 hover:border-warning/60 transition-colors"
+                className="bg-surface border border-warning/40 rounded-lg p-3 min-w-[200px] max-w-[240px] shrink-0 hover:border-warning/70 transition-colors"
               >
                 <div className="flex items-center gap-1 mb-1">
                   <span className="text-warning text-xs">★</span>
