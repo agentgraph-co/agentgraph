@@ -63,6 +63,7 @@ from src.api.social_router import router as social_router
 from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
 from src.api.subscription_router import router as subscription_router
+from src.api.token_router import router as token_router
 from src.api.trust_explainer_router import router as trust_explainer_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
@@ -451,6 +452,7 @@ app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
+app.include_router(token_router, prefix=settings.api_v1_prefix)
 
 
 
