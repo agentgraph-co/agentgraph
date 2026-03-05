@@ -36,6 +36,7 @@ from src.api.insights_router import router as insights_router
 from src.api.interaction_router import router as interaction_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
+from src.api.migration_router import router as migration_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
 from src.api.org_router import router as org_router
@@ -104,6 +105,7 @@ _TAG_METADATA = [
     {"name": "export", "description": "GDPR-compliant full data export"},
     {"name": "activity", "description": "Public activity timeline per entity"},
     {"name": "messages", "description": "Direct messaging between entities"},
+    {"name": "migration", "description": "Platform migration tools (Moltbook)"},
     {"name": "ws", "description": "WebSocket real-time streams"},
     {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
     {"name": "organizations", "description": "Enterprise org management, fleet, compliance"},
@@ -389,6 +391,7 @@ app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(disputes_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)
+app.include_router(migration_router, prefix=settings.api_v1_prefix)
 app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)

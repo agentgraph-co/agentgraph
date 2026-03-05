@@ -44,6 +44,7 @@ class FlagResponse(BaseModel):
     target_id: uuid.UUID
     reason: str
     details: str | None
+    reporter_trust_score: float | None = None
     status: str
     created_at: datetime
 
@@ -114,6 +115,17 @@ async def create_flag(
             )
         body.details = sanitize_html(body.details)
 
+    # Fetch reporter's trust score for weighted flagging
+    reporter_trust_score = None
+    try:
+        from src.models import TrustScore
+        ts = await db.scalar(
+            select(TrustScore.score).where(TrustScore.entity_id == current_entity.id)
+        )
+        reporter_trust_score = ts if ts is not None else 0.0
+    except Exception:
+        reporter_trust_score = 0.0
+
     flag = ModerationFlag(
         id=uuid.uuid4(),
         reporter_entity_id=current_entity.id,
@@ -121,6 +133,7 @@ async def create_flag(
         target_id=body.target_id,
         reason=body.reason,
         details=body.details,
+        reporter_trust_score=reporter_trust_score,
         status=ModerationStatus.PENDING,
     )
     db.add(flag)
@@ -165,6 +178,7 @@ async def create_flag(
         target_id=flag.target_id,
         reason=flag.reason.value,
         details=flag.details,
+        reporter_trust_score=flag.reporter_trust_score,
         status=flag.status.value,
         created_at=flag.created_at,
     )
@@ -178,6 +192,7 @@ async def list_flags(
     status: ModerationStatus | None = Query(None),
     reason: ModerationReason | None = Query(None),
     target_type: str | None = Query(None),
+    sort: str = Query("trust", pattern="^(trust|recent)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
@@ -198,7 +213,15 @@ async def list_flags(
         select(func.count()).select_from(query.subquery())
     ) or 0
 
-    query = query.order_by(ModerationFlag.created_at.desc()).offset(offset).limit(limit)
+    if sort == "trust":
+        # High-trust reporters' flags first, then by recency
+        query = query.order_by(
+            ModerationFlag.reporter_trust_score.desc().nullslast(),
+            ModerationFlag.created_at.desc(),
+        )
+    else:
+        query = query.order_by(ModerationFlag.created_at.desc())
+    query = query.offset(offset).limit(limit)
     result = await db.execute(query)
     flags = result.scalars().all()
 
@@ -211,6 +234,7 @@ async def list_flags(
                 target_id=f.target_id,
                 reason=f.reason.value,
                 details=f.details,
+                reporter_trust_score=f.reporter_trust_score,
                 status=f.status.value,
                 created_at=f.created_at,
             )
@@ -247,6 +271,7 @@ async def get_flag(
         target_id=flag.target_id,
         reason=flag.reason.value,
         details=flag.details,
+        reporter_trust_score=flag.reporter_trust_score,
         status=flag.status.value,
         created_at=flag.created_at,
     )
@@ -287,6 +312,28 @@ async def resolve_flag(
         post = await db.get(Post, flag.target_id)
         if post:
             post.is_hidden = True
+
+    # Warn: notify but leave account active
+    if body.status == ModerationStatus.WARNED:
+        try:
+            from src.api.notification_router import create_notification
+
+            target_entity_id = flag.target_id
+            if flag.target_type == "post":
+                post = await db.get(Post, flag.target_id)
+                if post:
+                    target_entity_id = post.author_entity_id
+            await create_notification(
+                db,
+                entity_id=target_entity_id,
+                kind="moderation",
+                title="Content warning",
+                body=f"Warning: your {flag.target_type} was flagged for {flag.reason.value}. "
+                     f"Repeated violations may result in suspension.",
+                reference_id=str(flag.id),
+            )
+        except Exception:
+            logger.warning("Best-effort side effect failed", exc_info=True)
 
     # Suspend entity if suspension action
     if body.status in (ModerationStatus.SUSPENDED, ModerationStatus.BANNED):
@@ -365,6 +412,7 @@ async def resolve_flag(
         target_id=flag.target_id,
         reason=flag.reason.value,
         details=flag.details,
+        reporter_trust_score=flag.reporter_trust_score,
         status=flag.status.value,
         created_at=flag.created_at,
     )
