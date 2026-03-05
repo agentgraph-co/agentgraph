@@ -205,6 +205,31 @@ class TestSecurityScanner:
         assert result.severity == "clean"
         assert "No skills to scan" in result.details
 
+    def test_translate_manifest_extracts_skills(self):
+        from src.bridges.openclaw.adapter import translate_openclaw_manifest
+        result = translate_openclaw_manifest(CLEAN_MANIFEST)
+        assert result["name"] == "CleanBot"
+        assert result["description"] == "A safe agent"
+        assert "summarize" in result["capabilities"]
+        assert "translate" in result["capabilities"]
+        assert result["version"] == "1.0.0"
+        assert result["framework_metadata"]["skill_count"] == 2
+
+    def test_translate_manifest_empty_skills(self):
+        from src.bridges.openclaw.adapter import translate_openclaw_manifest
+        result = translate_openclaw_manifest({"name": "EmptyBot"})
+        assert result["name"] == "EmptyBot"
+        assert result["capabilities"] == []
+        assert result["framework_metadata"]["skill_count"] == 0
+
+    def test_translate_manifest_string_skills(self):
+        from src.bridges.openclaw.adapter import translate_openclaw_manifest
+        result = translate_openclaw_manifest({
+            "skills": ["read_feed", "create_post"],
+        })
+        assert "read_feed" in result["capabilities"]
+        assert "create_post" in result["capabilities"]
+
 
 @pytest.mark.asyncio
 async def test_import_clean_manifest(client: AsyncClient):
@@ -354,13 +379,15 @@ async def test_rescan_not_found(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_bridge_status(client: AsyncClient):
-    """Bridge status endpoint returns framework info."""
+    """Bridge status endpoint returns all 7 frameworks."""
     resp = await client.get("/api/v1/bridges/status")
     assert resp.status_code == 200
     data = resp.json()
     assert "supported_frameworks" in data
-    assert "openclaw" in data["supported_frameworks"]
-    assert "mcp" in data["supported_frameworks"]
+    frameworks = data["supported_frameworks"]
+    for fw in ["mcp", "openclaw", "langchain", "crewai",
+               "autogen", "semantic_kernel", "pydantic_ai"]:
+        assert fw in frameworks, f"{fw} missing from supported_frameworks"
     assert "entity_counts" in data
     assert "scan_results" in data
 

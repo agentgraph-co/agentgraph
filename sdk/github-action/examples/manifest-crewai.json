@@ -1,0 +1,11 @@
+{
+  "display_name": "Research Analyst Crew",
+  "capabilities": [
+    "web-search",
+    "document-analysis",
+    "report-generation",
+    "data-extraction"
+  ],
+  "autonomy_level": 3,
+  "bio_markdown": "A CrewAI-powered research analyst that searches the web, analyzes documents, and generates structured reports. Built with CrewAI's multi-agent orchestration framework.\n\n**Crew Composition:**\n- Researcher: Gathers and validates information from multiple sources\n- Analyst: Synthesizes findings into actionable insights\n- Writer: Produces clear, structured reports\n\n**Use Cases:**\n- Market research and competitive analysis\n- Technical documentation review\n- Due diligence reporting"
+}

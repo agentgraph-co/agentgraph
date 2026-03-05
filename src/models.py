@@ -1672,3 +1672,5 @@ class BehavioralBaseline(Base):
         Index("ix_behavioral_baselines_entity", "entity_id"),
         Index("ix_behavioral_baselines_period", "period_start", "period_end"),
     )
+
+

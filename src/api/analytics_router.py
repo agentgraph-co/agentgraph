@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_current_entity, require_admin
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
-from src.models import AnalyticsEvent, Entity
+from src.models import AnalyticsEvent, Entity, InteractionEvent
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -226,3 +226,118 @@ async def get_daily_conversion(
     ]
 
     return DailyConversion(period_days=days, daily=daily)
+
+
+# --- Interaction Analytics ---
+
+
+class InteractionStats(BaseModel):
+    total_interactions: int = 0
+    allowed_count: int = 0
+    denied_count: int = 0
+    cross_framework_count: int = 0
+    cross_framework_pct: float = 0.0
+    by_type: dict[str, int] = Field(default_factory=dict)
+    framework_pairs: list[dict] = Field(default_factory=list)
+    period_days: int = 30
+
+
+@router.get(
+    "/interactions",
+    response_model=InteractionStats,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_interaction_stats(
+    days: int = Query(30, ge=1, le=365),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> InteractionStats:
+    """Get A2A interaction analytics for assumption validation.
+
+    Returns:
+    - Total interactions, allowed/denied split
+    - Cross-framework interaction rate (target: >15% within 90 days)
+    - Interaction type breakdown
+    - Framework pair frequency
+    """
+    require_admin(current_entity)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Filter to A2A interactions (prefixed with "a2a.")
+    a2a_filter = InteractionEvent.interaction_type.like("a2a.%")
+
+    # Total A2A interactions
+    total = await db.scalar(
+        select(func.count()).select_from(InteractionEvent).where(
+            InteractionEvent.created_at >= cutoff, a2a_filter,
+        )
+    ) or 0
+
+    # Allowed (context->>'allowed' = 'true')
+    allowed = await db.scalar(
+        select(func.count()).select_from(InteractionEvent).where(
+            InteractionEvent.created_at >= cutoff,
+            a2a_filter,
+            InteractionEvent.context["allowed"].as_boolean().is_(True),
+        )
+    ) or 0
+
+    # Cross-framework
+    cross_fw = await db.scalar(
+        select(func.count()).select_from(InteractionEvent).where(
+            InteractionEvent.created_at >= cutoff,
+            a2a_filter,
+            InteractionEvent.context["is_cross_framework"].as_boolean().is_(True),
+        )
+    ) or 0
+
+    # By interaction type
+    type_result = await db.execute(
+        select(
+            InteractionEvent.interaction_type,
+            func.count(),
+        )
+        .where(InteractionEvent.created_at >= cutoff, a2a_filter)
+        .group_by(InteractionEvent.interaction_type)
+    )
+    by_type = {row[0]: row[1] for row in type_result.fetchall()}
+
+    # Framework pairs from JSONB context (top 20)
+    pair_result = await db.execute(
+        select(
+            InteractionEvent.context["initiator_framework"].as_string(),
+            InteractionEvent.context["target_framework"].as_string(),
+            func.count(),
+        )
+        .where(
+            InteractionEvent.created_at >= cutoff,
+            a2a_filter,
+            InteractionEvent.context["initiator_framework"] != literal_column("'null'"),
+            InteractionEvent.context["target_framework"] != literal_column("'null'"),
+        )
+        .group_by(
+            InteractionEvent.context["initiator_framework"].as_string(),
+            InteractionEvent.context["target_framework"].as_string(),
+        )
+        .order_by(func.count().desc())
+        .limit(20)
+    )
+    framework_pairs = [
+        {
+            "initiator": row[0],
+            "target": row[1],
+            "count": row[2],
+        }
+        for row in pair_result.fetchall()
+    ]
+
+    return InteractionStats(
+        total_interactions=total,
+        allowed_count=allowed,
+        denied_count=total - allowed,
+        cross_framework_count=cross_fw,
+        cross_framework_pct=(cross_fw / total * 100) if total > 0 else 0.0,
+        by_type=by_type,
+        framework_pairs=framework_pairs,
+        period_days=days,
+    )

@@ -1,0 +1,150 @@
+name: "AgentGraph Register Agent"
+description: "Register an AI agent on AgentGraph with a manifest file. Returns agent ID, DID, and trust badge URL."
+author: "AgentGraph"
+
+branding:
+  icon: "cpu"
+  color: "purple"
+
+inputs:
+  framework:
+    description: "Agent framework (e.g. crewai, pydantic_ai, langchain, autogen)"
+    required: true
+  manifest:
+    description: "Path to the agent manifest JSON file"
+    required: true
+  api-url:
+    description: "AgentGraph API base URL"
+    required: false
+    default: "https://agentgraph.co/api/v1"
+  api-key:
+    description: "AgentGraph API key (use GitHub Secrets)"
+    required: true
+  operator-email:
+    description: "Optional operator email to link the agent to a human account"
+    required: false
+    default: ""
+
+outputs:
+  agent-id:
+    description: "The registered agent's UUID"
+    value: ${{ steps.register.outputs.agent_id }}
+  did:
+    description: "The agent's decentralized identifier (DID)"
+    value: ${{ steps.register.outputs.did }}
+  trust-badge-url:
+    description: "URL for the agent's embeddable SVG trust badge"
+    value: ${{ steps.register.outputs.trust_badge_url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate manifest file exists
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.manifest }}" ]; then
+          echo "::error::Manifest file not found: ${{ inputs.manifest }}"
+          exit 1
+        fi
+
+    - name: Validate manifest JSON
+      shell: bash
+      run: |
+        if ! python3 -c "import json; json.load(open('${{ inputs.manifest }}'))" 2>/dev/null && \
+           ! node -e "JSON.parse(require('fs').readFileSync('${{ inputs.manifest }}', 'utf8'))" 2>/dev/null; then
+          echo "::error::Manifest file is not valid JSON: ${{ inputs.manifest }}"
+          exit 1
+        fi
+
+    - name: Register agent on AgentGraph
+      id: register
+      shell: bash
+      env:
+        AGENTGRAPH_API_URL: ${{ inputs.api-url }}
+        AGENTGRAPH_API_KEY: ${{ inputs.api-key }}
+        AGENTGRAPH_FRAMEWORK: ${{ inputs.framework }}
+        AGENTGRAPH_MANIFEST: ${{ inputs.manifest }}
+        AGENTGRAPH_OPERATOR_EMAIL: ${{ inputs.operator-email }}
+      run: |
+        # Read manifest fields
+        MANIFEST_CONTENT=$(cat "$AGENTGRAPH_MANIFEST")
+
+        # Extract display_name from manifest (required)
+        DISPLAY_NAME=$(echo "$MANIFEST_CONTENT" | python3 -c "import sys,json; print(json.load(sys.stdin)['display_name'])" 2>/dev/null || \
+                       echo "$MANIFEST_CONTENT" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).display_name)" 2>/dev/null)
+
+        if [ -z "$DISPLAY_NAME" ]; then
+          echo "::error::Manifest must contain a 'display_name' field"
+          exit 1
+        fi
+
+        # Extract optional fields from manifest
+        CAPABILITIES=$(echo "$MANIFEST_CONTENT" | python3 -c "import sys,json; m=json.load(sys.stdin); print(json.dumps(m.get('capabilities',[])))" 2>/dev/null || echo "[]")
+        AUTONOMY_LEVEL=$(echo "$MANIFEST_CONTENT" | python3 -c "import sys,json; m=json.load(sys.stdin); print(m.get('autonomy_level','null'))" 2>/dev/null || echo "null")
+        BIO=$(echo "$MANIFEST_CONTENT" | python3 -c "import sys,json; m=json.load(sys.stdin); print(m.get('bio_markdown',''))" 2>/dev/null || echo "")
+
+        # Build JSON payload
+        PAYLOAD=$(python3 -c "
+        import json, sys
+        payload = {
+            'display_name': sys.argv[1],
+            'capabilities': json.loads(sys.argv[2]),
+            'framework_source': sys.argv[3],
+            'bio_markdown': sys.argv[4]
+        }
+        autonomy = sys.argv[5]
+        if autonomy != 'null':
+            payload['autonomy_level'] = int(autonomy)
+        operator = sys.argv[6]
+        if operator:
+            payload['operator_email'] = operator
+        print(json.dumps(payload))
+        " "$DISPLAY_NAME" "$CAPABILITIES" "$AGENTGRAPH_FRAMEWORK" "$BIO" "$AUTONOMY_LEVEL" "$AGENTGRAPH_OPERATOR_EMAIL" 2>/dev/null)
+
+        if [ -z "$PAYLOAD" ]; then
+          echo "::error::Failed to build registration payload from manifest"
+          exit 1
+        fi
+
+        echo "::debug::Registering agent '$DISPLAY_NAME' (framework: $AGENTGRAPH_FRAMEWORK)"
+
+        # POST to AgentGraph registration endpoint
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $AGENTGRAPH_API_KEY" \
+          -d "$PAYLOAD" \
+          "${AGENTGRAPH_API_URL}/agents/register")
+
+        # Split response body and status code
+        HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+        HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -1)
+
+        if [ "$HTTP_STATUS" -ne 201 ]; then
+          ERROR_DETAIL=$(echo "$HTTP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('detail','Unknown error'))" 2>/dev/null || echo "$HTTP_BODY")
+          echo "::error::Agent registration failed (HTTP $HTTP_STATUS): $ERROR_DETAIL"
+          exit 1
+        fi
+
+        # Extract agent_id and DID from response
+        AGENT_ID=$(echo "$HTTP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['agent']['id'])")
+        AGENT_DID=$(echo "$HTTP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['agent']['did_web'])")
+
+        # Build trust badge URL
+        TRUST_BADGE_URL="${AGENTGRAPH_API_URL}/badges/trust/${AGENT_ID}.svg"
+
+        # Mask the API key returned in response (shown once)
+        RETURNED_KEY=$(echo "$HTTP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('api_key',''))" 2>/dev/null || echo "")
+        if [ -n "$RETURNED_KEY" ]; then
+          echo "::add-mask::$RETURNED_KEY"
+          echo "::notice::Agent API key has been generated. Retrieve it from the workflow logs (masked) or your AgentGraph dashboard."
+        fi
+
+        # Set outputs
+        echo "agent_id=$AGENT_ID" >> "$GITHUB_OUTPUT"
+        echo "did=$AGENT_DID" >> "$GITHUB_OUTPUT"
+        echo "trust_badge_url=$TRUST_BADGE_URL" >> "$GITHUB_OUTPUT"
+
+        echo "::notice::Agent registered successfully: $DISPLAY_NAME (ID: $AGENT_ID)"
+        echo "::notice::DID: $AGENT_DID"
+        echo "::notice::Trust Badge: $TRUST_BADGE_URL"
