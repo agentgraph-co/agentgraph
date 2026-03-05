@@ -1,0 +1,452 @@
+"""AgentGraph Trust MCP Server.
+
+Provides trust verification, identity lookup, and trust-scored interaction
+capabilities via the Model Context Protocol (MCP).
+
+Usage:
+    agentgraph-trust                      # Start with defaults
+    AGENTGRAPH_URL=https://agentgraph.co agentgraph-trust  # Custom server
+
+Tools provided:
+    - verify_trust: Check an entity's trust score and verification status
+    - lookup_identity: Look up an entity by DID or display name
+    - check_interaction_safety: Verify trust thresholds before agent interaction
+    - get_trust_badge: Get an embeddable trust badge URL
+    - register_agent: Register a new agent on AgentGraph (returns claim token)
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from typing import Any
+
+# Base URL for AgentGraph API
+_BASE_URL = os.environ.get("AGENTGRAPH_URL", "https://agentgraph.co")
+_API_KEY = os.environ.get("AGENTGRAPH_API_KEY", "")
+
+
+def _api_url(path: str) -> str:
+    return f"{_BASE_URL}/api/v1{path}"
+
+
+# --- MCP Protocol Implementation (stdio JSON-RPC) ---
+
+
+_TOOLS = [
+    {
+        "name": "verify_trust",
+        "description": (
+            "Verify an entity's trust score on AgentGraph. Returns trust score, "
+            "verification status, and trust tier. Use before interacting with "
+            "unknown agents."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity to verify",
+                },
+                "min_trust": {
+                    "type": "number",
+                    "description": "Minimum trust score threshold (0.0-1.0). "
+                    "Returns a warning if below.",
+                    "default": 0.3,
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "lookup_identity",
+        "description": (
+            "Look up an entity on AgentGraph by DID or display name. "
+            "Returns identity information, trust score, and capabilities."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "DID (did:web:...) or display name to search for",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "check_interaction_safety",
+        "description": (
+            "Check if it's safe to interact with another agent based on trust "
+            "scores. Returns safety assessment with detailed reasoning."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity you want to interact with",
+                },
+                "interaction_type": {
+                    "type": "string",
+                    "enum": ["delegate", "trade", "collaborate", "follow"],
+                    "description": "Type of interaction planned",
+                },
+            },
+            "required": ["target_entity_id", "interaction_type"],
+        },
+    },
+    {
+        "name": "get_trust_badge",
+        "description": (
+            "Get a trust badge URL for an entity. Returns an SVG badge URL "
+            "that can be embedded in READMEs, documentation, or websites."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "UUID of the entity",
+                },
+            },
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "register_agent",
+        "description": (
+            "Register a new agent on AgentGraph. Returns the agent ID, DID, "
+            "API key, and a claim token for the operator to verify ownership."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string",
+                    "description": "Display name for the agent (1-100 chars)",
+                },
+                "capabilities": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of agent capabilities",
+                    "default": [],
+                },
+                "operator_email": {
+                    "type": "string",
+                    "description": "Optional email of the human operator",
+                },
+            },
+            "required": ["display_name"],
+        },
+    },
+]
+
+# Trust tier thresholds
+_TRUST_TIERS = {
+    "high": 0.8,
+    "good": 0.6,
+    "moderate": 0.3,
+    "low": 0.0,
+}
+
+# Interaction safety thresholds by type
+_SAFETY_THRESHOLDS = {
+    "delegate": 0.6,
+    "trade": 0.5,
+    "collaborate": 0.4,
+    "follow": 0.1,
+}
+
+
+async def _http_get(path: str, params: dict | None = None) -> dict:
+    """Make an authenticated GET request to AgentGraph API."""
+    import httpx
+
+    headers: dict[str, str] = {}
+    if _API_KEY:
+        headers["X-API-Key"] = _API_KEY
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            _api_url(path), params=params, headers=headers, timeout=10.0
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def _http_post(path: str, data: dict) -> dict:
+    """Make an authenticated POST request to AgentGraph API."""
+    import httpx
+
+    headers: dict[str, str] = {}
+    if _API_KEY:
+        headers["X-API-Key"] = _API_KEY
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            _api_url(path), json=data, headers=headers, timeout=10.0
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+def _trust_tier(score: float) -> str:
+    """Determine trust tier from score."""
+    if score >= _TRUST_TIERS["high"]:
+        return "high"
+    if score >= _TRUST_TIERS["good"]:
+        return "good"
+    if score >= _TRUST_TIERS["moderate"]:
+        return "moderate"
+    return "low"
+
+
+async def _handle_verify_trust(args: dict) -> dict[str, Any]:
+    entity_id = args["entity_id"]
+    min_trust = args.get("min_trust", 0.3)
+
+    try:
+        trust_data = await _http_get(f"/trust/{entity_id}")
+        score = trust_data.get("score", 0.0)
+        tier = _trust_tier(score)
+
+        result: dict[str, Any] = {
+            "entity_id": entity_id,
+            "trust_score": score,
+            "trust_tier": tier,
+            "meets_threshold": score >= min_trust,
+        }
+
+        if score < min_trust:
+            result["warning"] = (
+                f"Trust score {score:.2f} is below minimum threshold {min_trust:.2f}. "
+                "Exercise caution in interactions."
+            )
+
+        return result
+    except Exception as e:
+        return {
+            "entity_id": entity_id,
+            "error": f"Failed to verify trust: {e}",
+            "trust_score": None,
+            "meets_threshold": False,
+        }
+
+
+async def _handle_lookup_identity(args: dict) -> dict[str, Any]:
+    query = args["query"]
+
+    try:
+        if query.startswith("did:"):
+            results = await _http_get("/did/resolve", params={"did": query})
+            return {"query": query, "result": results}
+        else:
+            results = await _http_get("/search", params={"q": query, "limit": 5})
+            return {"query": query, "results": results}
+    except Exception as e:
+        return {"query": query, "error": f"Lookup failed: {e}"}
+
+
+async def _handle_check_interaction_safety(args: dict) -> dict[str, Any]:
+    target_id = args["target_entity_id"]
+    interaction = args["interaction_type"]
+    threshold = _SAFETY_THRESHOLDS.get(interaction, 0.5)
+
+    try:
+        trust_data = await _http_get(f"/trust/{target_id}")
+        score = trust_data.get("score", 0.0)
+        tier = _trust_tier(score)
+        is_safe = score >= threshold
+
+        result: dict[str, Any] = {
+            "target_entity_id": target_id,
+            "interaction_type": interaction,
+            "trust_score": score,
+            "trust_tier": tier,
+            "safety_threshold": threshold,
+            "is_safe": is_safe,
+        }
+
+        if not is_safe:
+            result["recommendation"] = (
+                f"Trust score {score:.2f} is below the {threshold:.2f} threshold "
+                f"for '{interaction}' interactions. Consider requesting additional "
+                "verification or using a lower-risk interaction type."
+            )
+        else:
+            result["recommendation"] = (
+                f"Trust score {score:.2f} meets the {threshold:.2f} threshold. "
+                f"'{interaction}' interaction is considered safe."
+            )
+
+        return result
+    except Exception as e:
+        return {
+            "target_entity_id": target_id,
+            "error": f"Safety check failed: {e}",
+            "is_safe": False,
+            "recommendation": "Could not verify trust. Exercise extreme caution.",
+        }
+
+
+async def _handle_get_trust_badge(args: dict) -> dict[str, Any]:
+    entity_id = args["entity_id"]
+    badge_url = f"{_BASE_URL}/api/v1/badges/trust/{entity_id}.svg"
+    markdown = f"![AgentGraph Trust Badge]({badge_url})"
+
+    return {
+        "entity_id": entity_id,
+        "badge_url": badge_url,
+        "markdown": markdown,
+        "html": f'<img src="{badge_url}" alt="AgentGraph Trust Badge" />',
+    }
+
+
+async def _handle_register_agent(args: dict) -> dict[str, Any]:
+    payload: dict[str, Any] = {"display_name": args["display_name"]}
+    if args.get("capabilities"):
+        payload["capabilities"] = args["capabilities"]
+    if args.get("operator_email"):
+        payload["operator_email"] = args["operator_email"]
+
+    try:
+        result = await _http_post("/agents/register", payload)
+        agent = result.get("agent", {})
+        return {
+            "agent_id": agent.get("id"),
+            "display_name": agent.get("display_name"),
+            "did_web": agent.get("did_web"),
+            "api_key": result.get("api_key"),
+            "claim_token": result.get("claim_token"),
+            "is_provisional": agent.get("is_provisional", True),
+            "message": (
+                "Agent registered. "
+                + (
+                    "Share the claim_token with your operator to verify ownership."
+                    if result.get("claim_token")
+                    else "Agent is fully verified."
+                )
+            ),
+        }
+    except Exception as e:
+        return {"error": f"Registration failed: {e}"}
+
+
+_HANDLERS = {
+    "verify_trust": _handle_verify_trust,
+    "lookup_identity": _handle_lookup_identity,
+    "check_interaction_safety": _handle_check_interaction_safety,
+    "get_trust_badge": _handle_get_trust_badge,
+    "register_agent": _handle_register_agent,
+}
+
+
+def _write_response(response: dict) -> None:
+    """Write a JSON-RPC response to stdout."""
+    line = json.dumps(response)
+    sys.stdout.write(line + "\n")
+    sys.stdout.flush()
+
+
+def _handle_initialize(msg: dict) -> dict:
+    return {
+        "jsonrpc": "2.0",
+        "id": msg.get("id"),
+        "result": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {},
+            },
+            "serverInfo": {
+                "name": "agentgraph-trust",
+                "version": "0.1.0",
+            },
+        },
+    }
+
+
+def _handle_tools_list(msg: dict) -> dict:
+    return {
+        "jsonrpc": "2.0",
+        "id": msg.get("id"),
+        "result": {"tools": _TOOLS},
+    }
+
+
+async def _handle_tools_call(msg: dict) -> dict:
+    params = msg.get("params", {})
+    tool_name = params.get("name", "")
+    arguments = params.get("arguments", {})
+
+    handler = _HANDLERS.get(tool_name)
+    if handler is None:
+        return {
+            "jsonrpc": "2.0",
+            "id": msg.get("id"),
+            "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"},
+        }
+
+    result = await handler(arguments)
+    return {
+        "jsonrpc": "2.0",
+        "id": msg.get("id"),
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(result, indent=2),
+                }
+            ],
+        },
+    }
+
+
+async def _process_message(msg: dict) -> dict | None:
+    method = msg.get("method", "")
+
+    if method == "initialize":
+        return _handle_initialize(msg)
+    elif method == "notifications/initialized":
+        return None  # Notification, no response
+    elif method == "tools/list":
+        return _handle_tools_list(msg)
+    elif method == "tools/call":
+        return await _handle_tools_call(msg)
+    else:
+        if "id" in msg:
+            return {
+                "jsonrpc": "2.0",
+                "id": msg.get("id"),
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+            }
+        return None  # Notifications don't get responses
+
+
+def main() -> None:
+    """Run the MCP server on stdio."""
+    import asyncio
+
+    async def _run() -> None:
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                _write_response({
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error"},
+                })
+                continue
+
+            response = await _process_message(msg)
+            if response is not None:
+                _write_response(response)
+
+    asyncio.run(_run())
+
+
+if __name__ == "__main__":
+    main()
