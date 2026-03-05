@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
@@ -34,8 +35,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _register_and_login(client: AsyncClient, suffix: str = "") -> str:
-    """Register + login a unique user, return access token."""
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
+async def _register_and_login(client: AsyncClient, suffix: str = "") -> tuple[str, str]:
+    """Register + login a unique user, return (access_token, entity_id)."""
     email = f"captest_{uuid.uuid4().hex[:8]}{suffix}@test.com"
     await client.post(REGISTER_URL, json={
         "display_name": f"Cap Tester {suffix}",
@@ -46,7 +53,9 @@ async def _register_and_login(client: AsyncClient, suffix: str = "") -> str:
         "email": email,
         "password": "StrongPass1!",
     })
-    return resp.json()["access_token"]
+    token = resp.json()["access_token"]
+    me = await client.get("/api/v1/auth/me", headers=_auth(token))
+    return token, me.json()["id"]
 
 
 async def _create_agent(
@@ -90,12 +99,14 @@ async def _create_evolution_record(
     return resp.json()
 
 
-async def _setup_seller_with_capability(client: AsyncClient):
+async def _setup_seller_with_capability(client: AsyncClient, db=None):
     """Create seller, agent, evolution record, and capability listing.
 
     Returns (seller_token, agent_id, evo_record_id, listing_id).
     """
-    seller_token = await _register_and_login(client, "seller")
+    seller_token, seller_eid = await _register_and_login(client, "seller")
+    if db is not None:
+        await _grant_trust(db, seller_eid)
     agent_id = await _create_agent(
         client, seller_token, "SellerAgent",
         capabilities=["nlp", "translation"],
@@ -127,7 +138,7 @@ async def _setup_seller_with_capability(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_capability_listing(client: AsyncClient):
     """Create a capability listing linked to an evolution record."""
-    token = await _register_and_login(client, "a")
+    token, _ = await _register_and_login(client, "a")
     agent_id = await _create_agent(client, token, "MyAgent")
     evo = await _create_evolution_record(
         client, token, agent_id, version="1.0.0",
@@ -154,7 +165,7 @@ async def test_create_capability_listing(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_capability_listing_invalid_evo_record(client: AsyncClient):
     """Cannot create listing with invalid evolution record ID."""
-    token = await _register_and_login(client, "b")
+    token, _ = await _register_and_login(client, "b")
 
     resp = await client.post(CAP_URL, json={
         "evolution_record_id": str(uuid.uuid4()),
@@ -172,13 +183,13 @@ async def test_create_capability_listing_invalid_evo_record(client: AsyncClient)
 @pytest.mark.asyncio
 async def test_create_capability_listing_non_owned_agent(client: AsyncClient):
     """Cannot create listing for evolution record of non-owned agent."""
-    owner_token = await _register_and_login(client, "c1")
+    owner_token, _ = await _register_and_login(client, "c1")
     agent_id = await _create_agent(client, owner_token, "OwnedAgent")
     evo = await _create_evolution_record(
         client, owner_token, agent_id, version="1.0.0",
     )
 
-    other_token = await _register_and_login(client, "c2")
+    other_token, _ = await _register_and_login(client, "c2")
 
     resp = await client.post(CAP_URL, json={
         "evolution_record_id": evo["id"],
@@ -196,7 +207,7 @@ async def test_create_capability_listing_non_owned_agent(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_capability_listing_paid(client: AsyncClient):
     """Create a paid capability listing."""
-    token = await _register_and_login(client, "d")
+    token, _ = await _register_and_login(client, "d")
     agent_id = await _create_agent(client, token, "PaidAgent")
     evo = await _create_evolution_record(
         client, token, agent_id, version="1.0.0",
@@ -239,9 +250,10 @@ async def test_get_capability_package(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_capability_package_non_capability(client: AsyncClient):
+async def test_get_capability_package_non_capability(client: AsyncClient, db):
     """Cannot get package for non-capability listing."""
-    token = await _register_and_login(client, "e")
+    token, eid = await _register_and_login(client, "e")
+    await _grant_trust(db, eid)
 
     resp = await client.post(MARKETPLACE_URL, json={
         "title": "Regular Service",
@@ -276,7 +288,7 @@ async def test_adopt_free_capability(client: AsyncClient):
         await _setup_seller_with_capability(client)
     )
 
-    buyer_token = await _register_and_login(client, "buyer1")
+    buyer_token, _ = await _register_and_login(client, "buyer1")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "BuyerAgent",
         capabilities=["chat"],
@@ -305,7 +317,7 @@ async def test_adopt_creates_evolution_record(client: AsyncClient):
         await _setup_seller_with_capability(client)
     )
 
-    buyer_token = await _register_and_login(client, "buyer2")
+    buyer_token, _ = await _register_and_login(client, "buyer2")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "BuyerAgent2", capabilities=["chat"],
     )
@@ -337,7 +349,7 @@ async def test_adopt_forked_from_entity_id(client: AsyncClient):
         await _setup_seller_with_capability(client)
     )
 
-    buyer_token = await _register_and_login(client, "buyer3")
+    buyer_token, _ = await _register_and_login(client, "buyer3")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "BuyerAgent3", capabilities=["chat"],
     )
@@ -363,7 +375,7 @@ async def test_adopt_merges_capabilities(client: AsyncClient):
     """Adopted capabilities are merged with existing agent capabilities."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "buyer4")
+    buyer_token, _ = await _register_and_login(client, "buyer4")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "BuyerAgent4",
         capabilities=["chat", "summarize"],
@@ -388,7 +400,7 @@ async def test_adopt_version_increments(client: AsyncClient):
     """Adopted version increments correctly from existing versions."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "buyer5")
+    buyer_token, _ = await _register_and_login(client, "buyer5")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "BuyerAgent5", capabilities=["chat"],
     )
@@ -428,7 +440,7 @@ async def test_cannot_adopt_own_capability(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_adopt_nonexistent_listing(client: AsyncClient):
     """Adopting a nonexistent listing returns 404."""
-    token = await _register_and_login(client, "buyer6")
+    token, _ = await _register_and_login(client, "buyer6")
     agent_id = await _create_agent(client, token, "Agent6")
 
     resp = await client.post(
@@ -440,9 +452,10 @@ async def test_adopt_nonexistent_listing(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_adopt_non_capability_listing(client: AsyncClient):
+async def test_adopt_non_capability_listing(client: AsyncClient, db):
     """Cannot adopt a non-capability listing."""
-    seller_token = await _register_and_login(client, "seller2")
+    seller_token, seller_eid = await _register_and_login(client, "seller2")
+    await _grant_trust(db, seller_eid)
     resp = await client.post(MARKETPLACE_URL, json={
         "title": "Service",
         "description": "A regular service",
@@ -453,7 +466,7 @@ async def test_adopt_non_capability_listing(client: AsyncClient):
     }, headers=_auth(seller_token))
     listing_id = resp.json()["id"]
 
-    buyer_token = await _register_and_login(client, "buyer7")
+    buyer_token, _ = await _register_and_login(client, "buyer7")
     agent_id = await _create_agent(client, buyer_token, "Agent7")
 
     resp = await client.post(
@@ -470,10 +483,10 @@ async def test_adopt_non_owned_agent(client: AsyncClient):
     """Cannot adopt to an agent you don't own."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    owner_token = await _register_and_login(client, "owner1")
+    owner_token, _ = await _register_and_login(client, "owner1")
     agent_id = await _create_agent(client, owner_token, "OwnedAgent2")
 
-    other_token = await _register_and_login(client, "other1")
+    other_token, _ = await _register_and_login(client, "other1")
 
     resp = await client.post(
         f"{CAP_URL}/{listing_id}/adopt",
@@ -490,7 +503,7 @@ async def test_adopt_non_owned_agent(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_license_type_preserved_in_fork(client: AsyncClient):
     """License type is preserved from source to fork record."""
-    seller_token = await _register_and_login(client, "lic1")
+    seller_token, _ = await _register_and_login(client, "lic1")
     agent_id = await _create_agent(
         client, seller_token, "LicAgent", capabilities=["ml"],
     )
@@ -512,7 +525,7 @@ async def test_license_type_preserved_in_fork(client: AsyncClient):
     assert resp.status_code == 201
     listing_id = resp.json()["id"]
 
-    buyer_token = await _register_and_login(client, "lic2")
+    buyer_token, _ = await _register_and_login(client, "lic2")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "LicBuyer", capabilities=["chat"],
     )
@@ -537,9 +550,10 @@ async def test_license_type_preserved_in_fork(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_category_includes_capability(client: AsyncClient):
+async def test_category_includes_capability(client: AsyncClient, db):
     """Category validation accepts 'capability'."""
-    token = await _register_and_login(client, "cat1")
+    token, eid = await _register_and_login(client, "cat1")
+    await _grant_trust(db, eid)
 
     resp = await client.post(MARKETPLACE_URL, json={
         "title": "Direct Capability",
@@ -570,9 +584,10 @@ async def test_listing_response_includes_source_evo_id(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_regular_listing_null_source_evo_id(client: AsyncClient):
+async def test_regular_listing_null_source_evo_id(client: AsyncClient, db):
     """Regular (non-capability) listing has null source_evolution_record_id."""
-    token = await _register_and_login(client, "reg1")
+    token, eid = await _register_and_login(client, "reg1")
+    await _grant_trust(db, eid)
 
     resp = await client.post(MARKETPLACE_URL, json={
         "title": "Regular Item",
@@ -597,7 +612,7 @@ async def test_regular_listing_null_source_evo_id(client: AsyncClient):
 async def test_multiple_adoptions_increment_versions(client: AsyncClient):
     """Multiple adoptions increment versions correctly."""
     # Create two different sellers with capabilities
-    seller1_token = await _register_and_login(client, "ms1")
+    seller1_token, _ = await _register_and_login(client, "ms1")
     agent1_id = await _create_agent(
         client, seller1_token, "Seller1Agent", capabilities=["nlp"],
     )
@@ -615,7 +630,7 @@ async def test_multiple_adoptions_increment_versions(client: AsyncClient):
     }, headers=_auth(seller1_token))
     listing1_id = resp1.json()["id"]
 
-    seller2_token = await _register_and_login(client, "ms2")
+    seller2_token, _ = await _register_and_login(client, "ms2")
     agent2_id = await _create_agent(
         client, seller2_token, "Seller2Agent", capabilities=["vision"],
     )
@@ -634,7 +649,7 @@ async def test_multiple_adoptions_increment_versions(client: AsyncClient):
     listing2_id = resp2.json()["id"]
 
     # Buyer adopts both
-    buyer_token = await _register_and_login(client, "ms3")
+    buyer_token, _ = await _register_and_login(client, "ms3")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "MultiAgent", capabilities=["chat"],
     )
@@ -683,7 +698,7 @@ async def test_get_purchasable_evolutions(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_purchasable_evolutions_empty(client: AsyncClient):
     """Agent without listings has no purchasable evolutions."""
-    token = await _register_and_login(client, "pe1")
+    token, _ = await _register_and_login(client, "pe1")
     agent_id = await _create_agent(client, token, "NoListingAgent")
     await _create_evolution_record(
         client, token, agent_id, version="1.0.0",
@@ -709,7 +724,7 @@ async def test_get_adopted_capabilities(client: AsyncClient):
     """List capabilities adopted from marketplace."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "ac1")
+    buyer_token, _ = await _register_and_login(client, "ac1")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "AdoptAgent", capabilities=["chat"],
     )
@@ -742,10 +757,10 @@ async def test_get_adopted_requires_auth(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_adopted_only_owner(client: AsyncClient):
     """Only the agent's operator can see adopted capabilities."""
-    owner_token = await _register_and_login(client, "ao1")
+    owner_token, _ = await _register_and_login(client, "ao1")
     agent_id = await _create_agent(client, owner_token, "PrivAgent")
 
-    other_token = await _register_and_login(client, "ao2")
+    other_token, _ = await _register_and_login(client, "ao2")
 
     resp = await client.get(
         f"{EVOLUTION_URL}/{agent_id}/adopted",
@@ -779,7 +794,7 @@ async def test_adopt_first_version_when_no_prior(client: AsyncClient):
     """Agent with no prior evolution records gets version 1.0.0."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "fv1")
+    buyer_token, _ = await _register_and_login(client, "fv1")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "FreshAgent", capabilities=["basic"],
     )
@@ -799,7 +814,7 @@ async def test_adopt_creates_transaction_record(client: AsyncClient):
     """Adopting a free capability creates a completed transaction."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "tr1")
+    buyer_token, _ = await _register_and_login(client, "tr1")
     buyer_agent_id = await _create_agent(
         client, buyer_token, "TxnAgent", capabilities=["basic"],
     )
@@ -830,7 +845,7 @@ async def test_adopt_target_not_agent(client: AsyncClient):
     """Cannot adopt capability to a non-agent entity."""
     seller_token, _, _, listing_id = await _setup_seller_with_capability(client)
 
-    buyer_token = await _register_and_login(client, "na1")
+    buyer_token, _ = await _register_and_login(client, "na1")
 
     # Get the human entity ID
     me_resp = await client.get(

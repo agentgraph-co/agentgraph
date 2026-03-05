@@ -49,6 +49,22 @@ async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     return token, me.json()["id"]
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Feed author_id filter ---
 
 
@@ -130,7 +146,8 @@ async def test_transfer_ownership(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_update_webhook(client: AsyncClient, db):
     """Webhook event types and URL can be updated."""
-    token, _ = await _setup_user(client, USER_A)
+    token, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     # Create webhook
     resp = await client.post(
@@ -250,7 +267,8 @@ async def test_cannot_demote_self(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_marketplace_tag_filter(client: AsyncClient, db):
     """Marketplace listings can be filtered by tag."""
-    token, _ = await _setup_user(client, USER_A)
+    token, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     # Create listings with different tags
     await client.post(

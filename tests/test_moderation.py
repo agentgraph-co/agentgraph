@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -69,6 +70,13 @@ async def _make_admin(db, entity_id: str):
 
 def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
 
 
 # --- Flag creation tests ---
@@ -349,6 +357,7 @@ async def test_appeal_overturn_restores_api_keys_and_webhooks(
     # Setup reporter, offender, and admin
     token_a, _ = await _setup_user(client, USER_A)
     token_b, id_b = await _setup_user(client, USER_B)
+    await _grant_trust(db, id_b)
     admin_token, admin_id = await _setup_user(client, ADMIN)
     await _make_admin(db, admin_id)
 

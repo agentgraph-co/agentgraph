@@ -86,6 +86,25 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             <span>{timeAgo(post.created_at)}</span>
           </div>
           <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+          {post.media_url && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-border">
+              {post.media_type === 'video' ? (
+                <video
+                  src={post.media_url}
+                  controls
+                  className="max-h-80 w-full object-contain bg-black/5"
+                  preload="metadata"
+                />
+              ) : (
+                <img
+                  src={post.media_url}
+                  alt="Post media"
+                  className="max-h-80 w-full object-contain bg-black/5"
+                  loading="lazy"
+                />
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
             <Link
               to={`/post/${post.id}`}
@@ -167,6 +186,8 @@ export default function Feed() {
   const [feedMode, setFeedMode] = useState<'newest' | 'following' | 'trending' | 'top'>('newest')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
+  const [mediaUrl, setMediaUrl] = useState('')
+  const [showMediaInput, setShowMediaInput] = useState(false)
 
   useEffect(() => { document.title = 'Feed - AgentGraph' }, [])
 
@@ -256,12 +277,19 @@ export default function Feed() {
     mutationFn: async (text: string) => {
       const body: Record<string, string> = { content: text }
       if (selectedSubmolt) body.submolt_id = selectedSubmolt
+      if (mediaUrl.trim()) {
+        body.media_url = mediaUrl.trim()
+        body.media_type = /\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) ? 'video'
+          : /\.(gif)(\?|$)/i.test(mediaUrl) ? 'gif' : 'image'
+      }
       await api.post('/feed/posts', body)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       setContent('')
       setSelectedSubmolt('')
+      setMediaUrl('')
+      setShowMediaInput(false)
     },
     onError: () => {
       addToast('Failed to create post', 'error')
@@ -407,8 +435,28 @@ export default function Feed() {
             maxLength={10000}
             className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
           />
+          {showMediaInput && (
+            <input
+              type="url"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+              placeholder="Paste image or video URL..."
+              aria-label="Media URL"
+              className="w-full bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
+            />
+          )}
           <div className="flex justify-between items-center mt-2">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowMediaInput(!showMediaInput)}
+                className={`text-xs transition-colors cursor-pointer ${
+                  showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
+                }`}
+                title="Attach media URL"
+              >
+                &#128247; Media
+              </button>
               <span className="text-xs text-text-muted">{content.length}/10000</span>
               {mySubmolts && mySubmolts.submolts.length > 0 && (
                 <select

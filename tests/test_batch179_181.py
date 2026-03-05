@@ -55,6 +55,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #179: is_active filtering ---
 
 
@@ -174,6 +190,7 @@ async def test_marketplace_update_listing_filters_title(client, db):
         "password": "Str0ngP@ss",
         "display_name": "Batch180Listing",
     })
+    await _grant_trust(db, entity_id)
 
     # Create a listing first
     resp = await client.post(

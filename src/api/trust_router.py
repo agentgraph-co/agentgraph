@@ -644,3 +644,17 @@ async def delete_attestation(
 
     await db.delete(attestation)
     await db.flush()
+
+
+@router.get(
+    "/trust/gates",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_trust_gates(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all trust-gated actions and whether current entity meets thresholds."""
+    from src.api.trust_gate import get_trust_gates_info
+
+    return await get_trust_gates_info(db, current_entity.id)

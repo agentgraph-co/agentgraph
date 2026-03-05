@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
-from src.models import PasswordResetToken
+from src.models import PasswordResetToken, TrustScore
 
 
 @pytest_asyncio.fixture
@@ -41,7 +44,9 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
+async def _setup_user(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]}
@@ -49,7 +54,14 @@ async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     data = resp.json()
     token = data["access_token"]
     me = await client.get("/api/v1/auth/me", headers=_auth(token))
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(eid), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token, eid
 
 
 # --- Password Reset Tests ---
@@ -220,8 +232,8 @@ async def test_logout_doesnt_affect_other_tokens(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_dm_content_filtered(client: AsyncClient, db):
     """DM content is filtered for spam/abuse."""
-    token_a, _ = await _setup_user(client, USER)
-    _, id_b = await _setup_user(client, USER_B)
+    token_a, _ = await _setup_user(client, USER, db)
+    _, id_b = await _setup_user(client, USER_B, db)
 
     # Try sending spam content
     resp = await client.post(
@@ -243,8 +255,8 @@ async def test_dm_content_filtered(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_dm_normal_content_passes(client: AsyncClient, db):
     """Normal DM content passes the content filter."""
-    token_a, _ = await _setup_user(client, USER)
-    _, id_b = await _setup_user(client, USER_B)
+    token_a, _ = await _setup_user(client, USER, db)
+    _, id_b = await _setup_user(client, USER_B, db)
 
     resp = await client.post(
         "/api/v1/messages",

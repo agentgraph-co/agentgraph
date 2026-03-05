@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -34,19 +38,29 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup(client: AsyncClient) -> str:
+async def _setup(client: AsyncClient, db: AsyncSession) -> str:
     await client.post(REGISTER_URL, json=USER)
     resp = await client.post(
         LOGIN_URL,
         json={"email": USER["email"], "password": USER["password"]},
     )
-    return resp.json()["access_token"]
+    token = resp.json()["access_token"]
+    # Grant sufficient trust for marketplace listing creation (threshold 0.15)
+    me = await client.get("/api/v1/auth/me", headers=_auth(token))
+    eid = uuid.UUID(me.json()["id"])
+    ts = TrustScore(
+        id=uuid.uuid4(), entity_id=eid, score=0.5,
+        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+    )
+    db.add(ts)
+    await db.flush()
+    return token
 
 
 @pytest.mark.asyncio
 async def test_browse_sort_newest(client: AsyncClient, db):
     """Default sort is newest."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     # Create two listings
     await client.post(
@@ -82,7 +96,7 @@ async def test_browse_sort_newest(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_browse_sort_price_asc(client: AsyncClient, db):
     """Sort by price ascending."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     await client.post(
         "/api/v1/marketplace",
@@ -118,7 +132,7 @@ async def test_browse_sort_price_asc(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_browse_sort_price_desc(client: AsyncClient, db):
     """Sort by price descending."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     await client.post(
         "/api/v1/marketplace",

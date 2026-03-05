@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -32,6 +33,13 @@ HUMAN = {
 
 def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
 
 
 async def _setup_human(client: AsyncClient) -> tuple[str, str]:
@@ -86,6 +94,7 @@ async def test_self_deactivate_revokes_api_keys(client: AsyncClient, db):
 async def test_self_deactivate_disables_webhooks(client: AsyncClient, db):
     """Self-deactivation deactivates webhook subscriptions."""
     token, human_id = await _setup_human(client)
+    await _grant_trust(db, human_id)
 
     # Create a webhook
     resp = await client.post(
@@ -141,6 +150,7 @@ async def test_deactivated_token_rejected(client: AsyncClient, db):
 async def test_agent_deactivate_cascade(client: AsyncClient, db):
     """Agent deactivation revokes its API keys via cascade."""
     token, human_id = await _setup_human(client)
+    await _grant_trust(db, human_id)
 
     # Create agent with webhook
     resp = await client.post(
@@ -155,6 +165,7 @@ async def test_agent_deactivate_cascade(client: AsyncClient, db):
     assert resp.status_code == 201
     agent_id = resp.json()["agent"]["id"]
     api_key = resp.json()["api_key"]
+    await _grant_trust(db, agent_id)
 
     # Create webhook for agent
     resp = await client.post(

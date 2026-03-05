@@ -41,6 +41,22 @@ USER_B = {
 SPAM_TEXT = "buy cheap discount click here visit http://spam.com"
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
@@ -139,7 +155,8 @@ async def test_evolution_webhook_dispatched(client, db):
 @pytest.mark.asyncio
 async def test_webhook_accepts_endorsement_event_type(client, db):
     """Webhook subscription should accept endorsement.created event type."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         "/api/v1/webhooks",

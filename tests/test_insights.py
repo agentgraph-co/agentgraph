@@ -6,9 +6,11 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 PREFIX = "/api/v1"
 
@@ -25,7 +27,9 @@ async def client(db):
     app.dependency_overrides.clear()
 
 
-async def _create_user(client: AsyncClient, suffix: str = "") -> tuple:
+async def _create_user(
+    client: AsyncClient, suffix: str = "", db: AsyncSession | None = None,
+) -> tuple:
     """Helper to register + login a user and return (token, headers, login_data)."""
     email = f"insights_{uuid.uuid4().hex[:8]}@test.com"
     password = "StrongPass1!"
@@ -41,6 +45,14 @@ async def _create_user(client: AsyncClient, suffix: str = "") -> tuple:
     data = login_resp.json()
     token = data["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
+    if db is not None:
+        me = await client.get(f"{PREFIX}/auth/me", headers=headers)
+        eid = uuid.UUID(me.json()["id"])
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=eid, score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
     return token, headers, data
 
 
@@ -241,7 +253,7 @@ async def test_capability_demand_with_limit(client, db):
 @pytest.mark.asyncio
 async def test_capability_demand_with_data(client, db):
     """Creating a listing should show up in capability demand."""
-    _, headers, _ = await _create_user(client, "demand3")
+    _, headers, _ = await _create_user(client, "demand3", db)
     await _create_listing(client, headers, category="skill")
     resp = await client.get(
         f"{PREFIX}/insights/capabilities/demand", headers=headers,
@@ -254,7 +266,7 @@ async def test_capability_demand_with_data(client, db):
 
 @pytest.mark.asyncio
 async def test_capability_demand_structure(client, db):
-    _, headers, _ = await _create_user(client, "demand4")
+    _, headers, _ = await _create_user(client, "demand4", db)
     await _create_listing(client, headers)
     resp = await client.get(
         f"{PREFIX}/insights/capabilities/demand", headers=headers,
@@ -321,7 +333,7 @@ async def test_category_trends_default(client, db):
 @pytest.mark.asyncio
 async def test_category_trends_with_data(client, db):
     """Creating a listing should appear in category trends."""
-    _, headers, _ = await _create_user(client, "cat2")
+    _, headers, _ = await _create_user(client, "cat2", db)
     await _create_listing(client, headers, category="integration")
     resp = await client.get(
         f"{PREFIX}/insights/marketplace/categories?days=365", headers=headers,
@@ -334,7 +346,7 @@ async def test_category_trends_with_data(client, db):
 
 @pytest.mark.asyncio
 async def test_category_trends_structure(client, db):
-    _, headers, _ = await _create_user(client, "cat3")
+    _, headers, _ = await _create_user(client, "cat3", db)
     await _create_listing(client, headers)
     resp = await client.get(
         f"{PREFIX}/insights/marketplace/categories", headers=headers,

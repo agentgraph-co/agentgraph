@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -25,7 +29,9 @@ LOGIN_URL = "/api/v1/auth/login"
 MARKET_URL = "/api/v1/marketplace"
 
 
-async def _setup_user(client: AsyncClient, email: str, name: str) -> tuple[str, str]:
+async def _setup_user(
+    client: AsyncClient, email: str, name: str, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(
         REGISTER_URL,
         json={"email": email, "password": "Str0ngP@ss", "display_name": name},
@@ -37,7 +43,14 @@ async def _setup_user(client: AsyncClient, email: str, name: str) -> tuple[str, 
     me = await client.get(
         "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"},
     )
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(eid), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token, eid
 
 
 def _auth(token: str) -> dict:
@@ -55,8 +68,8 @@ LISTING = {
 
 
 @pytest.mark.asyncio
-async def test_create_listing(client: AsyncClient):
-    token, entity_id = await _setup_user(client, "mk1@test.com", "Seller1")
+async def test_create_listing(client: AsyncClient, db):
+    token, entity_id = await _setup_user(client, "mk1@test.com", "Seller1", db)
 
     resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     assert resp.status_code == 201
@@ -69,8 +82,8 @@ async def test_create_listing(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_browse_listings(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk2@test.com", "Seller2")
+async def test_browse_listings(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk2@test.com", "Seller2", db)
 
     await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     await client.post(
@@ -86,8 +99,8 @@ async def test_browse_listings(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_browse_filter_by_category(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk3@test.com", "Seller3")
+async def test_browse_filter_by_category(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk3@test.com", "Seller3", db)
 
     await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     await client.post(
@@ -103,8 +116,8 @@ async def test_browse_filter_by_category(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_browse_search(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk4@test.com", "Seller4")
+async def test_browse_search(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk4@test.com", "Seller4", db)
 
     await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
 
@@ -114,8 +127,8 @@ async def test_browse_search(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_listing(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk5@test.com", "Seller5")
+async def test_get_listing(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk5@test.com", "Seller5", db)
 
     create_resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     listing_id = create_resp.json()["id"]
@@ -126,8 +139,8 @@ async def test_get_listing(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_listing_increments_views(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk6@test.com", "Seller6")
+async def test_get_listing_increments_views(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk6@test.com", "Seller6", db)
 
     create_resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     listing_id = create_resp.json()["id"]
@@ -139,8 +152,8 @@ async def test_get_listing_increments_views(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_update_listing(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk7@test.com", "Seller7")
+async def test_update_listing(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk7@test.com", "Seller7", db)
 
     create_resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     listing_id = create_resp.json()["id"]
@@ -156,9 +169,9 @@ async def test_update_listing(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_update_listing_not_owner(client: AsyncClient):
-    token_a, _ = await _setup_user(client, "mk8a@test.com", "SellerA")
-    token_b, _ = await _setup_user(client, "mk8b@test.com", "SellerB")
+async def test_update_listing_not_owner(client: AsyncClient, db):
+    token_a, _ = await _setup_user(client, "mk8a@test.com", "SellerA", db)
+    token_b, _ = await _setup_user(client, "mk8b@test.com", "SellerB", db)
 
     create_resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token_a))
     listing_id = create_resp.json()["id"]
@@ -172,8 +185,8 @@ async def test_update_listing_not_owner(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_delete_listing(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk9@test.com", "Seller9")
+async def test_delete_listing(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk9@test.com", "Seller9", db)
 
     create_resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     listing_id = create_resp.json()["id"]
@@ -189,8 +202,8 @@ async def test_delete_listing(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_entity_listings(client: AsyncClient):
-    token, entity_id = await _setup_user(client, "mk10@test.com", "Seller10")
+async def test_entity_listings(client: AsyncClient, db):
+    token, entity_id = await _setup_user(client, "mk10@test.com", "Seller10", db)
 
     await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     await client.post(
@@ -205,8 +218,8 @@ async def test_entity_listings(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_free_listing(client: AsyncClient):
-    token, _ = await _setup_user(client, "mk11@test.com", "FreeBot")
+async def test_free_listing(client: AsyncClient, db):
+    token, _ = await _setup_user(client, "mk11@test.com", "FreeBot", db)
 
     resp = await client.post(
         MARKET_URL,

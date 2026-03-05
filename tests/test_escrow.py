@@ -12,9 +12,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 API = "/api/v1"
 
@@ -31,7 +33,7 @@ async def client(db):
     app.dependency_overrides.clear()
 
 
-async def _register(client: AsyncClient) -> dict:
+async def _register(client: AsyncClient, db: AsyncSession | None = None) -> dict:
     """Register a user, login, and return {token, headers, entity_id}."""
     uid = uuid.uuid4().hex[:8]
     email = f"test_{uid}@test.com"
@@ -54,10 +56,18 @@ async def _register(client: AsyncClient) -> dict:
     me = await client.get(f"{API}/auth/me", headers=headers)
     assert me.status_code == 200, me.text
 
+    entity_id = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(entity_id), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+
     return {
         "token": token,
         "headers": headers,
-        "entity_id": me.json()["id"],
+        "entity_id": entity_id,
     }
 
 
@@ -87,13 +97,13 @@ def _mock_stripe():
     return mock
 
 
-async def _setup_escrow(client: AsyncClient):
+async def _setup_escrow(client: AsyncClient, db: AsyncSession):
     """Create seller+buyer, onboard, create paid listing, purchase it.
 
     Returns (seller, buyer, listing_id, txn_id).
     """
-    seller = await _register(client)
-    buyer = await _register(client)
+    seller = await _register(client, db)
+    buyer = await _register(client, db)
 
     with patch("src.payments.stripe_service.stripe", _mock_stripe()), \
          patch("src.api.marketplace_router.settings") as ms:
@@ -131,10 +141,10 @@ async def _setup_escrow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_free_listing_auto_completes(client):
+async def test_free_listing_auto_completes(client, db):
     """Free listings should auto-complete without escrow."""
-    seller = await _register(client)
-    buyer = await _register(client)
+    seller = await _register(client, db)
+    buyer = await _register(client, db)
 
     listing = await client.post(f"{API}/marketplace", json={
         "title": "Free Tool",
@@ -156,9 +166,9 @@ async def test_free_listing_auto_completes(client):
 
 
 @pytest.mark.asyncio
-async def test_paid_listing_creates_escrow(client):
+async def test_paid_listing_creates_escrow(client, db):
     """Paid listing purchase should create a transaction in ESCROW status."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     resp = await client.get(
         f"{API}/marketplace/purchases/{txn_id}",
@@ -170,9 +180,9 @@ async def test_paid_listing_creates_escrow(client):
 
 
 @pytest.mark.asyncio
-async def test_confirm_purchase_captures_funds(client):
+async def test_confirm_purchase_captures_funds(client, db):
     """Buyer confirming purchase should capture escrow and mark COMPLETED."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     with patch("src.payments.stripe_service.capture_payment_intent") as mock_cap:
         mock_cap.return_value = {"payment_intent_id": "pi_test", "status": "succeeded"}
@@ -187,10 +197,10 @@ async def test_confirm_purchase_captures_funds(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_confirm_non_escrow(client):
+async def test_cannot_confirm_non_escrow(client, db):
     """Confirming a non-escrow (completed) transaction should fail."""
-    seller = await _register(client)
-    buyer = await _register(client)
+    seller = await _register(client, db)
+    buyer = await _register(client, db)
 
     listing = await client.post(f"{API}/marketplace", json={
         "title": "Free Confirm Test",
@@ -218,9 +228,9 @@ async def test_cannot_confirm_non_escrow(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_confirm_as_non_buyer(client):
+async def test_cannot_confirm_as_non_buyer(client, db):
     """Seller should not be able to confirm a purchase."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     confirm = await client.post(
         f"{API}/marketplace/purchases/{txn_id}/confirm",
@@ -230,9 +240,9 @@ async def test_cannot_confirm_as_non_buyer(client):
 
 
 @pytest.mark.asyncio
-async def test_cancel_escrow_transaction(client):
+async def test_cancel_escrow_transaction(client, db):
     """Buyer cancelling an escrow transaction should work."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
         mock_cancel.return_value = {"payment_intent_id": "pi_test", "status": "canceled"}
@@ -246,9 +256,9 @@ async def test_cancel_escrow_transaction(client):
 
 
 @pytest.mark.asyncio
-async def test_confirm_nonexistent_transaction(client):
+async def test_confirm_nonexistent_transaction(client, db):
     """Confirming a nonexistent transaction should 404."""
-    user = await _register(client)
+    user = await _register(client, db)
     fake_id = str(uuid.uuid4())
     resp = await client.post(
         f"{API}/marketplace/purchases/{fake_id}/confirm",
@@ -258,9 +268,9 @@ async def test_confirm_nonexistent_transaction(client):
 
 
 @pytest.mark.asyncio
-async def test_duplicate_escrow_purchase_blocked(client):
+async def test_duplicate_escrow_purchase_blocked(client, db):
     """Second purchase of same listing while in escrow should be blocked."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     with patch("src.payments.stripe_service.stripe", _mock_stripe()), \
          patch("src.api.marketplace_router.settings") as ms:
@@ -354,9 +364,9 @@ async def test_stripe_create_uses_manual_capture():
 
 
 @pytest.mark.asyncio
-async def test_webhook_payment_intent_canceled(client):
+async def test_webhook_payment_intent_canceled(client, db):
     """Stripe payment_intent.canceled webhook should cancel the transaction."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     with patch("src.api.marketplace_router.settings") as ms, \
          patch("src.payments.stripe_service.verify_webhook_signature") as mock_verify:
@@ -381,9 +391,9 @@ async def test_webhook_payment_intent_canceled(client):
 
 
 @pytest.mark.asyncio
-async def test_purchase_history_includes_escrow_status(client):
+async def test_purchase_history_includes_escrow_status(client, db):
     """Purchase history should support filtering by escrow status."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     history = await client.get(
         f"{API}/marketplace/purchases/history?status=escrow",
@@ -396,9 +406,9 @@ async def test_purchase_history_includes_escrow_status(client):
 
 
 @pytest.mark.asyncio
-async def test_purchase_own_listing_rejected(client):
+async def test_purchase_own_listing_rejected(client, db):
     """Cannot purchase your own listing."""
-    user = await _register(client)
+    user = await _register(client, db)
     listing = await client.post(f"{API}/marketplace", json={
         "title": "Self Purchase Test",
         "description": "Should not be purchasable by self",
@@ -436,9 +446,9 @@ async def test_transaction_status_has_escrow_and_disputed():
 
 
 @pytest.mark.asyncio
-async def test_get_escrow_transaction(client):
+async def test_get_escrow_transaction(client, db):
     """Verify a purchased escrow transaction is accessible via GET."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow(client, db)
 
     resp = await client.get(
         f"{API}/marketplace/purchases/{txn_id}",

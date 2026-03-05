@@ -13,9 +13,11 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 API = "/api/v1"
 
@@ -32,7 +34,7 @@ async def client(db):
     app.dependency_overrides.clear()
 
 
-async def _register(client: AsyncClient) -> dict:
+async def _register(client: AsyncClient, db: AsyncSession | None = None) -> dict:
     """Register a user, login, and return {token, headers, entity_id}."""
     uid = uuid.uuid4().hex[:8]
     email = f"test_{uid}@test.com"
@@ -55,10 +57,18 @@ async def _register(client: AsyncClient) -> dict:
     me = await client.get(f"{API}/auth/me", headers=headers)
     assert me.status_code == 200, me.text
 
+    entity_id = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(entity_id), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+
     return {
         "token": token,
         "headers": headers,
-        "entity_id": me.json()["id"],
+        "entity_id": entity_id,
     }
 
 
@@ -88,13 +98,13 @@ def _mock_stripe():
     return mock
 
 
-async def _setup_escrow_txn(client: AsyncClient):
+async def _setup_escrow_txn(client: AsyncClient, db: AsyncSession | None = None):
     """Create seller+buyer, onboard, create paid listing, purchase (escrow).
 
     Returns (seller, buyer, listing_id, txn_id).
     """
-    seller = await _register(client)
-    buyer = await _register(client)
+    seller = await _register(client, db)
+    buyer = await _register(client, db)
 
     with patch("src.payments.stripe_service.stripe", _mock_stripe()), \
          patch("src.api.marketplace_router.settings") as ms:
@@ -141,9 +151,9 @@ async def _make_admin(db, entity_id: str):
 
 
 @pytest.mark.asyncio
-async def test_open_dispute_on_escrow(client):
+async def test_open_dispute_on_escrow(client, db):
     """Buyer can open a dispute on an ESCROW transaction."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     resp = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -157,10 +167,10 @@ async def test_open_dispute_on_escrow(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_dispute_non_escrow(client):
+async def test_cannot_dispute_non_escrow(client, db):
     """Cannot open a dispute on a free (COMPLETED) transaction."""
-    seller = await _register(client)
-    buyer = await _register(client)
+    seller = await _register(client, db)
+    buyer = await _register(client, db)
 
     listing = await client.post(f"{API}/marketplace", json={
         "title": "Free Dispute Test",
@@ -187,9 +197,9 @@ async def test_cannot_dispute_non_escrow(client):
 
 
 @pytest.mark.asyncio
-async def test_seller_cannot_open_dispute(client):
+async def test_seller_cannot_open_dispute(client, db):
     """Seller should not be able to open a dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     resp = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -199,9 +209,9 @@ async def test_seller_cannot_open_dispute(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_duplicate_dispute(client):
+async def test_cannot_duplicate_dispute(client, db):
     """Cannot open two disputes for the same transaction."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     resp1 = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -221,9 +231,9 @@ async def test_cannot_duplicate_dispute(client):
 
 
 @pytest.mark.asyncio
-async def test_list_disputes(client):
+async def test_list_disputes(client, db):
     """Both buyer and seller should see their disputes."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -240,9 +250,9 @@ async def test_list_disputes(client):
 
 
 @pytest.mark.asyncio
-async def test_get_dispute_details(client):
+async def test_get_dispute_details(client, db):
     """Buyer, seller, and admin can view dispute details."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -257,24 +267,24 @@ async def test_get_dispute_details(client):
     resp2 = await client.get(f"{API}/disputes/{dispute_id}", headers=seller["headers"])
     assert resp2.status_code == 200
 
-    other = await _register(client)
+    other = await _register(client, db)
     resp3 = await client.get(f"{API}/disputes/{dispute_id}", headers=other["headers"])
     assert resp3.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_dispute(client):
+async def test_get_nonexistent_dispute(client, db):
     """Getting a nonexistent dispute should 404."""
-    user = await _register(client)
+    user = await _register(client, db)
     fake_id = str(uuid.uuid4())
     resp = await client.get(f"{API}/disputes/{fake_id}", headers=user["headers"])
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_add_dispute_message(client):
+async def test_add_dispute_message(client, db):
     """Adding a message to a dispute should succeed and create a DM."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -291,9 +301,9 @@ async def test_add_dispute_message(client):
 
 
 @pytest.mark.asyncio
-async def test_message_moves_to_negotiating(client):
+async def test_message_moves_to_negotiating(client, db):
     """Adding a message to an OPEN dispute should move it to NEGOTIATING."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -311,9 +321,9 @@ async def test_message_moves_to_negotiating(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_message_resolved_dispute(client):
+async def test_cannot_message_resolved_dispute(client, db):
     """Cannot add messages to a resolved dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -336,9 +346,9 @@ async def test_cannot_message_resolved_dispute(client):
 
 
 @pytest.mark.asyncio
-async def test_resolve_dispute_release_funds(client):
+async def test_resolve_dispute_release_funds(client, db):
     """Resolving a dispute with release_funds should capture and complete."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -358,9 +368,9 @@ async def test_resolve_dispute_release_funds(client):
 
 
 @pytest.mark.asyncio
-async def test_resolve_dispute_cancel_auth(client):
+async def test_resolve_dispute_cancel_auth(client, db):
     """Resolving with cancel_auth should cancel the payment (seller concedes)."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -381,9 +391,9 @@ async def test_resolve_dispute_cancel_auth(client):
 
 
 @pytest.mark.asyncio
-async def test_resolve_partial_refund_requires_amount(client):
+async def test_resolve_partial_refund_requires_amount(client, db):
     """Partial refund without amount should fail."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -399,9 +409,9 @@ async def test_resolve_partial_refund_requires_amount(client):
 
 
 @pytest.mark.asyncio
-async def test_resolve_partial_refund_with_amount(client):
+async def test_resolve_partial_refund_with_amount(client, db):
     """Partial refund with valid amount should succeed."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -422,9 +432,9 @@ async def test_resolve_partial_refund_with_amount(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_resolve_already_resolved(client):
+async def test_cannot_resolve_already_resolved(client, db):
     """Cannot resolve an already resolved dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -448,9 +458,9 @@ async def test_cannot_resolve_already_resolved(client):
 
 
 @pytest.mark.asyncio
-async def test_escalate_dispute(client):
+async def test_escalate_dispute(client, db):
     """Buyer or seller can escalate a dispute to admin."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -467,9 +477,9 @@ async def test_escalate_dispute(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_escalate_resolved(client):
+async def test_cannot_escalate_resolved(client, db):
     """Cannot escalate a resolved dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -492,9 +502,9 @@ async def test_cannot_escalate_resolved(client):
 
 
 @pytest.mark.asyncio
-async def test_cannot_double_escalate(client):
+async def test_cannot_double_escalate(client, db):
     """Cannot escalate an already escalated dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -518,14 +528,14 @@ async def test_cannot_double_escalate(client):
 @pytest.mark.asyncio
 async def test_admin_list_disputes(client, db):
     """Admin can list all disputes."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
         "reason": "Testing admin list endpoint for all disputes view.",
     }, headers=buyer["headers"])
 
-    admin = await _register(client)
+    admin = await _register(client, db)
     await _make_admin(db, admin["entity_id"])
 
     resp = await client.get(
@@ -537,9 +547,9 @@ async def test_admin_list_disputes(client, db):
 
 
 @pytest.mark.asyncio
-async def test_admin_list_requires_admin(client):
+async def test_admin_list_requires_admin(client, db):
     """Non-admin cannot access admin dispute list."""
-    user = await _register(client)
+    user = await _register(client, db)
     resp = await client.get(f"{API}/disputes/admin/all", headers=user["headers"])
     assert resp.status_code == 403
 
@@ -547,7 +557,7 @@ async def test_admin_list_requires_admin(client):
 @pytest.mark.asyncio
 async def test_admin_adjudicate_release_funds(client, db):
     """Admin can adjudicate a dispute by releasing funds."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -555,7 +565,7 @@ async def test_admin_adjudicate_release_funds(client, db):
     }, headers=buyer["headers"])
     dispute_id = create.json()["id"]
 
-    admin = await _register(client)
+    admin = await _register(client, db)
     await _make_admin(db, admin["entity_id"])
 
     with patch("src.payments.stripe_service.capture_payment_intent") as mock_capture:
@@ -578,7 +588,7 @@ async def test_admin_adjudicate_release_funds(client, db):
 @pytest.mark.asyncio
 async def test_admin_adjudicate_cancel_auth(client, db):
     """Admin can adjudicate by cancelling auth."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -586,7 +596,7 @@ async def test_admin_adjudicate_cancel_auth(client, db):
     }, headers=buyer["headers"])
     dispute_id = create.json()["id"]
 
-    admin = await _register(client)
+    admin = await _register(client, db)
     await _make_admin(db, admin["entity_id"])
 
     with patch("src.payments.stripe_service.cancel_payment_intent") as mock_cancel:
@@ -607,7 +617,7 @@ async def test_admin_adjudicate_cancel_auth(client, db):
 @pytest.mark.asyncio
 async def test_admin_adjudicate_partial_refund(client, db):
     """Admin can adjudicate with partial refund."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -615,7 +625,7 @@ async def test_admin_adjudicate_partial_refund(client, db):
     }, headers=buyer["headers"])
     dispute_id = create.json()["id"]
 
-    admin = await _register(client)
+    admin = await _register(client, db)
     await _make_admin(db, admin["entity_id"])
 
     with patch("src.payments.stripe_service.capture_payment_intent") as mock_capture:
@@ -636,9 +646,9 @@ async def test_admin_adjudicate_partial_refund(client, db):
 
 
 @pytest.mark.asyncio
-async def test_admin_adjudicate_requires_admin(client):
+async def test_admin_adjudicate_requires_admin(client, db):
     """Non-admin cannot adjudicate disputes."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -655,9 +665,9 @@ async def test_admin_adjudicate_requires_admin(client):
 
 
 @pytest.mark.asyncio
-async def test_dispute_deadline_set(client):
+async def test_dispute_deadline_set(client, db):
     """Dispute deadline should be set to now + escrow_auto_release_hours."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     resp = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -675,9 +685,9 @@ async def test_dispute_deadline_set(client):
 
 
 @pytest.mark.asyncio
-async def test_dispute_reason_too_short(client):
+async def test_dispute_reason_too_short(client, db):
     """Dispute reason must be at least 10 characters."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     resp = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -687,9 +697,9 @@ async def test_dispute_reason_too_short(client):
 
 
 @pytest.mark.asyncio
-async def test_dispute_on_nonexistent_transaction(client):
+async def test_dispute_on_nonexistent_transaction(client, db):
     """Disputing a nonexistent transaction should 404."""
-    user = await _register(client)
+    user = await _register(client, db)
     fake_id = str(uuid.uuid4())
     resp = await client.post(f"{API}/disputes", json={
         "transaction_id": fake_id,
@@ -699,9 +709,9 @@ async def test_dispute_on_nonexistent_transaction(client):
 
 
 @pytest.mark.asyncio
-async def test_list_disputes_with_status_filter(client):
+async def test_list_disputes_with_status_filter(client, db):
     """Listing disputes with status filter should work."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -718,9 +728,9 @@ async def test_list_disputes_with_status_filter(client):
 
 
 @pytest.mark.asyncio
-async def test_seller_can_resolve(client):
+async def test_seller_can_resolve(client, db):
     """Seller can resolve a dispute by conceding (cancel_auth)."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -740,9 +750,9 @@ async def test_seller_can_resolve(client):
 
 
 @pytest.mark.asyncio
-async def test_uninvolved_cannot_resolve(client):
+async def test_uninvolved_cannot_resolve(client, db):
     """Uninvolved user cannot resolve a dispute."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -750,7 +760,7 @@ async def test_uninvolved_cannot_resolve(client):
     }, headers=buyer["headers"])
     dispute_id = create.json()["id"]
 
-    other = await _register(client)
+    other = await _register(client, db)
     resp = await client.post(f"{API}/disputes/{dispute_id}/resolve", json={
         "resolution": "release_funds",
     }, headers=other["headers"])
@@ -758,9 +768,9 @@ async def test_uninvolved_cannot_resolve(client):
 
 
 @pytest.mark.asyncio
-async def test_buyer_cannot_self_refund(client):
+async def test_buyer_cannot_self_refund(client, db):
     """Buyer cannot unilaterally cancel_auth (self-serving)."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,
@@ -776,9 +786,9 @@ async def test_buyer_cannot_self_refund(client):
 
 
 @pytest.mark.asyncio
-async def test_seller_cannot_self_release(client):
+async def test_seller_cannot_self_release(client, db):
     """Seller cannot unilaterally release_funds (self-serving)."""
-    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client)
+    seller, buyer, listing_id, txn_id = await _setup_escrow_txn(client, db)
 
     create = await client.post(f"{API}/disputes", json={
         "transaction_id": txn_id,

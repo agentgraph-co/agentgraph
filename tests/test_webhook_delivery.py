@@ -56,6 +56,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    from src.models import TrustScore
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 async def _create_webhook_subscription(db, entity_id, url, event_types):
     """Create a webhook subscription in the DB for an existing entity."""
     from src.models import WebhookSubscription
@@ -148,6 +156,7 @@ async def test_webhook_fires_on_follow(client: AsyncClient, db):
     """Following someone triggers webhook dispatch (via notification)."""
     token_a, _ = await _setup_user(client, USER)
     token_b, id_b = await _setup_user(client, USER_B)
+    await _grant_trust(db, id_b)
 
     # B creates a webhook for entity.followed
     resp = await client.post(

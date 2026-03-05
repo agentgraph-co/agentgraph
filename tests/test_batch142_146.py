@@ -55,6 +55,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #142: Operator is_active check ---
 
 
@@ -109,7 +125,8 @@ async def test_register_agent_with_active_operator_succeeds(client, db):
 @pytest.mark.asyncio
 async def test_webhook_accepts_marketplace_event_types(client, db):
     """Webhook subscription should accept marketplace event types."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         "/api/v1/webhooks",
@@ -130,7 +147,8 @@ async def test_webhook_accepts_marketplace_event_types(client, db):
 @pytest.mark.asyncio
 async def test_listing_create_dispatches_marketplace_webhook(client, db):
     """Listing creation should dispatch marketplace.listing_created webhook."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     with patch("src.events.dispatch_webhooks", new_callable=AsyncMock) as mock_dispatch:
         resp = await client.post(
@@ -155,7 +173,8 @@ async def test_listing_create_dispatches_marketplace_webhook(client, db):
 @pytest.mark.asyncio
 async def test_purchase_dispatches_marketplace_webhook(client, db):
     """Purchase should dispatch marketplace.purchased webhook."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
     token_b, _ = await _setup_user(client, USER_B)
 
     # Create listing
@@ -242,7 +261,8 @@ async def test_profile_follower_counts(client, db):
 @pytest.mark.asyncio
 async def test_listing_reviews_accessible(client, db):
     """Listing reviews endpoint should be accessible."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
     token_b, _ = await _setup_user(client, USER_B)
 
     # Create listing

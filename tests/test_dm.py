@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -44,21 +48,37 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
+async def _grant_trust(db: AsyncSession, entity_id: str, score: float = 0.5) -> None:
+    """Give entity a trust score sufficient for trust-gated actions."""
+    eid = uuid.UUID(entity_id)
+    ts = TrustScore(
+        id=uuid.uuid4(), entity_id=eid, score=score,
+        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+    )
+    db.add(ts)
+    await db.flush()
+
+
+async def _setup_user(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]}
     )
     token = resp.json()["access_token"]
     me = await client.get("/api/v1/auth/me", headers=_auth(token))
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        await _grant_trust(db, eid)
+    return token, eid
 
 
 @pytest.mark.asyncio
 async def test_send_message(client: AsyncClient, db):
     """Can send a direct message to another entity."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
 
     resp = await client.post(
         "/api/v1/messages",
@@ -76,7 +96,7 @@ async def test_send_message(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_cannot_message_self(client: AsyncClient, db):
     """Cannot send a message to yourself."""
-    token_a, id_a = await _setup_user(client, ALICE)
+    token_a, id_a = await _setup_user(client, ALICE, db)
 
     resp = await client.post(
         "/api/v1/messages",
@@ -89,8 +109,8 @@ async def test_cannot_message_self(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_cannot_message_blocked(client: AsyncClient, db):
     """Blocked entities cannot exchange messages."""
-    token_a, id_a = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
+    token_a, id_a = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
 
     # B blocks A
     await client.post(
@@ -109,8 +129,8 @@ async def test_cannot_message_blocked(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_list_conversations(client: AsyncClient, db):
     """List conversations shows recent activity."""
-    token_a, _ = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
 
     # Send a message to create conversation
     await client.post(
@@ -145,8 +165,8 @@ async def test_list_conversations(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_get_conversation_messages(client: AsyncClient, db):
     """Get messages in a conversation, with read receipt marking."""
-    token_a, _ = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
 
     # Send messages
     resp = await client.post(
@@ -181,9 +201,9 @@ async def test_get_conversation_messages(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_conversation_not_accessible_to_others(client: AsyncClient, db):
     """Third party cannot access a conversation."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
-    token_c, _ = await _setup_user(client, CAROL)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
+    token_c, _ = await _setup_user(client, CAROL, db)
 
     resp = await client.post(
         "/api/v1/messages",
@@ -202,9 +222,9 @@ async def test_conversation_not_accessible_to_others(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_unread_message_count(client: AsyncClient, db):
     """Unread count endpoint returns total across conversations."""
-    token_a, _ = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
-    _, id_c = await _setup_user(client, CAROL)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
+    _, id_c = await _setup_user(client, CAROL, db)
 
     # Alice sends to Bob
     await client.post(
@@ -224,8 +244,8 @@ async def test_unread_message_count(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_same_conversation_reused(client: AsyncClient, db):
     """Multiple messages between same pair use the same conversation."""
-    token_a, id_a = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
+    token_a, id_a = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
 
     # A messages B
     resp1 = await client.post(
@@ -252,7 +272,7 @@ async def test_message_to_nonexistent_user(client: AsyncClient, db):
     """Message to nonexistent user returns 404."""
     import uuid
 
-    token_a, _ = await _setup_user(client, ALICE)
+    token_a, _ = await _setup_user(client, ALICE, db)
 
     resp = await client.post(
         "/api/v1/messages",

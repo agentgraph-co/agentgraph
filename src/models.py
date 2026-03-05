@@ -219,6 +219,8 @@ class Post(Base):
     is_pinned = Column(Boolean, default=False)
     edit_count = Column(Integer, default=0)
     flair = Column(String(50), nullable=True)  # e.g. "discussion", "question", "announcement"
+    media_url = Column(String(1000), nullable=True)  # image/video URL
+    media_type = Column(String(20), nullable=True)  # "image", "video", "gif"
 
     vote_count = Column(Integer, default=0)  # denormalized for feed performance
 

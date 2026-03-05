@@ -44,6 +44,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    from src.models import TrustScore
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 # --- Avatar URL validation ---
 
 
@@ -107,9 +115,10 @@ async def test_avatar_accepts_valid_https(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_webhook_rejects_localhost(client: AsyncClient):
+async def test_webhook_rejects_localhost(client: AsyncClient, db):
     """Webhook callback_url cannot point to localhost."""
-    token, _ = await _setup(client)
+    token, entity_id = await _setup(client)
+    await _grant_trust(db, entity_id)
     resp = await client.post(
         "/api/v1/webhooks",
         json={
@@ -122,9 +131,10 @@ async def test_webhook_rejects_localhost(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_webhook_rejects_private_ip(client: AsyncClient):
+async def test_webhook_rejects_private_ip(client: AsyncClient, db):
     """Webhook callback_url cannot point to private IPs."""
-    token, _ = await _setup(client)
+    token, entity_id = await _setup(client)
+    await _grant_trust(db, entity_id)
 
     for url in [
         "http://10.0.0.1/hook",
@@ -141,9 +151,10 @@ async def test_webhook_rejects_private_ip(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_webhook_accepts_valid_url(client: AsyncClient):
+async def test_webhook_accepts_valid_url(client: AsyncClient, db):
     """Webhook accepts valid external HTTPS URLs."""
-    token, _ = await _setup(client)
+    token, entity_id = await _setup(client)
+    await _grant_trust(db, entity_id)
     resp = await client.post(
         "/api/v1/webhooks",
         json={
@@ -156,9 +167,10 @@ async def test_webhook_accepts_valid_url(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_webhook_update_rejects_internal_url(client: AsyncClient):
+async def test_webhook_update_rejects_internal_url(client: AsyncClient, db):
     """Webhook update also validates callback_url for SSRF."""
-    token, _ = await _setup(client)
+    token, entity_id = await _setup(client)
+    await _grant_trust(db, entity_id)
 
     # Create a valid webhook first
     create_resp = await client.post(

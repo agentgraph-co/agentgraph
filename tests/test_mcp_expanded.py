@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -36,6 +37,13 @@ USER_B = {
 
 def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
 
 
 async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
@@ -280,8 +288,9 @@ async def test_join_submolt_duplicate_fails(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_browse_marketplace_via_mcp(client: AsyncClient):
-    token, _ = await _setup_user(client, USER_A)
+async def test_browse_marketplace_via_mcp(client: AsyncClient, db):
+    token, eid = await _setup_user(client, USER_A)
+    await _grant_trust(db, eid)
 
     # Create a listing
     await client.post(

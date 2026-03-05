@@ -46,6 +46,23 @@ class SetPrivacyTierRequest(BaseModel):
     )
 
 
+class TrustWeightsRequest(BaseModel):
+    verification: float = Field(0.35, ge=0.0, le=1.0)
+    age: float = Field(0.10, ge=0.0, le=1.0)
+    activity: float = Field(0.20, ge=0.0, le=1.0)
+    reputation: float = Field(0.15, ge=0.0, le=1.0)
+    community: float = Field(0.20, ge=0.0, le=1.0)
+
+
+class TrustWeightsResponse(BaseModel):
+    verification: float
+    age: float
+    activity: float
+    reputation: float
+    community: float
+    is_custom: bool = False
+
+
 class AuditLogResponse(BaseModel):
     id: uuid.UUID
     action: str
@@ -248,3 +265,109 @@ async def get_audit_log(
         ],
         total=total,
     )
+
+
+# --- Trust Weights ---
+
+
+_DEFAULT_TRUST_WEIGHTS = {
+    "verification": 0.35,
+    "age": 0.10,
+    "activity": 0.20,
+    "reputation": 0.15,
+    "community": 0.20,
+}
+
+
+@router.get(
+    "/trust-weights",
+    response_model=TrustWeightsResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_trust_weights(
+    current_entity: Entity = Depends(get_current_entity),
+):
+    """Get the current user's custom trust weights (or defaults)."""
+    data = current_entity.onboarding_data or {}
+    custom = data.get("trust_weights")
+    if custom:
+        return TrustWeightsResponse(
+            verification=custom.get("verification", _DEFAULT_TRUST_WEIGHTS["verification"]),
+            age=custom.get("age", _DEFAULT_TRUST_WEIGHTS["age"]),
+            activity=custom.get("activity", _DEFAULT_TRUST_WEIGHTS["activity"]),
+            reputation=custom.get("reputation", _DEFAULT_TRUST_WEIGHTS["reputation"]),
+            community=custom.get("community", _DEFAULT_TRUST_WEIGHTS["community"]),
+            is_custom=True,
+        )
+    return TrustWeightsResponse(**_DEFAULT_TRUST_WEIGHTS, is_custom=False)
+
+
+@router.put(
+    "/trust-weights",
+    response_model=TrustWeightsResponse,
+    dependencies=[Depends(rate_limit_writes), require_scope("account:update")],
+)
+async def set_trust_weights(
+    body: TrustWeightsRequest,
+    request: Request,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save custom trust weights. Weights must sum to approximately 1.0 (+-0.05)."""
+    total = body.verification + body.age + body.activity + body.reputation + body.community
+    if abs(total - 1.0) > 0.05:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Weights must sum to ~1.0 (got {total:.4f})",
+        )
+
+    weights = {
+        "verification": body.verification,
+        "age": body.age,
+        "activity": body.activity,
+        "reputation": body.reputation,
+        "community": body.community,
+    }
+
+    new_data = dict(current_entity.onboarding_data or {})
+    new_data["trust_weights"] = weights
+    current_entity.onboarding_data = new_data
+    await db.flush()
+    await db.refresh(current_entity)
+
+    await log_action(
+        db,
+        action="account.trust_weights_update",
+        entity_id=current_entity.id,
+        details={"weights": weights},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return TrustWeightsResponse(**weights, is_custom=True)
+
+
+@router.delete(
+    "/trust-weights",
+    response_model=TrustWeightsResponse,
+    dependencies=[Depends(rate_limit_writes), require_scope("account:update")],
+)
+async def reset_trust_weights(
+    request: Request,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset trust weights to defaults."""
+    new_data = dict(current_entity.onboarding_data or {})
+    new_data.pop("trust_weights", None)
+    current_entity.onboarding_data = new_data
+    await db.flush()
+    await db.refresh(current_entity)
+
+    await log_action(
+        db,
+        action="account.trust_weights_reset",
+        entity_id=current_entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return TrustWeightsResponse(**_DEFAULT_TRUST_WEIGHTS, is_custom=False)

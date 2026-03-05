@@ -5,9 +5,11 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -41,21 +43,35 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
+async def _grant_trust(db: AsyncSession, entity_id: str, score: float = 0.5) -> None:
+    eid = uuid.UUID(entity_id)
+    db.add(TrustScore(
+        id=uuid.uuid4(), entity_id=eid, score=score,
+        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+    ))
+    await db.flush()
+
+
+async def _setup_user(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]},
     )
     token = resp.json()["access_token"]
     me = await client.get("/api/v1/auth/me", headers=_auth(token))
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        await _grant_trust(db, eid)
+    return token, eid
 
 
 @pytest.mark.asyncio
 async def test_delete_own_message(client: AsyncClient, db):
     """Sender can delete their own message."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
 
     # Send a message
     resp = await client.post(
@@ -86,8 +102,8 @@ async def test_delete_own_message(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_cannot_delete_others_message(client: AsyncClient, db):
     """Cannot delete a message sent by someone else."""
-    token_a, _ = await _setup_user(client, ALICE)
-    token_b, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    token_b, id_b = await _setup_user(client, BOB, db)
 
     # Alice sends to Bob
     resp = await client.post(
@@ -109,8 +125,8 @@ async def test_cannot_delete_others_message(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_delete_nonexistent_message(client: AsyncClient, db):
     """Deleting a nonexistent message returns 404."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
 
     # Create conversation
     resp = await client.post(
@@ -130,8 +146,8 @@ async def test_delete_nonexistent_message(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_delete_conversation(client: AsyncClient, db):
     """Participant can delete entire conversation and all messages."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
 
     resp = await client.post(
         "/api/v1/messages",
@@ -156,8 +172,8 @@ async def test_delete_conversation(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_dm_content_sanitized(client: AsyncClient, db):
     """Message content is sanitized for XSS."""
-    token_a, _ = await _setup_user(client, ALICE)
-    _, id_b = await _setup_user(client, BOB)
+    token_a, _ = await _setup_user(client, ALICE, db)
+    _, id_b = await _setup_user(client, BOB, db)
 
     resp = await client.post(
         "/api/v1/messages",

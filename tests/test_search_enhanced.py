@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -34,19 +35,29 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup(client: AsyncClient) -> str:
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
+async def _setup(client: AsyncClient) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=USER)
     resp = await client.post(
         LOGIN_URL,
         json={"email": USER["email"], "password": USER["password"]},
     )
-    return resp.json()["access_token"]
+    token = resp.json()["access_token"]
+    me = await client.get("/api/v1/auth/me", headers=_auth(token))
+    return token, me.json()["id"]
 
 
 @pytest.mark.asyncio
 async def test_search_listings_endpoint(client: AsyncClient, db):
     """Listing search returns results matching query."""
-    token = await _setup(client)
+    token, eid = await _setup(client)
+    await _grant_trust(db, eid)
 
     # Create a listing
     await client.post(
@@ -71,7 +82,8 @@ async def test_search_listings_endpoint(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_search_listings_filter_category(client: AsyncClient, db):
     """Listing search can filter by category."""
-    token = await _setup(client)
+    token, eid = await _setup(client)
+    await _grant_trust(db, eid)
 
     await client.post(
         "/api/v1/marketplace",
@@ -102,7 +114,7 @@ async def test_search_listings_filter_category(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_search_submolts_endpoint(client: AsyncClient, db):
     """Submolt search returns matching communities."""
-    token = await _setup(client)
+    token, _ = await _setup(client)
 
     # Create submolt
     await client.post(

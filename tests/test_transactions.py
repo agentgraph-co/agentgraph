@@ -41,6 +41,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    from src.models import TrustScore
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
@@ -74,8 +82,9 @@ async def _create_listing(
 @pytest.mark.asyncio
 async def test_purchase_free_listing(client: AsyncClient, db):
     """Purchasing a free listing auto-completes."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(client, seller_token)
 
     resp = await client.post(
@@ -101,6 +110,7 @@ async def test_purchase_paid_listing_pending(client: AsyncClient, db):
 
     seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(
         client, seller_token, pricing_model="one_time", price_cents=999,
     )
@@ -138,7 +148,8 @@ async def test_purchase_paid_listing_pending(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_cannot_purchase_own_listing(client: AsyncClient, db):
     """Seller cannot purchase their own listing."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    seller_token, seller_id = await _setup_user(client, SELLER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(client, seller_token)
 
     resp = await client.post(
@@ -153,8 +164,9 @@ async def test_cannot_purchase_own_listing(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_purchase_history(client: AsyncClient, db):
     """Buyer can see their purchase history."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(client, seller_token)
 
     # Purchase
@@ -186,8 +198,9 @@ async def test_purchase_history(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_get_transaction_detail(client: AsyncClient, db):
     """Can get a specific transaction by ID."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(client, seller_token)
 
     resp = await client.post(
@@ -216,8 +229,9 @@ async def test_get_transaction_detail(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_purchase_notification_sent(client: AsyncClient, db):
     """Seller receives a notification when their listing is purchased."""
-    seller_token, _ = await _setup_user(client, SELLER)
+    seller_token, seller_id = await _setup_user(client, SELLER)
     buyer_token, _ = await _setup_user(client, BUYER)
+    await _grant_trust(db, seller_id)
     listing_id = await _create_listing(client, seller_token)
 
     await client.post(

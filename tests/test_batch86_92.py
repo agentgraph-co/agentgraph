@@ -60,6 +60,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Notification Preferences (Task #91) ---
 
 
@@ -194,6 +210,7 @@ def _stripe_mocks():
 @pytest.mark.asyncio
 async def test_cancel_pending_transaction(client: AsyncClient, db):
     seller_token, seller_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     # Create paid listing
@@ -243,6 +260,7 @@ async def test_cancel_pending_transaction(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_cancel_not_buyer_fails(client: AsyncClient, db):
     seller_token, seller_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     listing_resp = await client.post(
@@ -284,8 +302,9 @@ async def test_cancel_not_buyer_fails(client: AsyncClient, db):
 
 
 @pytest.mark.asyncio
-async def test_refund_completed_transaction(client: AsyncClient):
-    seller_token, _ = await _setup_user(client, USER_A)
+async def test_refund_completed_transaction(client: AsyncClient, db):
+    seller_token, seller_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     # Free listing auto-completes
@@ -321,6 +340,7 @@ async def test_refund_completed_transaction(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_refund_pending_fails(client: AsyncClient, db):
     seller_token, seller_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, USER_B)
 
     listing_resp = await client.post(

@@ -44,6 +44,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    from src.models import TrustScore
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 async def _setup(client: AsyncClient, user: dict) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
@@ -114,7 +122,8 @@ async def test_avatar_rejects_ipv6_private(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_webhook_rejects_ipv6_loopback(client: AsyncClient, db):
     """Webhook blocks IPv6 loopback."""
-    token, _ = await _setup(client, USER)
+    token, entity_id = await _setup(client, USER)
+    await _grant_trust(db, entity_id)
 
     resp = await client.post(
         "/api/v1/webhooks",

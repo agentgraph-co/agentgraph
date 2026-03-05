@@ -57,6 +57,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #151: Submolt audit logging ---
 
 
@@ -145,6 +161,7 @@ async def test_submolt_leave_creates_audit_log(client, db):
 async def test_webhook_activate_creates_audit_log(client, db):
     """Activating a webhook should create an audit log entry."""
     token_a, user_a_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, user_a_id)
 
     # Create a webhook
     resp = await client.post(

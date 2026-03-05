@@ -2,14 +2,17 @@
 WebSocket broadcasts for social events, rate limiting additions."""
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
-from src.models import AuditLog
+from src.models import AuditLog, TrustScore
 
 
 @pytest_asyncio.fixture
@@ -39,7 +42,9 @@ USER_B = {
 }
 
 
-async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
+async def _setup_user(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]},
@@ -48,7 +53,14 @@ async def _setup_user(client: AsyncClient, user: dict) -> tuple[str, str]:
     me = await client.get(
         "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"},
     )
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(eid), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token, eid
 
 
 def _auth(token: str) -> dict:
@@ -61,8 +73,8 @@ def _auth(token: str) -> dict:
 @pytest.mark.asyncio
 async def test_dm_send_creates_audit_log(client, db):
     """Sending a DM should create an audit log entry."""
-    token_a, user_a_id = await _setup_user(client, USER_A)
-    token_b, user_b_id = await _setup_user(client, USER_B)
+    token_a, user_a_id = await _setup_user(client, USER_A, db)
+    token_b, user_b_id = await _setup_user(client, USER_B, db)
 
     resp = await client.post(
         "/api/v1/messages",

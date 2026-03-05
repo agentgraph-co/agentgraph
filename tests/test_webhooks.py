@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -31,13 +35,26 @@ USER = {
 }
 
 
-async def _setup_user(client: AsyncClient, user: dict) -> str:
+async def _setup_user(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> str:
     """Register + login, return token."""
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]}
     )
-    return resp.json()["access_token"]
+    token = resp.json()["access_token"]
+    if db is not None:
+        me = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"},
+        )
+        eid = uuid.UUID(me.json()["id"])
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=eid, score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token
 
 
 def _auth(token: str) -> dict:
@@ -48,8 +65,8 @@ def _auth(token: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_create_webhook(client: AsyncClient):
-    token = await _setup_user(client, USER)
+async def test_create_webhook(client: AsyncClient, db):
+    token = await _setup_user(client, USER, db)
     resp = await client.post(
         WEBHOOKS_URL,
         json={
@@ -67,8 +84,8 @@ async def test_create_webhook(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_webhook_invalid_event_type(client: AsyncClient):
-    token = await _setup_user(client, USER)
+async def test_create_webhook_invalid_event_type(client: AsyncClient, db):
+    token = await _setup_user(client, USER, db)
     resp = await client.post(
         WEBHOOKS_URL,
         json={
@@ -82,8 +99,8 @@ async def test_create_webhook_invalid_event_type(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_list_webhooks(client: AsyncClient):
-    token = await _setup_user(client, USER)
+async def test_list_webhooks(client: AsyncClient, db):
+    token = await _setup_user(client, USER, db)
 
     # Create two webhooks
     await client.post(
@@ -110,8 +127,8 @@ async def test_list_webhooks(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_delete_webhook(client: AsyncClient):
-    token = await _setup_user(client, USER)
+async def test_delete_webhook(client: AsyncClient, db):
+    token = await _setup_user(client, USER, db)
     create_resp = await client.post(
         WEBHOOKS_URL,
         json={
@@ -133,8 +150,8 @@ async def test_delete_webhook(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_deactivate_and_reactivate_webhook(client: AsyncClient):
-    token = await _setup_user(client, USER)
+async def test_deactivate_and_reactivate_webhook(client: AsyncClient, db):
+    token = await _setup_user(client, USER, db)
     create_resp = await client.post(
         WEBHOOKS_URL,
         json={
@@ -173,11 +190,12 @@ async def test_webhook_unauthenticated(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_delete_other_users_webhook(client: AsyncClient):
-    token_a = await _setup_user(client, USER)
+async def test_delete_other_users_webhook(client: AsyncClient, db):
+    token_a = await _setup_user(client, USER, db)
     token_b = await _setup_user(
         client,
         {"email": "other@test.com", "password": "Str0ngP@ss", "display_name": "Other"},
+        db,
     )
 
     create_resp = await client.post(
