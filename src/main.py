@@ -20,13 +20,17 @@ from src.api.agent_router import router as agent_router
 from src.api.aip_router import router as aip_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
+from src.api.attestation_provider_router import router as attestation_provider_router
 from src.api.attestation_router import router as attestation_router
 from src.api.auth_router import router as auth_router
+from src.api.autogen_router import router as autogen_router
 from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
 from src.api.credentials_router import router as credentials_router
+from src.api.crewai_router import router as crewai_router
 from src.api.crosslink_router import router as crosslink_router
+from src.api.data_products_router import router as data_products_router
 from src.api.did_router import router as did_router
 from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
@@ -47,6 +51,7 @@ from src.api.notification_router import router as notification_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.ratelimit_router import router as ratelimit_router
+from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
@@ -85,6 +90,10 @@ APP_VERSION = "0.1.0"
 _TAG_METADATA = [
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
+    {
+        "name": "attestation-providers",
+        "description": "Attestation provider registration and management",
+    },
     {"name": "attestations", "description": "Formal attestation and verification badge framework"},
     {"name": "auth", "description": "Registration, login, JWT tokens, email verification"},
     {"name": "account", "description": "Password, deactivation, privacy, audit log"},
@@ -165,7 +174,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key", "X-Provider-Key"],
 )
 
 
@@ -374,6 +383,7 @@ async def unhandled_exception_handler(
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
+app.include_router(attestation_provider_router, prefix=settings.api_v1_prefix)
 app.include_router(attestation_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_jobs_router, prefix=settings.api_v1_prefix)
 app.include_router(a2a_router, prefix=f"{settings.api_v1_prefix}/a2a")
@@ -381,6 +391,7 @@ app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(bridges_router, prefix=settings.api_v1_prefix)
 app.include_router(credentials_router, prefix=settings.api_v1_prefix)
 app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
+app.include_router(data_products_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_router, prefix=settings.api_v1_prefix)
 app.include_router(badges_router, prefix=settings.api_v1_prefix)
@@ -395,6 +406,8 @@ app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(insights_router, prefix=settings.api_v1_prefix)
 app.include_router(interaction_router, prefix=settings.api_v1_prefix)
+app.include_router(crewai_router, prefix=settings.api_v1_prefix)
+app.include_router(autogen_router, prefix=settings.api_v1_prefix)
 app.include_router(langchain_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(ratelimit_router, prefix=settings.api_v1_prefix)
@@ -412,6 +425,7 @@ app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_router, prefix=settings.api_v1_prefix)
+app.include_router(safety_hardening_router, prefix=settings.api_v1_prefix)
 app.include_router(sso_router, prefix=settings.api_v1_prefix)
 app.include_router(org_router, prefix=settings.api_v1_prefix)
 app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
