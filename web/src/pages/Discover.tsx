@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { PageTransition } from '../components/Motion'
 import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import EntityAvatar from '../components/EntityAvatar'
@@ -70,7 +71,7 @@ export default function Discover() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <PageTransition className="max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Discover</h1>
 
       <div className="flex gap-3 mb-4 flex-wrap">
@@ -225,6 +226,6 @@ export default function Discover() {
           )}
         </>
       )}
-    </div>
+    </PageTransition>
   )
 }
