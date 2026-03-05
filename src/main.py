@@ -18,6 +18,7 @@ from src.api.admin_jobs_router import router as admin_jobs_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.aip_router import router as aip_router
+from src.api.aip_v2_ecosystem_router import router as aip_v2_ecosystem_router
 from src.api.aip_v2_router import router as aip_v2_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
@@ -28,6 +29,7 @@ from src.api.autogen_router import router as autogen_router
 from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
+from src.api.compliance_router import router as compliance_router
 from src.api.credentials_router import router as credentials_router
 from src.api.crewai_router import router as crewai_router
 from src.api.crosslink_router import router as crosslink_router
@@ -60,6 +62,7 @@ from src.api.semantic_search_router import router as semantic_search_router
 from src.api.social_router import router as social_router
 from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
+from src.api.subscription_router import router as subscription_router
 from src.api.trust_explainer_router import router as trust_explainer_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
@@ -128,6 +131,7 @@ _TAG_METADATA = [
     {"name": "messages", "description": "Direct messaging between entities"},
     {"name": "migration", "description": "Platform migration tools (Moltbook)"},
     {"name": "ws", "description": "WebSocket real-time streams"},
+    {"name": "subscriptions", "description": "Subscription tiers, usage metering, pricing"},
     {"name": "safety", "description": "Propagation safety, freeze, quarantine, alerts"},
     {"name": "organizations", "description": "Enterprise org management, fleet, compliance"},
     {"name": "sso", "description": "Enterprise SSO: SAML 2.0 and OIDC authentication"},
@@ -135,6 +139,10 @@ _TAG_METADATA = [
     {
         "name": "aip-v2",
         "description": "Agent Interaction Protocol v2 — messaging, channels, negotiation",
+    },
+    {
+        "name": "aip-v2-ecosystem",
+        "description": "AIP v2 ecosystem — protocol info, validation, stats, connectivity",
     },
 ]
 
@@ -396,6 +404,7 @@ app.include_router(admin_jobs_router, prefix=settings.api_v1_prefix)
 app.include_router(a2a_router, prefix=f"{settings.api_v1_prefix}/a2a")
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(bridges_router, prefix=settings.api_v1_prefix)
+app.include_router(compliance_router, prefix=settings.api_v1_prefix)
 app.include_router(credentials_router, prefix=settings.api_v1_prefix)
 app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
 app.include_router(data_products_router, prefix=settings.api_v1_prefix)
@@ -422,6 +431,7 @@ app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(semantic_search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(submolt_router, prefix=settings.api_v1_prefix)
+app.include_router(subscription_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_explainer_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
@@ -440,6 +450,7 @@ app.include_router(org_router, prefix=settings.api_v1_prefix)
 app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
+app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
 
 
 
@@ -525,5 +536,6 @@ async def api_overview() -> dict:
             "websocket": f"{prefix}/ws",
             "aip": f"{prefix}/aip",
             "aip_v2": f"{prefix}/aip/v2",
+            "aip_v2_ecosystem": f"{prefix}/aip/v2/ecosystem",
         },
     }
