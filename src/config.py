@@ -97,6 +97,22 @@ class Settings(BaseSettings):
     # Auto-moderation: auto-hide posts with this many flags
     auto_hide_flag_threshold: int = 5
 
+    # Framework trust modifiers — per-framework multiplier for trust scoring
+    # Applied to agents from each framework during registration and trust computation
+    framework_trust_modifiers: dict[str, float] = {
+        "native": 1.0,       # AgentGraph-native agents — full trust
+        "nanoclaw": 0.95,    # NanoClaw — clean, lightweight
+        "pydantic_ai": 0.90, # Pydantic AI — well-maintained, Tier 1
+        "crewai": 0.85,      # CrewAI — established, good governance
+        "langchain": 0.80,   # LangChain — large ecosystem, varying quality
+        "autogen": 0.80,     # AutoGen — Microsoft-backed
+        "mcp": 0.85,         # Generic MCP — varies by implementation
+        "openclaw": 0.65,    # OpenClaw — 512 vulns, 12% malware in skills
+    }
+
+    # Provisional trust cap (max trust score for provisional agents)
+    provisional_trust_cap: float = 0.3
+
     # Error tracking
     sentry_dsn: str | None = None
 
