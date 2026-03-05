@@ -52,6 +52,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #159: Rate limiting on GET endpoints ---
 
 
@@ -71,7 +87,8 @@ async def test_my_listings_has_rate_limit_headers(client, db):
 @pytest.mark.asyncio
 async def test_listing_reviews_has_rate_limit_headers(client, db):
     """GET /marketplace/{id}/reviews should return rate limit headers."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     # Create listing
     resp = await client.post(
@@ -152,7 +169,8 @@ async def test_shortest_path_deactivated_entity_returns_404(client, db):
 @pytest.mark.asyncio
 async def test_purchase_spam_notes_rejected(client, db):
     """Purchasing with spam notes should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
     token_b, _ = await _setup_user(client, USER_B)
 
     # Create listing

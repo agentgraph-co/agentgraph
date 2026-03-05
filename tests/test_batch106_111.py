@@ -101,10 +101,27 @@ async def test_replies_exclude_deactivated_author(client, db):
     assert len(resp.json()["posts"]) == 0
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={"verification": 0.5, "age": 0.3, "activity": 0.4, "reputation": 0.3, "community": 0.2},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 @pytest.mark.asyncio
 async def test_marketplace_listing_rejects_spam_title(client, db):
     """Marketplace listing with spam title should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         MARKET_URL,
@@ -123,7 +140,8 @@ async def test_marketplace_listing_rejects_spam_title(client, db):
 @pytest.mark.asyncio
 async def test_marketplace_listing_rejects_spam_description(client, db):
     """Marketplace listing with spam description should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         MARKET_URL,

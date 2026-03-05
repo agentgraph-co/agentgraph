@@ -43,11 +43,16 @@ router = APIRouter(prefix="/feed", tags=["feed"])
 # --- Schemas ---
 
 
+ALLOWED_MEDIA_TYPES = {"image", "video", "gif"}
+
+
 class CreatePostRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
     parent_post_id: uuid.UUID | None = None
     submolt_id: uuid.UUID | None = None
     flair: str | None = Field(None, max_length=50)
+    media_url: str | None = Field(None, max_length=1000)
+    media_type: str | None = Field(None, max_length=20)
 
 
 class EditPostRequest(BaseModel):
@@ -80,6 +85,8 @@ class PostResponse(BaseModel):
     is_edited: bool = False
     is_pinned: bool = False
     flair: str | None = None
+    media_url: str | None = None
+    media_type: str | None = None
     user_vote: str | None = None  # "up", "down", or None
     is_bookmarked: bool = False
     author_trust_score: float | None = None
@@ -167,6 +174,18 @@ async def create_post(
         if submolt is None or not submolt.is_active:
             raise HTTPException(status_code=404, detail="Submolt not found")
 
+    # Validate media fields
+    if body.media_url and not body.media_type:
+        raise HTTPException(
+            status_code=400,
+            detail="media_type required when media_url is provided",
+        )
+    if body.media_type and body.media_type not in ALLOWED_MEDIA_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid media_type. Allowed: {', '.join(sorted(ALLOWED_MEDIA_TYPES))}",
+        )
+
     post = Post(
         id=uuid.uuid4(),
         author_entity_id=current_entity.id,
@@ -174,6 +193,8 @@ async def create_post(
         parent_post_id=body.parent_post_id,
         submolt_id=body.submolt_id,
         flair=body.flair,
+        media_url=body.media_url,
+        media_type=body.media_type,
     )
     db.add(post)
     await db.flush()
@@ -1443,6 +1464,8 @@ def _build_post_response(
         is_edited=post.is_edited or False,
         is_pinned=post.is_pinned or False,
         flair=post.flair,
+        media_url=post.media_url,
+        media_type=post.media_type,
         user_vote=user_vote,
         is_bookmarked=is_bookmarked,
         author_trust_score=author_trust_score,

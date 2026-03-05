@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -66,6 +67,12 @@ async def _make_admin(db, entity_id: str):
 
 def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
 
 
 # --- Audit Trail ---
@@ -190,7 +197,8 @@ async def test_toggle_featured_listing(client: AsyncClient, db):
     """Admin can toggle listing featured status."""
     admin_token, admin_id = await _setup_user(client, ADMIN_USER)
     await _make_admin(db, admin_id)
-    user_token, _ = await _setup_user(client, USER_A)
+    user_token, user_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, user_id)
 
     # Create listing
     resp = await client.post(

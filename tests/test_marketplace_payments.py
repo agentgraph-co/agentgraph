@@ -14,6 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -52,6 +53,12 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 FREE_LISTING = {
     "title": "Free Helper Bot",
     "description": "A free helper bot for everyone",
@@ -75,9 +82,10 @@ PAID_LISTING = {
 
 
 @pytest.mark.asyncio
-async def test_purchase_free_listing_auto_completes(client: AsyncClient):
+async def test_purchase_free_listing_auto_completes(client: AsyncClient, db):
     """Free listings should auto-complete without Stripe."""
-    seller_token, _ = await _setup_user(client, "freeseller@test.com", "FreeSeller")
+    seller_token, seller_id = await _setup_user(client, "freeseller@test.com", "FreeSeller")
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "freebuyer@test.com", "FreeBuyer")
 
     # Create free listing
@@ -111,6 +119,7 @@ async def test_purchase_paid_listing_creates_payment_intent(client: AsyncClient,
     seller_token, seller_id = await _setup_user(
         client, "paidseller@test.com", "PaidSeller",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "paidbuyer@test.com", "PaidBuyer")
 
     # Create paid listing
@@ -157,11 +166,12 @@ async def test_purchase_paid_listing_creates_payment_intent(client: AsyncClient,
 
 
 @pytest.mark.asyncio
-async def test_purchase_paid_listing_without_seller_stripe_account(client: AsyncClient):
+async def test_purchase_paid_listing_without_seller_stripe_account(client: AsyncClient, db):
     """Purchasing a paid listing from a seller without Stripe setup returns 400."""
-    seller_token, _ = await _setup_user(
+    seller_token, seller_id = await _setup_user(
         client, "noseller@test.com", "NoStripeSeller",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "nobuyer@test.com", "NoBuyer")
 
     resp = await client.post(
@@ -188,6 +198,7 @@ async def test_purchase_paid_listing_seller_charges_not_enabled(
     seller_token, seller_id = await _setup_user(
         client, "nochgseller@test.com", "NoChargeSeller",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "nochgbuyer@test.com", "NoChargeBuyer")
 
     resp = await client.post(
@@ -224,6 +235,7 @@ async def test_double_purchase_prevention(client: AsyncClient, db):
     seller_token, seller_id = await _setup_user(
         client, "dupseller@test.com", "DupSeller",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "dupbuyer@test.com", "DupBuyer")
 
     resp = await client.post(
@@ -570,6 +582,7 @@ async def test_platform_fee_calculation(client: AsyncClient, db):
     seller_token, seller_id = await _setup_user(
         client, "feeseller@test.com", "FeeSeller",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(client, "feebuyer@test.com", "FeeBuyer")
 
     # Create listing at $25.00 (2500 cents)
@@ -617,11 +630,12 @@ async def test_platform_fee_calculation(client: AsyncClient, db):
 
 
 @pytest.mark.asyncio
-async def test_payment_not_configured_returns_503(client: AsyncClient):
+async def test_payment_not_configured_returns_503(client: AsyncClient, db):
     """When stripe_secret_key is None, paid purchases return 503."""
-    seller_token, _ = await _setup_user(
+    seller_token, seller_id = await _setup_user(
         client, "no_stripe_seller@test.com", "NoStripeSeller2",
     )
+    await _grant_trust(db, seller_id)
     buyer_token, _ = await _setup_user(
         client, "no_stripe_buyer@test.com", "NoStripeBuyer2",
     )

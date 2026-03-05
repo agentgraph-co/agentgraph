@@ -32,6 +32,8 @@ export interface Post {
   is_edited: boolean
   is_pinned: boolean
   flair: string | null
+  media_url: string | null
+  media_type: string | null
   submolt_id: string | null
   parent_post_id: string | null
   author_trust_score: number | null

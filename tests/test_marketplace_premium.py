@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -39,6 +40,13 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 async def _setup(client: AsyncClient, user: dict) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
@@ -68,7 +76,8 @@ async def test_featured_listings_endpoint(client: AsyncClient, db):
     """Featured endpoint returns featured listings."""
     admin_token, _ = await _setup(client, ADMIN)
     await _make_admin(db, ADMIN["email"])
-    user_token, _ = await _setup(client, USER)
+    user_token, user_id = await _setup(client, USER)
+    await _grant_trust(db, user_id)
 
     # Create a listing
     resp = await client.post(
@@ -108,7 +117,8 @@ async def test_featured_listings_endpoint(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_non_admin_cannot_feature(client: AsyncClient, db):
     """Non-admin cannot toggle featured status."""
-    user_token, _ = await _setup(client, USER)
+    user_token, user_id = await _setup(client, USER)
+    await _grant_trust(db, user_id)
 
     resp = await client.post(
         "/api/v1/marketplace",
@@ -135,7 +145,8 @@ async def test_non_admin_cannot_feature(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_category_stats(client: AsyncClient, db):
     """Category stats returns breakdown of listings by category."""
-    user_token, _ = await _setup(client, USER)
+    user_token, user_id = await _setup(client, USER)
+    await _grant_trust(db, user_id)
 
     # Create listings in different categories
     for cat in ["service", "tool"]:
@@ -167,7 +178,8 @@ async def test_featured_filter_by_category(client: AsyncClient, db):
     """Featured endpoint supports category filtering."""
     admin_token, _ = await _setup(client, ADMIN)
     await _make_admin(db, ADMIN["email"])
-    user_token, _ = await _setup(client, USER)
+    user_token, user_id = await _setup(client, USER)
+    await _grant_trust(db, user_id)
 
     # Create two featured listings in different categories
     for cat in ["service", "tool"]:

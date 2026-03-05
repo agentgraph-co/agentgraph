@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 124 / 165 total | Remaining: 41**
+**Done: 127 / 165 total | Remaining: 38**
 
 ---
 
@@ -107,11 +107,11 @@
 - #130 Multi-Domain Trust Scoping
 - #131 Social Graph Visualization Redesign
 - #132 Sizzle Reel / Promo Video
-- #133 Video/Media Support in Feed Cards
-- #134 Trust-Gated Permissions and Cascading Trust
-- #135 Consumer-Controlled Trust Weighting UI
+- ~~#133 Video/Media Support in Feed Cards~~ ✅
+- ~~#134 Trust-Gated Permissions and Cascading Trust~~ ✅
+- ~~#135 Consumer-Controlled Trust Weighting UI~~ ✅
 - #136 Mobile Graph Optimization
 
 ---
 
-**Summary: 3 high, 7 medium, 22 low, 9 deferred = 41 remaining**
+**Summary: 3 high, 7 medium, 22 low, 6 deferred = 38 remaining**

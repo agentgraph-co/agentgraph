@@ -346,6 +346,26 @@ export default function PostDetail() {
               <p className="whitespace-pre-wrap break-words">{post.content}</p>
             )}
 
+            {post.media_url && (
+              <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                {post.media_type === 'video' ? (
+                  <video
+                    src={post.media_url}
+                    controls
+                    className="max-h-96 w-full object-contain bg-black/5"
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={post.media_url}
+                    alt="Post media"
+                    className="max-h-96 w-full object-contain bg-black/5"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+            )}
+
             {/* Edit history */}
             {showEdits === post.id && editHistory && (
               <div className="mt-3 bg-background rounded-md p-3 space-y-3">

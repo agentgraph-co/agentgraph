@@ -57,6 +57,22 @@ def _auth(token: str) -> dict:
 SPAM_TEXT = "buy cheap discount click here visit http://spam.com"
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #116: check_content on profile update ---
 
 
@@ -123,6 +139,7 @@ async def test_profile_update_sanitizes_html_in_bio(client, db):
 async def test_listing_review_sanitizes_html(client, db):
     """HTML in listing review text should be sanitized."""
     token_a, user_a_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, user_a_id)
     token_b, _ = await _setup_user(client, USER_B)
 
     # Create a listing as user A
@@ -155,7 +172,8 @@ async def test_listing_review_sanitizes_html(client, db):
 @pytest.mark.asyncio
 async def test_listing_review_rejects_spam(client, db):
     """Listing review with spam text should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
     token_b, _ = await _setup_user(client, USER_B)
 
     resp = await client.post(
@@ -221,7 +239,8 @@ async def test_endorsement_still_works_with_ws_broadcast(client, db):
 @pytest.mark.asyncio
 async def test_marketplace_purchase_still_works_with_ws_broadcast(client, db):
     """Marketplace purchase should succeed even with WS broadcast code."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
     token_b, _ = await _setup_user(client, USER_B)
 
     # Create a free listing

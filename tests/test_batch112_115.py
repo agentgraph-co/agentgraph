@@ -58,6 +58,22 @@ def _auth(token: str) -> dict:
 SPAM_TEXT = "buy cheap discount click here visit http://spam.com"
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 @pytest.mark.asyncio
 async def test_submolt_update_rejects_spam_description(client, db):
     """Updating submolt with spam description should be rejected."""
@@ -140,7 +156,8 @@ async def test_submolt_update_valid_description(client, db):
 @pytest.mark.asyncio
 async def test_listing_update_rejects_spam_title(client, db):
     """Updating listing with spam title should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     # Create a valid listing
     resp = await client.post(
@@ -169,7 +186,8 @@ async def test_listing_update_rejects_spam_title(client, db):
 @pytest.mark.asyncio
 async def test_listing_update_rejects_spam_description(client, db):
     """Updating listing with spam description should be rejected."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         MARKET_URL,
@@ -195,7 +213,8 @@ async def test_listing_update_rejects_spam_description(client, db):
 @pytest.mark.asyncio
 async def test_listing_update_valid_content(client, db):
     """Updating listing with valid content should succeed."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         MARKET_URL,
@@ -222,7 +241,8 @@ async def test_listing_update_valid_content(client, db):
 @pytest.mark.asyncio
 async def test_listing_update_sanitizes_html(client, db):
     """HTML in updated listing fields should be sanitized."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         MARKET_URL,

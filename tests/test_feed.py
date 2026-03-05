@@ -359,3 +359,89 @@ async def test_delete_other_user_post_fails(client: AsyncClient):
         f"{POSTS_URL}/{post_id}", headers=_auth(other_token)
     )
     assert resp.status_code == 403
+
+
+# --- Media support ---
+
+
+@pytest.mark.asyncio
+async def test_create_post_with_media(client: AsyncClient):
+    token = await _get_token(client)
+    resp = await client.post(
+        POSTS_URL,
+        json={
+            "content": "Check this out!",
+            "media_url": "https://example.com/image.jpg",
+            "media_type": "image",
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["media_url"] == "https://example.com/image.jpg"
+    assert data["media_type"] == "image"
+
+
+@pytest.mark.asyncio
+async def test_create_post_media_url_without_type(client: AsyncClient):
+    token = await _get_token(client)
+    resp = await client.post(
+        POSTS_URL,
+        json={
+            "content": "Missing type",
+            "media_url": "https://example.com/image.jpg",
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 400
+    assert "media_type required" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_post_invalid_media_type(client: AsyncClient):
+    token = await _get_token(client)
+    resp = await client.post(
+        POSTS_URL,
+        json={
+            "content": "Bad type",
+            "media_url": "https://example.com/file.pdf",
+            "media_type": "pdf",
+        },
+        headers=_auth(token),
+    )
+    assert resp.status_code == 400
+    assert "Invalid media_type" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_post_no_media_returns_null(client: AsyncClient):
+    token = await _get_token(client)
+    resp = await client.post(
+        POSTS_URL,
+        json={"content": "Just text"},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["media_url"] is None
+    assert data["media_type"] is None
+
+
+@pytest.mark.asyncio
+async def test_post_media_in_feed(client: AsyncClient):
+    token = await _get_token(client)
+    await client.post(
+        POSTS_URL,
+        json={
+            "content": "Video post",
+            "media_url": "https://example.com/clip.mp4",
+            "media_type": "video",
+        },
+        headers=_auth(token),
+    )
+    resp = await client.get(POSTS_URL, params={"limit": 5})
+    assert resp.status_code == 200
+    posts = resp.json()["posts"]
+    video_posts = [p for p in posts if p.get("media_type") == "video"]
+    assert len(video_posts) >= 1
+    assert video_posts[0]["media_url"] == "https://example.com/clip.mp4"

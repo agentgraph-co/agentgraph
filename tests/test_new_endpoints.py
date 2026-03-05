@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -39,14 +43,23 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup(client: AsyncClient, user: dict) -> tuple[str, str]:
+async def _setup(
+    client: AsyncClient, user: dict, db: AsyncSession | None = None,
+) -> tuple[str, str]:
     await client.post(REGISTER_URL, json=user)
     resp = await client.post(
         LOGIN_URL, json={"email": user["email"], "password": user["password"]}
     )
     token = resp.json()["access_token"]
     me = await client.get("/api/v1/auth/me", headers=_auth(token))
-    return token, me.json()["id"]
+    eid = me.json()["id"]
+    if db is not None:
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=uuid.UUID(eid), score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token, eid
 
 
 # --- Browse Profiles ---
@@ -154,8 +167,8 @@ async def test_non_mod_cannot_list_banned(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_delete_conversation(client: AsyncClient, db):
     """Participant can delete a conversation."""
-    token_a, id_a = await _setup(client, USER_A)
-    token_b, id_b = await _setup(client, USER_B)
+    token_a, id_a = await _setup(client, USER_A, db)
+    token_b, id_b = await _setup(client, USER_B, db)
 
     # Send a DM to create conversation
     resp = await client.post(
@@ -182,8 +195,8 @@ async def test_delete_conversation(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_non_participant_cannot_delete_conversation(client: AsyncClient, db):
     """Non-participant cannot delete a conversation."""
-    token_a, id_a = await _setup(client, USER_A)
-    token_b, id_b = await _setup(client, USER_B)
+    token_a, id_a = await _setup(client, USER_A, db)
+    token_b, id_b = await _setup(client, USER_B, db)
 
     # Create third user
     user_c = {
@@ -191,7 +204,7 @@ async def test_non_participant_cannot_delete_conversation(client: AsyncClient, d
         "password": "Str0ngP@ss",
         "display_name": "EndpointUserC",
     }
-    token_c, _ = await _setup(client, user_c)
+    token_c, _ = await _setup(client, user_c, db)
 
     # A sends DM to B
     resp = await client.post(

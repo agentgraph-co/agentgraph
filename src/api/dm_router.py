@@ -16,6 +16,7 @@ from sqlalchemy.sql import func
 
 from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
+from src.api.trust_gate import require_trust
 from src.database import get_db
 from src.models import (
     Conversation,
@@ -126,7 +127,7 @@ async def _check_blocked(
     "",
     response_model=MessageResponse,
     status_code=201,
-    dependencies=[Depends(rate_limit_writes)],
+    dependencies=[Depends(rate_limit_writes), Depends(require_trust("send_message"))],
 )
 async def send_message(
     body: SendMessageRequest,

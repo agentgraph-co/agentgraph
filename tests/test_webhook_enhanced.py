@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 
 @pytest_asyncio.fixture
@@ -34,18 +38,27 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup(client: AsyncClient) -> str:
+async def _setup(client: AsyncClient, db: AsyncSession | None = None) -> str:
     await client.post(REGISTER_URL, json=USER)
     resp = await client.post(
         LOGIN_URL, json={"email": USER["email"], "password": USER["password"]}
     )
-    return resp.json()["access_token"]
+    token = resp.json()["access_token"]
+    if db is not None:
+        me = await client.get("/api/v1/auth/me", headers=_auth(token))
+        eid = uuid.UUID(me.json()["id"])
+        db.add(TrustScore(
+            id=uuid.uuid4(), entity_id=eid, score=0.5,
+            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+        ))
+        await db.flush()
+    return token
 
 
 @pytest.mark.asyncio
 async def test_get_webhook_by_id(client: AsyncClient, db):
     """GET /webhooks/{id} returns webhook details."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     create_resp = await client.post(
         "/api/v1/webhooks",
@@ -73,7 +86,7 @@ async def test_get_webhook_by_id(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_get_webhook_not_found(client: AsyncClient, db):
     """GET /webhooks/{id} returns 404 for nonexistent webhook."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     resp = await client.get(
         "/api/v1/webhooks/00000000-0000-0000-0000-000000000000",
@@ -85,7 +98,7 @@ async def test_get_webhook_not_found(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_webhook_signing_key_stored(client: AsyncClient, db):
     """Webhook creation stores signing_key for HMAC verification."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     resp = await client.post(
         "/api/v1/webhooks",
@@ -112,7 +125,7 @@ async def test_webhook_signing_key_stored(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_entity_messaged_valid_event_type(client: AsyncClient, db):
     """entity.messaged is a valid webhook event type."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     resp = await client.post(
         "/api/v1/webhooks",
@@ -128,7 +141,7 @@ async def test_entity_messaged_valid_event_type(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_webhook_update_endpoint(client: AsyncClient, db):
     """PATCH /webhooks/{id} updates webhook properties."""
-    token = await _setup(client)
+    token = await _setup(client, db)
 
     create_resp = await client.post(
         "/api/v1/webhooks",

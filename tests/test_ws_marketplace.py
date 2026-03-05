@@ -64,6 +64,14 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    import uuid as _uuid
+    from src.models import TrustScore
+    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 @pytest.mark.asyncio
 async def test_marketplace_channel_in_valid_channels():
     """Verify 'marketplace' is in the ws_router valid_channels set."""
@@ -113,9 +121,10 @@ async def test_all_expected_channels_present():
 
 
 @pytest.mark.asyncio
-async def test_listing_create_broadcasts(client: AsyncClient):
+async def test_listing_create_broadcasts(client: AsyncClient, db):
     """Verify listing creation doesn't fail with marketplace WS broadcast."""
-    token, _ = await _setup_user(client, f"wsm1-{uuid.uuid4().hex[:6]}@t.com", "WSMSeller1")
+    token, entity_id = await _setup_user(client, f"wsm1-{uuid.uuid4().hex[:6]}@t.com", "WSMSeller1")
+    await _grant_trust(db, entity_id)
 
     resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     assert resp.status_code == 201
@@ -125,7 +134,7 @@ async def test_listing_create_broadcasts(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_purchase_broadcasts_marketplace_event(client: AsyncClient):
+async def test_purchase_broadcasts_marketplace_event(client: AsyncClient, db):
     """Verify purchase doesn't fail with marketplace WS broadcast."""
     seller_token, seller_id = await _setup_user(
         client, f"wsm2-{uuid.uuid4().hex[:6]}@t.com", "WSMSeller2",
@@ -133,6 +142,7 @@ async def test_purchase_broadcasts_marketplace_event(client: AsyncClient):
     buyer_token, buyer_id = await _setup_user(
         client, f"wsm3-{uuid.uuid4().hex[:6]}@t.com", "WSMBuyer1",
     )
+    await _grant_trust(db, seller_id)
 
     # Create listing
     resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(seller_token))
@@ -151,14 +161,15 @@ async def test_purchase_broadcasts_marketplace_event(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_cancel_transaction_broadcasts(client: AsyncClient):
+async def test_cancel_transaction_broadcasts(client: AsyncClient, db):
     """Verify cancel doesn't fail with marketplace WS broadcast."""
-    seller_token, _ = await _setup_user(
+    seller_token, seller_id = await _setup_user(
         client, f"wsm4-{uuid.uuid4().hex[:6]}@t.com", "WSMSeller3",
     )
     buyer_token, _ = await _setup_user(
         client, f"wsm5-{uuid.uuid4().hex[:6]}@t.com", "WSMBuyer2",
     )
+    await _grant_trust(db, seller_id)
 
     # Create a paid listing
     paid_listing = {**LISTING, "pricing_model": "one_time", "price_cents": 1000}
@@ -189,11 +200,12 @@ async def test_cancel_transaction_broadcasts(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_browse_after_ws_listing_create(client: AsyncClient):
+async def test_browse_after_ws_listing_create(client: AsyncClient, db):
     """Verify browsing works after listing created with WS broadcast."""
-    token, _ = await _setup_user(
+    token, entity_id = await _setup_user(
         client, f"wsm6-{uuid.uuid4().hex[:6]}@t.com", "WSMBrowse",
     )
+    await _grant_trust(db, entity_id)
 
     # Create a listing (triggers WS broadcast)
     resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
@@ -206,11 +218,12 @@ async def test_browse_after_ws_listing_create(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_listing_update_does_not_break(client: AsyncClient):
+async def test_listing_update_does_not_break(client: AsyncClient, db):
     """Verify listing update works (no WS broadcast needed, but no regression)."""
-    token, _ = await _setup_user(
+    token, entity_id = await _setup_user(
         client, f"wsm7-{uuid.uuid4().hex[:6]}@t.com", "WSMUpdate",
     )
+    await _grant_trust(db, entity_id)
 
     resp = await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
     assert resp.status_code == 201
@@ -226,11 +239,12 @@ async def test_listing_update_does_not_break(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_my_listings_works_after_ws_broadcast(client: AsyncClient):
+async def test_my_listings_works_after_ws_broadcast(client: AsyncClient, db):
     """Verify my-listings endpoint works after WS-broadcast listing creation."""
-    token, _ = await _setup_user(
+    token, entity_id = await _setup_user(
         client, f"wsm8-{uuid.uuid4().hex[:6]}@t.com", "WSMMyList",
     )
+    await _grant_trust(db, entity_id)
 
     await client.post(MARKET_URL, json=LISTING, headers=_auth(token))
 

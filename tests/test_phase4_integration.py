@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from src.database import get_db
 from src.main import app
+from src.models import TrustScore
 
 API = "/api/v1"
 
@@ -55,6 +56,12 @@ async def _register(client: AsyncClient) -> dict:
     return {"token": token, "headers": headers, "entity_id": me.json()["id"]}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=score, components={})
+    db.add(ts)
+    await db.flush()
+
+
 def _mock_stripe():
     mock = MagicMock()
     mock.Account.create.return_value = MagicMock(id="acct_test_123")
@@ -82,7 +89,9 @@ def _mock_stripe():
 async def test_escrow_purchase_then_dispute_then_resolve(client: AsyncClient, db):
     """Full lifecycle: create listing → purchase (escrow) → open dispute → resolve."""
     seller = await _register(client)
+    await _grant_trust(db, seller["entity_id"])
     buyer = await _register(client)
+    await _grant_trust(db, buyer["entity_id"])
     admin = await _register(client)
     # Promote to admin via DB
     await db.execute(
@@ -160,9 +169,10 @@ async def test_escrow_purchase_then_dispute_then_resolve(client: AsyncClient, db
 
 
 @pytest.mark.asyncio
-async def test_capability_listing_creation(client: AsyncClient):
+async def test_capability_listing_creation(client: AsyncClient, db):
     """Create a capability listing linked to an evolution record."""
     user = await _register(client)
+    await _grant_trust(db, user["entity_id"])
 
     # Create capability listing directly
     listing = await client.post(

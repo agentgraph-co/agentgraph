@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -33,6 +33,31 @@ const ACTION_COLORS: Record<string, string> = {
   'feed': 'bg-warning/20 text-warning',
   'mcp': 'bg-danger/20 text-danger',
   'admin': 'bg-danger/20 text-danger',
+}
+
+interface TrustWeights {
+  verification: number
+  age: number
+  activity: number
+  reputation: number
+  community: number
+  is_custom: boolean
+}
+
+const TRUST_WEIGHT_LABELS: Record<string, { label: string; desc: string }> = {
+  verification: { label: 'Verification', desc: 'Email, profile completeness, operator link' },
+  age: { label: 'Account Age', desc: 'How long the entity has existed' },
+  activity: { label: 'Activity', desc: 'Posts and votes in the last 30 days' },
+  reputation: { label: 'Reputation', desc: 'Reviews and endorsements received' },
+  community: { label: 'Community', desc: 'Trust attestations from other entities' },
+}
+
+const DEFAULT_TRUST_WEIGHTS: Record<string, number> = {
+  verification: 0.35,
+  age: 0.10,
+  activity: 0.20,
+  reputation: 0.15,
+  community: 0.20,
 }
 
 interface NotifPrefs {
@@ -170,6 +195,71 @@ export default function Settings() {
   const [emailErr, setEmailErr] = useState('')
 
   const [verifyMsg, setVerifyMsg] = useState('')
+
+  // Trust weights
+  const [localWeights, setLocalWeights] = useState<Record<string, number>>(DEFAULT_TRUST_WEIGHTS)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const { data: trustWeightsData } = useQuery<TrustWeights>({
+    queryKey: ['trust-weights'],
+    queryFn: async () => {
+      const { data } = await api.get('/account/trust-weights')
+      return data
+    },
+    staleTime: 5 * 60_000,
+  })
+
+  useEffect(() => {
+    if (trustWeightsData) {
+      setLocalWeights({
+        verification: trustWeightsData.verification,
+        age: trustWeightsData.age,
+        activity: trustWeightsData.activity,
+        reputation: trustWeightsData.reputation,
+        community: trustWeightsData.community,
+      })
+    }
+  }, [trustWeightsData])
+
+  const saveTrustWeightsMutation = useMutation({
+    mutationFn: async (weights: Record<string, number>) => {
+      await api.put('/account/trust-weights', weights)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trust-weights'] })
+      addToast('Trust weights saved', 'success')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      addToast(msg || 'Failed to save weights', 'error')
+    },
+  })
+
+  const resetTrustWeightsMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete('/account/trust-weights')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trust-weights'] })
+      setLocalWeights(DEFAULT_TRUST_WEIGHTS)
+      addToast('Trust weights reset to defaults', 'success')
+    },
+  })
+
+  const handleWeightChange = useCallback((key: string, value: number) => {
+    setLocalWeights(prev => {
+      const updated = { ...prev, [key]: value }
+      // Debounce save
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        saveTrustWeightsMutation.mutate(updated)
+      }, 800)
+      return updated
+    })
+  }, [saveTrustWeightsMutation])
+
+  const weightSum = Object.values(localWeights).reduce((a, b) => a + b, 0)
+  const weightSumOk = Math.abs(weightSum - 1.0) <= 0.05
 
   const resendVerification = useMutation({
     mutationFn: async () => {
@@ -578,6 +668,72 @@ export default function Settings() {
                   </button>
                 </div>
               ))}
+            </div>
+          ) : (
+            <InlineSkeleton />
+          )}
+        </section>
+
+        {/* Trust Score Weighting */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">
+            Trust Score Weighting
+          </h2>
+          <p className="text-xs text-text-muted mb-4">
+            Customize how you weight trust components when viewing other profiles.
+            This adjusts your personal view — it does not change canonical trust scores.
+          </p>
+          {trustWeightsData ? (
+            <div className="space-y-4">
+              {Object.keys(DEFAULT_TRUST_WEIGHTS).map((key) => (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <span className="text-sm font-medium">{TRUST_WEIGHT_LABELS[key].label}</span>
+                      <span className="text-xs text-text-muted ml-2">
+                        (default: {(DEFAULT_TRUST_WEIGHTS[key] * 100).toFixed(0)}%)
+                      </span>
+                    </div>
+                    <span className="text-sm font-mono tabular-nums">
+                      {Math.round((localWeights[key] ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-text-muted mb-1">
+                    {TRUST_WEIGHT_LABELS[key].desc}
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round((localWeights[key] ?? 0) * 100)}
+                    onChange={(e) => handleWeightChange(key, parseInt(e.target.value) / 100)}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-text-muted">Total:</span>
+                  <span className={`text-sm font-mono tabular-nums ${weightSumOk ? 'text-success' : 'text-danger'}`}>
+                    {Math.round(weightSum * 100)}%
+                  </span>
+                  {!weightSumOk && (
+                    <span className="text-xs text-danger">
+                      Must be close to 100%
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => resetTrustWeightsMutation.mutate()}
+                  disabled={resetTrustWeightsMutation.isPending || !trustWeightsData.is_custom}
+                  className="text-xs text-text-muted hover:text-primary transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {resetTrustWeightsMutation.isPending ? 'Resetting...' : 'Reset to Defaults'}
+                </button>
+              </div>
+              {saveTrustWeightsMutation.isPending && (
+                <p className="text-xs text-text-muted">Saving...</p>
+              )}
             </div>
           ) : (
             <InlineSkeleton />

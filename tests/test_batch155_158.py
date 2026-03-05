@@ -73,6 +73,22 @@ def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Task #155: Submolt display_name content filtering ---
 
 
@@ -146,6 +162,7 @@ async def test_submolt_update_spam_display_name_rejected(client, db):
 async def test_delete_listing_review_creates_audit_log(client, db):
     """Deleting a listing review should create an audit log entry."""
     token_a, user_a_id = await _setup_user(client, USER_A)
+    await _grant_trust(db, user_a_id)
     token_b, user_b_id = await _setup_user(client, USER_B)
 
     # Create a listing as user A
@@ -196,7 +213,8 @@ async def test_delete_listing_review_creates_audit_log(client, db):
 @pytest.mark.asyncio
 async def test_webhook_accepts_moderation_resolved_event_type(client, db):
     """Webhooks should accept moderation.resolved as a valid event type."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         "/api/v1/webhooks",
@@ -213,7 +231,8 @@ async def test_webhook_accepts_moderation_resolved_event_type(client, db):
 @pytest.mark.asyncio
 async def test_webhook_accepts_appeal_resolved_event_type(client, db):
     """Webhooks should accept moderation.appeal_resolved as a valid event type."""
-    token_a, _ = await _setup_user(client, USER_A)
+    token_a, id_a = await _setup_user(client, USER_A)
+    await _grant_trust(db, id_a)
 
     resp = await client.post(
         "/api/v1/webhooks",

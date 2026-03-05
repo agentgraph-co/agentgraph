@@ -60,6 +60,22 @@ async def _make_admin(db, email: str):
     await db.flush()
 
 
+async def _grant_trust(db, entity_id: str, score: float = 0.5):
+    """Give an entity a trust score so trust-gated endpoints work."""
+    import uuid as _uuid
+
+    from src.models import TrustScore
+
+    ts = TrustScore(
+        id=_uuid.uuid4(),
+        entity_id=entity_id,
+        score=score,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+
 # --- Notification Pagination ---
 
 
@@ -87,6 +103,7 @@ async def test_notifications_pagination_offset(client: AsyncClient, db):
 async def test_my_listings(client: AsyncClient, db):
     """Authenticated user can see their own listings."""
     token, entity_id = await _setup(client, USER)
+    await _grant_trust(db, entity_id)
 
     # Create a listing
     resp = await client.post(
