@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 121 / 165 total | Remaining: 44**
+**Done: 124 / 165 total | Remaining: 41**
 
 ---
 
@@ -21,7 +21,7 @@
 ### Frontend Polish & Quality — 7 items
 
 - ~~**#81** Fix Light Mode Visual Issues~~ ✅
-- #77 Frontend Polish — Phase 4 React Web Features
+- ~~#77 Frontend Polish — Phase 4 React Web Features~~ ✅
 - ~~#99 Accessibility — ARIA Labels, Tab Roles, Table Captions~~ ✅
 - ~~#101 Standardize Loading States to Skeleton Components~~ ✅
 - ~~#102 Fix setTimeout Memory Leaks and ParticleField Re-render Bug~~ ✅
@@ -75,8 +75,8 @@
 
 ### PRD & Documentation — 2 items
 
-- #72 PRD Reconciliation — Post-Implementation Audit
-- #49 PRD Section 18: Future Considerations Backlog
+- ~~#72 PRD Reconciliation — Post-Implementation Audit~~ ✅
+- ~~#49 PRD Section 18: Future Considerations Backlog~~ ✅
 
 ### Open Research Questions — 19 items
 
@@ -114,4 +114,4 @@
 
 ---
 
-**Summary: 3 high, 7 medium, 25 low, 9 deferred = 44 remaining**
+**Summary: 3 high, 7 medium, 22 low, 9 deferred = 41 remaining**
