@@ -31,12 +31,14 @@ from src.api.did_router import router as did_router
 from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
 from src.api.endorsement_router import router as endorsement_router
+from src.api.enhanced_profile_router import router as enhanced_profile_router
 from src.api.evolution_router import router as evolution_router
 from src.api.export_router import router as export_router
 from src.api.feed_router import router as feed_router
 from src.api.graph_router import router as graph_router
 from src.api.insights_router import router as insights_router
 from src.api.interaction_router import router as interaction_router
+from src.api.langchain_router import router as langchain_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
@@ -44,11 +46,13 @@ from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
+from src.api.ratelimit_router import router as ratelimit_router
 from src.api.safety_router import router as safety_router
 from src.api.search_router import router as search_router
 from src.api.social_router import router as social_router
 from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
+from src.api.trust_explainer_router import router as trust_explainer_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
@@ -383,6 +387,7 @@ app.include_router(badges_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
 app.include_router(did_router, prefix=settings.api_v1_prefix)
 app.include_router(dm_router, prefix=settings.api_v1_prefix)
+app.include_router(enhanced_profile_router, prefix=settings.api_v1_prefix)
 app.include_router(endorsement_router, prefix=settings.api_v1_prefix)
 app.include_router(evolution_router, prefix=settings.api_v1_prefix)
 app.include_router(export_router, prefix=settings.api_v1_prefix)
@@ -390,10 +395,13 @@ app.include_router(feed_router, prefix=settings.api_v1_prefix)
 app.include_router(graph_router, prefix=settings.api_v1_prefix)
 app.include_router(insights_router, prefix=settings.api_v1_prefix)
 app.include_router(interaction_router, prefix=settings.api_v1_prefix)
+app.include_router(langchain_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
+app.include_router(ratelimit_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)
 app.include_router(social_router, prefix=settings.api_v1_prefix)
 app.include_router(submolt_router, prefix=settings.api_v1_prefix)
+app.include_router(trust_explainer_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(disputes_router, prefix=settings.api_v1_prefix)
