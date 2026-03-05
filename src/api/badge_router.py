@@ -31,11 +31,17 @@ def _trust_tier_color(score: float) -> str:
 def _render_badge_svg(
     score: float,
     has_operator: bool,
+    is_provisional: bool = False,
 ) -> str:
     """Render a shields.io-style two-tone pill badge as SVG."""
     label = "AgentGraph Trust"
     score_text = f"{score:.2f}"
-    sub_text = "Verified" if has_operator else "Unverified"
+    if is_provisional:
+        sub_text = "Unclaimed"
+    elif has_operator:
+        sub_text = "Verified"
+    else:
+        sub_text = "Unverified"
 
     color = _trust_tier_color(score)
 
@@ -114,8 +120,9 @@ async def get_trust_badge_svg(
     )
     score = trust.score if trust else 0.0
     has_operator = entity.operator_id is not None
+    is_provisional = getattr(entity, "is_provisional", False) or False
 
-    svg = _render_badge_svg(score, has_operator)
+    svg = _render_badge_svg(score, has_operator, is_provisional)
 
     return Response(
         content=svg,

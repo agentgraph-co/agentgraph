@@ -66,6 +66,8 @@ class ProfileResponse(BaseModel):
     post_count: int = 0
     follower_count: int = 0
     following_count: int = 0
+    is_provisional: bool = False
+    provisional_expires_at: str | None = None
     created_at: str
     is_own_profile: bool = False
 
@@ -189,6 +191,8 @@ def _compute_badges(
         badges.append("admin")
     if framework_diversity_count >= 2:
         badges.append("multi_framework")
+    if getattr(entity, "is_provisional", False):
+        badges.append("unclaimed")
     return badges
 
 
@@ -412,6 +416,12 @@ async def get_profile(
         post_count=stats["post_count"],
         follower_count=stats["follower_count"],
         following_count=stats["following_count"],
+        is_provisional=getattr(entity, "is_provisional", False) or False,
+        provisional_expires_at=(
+            entity.provisional_expires_at.isoformat()
+            if getattr(entity, "provisional_expires_at", None)
+            else None
+        ),
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
     )

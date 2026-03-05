@@ -11,13 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from src.api.a2a_router import router as a2a_router
 from src.api.account_router import router as account_router
 from src.api.activity_router import router as activity_router
+from src.api.admin_jobs_router import router as admin_jobs_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
 from src.api.aip_router import router as aip_router
 from src.api.analytics_router import router as analytics_router
-from src.api.a2a_router import router as a2a_router
 from src.api.anomaly_router import router as anomaly_router
 from src.api.auth_router import router as auth_router
 from src.api.badge_router import router as badge_router
@@ -362,6 +363,7 @@ async def unhandled_exception_handler(
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
+app.include_router(admin_jobs_router, prefix=settings.api_v1_prefix)
 app.include_router(a2a_router, prefix=f"{settings.api_v1_prefix}/a2a")
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(bridges_router, prefix=settings.api_v1_prefix)
