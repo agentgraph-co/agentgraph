@@ -12,6 +12,7 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "trust_score_history",
     "aip_messages", "aip_channels",
     "content_links",
     "behavioral_baselines", "interaction_events", "service_contracts",
@@ -301,6 +302,29 @@ async def _clean_db_once():
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_content_links_created_at "
             "ON content_links (created_at)"
+        ))
+        # Ensure trust_score_history table exists (migration r07)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS trust_score_history ("
+            "  id UUID PRIMARY KEY,"
+            "  entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  score DOUBLE PRECISION NOT NULL,"
+            "  components JSONB DEFAULT '{}'::jsonb,"
+            "  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_trust_score_history_entity_time "
+            "ON trust_score_history (entity_id, recorded_at)"
+        ))
+        # Ensure posts media columns exist (migration r06)
+        await conn.execute(text(
+            "ALTER TABLE posts ADD COLUMN IF NOT EXISTS "
+            "media_url VARCHAR(1000)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE posts ADD COLUMN IF NOT EXISTS "
+            "media_type VARCHAR(20)"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

@@ -1,8 +1,133 @@
 // ForceGraphView — SwiftUI Canvas force-directed graph with semantic zoom
 // Zoom spreads nodes apart but keeps circles/labels at readable screen-pixel sizes
 // Animated directional particles flow along edges (like react-force-graph on web)
+//
+// Optimizations (#136):
+// - Viewport culling: skip drawing off-screen nodes/edges
+// - Barnes-Hut quadtree: O(n²) → O(n log n) repulsive force computation
+// - Adaptive LOD: fewer particles/glow at low zoom, skip labels for dense graphs
+// - Adaptive iteration count: scale simulation effort with node count
+// - Reduced per-frame allocations: pre-compute edge colors, reuse paths
 
 import SwiftUI
+
+// MARK: - Barnes-Hut Quadtree
+
+/// Quadtree node for Barnes-Hut force approximation.
+/// Groups distant nodes into a single center-of-mass for O(n log n) repulsion.
+private final class QuadTreeNode {
+    var bounds: CGRect
+    var centerOfMass: CGPoint = .zero
+    var totalMass: CGFloat = 0
+    var children: [QuadTreeNode?] = [nil, nil, nil, nil] // NW, NE, SW, SE
+    var bodyPosition: CGPoint? // Leaf node position (if exactly one body)
+    var bodyIndex: Int = -1
+
+    init(bounds: CGRect) {
+        self.bounds = bounds
+    }
+
+    var isLeaf: Bool { bodyPosition != nil && totalMass <= 1 }
+    var isEmpty: Bool { totalMass == 0 }
+
+    func insert(position: CGPoint, index: Int) {
+        if isEmpty {
+            // Empty node — store body directly
+            bodyPosition = position
+            bodyIndex = index
+            centerOfMass = position
+            totalMass = 1
+            return
+        }
+
+        if isLeaf {
+            // Already has one body — subdivide
+            let existingPos = bodyPosition!
+            let existingIdx = bodyIndex
+            bodyPosition = nil
+            bodyIndex = -1
+
+            insertIntoChild(position: existingPos, index: existingIdx)
+            insertIntoChild(position: position, index: index)
+        } else {
+            insertIntoChild(position: position, index: index)
+        }
+
+        // Update center of mass
+        let newMass = totalMass + 1
+        centerOfMass = CGPoint(
+            x: (centerOfMass.x * totalMass + position.x) / newMass,
+            y: (centerOfMass.y * totalMass + position.y) / newMass
+        )
+        totalMass = newMass
+    }
+
+    private func insertIntoChild(position: CGPoint, index: Int) {
+        let midX = bounds.midX
+        let midY = bounds.midY
+        let quadrant: Int
+        if position.x <= midX {
+            quadrant = position.y <= midY ? 0 : 2 // NW or SW
+        } else {
+            quadrant = position.y <= midY ? 1 : 3 // NE or SE
+        }
+
+        if children[quadrant] == nil {
+            let childBounds: CGRect
+            switch quadrant {
+            case 0: childBounds = CGRect(x: bounds.minX, y: bounds.minY,
+                                         width: bounds.width / 2, height: bounds.height / 2)
+            case 1: childBounds = CGRect(x: midX, y: bounds.minY,
+                                         width: bounds.width / 2, height: bounds.height / 2)
+            case 2: childBounds = CGRect(x: bounds.minX, y: midY,
+                                         width: bounds.width / 2, height: bounds.height / 2)
+            default: childBounds = CGRect(x: midX, y: midY,
+                                          width: bounds.width / 2, height: bounds.height / 2)
+            }
+            children[quadrant] = QuadTreeNode(bounds: childBounds)
+        }
+
+        children[quadrant]!.insert(position: position, index: index)
+    }
+
+    /// Barnes-Hut force calculation. theta controls accuracy (lower = more accurate).
+    func calculateForce(on position: CGPoint, theta: CGFloat = 0.8,
+                        fx: inout CGFloat, fy: inout CGFloat) {
+        if isEmpty { return }
+
+        let dx = centerOfMass.x - position.x
+        let dy = centerOfMass.y - position.y
+        let distSq = max(dx * dx + dy * dy, 100)
+
+        if isLeaf {
+            // Single body — compute exact force
+            if distSq > 100 { // Skip self
+                let dist = sqrt(distSq)
+                let f: CGFloat = -50.0 / distSq
+                fx += f * dx / dist
+                fy += f * dy / dist
+            }
+            return
+        }
+
+        let size = bounds.width
+        // If node is far enough away, treat as single body
+        if size * size / distSq < theta * theta {
+            let dist = sqrt(distSq)
+            let f: CGFloat = -50.0 * totalMass / distSq
+            fx += f * dx / dist
+            fy += f * dy / dist
+            return
+        }
+
+        // Otherwise recurse into children
+        for child in children {
+            child?.calculateForce(on: position, theta: theta, fx: &fx, fy: &fy)
+        }
+    }
+}
+
+// MARK: - ForceGraphView
 
 struct ForceGraphView: View {
     let nodes: [ForceNode]
@@ -34,11 +159,20 @@ struct ForceGraphView: View {
         "service": 2,
         "follow": 1,
     ]
-    private static let particleSpeed: Double = 0.3 // full edge traversal in ~3.3s
+    private static let particleSpeed: Double = 0.3
+
+    // Pre-computed edge colors (avoid Color allocation per frame)
+    private static let edgeColorMap: [String: (r: Double, g: Double, b: Double)] = [
+        "follow": (0.118, 0.200, 0.200),
+        "attestation": (0.651, 0.890, 0.631),
+        "operator_agent": (0.537, 0.706, 0.980),
+        "collaboration": (0.796, 0.651, 0.969),
+        "service": (0.980, 0.702, 0.529),
+    ]
+    private static let defaultEdgeColor: (r: Double, g: Double, b: Double) = (0.424, 0.439, 0.525)
 
     var body: some View {
         GeometryReader { geo in
-            // TimelineView drives continuous animation for edge particles
             TimelineView(.animation) { timeline in
                 let time = timeline.date.timeIntervalSinceReferenceDate
 
@@ -47,7 +181,6 @@ struct ForceGraphView: View {
                 }
                 .contentShape(Rectangle())
             }
-            // Pinch to zoom (two fingers)
             .gesture(
                 MagnifyGesture()
                     .onChanged { value in
@@ -57,11 +190,9 @@ struct ForceGraphView: View {
                         baseScale = currentScale
                     }
             )
-            // Drag: on a node = move it, on empty space = pan
             .simultaneousGesture(
                 DragGesture(minimumDistance: 6)
                     .onChanged { value in
-                        // First movement — decide if dragging a node or panning
                         if draggedNodeId == nil && !dragStartedOnNode {
                             if let nodeId = hitTest(at: value.startLocation, viewSize: geo.size) {
                                 draggedNodeId = nodeId
@@ -72,10 +203,8 @@ struct ForceGraphView: View {
                         }
 
                         if let nodeId = draggedNodeId {
-                            // Move the node in graph-space
                             positions[nodeId] = toGraph(value.location, viewSize: geo.size)
                         } else {
-                            // Pan the canvas
                             panOffset = CGSize(
                                 width: basePanOffset.width + value.translation.width,
                                 height: basePanOffset.height + value.translation.height
@@ -90,7 +219,6 @@ struct ForceGraphView: View {
                         dragStartedOnNode = false
                     }
             )
-            // Long press on a node for context actions
             .gesture(
                 LongPressGesture(minimumDuration: 0.5)
                     .sequenced(before: DragGesture(minimumDistance: 0))
@@ -106,7 +234,6 @@ struct ForceGraphView: View {
                         }
                     }
             )
-            // Tap for node selection
             .onTapGesture { location in
                 if let nodeId = hitTest(at: location, viewSize: geo.size) {
                     onNodeTap?(nodeId)
@@ -140,7 +267,6 @@ struct ForceGraphView: View {
         )
     }
 
-    /// Inverse of toScreen — convert screen-space point back to graph-space
     private func toGraph(_ screenPos: CGPoint, viewSize: CGSize) -> CGPoint {
         let cx = viewSize.width / 2
         let cy = viewSize.height / 2
@@ -148,6 +274,34 @@ struct ForceGraphView: View {
             x: (screenPos.x - cx - panOffset.width) / currentScale + cx,
             y: (screenPos.y - cy - panOffset.height) / currentScale + cy
         )
+    }
+
+    // MARK: - Viewport Culling
+
+    /// Returns the visible rect in screen-space with padding for nodes near edges.
+    private func visibleRect(size: CGSize) -> CGRect {
+        let padding: CGFloat = 60 // account for glow/label overflow
+        return CGRect(x: -padding, y: -padding,
+                      width: size.width + padding * 2,
+                      height: size.height + padding * 2)
+    }
+
+    /// Quick check if a screen-space point is within the visible viewport.
+    @inline(__always)
+    private func isVisible(_ screenPoint: CGPoint, viewport: CGRect) -> Bool {
+        viewport.contains(screenPoint)
+    }
+
+    /// Check if a line segment (edge) intersects the visible viewport.
+    /// Uses a fast AABB overlap test on the edge bounding box.
+    @inline(__always)
+    private func isEdgeVisible(_ from: CGPoint, _ to: CGPoint, viewport: CGRect) -> Bool {
+        let minX = min(from.x, to.x)
+        let maxX = max(from.x, to.x)
+        let minY = min(from.y, to.y)
+        let maxY = max(from.y, to.y)
+        return maxX >= viewport.minX && minX <= viewport.maxX
+            && maxY >= viewport.minY && minY <= viewport.maxY
     }
 
     // MARK: - Hit Testing (screen-space)
@@ -168,10 +322,21 @@ struct ForceGraphView: View {
         return nil
     }
 
-    // MARK: - Drawing
+    // MARK: - Drawing (with viewport culling + adaptive LOD)
 
     private func drawGraph(context: inout GraphicsContext, size: CGSize, time: Double) {
         let rScale = pow(currentScale, 0.2)
+        let viewport = visibleRect(size: size)
+        let nodeCount = nodes.count
+
+        // Adaptive LOD thresholds
+        let showGlow = nodeCount < 200 || currentScale > 0.8
+        let showParticles = nodeCount < 300 || currentScale > 0.6
+        let showLabels = currentScale >= 0.5 && (nodeCount < 400 || currentScale > 1.0)
+        let showTrustBadges = currentScale >= 1.5
+
+        // Reduce particle count for large graphs
+        let particleScale: Int = nodeCount > 200 ? 2 : 1
 
         // Edges + animated particles
         for edge in edges {
@@ -179,7 +344,12 @@ struct ForceGraphView: View {
                   let toG = positions[edge.target] else { continue }
             let from = toScreen(fromG, viewSize: size)
             let to = toScreen(toG, viewSize: size)
-            let color = edgeColor(for: edge.edgeType)
+
+            // Viewport culling — skip edges entirely off-screen
+            guard isEdgeVisible(from, to, viewport: viewport) else { continue }
+
+            let ec = Self.edgeColorMap[edge.edgeType] ?? Self.defaultEdgeColor
+            let color = Color(red: ec.r, green: ec.g, blue: ec.b)
 
             // Edge line
             var path = Path()
@@ -188,18 +358,22 @@ struct ForceGraphView: View {
             context.stroke(path, with: .color(color.opacity(0.35)),
                            lineWidth: edgeLineWidth(for: edge))
 
-            // Directional particles — small dots flowing from source to target
-            let count = Self.particleCounts[edge.edgeType] ?? 1
-            let particleR: CGFloat = 2.0
-            for i in 0..<count {
-                // Offset each particle evenly + animate with time
-                let phase = Double(i) / Double(count)
-                let t = (time * Self.particleSpeed + phase).truncatingRemainder(dividingBy: 1.0)
-                let px = from.x + (to.x - from.x) * t
-                let py = from.y + (to.y - from.y) * t
-                let rect = CGRect(x: px - particleR, y: py - particleR,
-                                  width: particleR * 2, height: particleR * 2)
-                context.fill(Circle().path(in: rect), with: .color(color.opacity(0.8)))
+            // Directional particles (LOD: skip when zoomed out on large graphs)
+            if showParticles {
+                let baseCount = Self.particleCounts[edge.edgeType] ?? 1
+                let count = max(1, baseCount / particleScale)
+                let particleR: CGFloat = 2.0
+                for i in 0..<count {
+                    let phase = Double(i) / Double(count)
+                    let t = (time * Self.particleSpeed + phase)
+                        .truncatingRemainder(dividingBy: 1.0)
+                    let px = from.x + (to.x - from.x) * t
+                    let py = from.y + (to.y - from.y) * t
+                    let rect = CGRect(x: px - particleR, y: py - particleR,
+                                      width: particleR * 2, height: particleR * 2)
+                    context.fill(Circle().path(in: rect),
+                                 with: .color(color.opacity(0.8)))
+                }
             }
         }
 
@@ -207,17 +381,23 @@ struct ForceGraphView: View {
         for node in nodes {
             guard let gPos = positions[node.id] else { continue }
             let sp = toScreen(gPos, viewSize: size)
+
+            // Viewport culling — skip nodes off-screen
+            guard isVisible(sp, viewport: viewport) else { continue }
+
             let r = node.radius * rScale
             let cc = ForceGraphViewModel.colorForCluster(node.clusterId)
             let color = Color(red: cc.red, green: cc.green, blue: cc.blue)
 
-            // Glow ring
-            let glowR = r * 1.8
-            context.fill(
-                Circle().path(in: CGRect(x: sp.x - glowR, y: sp.y - glowR,
-                                         width: glowR * 2, height: glowR * 2)),
-                with: .color(color.opacity(0.15))
-            )
+            // Glow ring (LOD: skip for dense graphs at low zoom)
+            if showGlow {
+                let glowR = r * 1.8
+                context.fill(
+                    Circle().path(in: CGRect(x: sp.x - glowR, y: sp.y - glowR,
+                                             width: glowR * 2, height: glowR * 2)),
+                    with: .color(color.opacity(0.15))
+                )
+            }
 
             // Node circle
             let nr = CGRect(x: sp.x - r, y: sp.y - r, width: r * 2, height: r * 2)
@@ -251,8 +431,8 @@ struct ForceGraphView: View {
                 at: sp
             )
 
-            // Label
-            if currentScale >= 0.5 {
+            // Label (LOD)
+            if showLabels {
                 context.draw(
                     Text(node.label)
                         .font(.system(size: 11))
@@ -261,8 +441,8 @@ struct ForceGraphView: View {
                 )
             }
 
-            // Trust badge
-            if currentScale >= 1.5 {
+            // Trust badge (LOD)
+            if showTrustBadges {
                 let pct = String(format: "%.0f%%", node.trustScore * 100)
                 context.draw(
                     Text(pct)
@@ -282,7 +462,7 @@ struct ForceGraphView: View {
         )
     }
 
-    // MARK: - Force Simulation
+    // MARK: - Force Simulation (Barnes-Hut optimized)
 
     private func computePositions(in size: CGSize) {
         guard !nodes.isEmpty, size.width > 0, size.height > 0 else {
@@ -290,16 +470,17 @@ struct ForceGraphView: View {
             return
         }
 
-        var pos: [String: CGPoint] = [:]
+        let nodeCount = nodes.count
+        var pos: [String: CGPoint] = Dictionary(minimumCapacity: nodeCount)
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let spread = min(size.width, size.height) * 0.35
-        let count = nodes.count
 
+        // Initial radial placement
         for (i, node) in nodes.enumerated() {
             if node.isCenter {
                 pos[node.id] = center
             } else {
-                let angle = CGFloat(i) * 2.0 * .pi / CGFloat(max(1, count - 1))
+                let angle = CGFloat(i) * 2.0 * .pi / CGFloat(max(1, nodeCount - 1))
                 let r = node.connections.count > 2
                     ? spread * 0.5
                     : spread * CGFloat.random(in: 0.6...0.9)
@@ -308,58 +489,122 @@ struct ForceGraphView: View {
             }
         }
 
-        let nodeIds = nodes.map { $0.id }
+        let nodeIds = nodes.map(\.id)
 
-        for _ in 0..<80 {
-            var forces: [String: CGVector] = [:]
-            for nid in nodeIds { forces[nid] = .zero }
+        // Adaptive iteration count: fewer iterations for very large graphs
+        let iterations: Int
+        if nodeCount > 500 {
+            iterations = 40
+        } else if nodeCount > 200 {
+            iterations = 60
+        } else {
+            iterations = 80
+        }
 
-            for i in 0..<nodeIds.count {
-                for j in (i + 1)..<nodeIds.count {
-                    let a = nodeIds[i], b = nodeIds[j]
-                    guard let pa = pos[a], let pb = pos[b] else { continue }
-                    let dx = pb.x - pa.x
-                    let dy = pb.y - pa.y
-                    let distSq = max(dx * dx + dy * dy, 100)
-                    let dist = sqrt(distSq)
-                    let f: CGFloat = -50.0 / distSq
-                    let fx = f * dx / dist
-                    let fy = f * dy / dist
-                    forces[a]!.dx += fx
-                    forces[a]!.dy += fy
-                    forces[b]!.dx -= fx
-                    forces[b]!.dy -= fy
+        // Use Barnes-Hut for graphs with 50+ nodes, brute force for small ones
+        let useBarnesHut = nodeCount >= 50
+
+        // Build index lookup once (not per iteration)
+        let idToIndex: [String: Int] = Dictionary(
+            uniqueKeysWithValues: nodeIds.enumerated().map { ($1, $0) }
+        )
+
+        for _ in 0..<iterations {
+            // Pre-allocate force arrays (indexed, not dict — faster)
+            var forcesX = [CGFloat](repeating: 0, count: nodeCount)
+            var forcesY = [CGFloat](repeating: 0, count: nodeCount)
+
+            // Collect current positions into arrays for fast indexed access
+            var posX = [CGFloat](repeating: 0, count: nodeCount)
+            var posY = [CGFloat](repeating: 0, count: nodeCount)
+            for (i, nid) in nodeIds.enumerated() {
+                if let p = pos[nid] {
+                    posX[i] = p.x
+                    posY[i] = p.y
                 }
             }
 
+            if useBarnesHut {
+                // Build quadtree
+                var minX: CGFloat = .greatestFiniteMagnitude
+                var minY: CGFloat = .greatestFiniteMagnitude
+                var maxX: CGFloat = -.greatestFiniteMagnitude
+                var maxY: CGFloat = -.greatestFiniteMagnitude
+                for i in 0..<nodeCount {
+                    minX = min(minX, posX[i])
+                    minY = min(minY, posY[i])
+                    maxX = max(maxX, posX[i])
+                    maxY = max(maxY, posY[i])
+                }
+                let treeSize = max(maxX - minX, maxY - minY) + 20
+                let treeBounds = CGRect(x: minX - 10, y: minY - 10,
+                                        width: treeSize, height: treeSize)
+                let tree = QuadTreeNode(bounds: treeBounds)
+
+                for i in 0..<nodeCount {
+                    tree.insert(position: CGPoint(x: posX[i], y: posY[i]), index: i)
+                }
+
+                // Barnes-Hut repulsive forces
+                for i in 0..<nodeCount {
+                    var fx: CGFloat = 0
+                    var fy: CGFloat = 0
+                    tree.calculateForce(
+                        on: CGPoint(x: posX[i], y: posY[i]),
+                        theta: 0.8, fx: &fx, fy: &fy
+                    )
+                    forcesX[i] += fx
+                    forcesY[i] += fy
+                }
+            } else {
+                // Brute force O(n²) for small graphs — simpler and fast enough
+                for i in 0..<nodeCount {
+                    for j in (i + 1)..<nodeCount {
+                        let dx = posX[j] - posX[i]
+                        let dy = posY[j] - posY[i]
+                        let distSq = max(dx * dx + dy * dy, 100)
+                        let dist = sqrt(distSq)
+                        let f: CGFloat = -50.0 / distSq
+                        let fx = f * dx / dist
+                        let fy = f * dy / dist
+                        forcesX[i] += fx
+                        forcesY[i] += fy
+                        forcesX[j] -= fx
+                        forcesY[j] -= fy
+                    }
+                }
+            }
+
+            // Attractive edge forces
             for edge in edges {
-                guard let pa = pos[edge.source], let pb = pos[edge.target] else { continue }
-                let dx = pb.x - pa.x
-                let dy = pb.y - pa.y
+                guard let ai = idToIndex[edge.source],
+                      let bi = idToIndex[edge.target] else { continue }
+                let dx = posX[bi] - posX[ai]
+                let dy = posY[bi] - posY[ai]
                 let dist = max(sqrt(dx * dx + dy * dy), 1)
                 let disp = dist - 120.0
                 let fx = 0.05 * disp * dx / dist
                 let fy = 0.05 * disp * dy / dist
-                forces[edge.source]!.dx += fx
-                forces[edge.source]!.dy += fy
-                forces[edge.target]!.dx -= fx
-                forces[edge.target]!.dy -= fy
+                forcesX[ai] += fx
+                forcesY[ai] += fy
+                forcesX[bi] -= fx
+                forcesY[bi] -= fy
             }
 
-            for nid in nodeIds {
-                guard let p = pos[nid] else { continue }
-                forces[nid]!.dx += (center.x - p.x) * 0.002
-                forces[nid]!.dy += (center.y - p.y) * 0.002
+            // Center gravity
+            for i in 0..<nodeCount {
+                forcesX[i] += (center.x - posX[i]) * 0.002
+                forcesY[i] += (center.y - posY[i]) * 0.002
             }
 
-            for nid in nodeIds {
-                guard var p = pos[nid], let f = forces[nid] else { continue }
-                let mag = sqrt(f.dx * f.dx + f.dy * f.dy)
-                let cap: CGFloat = 15
+            // Apply forces with capping
+            let cap: CGFloat = 15
+            for (i, nid) in nodeIds.enumerated() {
+                let mag = sqrt(forcesX[i] * forcesX[i] + forcesY[i] * forcesY[i])
                 let sc = mag > cap ? cap / mag : 1.0
-                p.x += f.dx * sc
-                p.y += f.dy * sc
-                pos[nid] = p
+                let newX = posX[i] + forcesX[i] * sc
+                let newY = posY[i] + forcesY[i] * sc
+                pos[nid] = CGPoint(x: newX, y: newY)
             }
         }
 
@@ -373,14 +618,8 @@ struct ForceGraphView: View {
     // MARK: - Styling
 
     private func edgeColor(for type: String) -> Color {
-        switch type {
-        case "follow": Color(red: 0.118, green: 0.200, blue: 0.200)
-        case "attestation": Color(red: 0.651, green: 0.890, blue: 0.631)
-        case "operator_agent": Color(red: 0.537, green: 0.706, blue: 0.980)
-        case "collaboration": Color(red: 0.796, green: 0.651, blue: 0.969)
-        case "service": Color(red: 0.980, green: 0.702, blue: 0.529)
-        default: Color(red: 0.424, green: 0.439, blue: 0.525)
-        }
+        let ec = Self.edgeColorMap[type] ?? Self.defaultEdgeColor
+        return Color(red: ec.r, green: ec.g, blue: ec.b)
     }
 
     private func edgeLineWidth(for edge: ForceEdge) -> CGFloat {

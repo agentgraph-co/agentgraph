@@ -794,3 +794,181 @@ async def get_domain_leaders(
         "leaders": leaders,
         "count": len(leaders),
     }
+
+
+# --- Trust Score History (#task1) ---
+
+
+class TrustHistoryPoint(BaseModel):
+    score: float
+    components: dict
+    recorded_at: str
+
+
+class TrustHistoryResponse(BaseModel):
+    entity_id: uuid.UUID
+    history: list[TrustHistoryPoint]
+    count: int
+
+
+@router.get(
+    "/trust/{entity_id}/history",
+    response_model=TrustHistoryResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_trust_history(
+    entity_id: uuid.UUID,
+    days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get trust score history for an entity over time."""
+    from datetime import datetime, timedelta, timezone
+
+    from src.models import TrustScoreHistory
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    result = await db.execute(
+        select(TrustScoreHistory)
+        .where(
+            TrustScoreHistory.entity_id == entity_id,
+            TrustScoreHistory.recorded_at >= cutoff,
+        )
+        .order_by(TrustScoreHistory.recorded_at.asc())
+    )
+    records = result.scalars().all()
+
+    return TrustHistoryResponse(
+        entity_id=entity_id,
+        history=[
+            TrustHistoryPoint(
+                score=r.score,
+                components=r.components or {},
+                recorded_at=r.recorded_at.isoformat(),
+            )
+            for r in records
+        ],
+        count=len(records),
+    )
+
+
+# --- Trust Improvement Guidance (#task2) ---
+
+# Component weights for reference
+COMPONENT_WEIGHTS = {
+    "verification": 0.35,
+    "age": 0.10,
+    "activity": 0.20,
+    "reputation": 0.15,
+    "community": 0.20,
+}
+
+IMPROVEMENT_TIPS = {
+    "verification": {
+        "label": "Verification",
+        "tips": [
+            "Verify your email address to increase your verification score",
+            "Add a bio to your profile for higher profile completeness",
+            "Link your agent to an operator account for maximum verification",
+        ],
+    },
+    "age": {
+        "label": "Account Age",
+        "tips": [
+            "Account age increases naturally over time",
+            "Your score will reach maximum after 1 year",
+        ],
+    },
+    "activity": {
+        "label": "Activity",
+        "tips": [
+            "Create posts to increase your activity score",
+            "Vote on content to show engagement",
+            "Activity is measured over the last 30 days",
+        ],
+    },
+    "reputation": {
+        "label": "Reputation",
+        "tips": [
+            "Earn positive reviews from other users",
+            "Get capability endorsements for your skills",
+            "Provide quality services in the marketplace",
+        ],
+    },
+    "community": {
+        "label": "Community Trust",
+        "tips": [
+            "Earn attestations from trusted community members",
+            "Be reliable and responsive to build trust",
+            "Engage in specific domains to build contextual trust",
+        ],
+    },
+}
+
+
+class ImprovementTip(BaseModel):
+    component: str
+    label: str
+    current_score: float
+    weight: float
+    potential_gain: float
+    tips: list[str]
+
+
+class TrustImprovementResponse(BaseModel):
+    entity_id: uuid.UUID
+    current_score: float
+    improvements: list[ImprovementTip]
+    estimated_max_score: float
+
+
+@router.get(
+    "/trust/{entity_id}/improvements",
+    response_model=TrustImprovementResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_trust_improvements(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get actionable tips to improve trust score, ranked by impact."""
+    ts = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == entity_id)
+    )
+    if ts is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No trust score found for this entity",
+        )
+
+    components = ts.components or {}
+    improvements = []
+
+    for comp, weight in sorted(
+        COMPONENT_WEIGHTS.items(), key=lambda x: x[1], reverse=True
+    ):
+        current = components.get(comp, 0.0)
+        potential_gain = round((1.0 - current) * weight, 4)
+        if potential_gain > 0.001:
+            tip_data = IMPROVEMENT_TIPS.get(comp, {})
+            improvements.append(
+                ImprovementTip(
+                    component=comp,
+                    label=tip_data.get("label", comp.title()),
+                    current_score=current,
+                    weight=weight,
+                    potential_gain=potential_gain,
+                    tips=tip_data.get("tips", []),
+                )
+            )
+
+    # Sort by potential gain (highest first)
+    improvements.sort(key=lambda x: x.potential_gain, reverse=True)
+
+    estimated_max = sum(COMPONENT_WEIGHTS.values())  # 1.0 if all perfect
+
+    return TrustImprovementResponse(
+        entity_id=entity_id,
+        current_score=ts.score,
+        improvements=improvements,
+        estimated_max_score=round(estimated_max, 4),
+    )

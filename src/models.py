@@ -287,6 +287,24 @@ class TrustScore(Base):
     __table_args__ = (Index("ix_trust_scores_entity", "entity_id"),)
 
 
+class TrustScoreHistory(Base):
+    __tablename__ = "trust_score_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    score = Column(Float, nullable=False)
+    components = Column(JSONB, default=dict)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_trust_score_history_entity_time", "entity_id", "recorded_at"),
+    )
+
+
 class DIDDocument(Base):
     __tablename__ = "did_documents"
 

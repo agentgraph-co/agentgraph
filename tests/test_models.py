@@ -294,6 +294,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "token_blacklist",
         "transactions",
         "trust_attestations",
+        "trust_score_history",
         "trust_scores",
         "verification_badges",
         "votes",
