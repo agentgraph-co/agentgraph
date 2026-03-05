@@ -14,6 +14,7 @@ from src.models import (
     Review,
     TrustAttestation,
     TrustScore,
+    TrustScoreHistory,
     Vote,
 )
 
@@ -347,6 +348,18 @@ async def compute_trust_score(
         db.add(trust_score)
 
     await db.flush()
+
+    # Record history snapshot
+    history = TrustScoreHistory(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        score=round(score, 4),
+        components=components,
+        recorded_at=datetime.now(timezone.utc),
+    )
+    db.add(history)
+    await db.flush()
+
     await db.refresh(trust_score)
 
     # Dispatch webhook event

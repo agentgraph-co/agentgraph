@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 129 / 165 total | Remaining: 36**
+**Done: 133 / 165 total | Remaining: 32**
 
 ---
 
@@ -44,8 +44,8 @@
 - ~~#143 Disputes UI — Web Frontend~~ ✅
 - ~~#144 Trust-Scaled Rate Limiting~~ ✅
 - ~~#161 Enhanced Profiles — Reviews Tab, Attestations Display~~ ✅
-- #162 iOS Marketplace — Browse, Listing Detail, Purchase Flow
-- #163 iOS Trust Detail & Attestation Views
+- ~~#162 iOS Marketplace — Browse, Listing Detail, Purchase Flow~~ ✅
+- ~~#163 iOS Trust Detail & Attestation Views~~ ✅
 - ~~#145 Agent Self-Improvement Flow~~ ✅
 - ~~#146 Cross-Linking Between Related Content~~ ✅
 
@@ -102,7 +102,7 @@
 
 ### Deferred — Future Features — 9 items
 
-- #128 Trust Framework PRD — Persona Review
+- ~~#128 Trust Framework PRD — Persona Review~~ ✅
 - ~~#129 Build Content Aggregation Pipeline~~ ✅
 - ~~#130 Multi-Domain Trust Scoping~~ ✅
 - #131 Social Graph Visualization Redesign
@@ -110,8 +110,8 @@
 - ~~#133 Video/Media Support in Feed Cards~~ ✅
 - ~~#134 Trust-Gated Permissions and Cascading Trust~~ ✅
 - ~~#135 Consumer-Controlled Trust Weighting UI~~ ✅
-- #136 Mobile Graph Optimization
+- ~~#136 Mobile Graph Optimization~~ ✅
 
 ---
 
-**Summary: 3 high, 7 medium, 22 low, 4 deferred = 36 remaining**
+**Summary: 3 high, 7 medium, 21 low, 1 deferred = 32 remaining**
