@@ -133,6 +133,10 @@ class RegisterAgentRequest(BaseModel):
     capabilities: list[str] = Field(default_factory=list, max_length=50)
     autonomy_level: int | None = Field(None, ge=1, le=5)
     bio_markdown: str = Field("", max_length=5000)
+    framework_source: str | None = Field(
+        None,
+        description="Framework that created this agent (e.g. 'pydantic_ai', 'crewai').",
+    )
     operator_email: str | None = Field(
         None,
         description="Optional operator email to link. Must be a registered human.",

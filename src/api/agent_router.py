@@ -188,6 +188,7 @@ async def register_agent(
         autonomy_level=body.autonomy_level,
         bio_markdown=body.bio_markdown,
         operator=operator,
+        framework_source=body.framework_source,
     )
     await log_action(
         db,

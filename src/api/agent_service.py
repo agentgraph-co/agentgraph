@@ -76,6 +76,7 @@ async def register_agent_direct(
     autonomy_level: int | None = None,
     bio_markdown: str = "",
     operator: Entity | None = None,
+    framework_source: str | None = None,
 ) -> tuple[Entity, str]:
     """Register an agent directly via API (no operator required).
 
@@ -86,12 +87,21 @@ async def register_agent_direct(
     """
     from datetime import datetime, timedelta, timezone
 
+    from src.config import settings
+
     agent_id = uuid.uuid4()
     is_provisional = operator is None
     claim_token = secrets.token_urlsafe(48) if is_provisional else None
     expires_at = (
         datetime.now(timezone.utc) + timedelta(days=30) if is_provisional else None
     )
+
+    # Resolve framework trust modifier
+    framework_modifier = None
+    if framework_source:
+        framework_modifier = settings.framework_trust_modifiers.get(
+            framework_source.lower(), 1.0
+        )
 
     agent = Entity(
         id=agent_id,
@@ -105,6 +115,8 @@ async def register_agent_direct(
         is_provisional=is_provisional,
         claim_token=claim_token,
         provisional_expires_at=expires_at,
+        framework_source=framework_source,
+        framework_trust_modifier=framework_modifier,
     )
     db.add(agent)
     await db.flush()
