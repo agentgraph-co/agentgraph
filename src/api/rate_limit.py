@@ -430,6 +430,34 @@ def _tier_write_limit(tier: RateLimitTier) -> int:
     return settings.rate_limit_writes_per_minute
 
 
+def _trust_scaled_limit(base_limit: int, trust_score: float | None) -> int:
+    """Scale a rate limit based on continuous trust score.
+
+    Entities with higher trust scores get proportionally higher limits:
+      - score 0.0: base_limit (1.0x)
+      - score 0.5: base_limit * 1.5x
+      - score 0.7: base_limit * 2.0x
+      - score 0.9: base_limit * 3.0x
+      - score 1.0: base_limit * 3.5x
+
+    The scaling is piecewise-linear for predictability.
+    """
+    if trust_score is None or trust_score <= 0:
+        return base_limit
+    score = min(trust_score, 1.0)
+    # Piecewise: [0, 0.5] -> [1.0, 1.5], [0.5, 0.7] -> [1.5, 2.0],
+    #            [0.7, 0.9] -> [2.0, 3.0], [0.9, 1.0] -> [3.0, 3.5]
+    if score <= 0.5:
+        multiplier = 1.0 + score
+    elif score <= 0.7:
+        multiplier = 1.5 + (score - 0.5) * 2.5
+    elif score <= 0.9:
+        multiplier = 2.0 + (score - 0.7) * 5.0
+    else:
+        multiplier = 3.0 + (score - 0.9) * 5.0
+    return int(base_limit * multiplier)
+
+
 async def _check_tiered(
     request: Request,
     kind: str,
@@ -464,21 +492,40 @@ async def _check_tiered(
                 headers=_rate_limit_response(0, limit),
             )
 
+    # Store tier info on request state for info endpoints
+    request.state.rate_limit_tier = tier.value
+    request.state.rate_limit_effective = limit
+
+
+async def _resolve_trust_scaled_limit(
+    entity: object | None, tier: RateLimitTier, base_limit: int,
+) -> int:
+    """Apply continuous trust-score scaling on top of tier limits."""
+    if entity is None:
+        return base_limit
+    entity_id = getattr(entity, "id", None)
+    if entity_id is None:
+        return base_limit
+    score = await _get_entity_trust_score(str(entity_id))
+    if score is not None:
+        return _trust_scaled_limit(base_limit, score)
+    return base_limit
+
 
 async def rate_limit_reads_tiered(
     request: Request,
     entity: object | None = Depends(_get_optional_entity_safe),
 ) -> None:
-    """Rate-limit reads using entity-aware tiers.
+    """Rate-limit reads using entity-aware tiers with trust scaling.
 
     Automatically resolves the caller's tier (anonymous / human / agent /
-    trusted_agent) and applies the corresponding per-minute read limit.
-    Drop-in replacement for ``rate_limit_reads`` on routes that also
-    resolve authentication.
+    trusted_agent) and applies the corresponding per-minute read limit,
+    further scaled by their continuous trust score.
     """
     tier = _resolve_tier(entity)
     tier = await _maybe_upgrade_to_trusted(tier, entity)
-    limit = _tier_read_limit(tier)
+    base_limit = _tier_read_limit(tier)
+    limit = await _resolve_trust_scaled_limit(entity, tier, base_limit)
     await _check_tiered(request, "read", limit, entity, tier)
 
 
@@ -486,12 +533,76 @@ async def rate_limit_writes_tiered(
     request: Request,
     entity: object | None = Depends(_get_optional_entity_safe),
 ) -> None:
-    """Rate-limit writes using entity-aware tiers.
+    """Rate-limit writes using entity-aware tiers with trust scaling.
 
     Automatically resolves the caller's tier and applies the corresponding
-    per-minute write limit.
+    per-minute write limit, further scaled by their continuous trust score.
     """
     tier = _resolve_tier(entity)
     tier = await _maybe_upgrade_to_trusted(tier, entity)
-    limit = _tier_write_limit(tier)
+    base_limit = _tier_write_limit(tier)
+    limit = await _resolve_trust_scaled_limit(entity, tier, base_limit)
     await _check_tiered(request, "write", limit, entity, tier)
+
+
+def get_tier_info() -> dict:
+    """Return a summary of all rate limit tiers and their limits."""
+    return {
+        "tiers": [
+            {
+                "tier": RateLimitTier.ANONYMOUS.value,
+                "description": "Unauthenticated requests",
+                "reads_per_minute": settings.rate_limit_anon_reads_per_minute,
+                "writes_per_minute": settings.rate_limit_anon_writes_per_minute,
+                "trust_scaling": False,
+            },
+            {
+                "tier": RateLimitTier.PROVISIONAL.value,
+                "description": "Unclaimed/provisional agents",
+                "reads_per_minute": settings.rate_limit_provisional_reads_per_minute,
+                "writes_per_minute": settings.rate_limit_provisional_writes_per_minute,
+                "trust_scaling": False,
+            },
+            {
+                "tier": RateLimitTier.HUMAN.value,
+                "description": "Authenticated human users",
+                "reads_per_minute": settings.rate_limit_reads_per_minute,
+                "writes_per_minute": settings.rate_limit_writes_per_minute,
+                "trust_scaling": True,
+            },
+            {
+                "tier": RateLimitTier.AGENT.value,
+                "description": "Authenticated agent entities",
+                "reads_per_minute": settings.rate_limit_agent_reads_per_minute,
+                "writes_per_minute": settings.rate_limit_agent_writes_per_minute,
+                "trust_scaling": True,
+            },
+            {
+                "tier": RateLimitTier.TRUSTED_AGENT.value,
+                "description": (
+                    f"Agents with trust score > "
+                    f"{settings.rate_limit_trusted_agent_threshold}"
+                ),
+                "reads_per_minute": (
+                    settings.rate_limit_trusted_agent_reads_per_minute
+                ),
+                "writes_per_minute": (
+                    settings.rate_limit_trusted_agent_writes_per_minute
+                ),
+                "trust_scaling": True,
+            },
+        ],
+        "trust_scaling_info": {
+            "description": (
+                "Authenticated entities get additional rate limit "
+                "increases based on their trust score"
+            ),
+            "multipliers": {
+                "0.0": "1.0x (base)",
+                "0.5": "1.5x",
+                "0.7": "2.0x",
+                "0.9": "3.0x",
+                "1.0": "3.5x",
+            },
+        },
+    }
