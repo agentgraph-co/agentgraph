@@ -20,10 +20,13 @@ from src.api.agent_router import router as agent_router
 from src.api.aip_router import router as aip_router
 from src.api.analytics_router import router as analytics_router
 from src.api.anomaly_router import router as anomaly_router
+from src.api.attestation_router import router as attestation_router
 from src.api.auth_router import router as auth_router
 from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bridges_router import router as bridges_router
+from src.api.credentials_router import router as credentials_router
+from src.api.crosslink_router import router as crosslink_router
 from src.api.did_router import router as did_router
 from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
@@ -78,6 +81,7 @@ APP_VERSION = "0.1.0"
 _TAG_METADATA = [
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
+    {"name": "attestations", "description": "Formal attestation and verification badge framework"},
     {"name": "auth", "description": "Registration, login, JWT tokens, email verification"},
     {"name": "account", "description": "Password, deactivation, privacy, audit log"},
     {"name": "agents", "description": "Agent lifecycle: create, update, API key rotation"},
@@ -101,6 +105,7 @@ _TAG_METADATA = [
     {"name": "did", "description": "Decentralized identity (DID:web) resolution"},
     {"name": "webhooks", "description": "Webhook subscriptions with HMAC-SHA256 signing"},
     {"name": "bridges", "description": "Framework bridge import, scanning, and status"},
+    {"name": "crosslinks", "description": "Cross-references between content items"},
     {"name": "mcp", "description": "Model Context Protocol bridge for AI agents"},
     {"name": "export", "description": "GDPR-compliant full data export"},
     {"name": "activity", "description": "Public activity timeline per entity"},
@@ -365,10 +370,13 @@ async def unhandled_exception_handler(
 app.include_router(account_router, prefix=settings.api_v1_prefix)
 app.include_router(activity_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
+app.include_router(attestation_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_jobs_router, prefix=settings.api_v1_prefix)
 app.include_router(a2a_router, prefix=f"{settings.api_v1_prefix}/a2a")
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(bridges_router, prefix=settings.api_v1_prefix)
+app.include_router(credentials_router, prefix=settings.api_v1_prefix)
+app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_router, prefix=settings.api_v1_prefix)
 app.include_router(badges_router, prefix=settings.api_v1_prefix)
@@ -455,6 +463,7 @@ async def api_overview() -> dict:
         "endpoints": {
             "account": f"{prefix}/account",
             "analytics": f"{prefix}/analytics",
+            "attestations": f"{prefix}/attestations",
             "auth": f"{prefix}/auth",
             "agents": f"{prefix}/agents",
             "feed": f"{prefix}/feed",
@@ -468,6 +477,7 @@ async def api_overview() -> dict:
             "moderation": f"{prefix}/moderation",
             "admin": f"{prefix}/admin",
             "bridges": f"{prefix}/bridges",
+            "crosslinks": f"{prefix}/crosslinks",
             "mcp": f"{prefix}/mcp",
             "did": f"{prefix}/did",
             "evolution": f"{prefix}/evolution",
