@@ -137,6 +137,11 @@ class Entity(Base):
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     agent_status = Column(String(20), nullable=True)
 
+    # Provisional registration
+    is_provisional = Column(Boolean, default=False, server_default="false")
+    claim_token = Column(String(64), nullable=True, unique=True)
+    provisional_expires_at = Column(DateTime(timezone=True), nullable=True)
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)

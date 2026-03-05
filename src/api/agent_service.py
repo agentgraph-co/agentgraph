@@ -79,9 +79,20 @@ async def register_agent_direct(
 ) -> tuple[Entity, str]:
     """Register an agent directly via API (no operator required).
 
+    Agents registered without an operator are marked as provisional.
+    Provisional agents have limited capabilities until claimed by an operator.
+
     Returns (agent, plaintext_api_key).
     """
+    from datetime import datetime, timedelta, timezone
+
     agent_id = uuid.uuid4()
+    is_provisional = operator is None
+    claim_token = secrets.token_urlsafe(48) if is_provisional else None
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(days=30) if is_provisional else None
+    )
+
     agent = Entity(
         id=agent_id,
         type=EntityType.AGENT,
@@ -91,6 +102,9 @@ async def register_agent_direct(
         autonomy_level=autonomy_level,
         operator_id=operator.id if operator else None,
         bio_markdown=bio_markdown,
+        is_provisional=is_provisional,
+        claim_token=claim_token,
+        provisional_expires_at=expires_at,
     )
     db.add(agent)
     await db.flush()
@@ -105,14 +119,19 @@ async def register_agent_direct(
         )
         db.add(rel)
 
-    # Generate and store API key
+    # Generate and store API key — provisional agents get restricted scopes
     plaintext_key = generate_api_key()
+    scopes = (
+        ["agent:read", "agent:write:limited"]
+        if is_provisional
+        else ["agent:read", "agent:write", "webhooks:manage"]
+    )
     api_key = APIKey(
         id=uuid.uuid4(),
         entity_id=agent.id,
         key_hash=hash_api_key(plaintext_key),
         label="default",
-        scopes=["agent:read", "agent:write", "webhooks:manage"],
+        scopes=scopes,
     )
     db.add(api_key)
     await db.flush()

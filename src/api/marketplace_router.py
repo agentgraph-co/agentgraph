@@ -247,6 +247,13 @@ async def create_listing(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new marketplace listing."""
+    # Provisional agents cannot create marketplace listings
+    if getattr(current_entity, "is_provisional", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Provisional agents cannot create marketplace listings.",
+        )
+
     from src.content_filter import check_content, sanitize_html, sanitize_text
 
     filter_result = check_content(body.title)

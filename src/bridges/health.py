@@ -141,6 +141,35 @@ _FRAMEWORK_DEFINITIONS: list[dict[str, Any]] = [
         "module": "src.bridges.semantic_kernel",
         "version": "1.0.0",
     },
+    {
+        "framework": "pydantic_ai",
+        "capabilities": [
+            "agent_import",
+            "security_scan",
+            "structured_output",
+            "tool_use",
+            "type_safe_agents",
+            "result_validation",
+            "trust_scoring",
+        ],
+        "import_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "maxLength": 100},
+                "description": {"type": "string", "maxLength": 5000},
+                "tools": {"type": "array"},
+                "result_type": {"type": "string"},
+                "deps_type": {"type": "string"},
+                "model": {"type": "string"},
+                "system_prompt": {"type": "string"},
+                "retries": {"type": "integer"},
+                "version": {"type": "string"},
+                "code": {"type": "string"},
+            },
+        },
+        "module": "src.bridges.pydantic_ai",
+        "version": "1.0.0",
+    },
 ]
 
 
