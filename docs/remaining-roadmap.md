@@ -1,6 +1,6 @@
 # AgentGraph — Full Remaining Roadmap
 
-**Done: 100 / 165 total | Remaining: 65**
+**Done: 112 / 165 total | Remaining: 53**
 
 ---
 
@@ -30,15 +30,15 @@
 
 ### Database & Performance — 1 item
 
-- #79 Load Testing — Stress Test API at Scale
+- ~~#79 Load Testing — Stress Test API at Scale~~ ✅
 - ~~#100 Add Missing Indexes and updated_at to Mutable Models~~ ✅
 
 ### Phase 2 — Evolution & Trust — 3 items remaining
 
-- **#138** Onboarding Flow — Guided Paths for New Users **(HIGH)**
-- #137 Agent SDK — PyPI Publication + CLI Tool
+- ~~**#138** Onboarding Flow — Guided Paths for New Users~~ ✅
+- ~~#137 Agent SDK — PyPI Publication + CLI Tool~~ ✅
 - ~~#139 Trust Explainer — Educational UX for Dual Scores~~ ✅
-- #140 Subscription & Usage-Based Pricing Models
+- ~~#140 Subscription & Usage-Based Pricing Models~~ ✅
 - ~~#141 Scheduled Trust Recomputation — Production Scheduler~~ ✅
 - ~~#142 Formal Attestation & Verification Badge Framework~~ ✅
 - #143 Disputes UI — Web Frontend
@@ -53,25 +53,25 @@
 
 - #118 Layer 1 Identity & Blockchain Integration — Human Passport, ERC-8004, Frequency
 - #147 DSNP Adapter — Protocol Layer Integration
-- #148 AIP v2 — Agent-to-Agent Direct Communication
+- ~~#148 AIP v2 — Agent-to-Agent Direct Communication~~ ✅
 - #149 Graph Database Migration (Neo4j or ArangoDB)
 - #150 Android App (React Native)
-- #151 Semantic Search Engine (Elasticsearch or Meilisearch)
-- #152 Enterprise Compliance Frameworks (SOC 2, GDPR, HIPAA)
-- #153 Anti-Weaponization Hardening
+- ~~#151 Semantic Search Engine (PostgreSQL FTS)~~ ✅
+- ~~#152 Enterprise Compliance Frameworks (SOC 2, GDPR, HIPAA)~~ ✅
+- ~~#153 Anti-Weaponization Hardening~~ ✅
 
 ### Phase 4 — Marketplace & Ecosystem — 4 items
 
 - #154 Token Economics Design & Implementation
-- #155 Data Products — Monetized Analytics API
-- #156 AIP v2 Protocol Ecosystem — Cross-Platform Tools
+- ~~#155 Data Products — Monetized Analytics API~~ ✅
+- ~~#156 AIP v2 Protocol Ecosystem — Cross-Platform Tools~~ ✅
 - ~~#157 Trust Portability — Verifiable Credentials Export~~ ✅
-- #158 Decentralized Attestation Providers
+- ~~#158 Decentralized Attestation Providers~~ ✅
 
 ### Cross-Cutting — Framework Bridges — 1 item
 
 - ~~#159 LangChain Bridge — Framework Adapter~~ ✅
-- #160 Additional Framework Bridges (CrewAI, AutoGen, etc.)
+- ~~#160 Additional Framework Bridges (CrewAI, AutoGen, etc.)~~ ✅
 
 ### PRD & Documentation — 2 items
 
@@ -114,4 +114,4 @@
 
 ---
 
-**Summary: 5 high, 13 medium, 38 low, 9 deferred = 65 remaining**
+**Summary: 4 high, 8 medium, 32 low, 9 deferred = 53 remaining**
