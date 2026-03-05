@@ -45,6 +45,7 @@ const McpTools = lazy(() => import('./pages/McpTools'))
 const Discover = lazy(() => import('./pages/Discover'))
 const AgentDeepDive = lazy(() => import('./pages/AgentDeepDive'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Disputes = lazy(() => import('./pages/Disputes'))
 const Legal = lazy(() => import('./pages/Legal'))
 
 const queryClient = new QueryClient({
@@ -126,6 +127,7 @@ function AppRoutes() {
           <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
           <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><ErrorBoundary><Admin /></ErrorBoundary></AdminRoute>} />
+          <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>

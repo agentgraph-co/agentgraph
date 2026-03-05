@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
-from src.models import Entity, ModerationFlag, ModerationReason, ModerationStatus, TrustScore
+from src.models import Entity, TrustScore
 
 
 @pytest_asyncio.fixture
@@ -198,7 +198,10 @@ async def test_flags_sorted_by_trust_score(client, db):
     assert len(flags) >= 2
 
     # High trust should be first
-    trust_scores = [f["reporter_trust_score"] for f in flags if f["reporter_trust_score"] is not None]
+    trust_scores = [
+        f["reporter_trust_score"] for f in flags
+        if f["reporter_trust_score"] is not None
+    ]
     assert trust_scores == sorted(trust_scores, reverse=True)
 
 

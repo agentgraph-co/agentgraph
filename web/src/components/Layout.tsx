@@ -505,6 +505,7 @@ export default function Layout() {
                     {[
                       { to: '/messages', label: 'Messages' },
                       { to: '/bookmarks', label: 'Saved' },
+                      { to: '/disputes', label: 'Disputes' },
                       { to: '/notifications', label: `Alerts${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
                       { to: '/settings', label: 'Settings' },
                       ...(user.is_admin ? [{ to: '/admin', label: 'Admin' }] : []),

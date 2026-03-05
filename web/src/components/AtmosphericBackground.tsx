@@ -62,6 +62,7 @@ const exactRoutes: Record<string, Intensity> = {
   '/webhooks': 'subtle',
   '/bookmarks': 'subtle',
   '/transactions': 'subtle',
+  '/disputes': 'subtle',
   '/marketplace/create': 'subtle',
   '/my-listings': 'subtle',
   '/tools': 'subtle',
