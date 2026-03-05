@@ -52,6 +52,19 @@ class ApproveEvolutionRequest(BaseModel):
     note: str = Field("", max_length=1000)
 
 
+class SelfImprovementRequest(BaseModel):
+    """Agent-initiated capability update proposal."""
+    new_capabilities: list[str] = Field(..., min_length=1)
+    new_version: str = Field(..., min_length=1, max_length=50, pattern=r"^\d+\.\d+\.\d+$")
+    reason: str = Field(..., min_length=1, max_length=2000)
+    changes_summary: str = Field(..., min_length=1, max_length=2000)
+
+
+class SelfImprovementApproveRequest(BaseModel):
+    """Operator approval/rejection note for a self-improvement proposal."""
+    note: str = Field("", max_length=1000)
+
+
 # Tier classification: maps change_type to risk tier
 TIER_MAP = {
     "initial": 1,  # Low risk: first version
@@ -59,6 +72,7 @@ TIER_MAP = {
     "capability_add": 2,  # Medium: adding capabilities
     "capability_remove": 2,  # Medium: removing capabilities
     "fork": 3,  # High: identity-level change
+    "self_improvement": 3,  # High: agent-initiated, requires operator approval
 }
 
 
@@ -671,3 +685,324 @@ async def get_adopted_capabilities(
         records=[_to_response(r) for r in records],
         count=total,
     )
+
+
+# --- Agent self-improvement flow ---
+
+
+@router.post(
+    "/{entity_id}/self-improve",
+    response_model=EvolutionResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def propose_self_improvement(
+    entity_id: uuid.UUID,
+    body: SelfImprovementRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent-initiated capability update proposal.
+
+    The agent authenticates via API key and proposes new capabilities
+    and a version bump. The proposal creates an EvolutionRecord with
+    status='pending' that must be approved by the operator before
+    changes are applied.
+    """
+    # The authenticated entity must be the agent itself
+    if current_entity.id != entity_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Agents can only propose self-improvements for themselves",
+        )
+
+    # Must be an agent (not a human)
+    if current_entity.type != EntityType.AGENT:
+        raise HTTPException(
+            status_code=403,
+            detail="Only agents can propose self-improvements",
+        )
+
+    if not current_entity.is_active:
+        raise HTTPException(status_code=403, detail="Agent is deactivated")
+
+    # Check version doesn't already exist
+    existing = await db.scalar(
+        select(EvolutionRecord).where(
+            EvolutionRecord.entity_id == entity_id,
+            EvolutionRecord.version == body.new_version,
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Version {body.new_version} already exists",
+        )
+
+    # Find the latest record to link as parent
+    latest = await db.scalar(
+        select(EvolutionRecord)
+        .where(EvolutionRecord.entity_id == entity_id)
+        .order_by(EvolutionRecord.created_at.desc())
+    )
+
+    # Content filter on reason and changes_summary
+    from src.content_filter import check_content, sanitize_text
+
+    fields_to_check = [("reason", body.reason), ("changes_summary", body.changes_summary)]
+    for field_name, field_value in fields_to_check:
+        filter_result = check_content(field_value)
+        if not filter_result.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{field_name} rejected: {', '.join(filter_result.flags)}",
+            )
+    body.reason = sanitize_text(body.reason)
+    body.changes_summary = sanitize_text(body.changes_summary)
+
+    # Compute anchor hash
+    anchor_data = {
+        "entity_id": str(entity_id),
+        "version": body.new_version,
+        "change_type": "self_improvement",
+        "change_summary": body.changes_summary,
+        "capabilities_snapshot": body.new_capabilities,
+        "parent_record_id": str(latest.id) if latest else None,
+    }
+    anchor_hash = _compute_anchor_hash(anchor_data)
+
+    record = EvolutionRecord(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        version=body.new_version,
+        parent_record_id=latest.id if latest else None,
+        change_type="self_improvement",
+        change_summary=body.changes_summary,
+        capabilities_snapshot=body.new_capabilities,
+        extra_metadata={
+            "reason": body.reason,
+            "proposed_by": "agent",
+        },
+        anchor_hash=anchor_hash,
+        risk_tier=3,  # Self-improvement always requires operator approval
+        approval_status=EvolutionApprovalStatus.PENDING,
+    )
+    db.add(record)
+
+    await log_action(
+        db,
+        action="evolution.self_improve_proposed",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=record.id,
+        details={
+            "agent_id": str(entity_id),
+            "version": body.new_version,
+            "new_capabilities": body.new_capabilities,
+        },
+    )
+    await db.flush()
+    await db.refresh(record)
+
+    # Notify operator via WebSocket
+    if current_entity.operator_id:
+        try:
+            from src.ws import manager
+
+            await manager.send_to_entity(str(current_entity.operator_id), "evolution", {
+                "type": "self_improvement_proposed",
+                "record_id": str(record.id),
+                "agent_id": str(entity_id),
+                "version": body.new_version,
+                "reason": body.reason,
+            })
+        except Exception:
+            logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Dispatch webhook
+    try:
+        from src.events import dispatch_webhooks
+
+        await dispatch_webhooks(db, "evolution.self_improvement_proposed", {
+            "record_id": str(record.id),
+            "agent_id": str(entity_id),
+            "version": body.new_version,
+            "new_capabilities": body.new_capabilities,
+            "reason": body.reason,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    return _to_response(record)
+
+
+@router.post(
+    "/{entity_id}/approve/{record_id}",
+    response_model=EvolutionResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def approve_self_improvement(
+    entity_id: uuid.UUID,
+    record_id: uuid.UUID,
+    body: SelfImprovementApproveRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Operator approves a self-improvement proposal.
+
+    Updates the agent's capabilities and creates the new version.
+    Only the agent's operator can approve.
+    """
+    # Load the agent
+    agent = await db.get(Entity, entity_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Only the operator can approve
+    if agent.operator_id != current_entity.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the agent's operator can approve self-improvements",
+        )
+
+    # Load the evolution record
+    record = await db.get(EvolutionRecord, record_id)
+    if record is None or record.entity_id != entity_id:
+        raise HTTPException(
+            status_code=404, detail="Evolution record not found for this agent"
+        )
+
+    if record.change_type != "self_improvement":
+        raise HTTPException(
+            status_code=400,
+            detail="Record is not a self-improvement proposal",
+        )
+
+    if record.approval_status != EvolutionApprovalStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="Record is not pending approval",
+        )
+
+    now = datetime.now(timezone.utc)
+    record.approval_status = EvolutionApprovalStatus.APPROVED
+    record.approved_by = current_entity.id
+    record.approval_note = body.note or None
+    record.approved_at = now
+
+    # Apply the capability changes to the agent
+    if record.capabilities_snapshot:
+        agent.capabilities = record.capabilities_snapshot
+
+    await log_action(
+        db,
+        action="evolution.self_improve_approved",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=record.id,
+        details={
+            "agent_id": str(entity_id),
+            "version": record.version,
+            "new_capabilities": record.capabilities_snapshot,
+        },
+    )
+    await db.flush()
+    await db.refresh(record)
+
+    # Notify agent via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(entity_id), "evolution", {
+            "type": "self_improvement_approved",
+            "record_id": str(record.id),
+            "version": record.version,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    return _to_response(record)
+
+
+@router.post(
+    "/{entity_id}/reject/{record_id}",
+    response_model=EvolutionResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def reject_self_improvement(
+    entity_id: uuid.UUID,
+    record_id: uuid.UUID,
+    body: SelfImprovementApproveRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Operator rejects a self-improvement proposal.
+
+    The agent's capabilities remain unchanged.
+    Only the agent's operator can reject.
+    """
+    # Load the agent
+    agent = await db.get(Entity, entity_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Only the operator can reject
+    if agent.operator_id != current_entity.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the agent's operator can reject self-improvements",
+        )
+
+    # Load the evolution record
+    record = await db.get(EvolutionRecord, record_id)
+    if record is None or record.entity_id != entity_id:
+        raise HTTPException(
+            status_code=404, detail="Evolution record not found for this agent"
+        )
+
+    if record.change_type != "self_improvement":
+        raise HTTPException(
+            status_code=400,
+            detail="Record is not a self-improvement proposal",
+        )
+
+    if record.approval_status != EvolutionApprovalStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="Record is not pending approval",
+        )
+
+    now = datetime.now(timezone.utc)
+    record.approval_status = EvolutionApprovalStatus.REJECTED
+    record.approved_by = current_entity.id
+    record.approval_note = body.note or None
+    record.approved_at = now
+
+    await log_action(
+        db,
+        action="evolution.self_improve_rejected",
+        entity_id=current_entity.id,
+        resource_type="evolution_record",
+        resource_id=record.id,
+        details={
+            "agent_id": str(entity_id),
+            "version": record.version,
+        },
+    )
+    await db.flush()
+    await db.refresh(record)
+
+    # Notify agent via WebSocket
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(entity_id), "evolution", {
+            "type": "self_improvement_rejected",
+            "record_id": str(record.id),
+            "version": record.version,
+            "note": body.note,
+        })
+    except Exception:
+        logger.warning("Best-effort side effect failed", exc_info=True)
+
+    return _to_response(record)
