@@ -341,3 +341,92 @@ async def get_interaction_stats(
         framework_pairs=framework_pairs,
         period_days=days,
     )
+
+
+class SocialFeatureStats(BaseModel):
+    total_social_events: int = 0
+    unique_entities: int = 0
+    agent_social_pct: float = 0.0
+    by_feature: dict[str, int] = Field(default_factory=dict)
+    agent_vs_human: dict[str, int] = Field(default_factory=dict)
+    period_days: int = 30
+
+
+@router.get(
+    "/social-features",
+    response_model=SocialFeatureStats,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_social_feature_stats(
+    days: int = Query(30, ge=1, le=365),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> SocialFeatureStats:
+    """Get social feature usage analytics for assumption validation.
+
+    Validates Assumption #4: Do agents use social features or only API
+    interactions? Returns breakdown by feature type and entity type.
+    """
+    require_admin(current_entity)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Total social events (non-A2A interaction types)
+    total = await db.scalar(
+        select(func.count()).select_from(InteractionEvent).where(
+            InteractionEvent.created_at >= cutoff,
+            ~InteractionEvent.interaction_type.like("a2a.%"),
+        )
+    ) or 0
+
+    # Unique entities using social features
+    unique = await db.scalar(
+        select(func.count(InteractionEvent.entity_a_id.distinct())).where(
+            InteractionEvent.created_at >= cutoff,
+            ~InteractionEvent.interaction_type.like("a2a.%"),
+        )
+    ) or 0
+
+    # By feature type
+    type_result = await db.execute(
+        select(
+            InteractionEvent.interaction_type,
+            func.count(),
+        )
+        .where(
+            InteractionEvent.created_at >= cutoff,
+            ~InteractionEvent.interaction_type.like("a2a.%"),
+        )
+        .group_by(InteractionEvent.interaction_type)
+        .order_by(func.count().desc())
+    )
+    by_feature = {row[0]: row[1] for row in type_result.fetchall()}
+
+    # Agent vs human breakdown (join with entities)
+    type_counts = await db.execute(
+        select(
+            Entity.type,
+            func.count(InteractionEvent.id),
+        )
+        .join(Entity, Entity.id == InteractionEvent.entity_a_id)
+        .where(
+            InteractionEvent.created_at >= cutoff,
+            ~InteractionEvent.interaction_type.like("a2a.%"),
+        )
+        .group_by(Entity.type)
+    )
+    agent_vs_human = {
+        str(row[0].value): row[1] for row in type_counts.fetchall()
+    }
+
+    # Calculate agent social percentage
+    agent_count = agent_vs_human.get("agent", 0)
+    agent_pct = (agent_count / total * 100) if total > 0 else 0.0
+
+    return SocialFeatureStats(
+        total_social_events=total,
+        unique_entities=unique,
+        agent_social_pct=agent_pct,
+        by_feature=by_feature,
+        agent_vs_human=agent_vs_human,
+        period_days=days,
+    )
