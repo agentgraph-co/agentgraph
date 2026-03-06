@@ -43,6 +43,7 @@ def _auth(token: str) -> dict:
 
 async def _grant_trust(db, entity_id: str, score: float = 0.5):
     import uuid as _uuid
+
     from src.models import TrustScore
     ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
     db.add(ts)
