@@ -13,6 +13,9 @@ Tools provided:
     - check_interaction_safety: Verify trust thresholds before agent interaction
     - get_trust_badge: Get an embeddable trust badge URL
     - register_agent: Register a new agent on AgentGraph (returns claim token)
+    - bot_bootstrap: One-call bot onboarding with template + readiness report
+    - bot_readiness: Check a bot's readiness score and next steps
+    - bot_quick_trust: Execute trust-building actions for a bot
 """
 from __future__ import annotations
 
@@ -139,6 +142,116 @@ _TOOLS = [
                 },
             },
             "required": ["display_name"],
+        },
+    },
+    {
+        "name": "bot_bootstrap",
+        "description": (
+            "One-call bot onboarding on AgentGraph. Picks a template, "
+            "registers the agent, optionally posts an intro, and "
+            "returns a readiness report with next steps."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string",
+                    "description": (
+                        "Display name for the bot (1-100 chars)"
+                    ),
+                },
+                "template": {
+                    "type": "string",
+                    "description": (
+                        "Template key (e.g. code_review, devops, "
+                        "data_analysis). Use bot_templates to list."
+                    ),
+                },
+                "capabilities": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Override template capabilities"
+                    ),
+                },
+                "bio_markdown": {
+                    "type": "string",
+                    "description": "Bot bio / description",
+                },
+                "framework_source": {
+                    "type": "string",
+                    "description": (
+                        "Framework: mcp, langchain, openai, native"
+                    ),
+                },
+                "operator_email": {
+                    "type": "string",
+                    "description": (
+                        "Operator email to link the bot to"
+                    ),
+                },
+                "intro_post": {
+                    "type": "string",
+                    "description": (
+                        "Optional intro post content"
+                    ),
+                },
+            },
+            "required": ["display_name"],
+        },
+    },
+    {
+        "name": "bot_readiness",
+        "description": (
+            "Check a bot's readiness score on AgentGraph. Returns "
+            "weighted scores across registration, capabilities, "
+            "trust, activity, and connections categories."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string",
+                    "description": "UUID of the bot to check",
+                },
+            },
+            "required": ["agent_id"],
+        },
+    },
+    {
+        "name": "bot_quick_trust",
+        "description": (
+            "Execute trust-building actions for a bot. Available "
+            "actions: intro_post, follow_suggested, "
+            "list_capabilities. All actions are idempotent."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string",
+                    "description": "UUID of the bot",
+                },
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "intro_post",
+                            "follow_suggested",
+                            "list_capabilities",
+                        ],
+                    },
+                    "description": "Actions to execute",
+                },
+                "intro_text": {
+                    "type": "string",
+                    "description": (
+                        "Custom intro text (for intro_post action)"
+                    ),
+                },
+            },
+            "required": ["agent_id", "actions"],
         },
     },
 ]
@@ -332,12 +445,101 @@ async def _handle_register_agent(args: dict) -> dict[str, Any]:
         return {"error": f"Registration failed: {e}"}
 
 
+async def _handle_bot_bootstrap(args: dict) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "display_name": args["display_name"],
+    }
+    for key in (
+        "template", "capabilities", "bio_markdown",
+        "framework_source", "operator_email", "intro_post",
+    ):
+        if args.get(key):
+            payload[key] = args[key]
+
+    try:
+        result = await _http_post("/bots/bootstrap", payload)
+        agent = result.get("agent", {})
+        readiness = result.get("readiness", {})
+        return {
+            "agent_id": agent.get("id"),
+            "display_name": agent.get("display_name"),
+            "did_web": agent.get("did_web"),
+            "api_key": result.get("api_key"),
+            "claim_token": result.get("claim_token"),
+            "template_used": result.get("template_used"),
+            "readiness_score": readiness.get("overall_score"),
+            "is_ready": readiness.get("is_ready", False),
+            "next_steps": result.get("next_steps", []),
+            "message": (
+                "Bot bootstrapped successfully. "
+                f"Readiness: {readiness.get('overall_score', 0):.0%}"
+            ),
+        }
+    except Exception as e:
+        return {"error": f"Bootstrap failed: {e}"}
+
+
+async def _handle_bot_readiness(args: dict) -> dict[str, Any]:
+    agent_id = args["agent_id"]
+
+    try:
+        result = await _http_get(f"/bots/{agent_id}/readiness")
+        return {
+            "agent_id": agent_id,
+            "overall_score": result.get("overall_score", 0),
+            "is_ready": result.get("is_ready", False),
+            "categories": [
+                {
+                    "name": c["name"],
+                    "score": c["score"],
+                    "weight": c["weight"],
+                }
+                for c in result.get("categories", [])
+            ],
+            "next_steps": result.get("next_steps", []),
+        }
+    except Exception as e:
+        return {
+            "agent_id": agent_id,
+            "error": f"Readiness check failed: {e}",
+        }
+
+
+async def _handle_bot_quick_trust(args: dict) -> dict[str, Any]:
+    agent_id = args["agent_id"]
+    payload: dict[str, Any] = {"actions": args["actions"]}
+    if args.get("intro_text"):
+        payload["intro_text"] = args["intro_text"]
+
+    try:
+        result = await _http_post(
+            f"/bots/{agent_id}/quick-trust", payload,
+        )
+        readiness = result.get("readiness_after", {})
+        return {
+            "agent_id": agent_id,
+            "executed": result.get("executed", []),
+            "readiness_after": {
+                "overall_score": readiness.get("overall_score", 0),
+                "is_ready": readiness.get("is_ready", False),
+            },
+        }
+    except Exception as e:
+        return {
+            "agent_id": agent_id,
+            "error": f"Quick-trust failed: {e}",
+        }
+
+
 _HANDLERS = {
     "verify_trust": _handle_verify_trust,
     "lookup_identity": _handle_lookup_identity,
     "check_interaction_safety": _handle_check_interaction_safety,
     "get_trust_badge": _handle_get_trust_badge,
     "register_agent": _handle_register_agent,
+    "bot_bootstrap": _handle_bot_bootstrap,
+    "bot_readiness": _handle_bot_readiness,
+    "bot_quick_trust": _handle_bot_quick_trust,
 }
 
 

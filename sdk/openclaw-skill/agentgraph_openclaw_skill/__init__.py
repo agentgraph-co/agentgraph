@@ -6,6 +6,11 @@ security scanning.
 """
 from __future__ import annotations
 
+from agentgraph_openclaw_skill.onboarding import (
+    AgentGraphOnboardingSkill,
+    OnboardingResult,
+    onboard_on_agentgraph,
+)
 from agentgraph_openclaw_skill.security import (
     check_malicious_skills,
     check_prompt_injection,
@@ -21,6 +26,9 @@ __all__ = [
     "AgentGraphRegistrationSkill",
     "RegistrationResult",
     "register_on_agentgraph",
+    "AgentGraphOnboardingSkill",
+    "OnboardingResult",
+    "onboard_on_agentgraph",
     "check_malicious_skills",
     "check_prompt_injection",
     "check_token_exposure",
