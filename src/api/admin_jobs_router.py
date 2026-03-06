@@ -45,3 +45,20 @@ async def trigger_trust_recompute(
         summary = {"entities_processed": count, "mode": "simple"}
 
     return summary
+
+
+@router.post("/refresh-attestation-weights")
+async def trigger_refresh_attestation_weights(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Re-weight attestations using current attester trust scores (admin only).
+
+    Updates attestation weights that were set at creation time with
+    each attester's current trust score.
+    """
+    require_admin(current_entity)
+
+    from src.trust.score import refresh_attestation_weights
+    updated = await refresh_attestation_weights(db)
+    return {"attestations_updated": updated}

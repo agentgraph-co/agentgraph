@@ -9,7 +9,13 @@ from httpx import ASGITransport, AsyncClient
 
 from src.database import get_db
 from src.main import app
-from src.models import Notification, TrustAttestation, TrustScore, TrustScoreHistory
+from src.models import (
+    AnomalyAlert,
+    Notification,
+    TrustAttestation,
+    TrustScore,
+    TrustScoreHistory,
+)
 
 
 @pytest_asyncio.fixture
@@ -445,3 +451,84 @@ async def test_trust_milestone_notification(client: AsyncClient, db):
     # User may or may not cross threshold depending on exact computed score,
     # but the mechanism should work without error
     assert isinstance(milestones, list)
+
+
+# --- Anomaly Detection Tests ---
+
+
+@pytest.mark.asyncio
+async def test_trust_anomaly_detection(client: AsyncClient, db):
+    """Large trust score jump triggers anomaly alert."""
+    _, user_id = await _setup(client, USER_A)
+
+    from sqlalchemy import select as sa_select
+
+    # Set an artificially high existing score that will drop on recompute
+    ts = TrustScore(
+        id=uuid.uuid4(),
+        entity_id=user_id,
+        score=0.95,  # Very high — recompute will be much lower
+        components={
+            "verification": 1.0, "age": 1.0,
+            "activity": 1.0, "reputation": 1.0, "community": 1.0,
+        },
+    )
+    db.add(ts)
+    await db.flush()
+
+    # Recompute — new score will be much lower (new user)
+    from src.trust.score import compute_trust_score
+    await compute_trust_score(db, uuid.UUID(user_id))
+
+    # Check for anomaly alert
+    result = await db.execute(
+        sa_select(AnomalyAlert).where(
+            AnomalyAlert.entity_id == uuid.UUID(user_id),
+            AnomalyAlert.alert_type == "trust_velocity",
+        )
+    )
+    alerts = result.scalars().all()
+    # Should have at least one alert (score dropped by ~0.6+)
+    assert len(alerts) >= 1
+    alert = alerts[0]
+    assert alert.severity in ("medium", "high")
+    assert alert.z_score > 1.0
+    assert alert.details["direction"] == "down"
+    assert alert.details["delta"] >= 0.15
+
+
+# --- Attestation Weight Refresh Tests ---
+
+
+@pytest.mark.asyncio
+async def test_refresh_attestation_weights(client: AsyncClient, db):
+    """Attestation weights update to current attester trust score."""
+    _, id_a = await _setup(client, USER_A)
+    _, id_b = await _setup(client, USER_B)
+
+    # B attests A with old weight 0.5
+    att = TrustAttestation(
+        id=uuid.uuid4(),
+        attester_entity_id=id_b,
+        target_entity_id=id_a,
+        attestation_type="competent",
+        weight=0.5,
+    )
+    db.add(att)
+
+    # Give B a trust score of 0.8
+    ts = TrustScore(
+        id=uuid.uuid4(),
+        entity_id=id_b,
+        score=0.8,
+        components={},
+    )
+    db.add(ts)
+    await db.flush()
+
+    from src.trust.score import refresh_attestation_weights
+    updated = await refresh_attestation_weights(db)
+
+    assert updated >= 1
+    await db.refresh(att)
+    assert att.weight == 0.8

@@ -318,6 +318,45 @@ async def _check_trust_milestones(
     await db.flush()
 
 
+# Anomaly thresholds: flag when single-computation delta exceeds these
+_ANOMALY_THRESHOLD_HIGH = 0.25  # immediate concern
+_ANOMALY_THRESHOLD_MEDIUM = 0.15  # worth investigating
+
+
+async def _check_trust_anomaly(
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    old_score: float,
+    new_score: float,
+) -> None:
+    """Create an anomaly alert when trust score changes too rapidly."""
+    delta = abs(new_score - old_score)
+    if delta < _ANOMALY_THRESHOLD_MEDIUM:
+        return
+
+    from src.models import AnomalyAlert
+
+    severity = "high" if delta >= _ANOMALY_THRESHOLD_HIGH else "medium"
+    # Use delta / threshold as a rough z-score proxy
+    z = round(delta / _ANOMALY_THRESHOLD_MEDIUM, 2)
+
+    alert = AnomalyAlert(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        alert_type="trust_velocity",
+        severity=severity,
+        z_score=z,
+        details={
+            "old_score": round(old_score, 4),
+            "new_score": round(new_score, 4),
+            "delta": round(delta, 4),
+            "direction": "up" if new_score > old_score else "down",
+        },
+    )
+    db.add(alert)
+    await db.flush()
+
+
 async def compute_trust_score(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> TrustScore:
@@ -418,6 +457,12 @@ async def compute_trust_score(
     except Exception:
         pass  # Best-effort
 
+    # Anomaly detection: flag rapid trust score changes
+    try:
+        await _check_trust_anomaly(db, entity_id, old_score, trust_score.score)
+    except Exception:
+        pass  # Best-effort
+
     # Dispatch webhook event
     try:
         from src.events import dispatch_webhooks
@@ -433,12 +478,45 @@ async def compute_trust_score(
     return trust_score
 
 
+async def refresh_attestation_weights(db: AsyncSession) -> int:
+    """Re-weight attestations based on current attester trust scores.
+
+    When an attester's trust score changes, their past attestations still
+    carry the old weight.  This function refreshes all attestation weights
+    to match each attester's current score.
+    """
+    # Fetch all attestations with their attester's current trust score
+    result = await db.execute(
+        select(TrustAttestation, TrustScore.score)
+        .outerjoin(
+            TrustScore,
+            TrustAttestation.attester_entity_id == TrustScore.entity_id,
+        )
+    )
+    rows = result.all()
+    updated = 0
+    for att, current_score in rows:
+        new_weight = current_score if current_score is not None else 0.5
+        if att.weight != new_weight:
+            att.weight = new_weight
+            updated += 1
+
+    if updated:
+        await db.flush()
+    return updated
+
+
 async def batch_recompute(db: AsyncSession) -> int:
     """Recompute trust scores for all active entities.
 
     Pre-loads component data in bulk queries, then computes per-entity
     scores in memory with minimal per-entity DB hits.
+
+    Also refreshes attestation weights before recomputing.
     """
+    # Step 0: refresh attestation weights so community scores use current data
+    await refresh_attestation_weights(db)
+
     cutoff_30d = datetime.now(timezone.utc) - timedelta(days=30)
 
     # Fetch all active entities
@@ -551,6 +629,7 @@ async def batch_recompute(db: AsyncSession) -> int:
         existing = await db.scalar(
             select(TrustScore).where(TrustScore.entity_id == eid)
         )
+        old_score = existing.score if existing else 0.0
         if existing:
             existing.score = round(score, 4)
             existing.components = components
@@ -566,6 +645,21 @@ async def batch_recompute(db: AsyncSession) -> int:
                 computed_at=datetime.now(timezone.utc),
             )
             db.add(ts)
+
+        # Record history snapshot
+        db.add(TrustScoreHistory(
+            id=uuid.uuid4(),
+            entity_id=eid,
+            score=round(score, 4),
+            components=components,
+            recorded_at=datetime.now(timezone.utc),
+        ))
+
+        # Anomaly detection for batch recompute
+        try:
+            await _check_trust_anomaly(db, eid, old_score, round(score, 4))
+        except Exception:
+            pass
 
         count += 1
 
