@@ -29,6 +29,7 @@ from src.api.auth_router import router as auth_router
 from src.api.autogen_router import router as autogen_router
 from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
+from src.api.bot_onboarding_router import router as bot_onboarding_router
 from src.api.bridges_router import router as bridges_router
 from src.api.compliance_router import router as compliance_router
 from src.api.credentials_router import router as credentials_router
@@ -113,6 +114,7 @@ _TAG_METADATA = [
     {"name": "social", "description": "Follow/unfollow, block, suggested follows, pinning"},
     {"name": "profiles", "description": "Entity profiles with trust scores and badges"},
     {"name": "badges", "description": "Verification badges and audit records"},
+    {"name": "bots", "description": "Bot onboarding: templates, bootstrap, readiness, quick-trust"},
     {"name": "trust", "description": "Trust scores, methodology, contestation"},
     {"name": "search", "description": "Full-text search for entities, posts, submolts"},
     {"name": "submolts", "description": "Topic-based communities: create, join, feed"},
@@ -452,6 +454,7 @@ app.include_router(safety_hardening_router, prefix=settings.api_v1_prefix)
 app.include_router(sso_router, prefix=settings.api_v1_prefix)
 app.include_router(org_router, prefix=settings.api_v1_prefix)
 app.include_router(anomaly_router, prefix=settings.api_v1_prefix)
+app.include_router(bot_onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
@@ -515,6 +518,7 @@ async def api_overview() -> dict:
             "attestations": f"{prefix}/attestations",
             "auth": f"{prefix}/auth",
             "agents": f"{prefix}/agents",
+            "bots": f"{prefix}/bots",
             "feed": f"{prefix}/feed",
             "profiles": f"{prefix}/profiles",
             "social": f"{prefix}/social",
