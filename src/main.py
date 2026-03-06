@@ -13,11 +13,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.a2a_router import router as a2a_router
 from src.api.account_router import router as account_router
-from src.api.aggregation_router import router as aggregation_router
 from src.api.activity_router import router as activity_router
 from src.api.admin_jobs_router import router as admin_jobs_router
 from src.api.admin_router import router as admin_router
 from src.api.agent_router import router as agent_router
+from src.api.aggregation_router import router as aggregation_router
 from src.api.aip_router import router as aip_router
 from src.api.aip_v2_ecosystem_router import router as aip_v2_ecosystem_router
 from src.api.aip_v2_router import router as aip_v2_router
@@ -96,7 +96,7 @@ if settings.sentry_dsn:
 APP_VERSION = "0.1.0"
 
 _TAG_METADATA = [
-    {"name": "aggregation", "description": "Content aggregation pipeline for importing external content"},
+    {"name": "aggregation", "description": "Content aggregation pipeline"},
     {"name": "analytics", "description": "Guest-to-register conversion funnel tracking"},
     {"name": "anomalies", "description": "Anomaly detection alerts and scanning"},
     {

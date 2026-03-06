@@ -809,6 +809,7 @@ class TrustHistoryResponse(BaseModel):
     entity_id: uuid.UUID
     history: list[TrustHistoryPoint]
     count: int
+    velocity: float | None = None  # Score change per day over the period
 
 
 @router.get(
@@ -837,6 +838,19 @@ async def get_trust_history(
     )
     records = result.scalars().all()
 
+    # Compute trust velocity: score change per day between first and last record
+    velocity = None
+    if len(records) >= 2:
+        first, last = records[0], records[-1]
+        t0 = first.recorded_at
+        t1 = last.recorded_at
+        if t0.tzinfo is None:
+            t0 = t0.replace(tzinfo=timezone.utc)
+        if t1.tzinfo is None:
+            t1 = t1.replace(tzinfo=timezone.utc)
+        delta_days = max((t1 - t0).total_seconds() / 86400, 0.001)
+        velocity = round((last.score - first.score) / delta_days, 6)
+
     return TrustHistoryResponse(
         entity_id=entity_id,
         history=[
@@ -848,6 +862,7 @@ async def get_trust_history(
             for r in records
         ],
         count=len(records),
+        velocity=velocity,
     )
 
 
@@ -971,4 +986,122 @@ async def get_trust_improvements(
         current_score=ts.score,
         improvements=improvements,
         estimated_max_score=round(estimated_max, 4),
+    )
+
+
+# --- Collusion / Reciprocity Detection ---
+
+
+class ReciprocityFlag(BaseModel):
+    entity_a_id: str
+    entity_a_name: str
+    entity_b_id: str
+    entity_b_name: str
+    a_to_b_count: int
+    b_to_a_count: int
+
+
+class CollusionReport(BaseModel):
+    entity_id: uuid.UUID
+    total_attestations_received: int
+    reciprocal_pairs: list[ReciprocityFlag]
+    reciprocity_ratio: float
+    flagged: bool
+
+
+@router.get(
+    "/trust/{entity_id}/collusion-check",
+    response_model=CollusionReport,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def check_collusion(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Analyze attestation reciprocity patterns to detect collusion.
+
+    Flags when >30% of an entity's attestations come from entities
+    that the entity has also attested back.
+    """
+    # Get all attestations received by this entity
+    received = await db.execute(
+        select(TrustAttestation).where(
+            TrustAttestation.target_entity_id == entity_id,
+        )
+    )
+    received_list = received.scalars().all()
+
+    if not received_list:
+        return CollusionReport(
+            entity_id=entity_id,
+            total_attestations_received=0,
+            reciprocal_pairs=[],
+            reciprocity_ratio=0.0,
+            flagged=False,
+        )
+
+    # Unique attesters
+    attester_ids = {a.attester_entity_id for a in received_list}
+    attester_counts: dict[uuid.UUID, int] = {}
+    for a in received_list:
+        attester_counts[a.attester_entity_id] = (
+            attester_counts.get(a.attester_entity_id, 0) + 1
+        )
+
+    # Check how many of these attesters the entity has also attested
+    given = await db.execute(
+        select(TrustAttestation).where(
+            TrustAttestation.attester_entity_id == entity_id,
+            TrustAttestation.target_entity_id.in_(attester_ids),
+        )
+    )
+    given_list = given.scalars().all()
+
+    given_counts: dict[uuid.UUID, int] = {}
+    for g in given_list:
+        given_counts[g.target_entity_id] = (
+            given_counts.get(g.target_entity_id, 0) + 1
+        )
+
+    # Build reciprocal pairs
+    reciprocal_entity_ids = set(given_counts.keys())
+
+    # Fetch display names for flagged entities
+    name_map: dict[uuid.UUID, str] = {}
+    if reciprocal_entity_ids:
+        names_result = await db.execute(
+            select(Entity.id, Entity.display_name).where(
+                Entity.id.in_(reciprocal_entity_ids)
+            )
+        )
+        name_map = dict(names_result.all())
+
+    # Get this entity's name
+    entity = await db.get(Entity, entity_id)
+    entity_name = entity.display_name if entity else str(entity_id)
+
+    pairs = []
+    for rid in reciprocal_entity_ids:
+        pairs.append(ReciprocityFlag(
+            entity_a_id=str(entity_id),
+            entity_a_name=entity_name,
+            entity_b_id=str(rid),
+            entity_b_name=name_map.get(rid, str(rid)),
+            a_to_b_count=given_counts.get(rid, 0),
+            b_to_a_count=attester_counts.get(rid, 0),
+        ))
+
+    # Ratio: what fraction of unique attesters are reciprocal
+    ratio = (
+        len(reciprocal_entity_ids) / len(attester_ids)
+        if attester_ids
+        else 0.0
+    )
+
+    return CollusionReport(
+        entity_id=entity_id,
+        total_attestations_received=len(received_list),
+        reciprocal_pairs=pairs,
+        reciprocity_ratio=round(ratio, 4),
+        flagged=ratio > 0.30,
     )

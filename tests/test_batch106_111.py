@@ -111,7 +111,10 @@ async def _grant_trust(db, entity_id: str, score: float = 0.5):
         id=_uuid.uuid4(),
         entity_id=entity_id,
         score=score,
-        components={"verification": 0.5, "age": 0.3, "activity": 0.4, "reputation": 0.3, "community": 0.2},
+        components={
+            "verification": 0.5, "age": 0.3, "activity": 0.4,
+            "reputation": 0.3, "community": 0.2,
+        },
     )
     db.add(ts)
     await db.flush()

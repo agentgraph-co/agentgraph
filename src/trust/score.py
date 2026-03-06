@@ -288,6 +288,36 @@ async def compute_contextual_blend(
     }
 
 
+_TRUST_MILESTONES = [
+    (0.25, "Bronze", "Your trust score reached 0.25 — Bronze tier!"),
+    (0.50, "Silver", "Your trust score reached 0.50 — Silver tier!"),
+    (0.75, "Gold", "Your trust score reached 0.75 — Gold tier!"),
+]
+
+
+async def _check_trust_milestones(
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    old_score: float,
+    new_score: float,
+) -> None:
+    """Create notification when crossing trust milestones upward."""
+    from src.models import Notification
+
+    for threshold, tier, message in _TRUST_MILESTONES:
+        if old_score < threshold <= new_score:
+            notif = Notification(
+                id=uuid.uuid4(),
+                entity_id=entity_id,
+                kind="trust_milestone",
+                title=f"Trust Milestone: {tier}",
+                body=message,
+                reference_id=str(entity_id),
+            )
+            db.add(notif)
+    await db.flush()
+
+
 async def compute_trust_score(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> TrustScore:
@@ -330,6 +360,7 @@ async def compute_trust_score(
     existing = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
+    old_score = existing.score if existing else 0.0
     if existing:
         existing.score = round(score, 4)
         existing.components = components
@@ -361,6 +392,31 @@ async def compute_trust_score(
     await db.flush()
 
     await db.refresh(trust_score)
+
+    # Invalidate trust gate cache so new score takes effect immediately
+    try:
+        from src.cache import invalidate
+        await invalidate(f"trust_gate:{entity_id}")
+    except Exception:
+        pass  # Best-effort
+
+    # WebSocket push: real-time trust score update to connected clients
+    try:
+        from src.ws import manager
+
+        await manager.send_to_entity(str(entity_id), "trust", {
+            "type": "trust_updated",
+            "score": trust_score.score,
+            "components": components,
+        })
+    except Exception:
+        pass  # Best-effort
+
+    # Trust milestone notifications (0.25, 0.50, 0.75)
+    try:
+        await _check_trust_milestones(db, entity_id, old_score, trust_score.score)
+    except Exception:
+        pass  # Best-effort
 
     # Dispatch webhook event
     try:
