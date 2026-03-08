@@ -1001,6 +1001,18 @@ async def claim_agent(
     for key in key_result.scalars().all():
         key.scopes = ["agent:read", "agent:write", "webhooks:manage"]
 
+    # Upgrade DID document status from PROVISIONAL to FULL
+    from src.models import DIDDocument, DIDStatus
+
+    did_doc = await db.scalar(
+        select(DIDDocument).where(DIDDocument.entity_id == agent.id)
+    )
+    if did_doc and did_doc.did_status == DIDStatus.PROVISIONAL:
+        did_doc.did_status = DIDStatus.FULL
+        did_doc.promoted_at = datetime.now(timezone.utc)
+        did_doc.promoted_by = current_entity.id
+        did_doc.promotion_reason = "operator_claim"
+
     # Create operator-agent relationship
     existing_rel = await db.execute(
         select(EntityRelationship).where(
@@ -1355,4 +1367,103 @@ async def get_agent_status(
         is_online=False,
         last_seen_at=None,
         status="offline",
+    )
+
+
+# --- Operator Approval Flow (Task #184) ---
+
+
+@router.post(
+    "/{agent_id}/approve-operator",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def approve_operator(
+    agent_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve operator status for an agent.
+
+    When an agent registers and claims an operator, the operator must approve
+    before the agent shows as 'operated by X'. Only the claimed operator can call.
+    """
+    _require_human(current_entity)
+
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    if agent.operator_id != current_entity.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not the claimed operator for this agent",
+        )
+
+    if agent.operator_approved:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Operator already approved for this agent",
+        )
+
+    agent.operator_approved = True
+    await db.flush()
+    await db.refresh(agent)
+
+    await log_action(
+        db,
+        action="agent.approve_operator",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={"operator_id": str(current_entity.id)},
+    )
+
+    return MessageResponse(message="Operator approved for this agent")
+
+
+# --- Agent API Key Recovery via Operator (Task #185) ---
+
+
+@router.post(
+    "/{agent_id}/recover-key",
+    response_model=ApiKeyRotatedResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def recover_api_key(
+    agent_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recover an agent's API key via approved operator.
+
+    If an agent loses its API key, the approved operator can request a new one.
+    Generates a new API key, invalidates the old one, returns the new key (shown once).
+    """
+    _require_human(current_entity)
+
+    agent = await get_agent_by_id(db, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    _require_owner(current_entity, agent)
+
+    if not agent.operator_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator must be approved before recovering keys",
+        )
+
+    new_key = await rotate_api_key(db, agent)
+    await log_action(
+        db,
+        action="api_key.recover",
+        entity_id=current_entity.id,
+        resource_type="api_key",
+        resource_id=agent.id,
+        details={"agent_id": str(agent.id), "method": "operator_recovery"},
+    )
+    return ApiKeyRotatedResponse(
+        api_key=new_key,
+        message="API key recovered. Old key is now revoked. Store this key securely.",
     )

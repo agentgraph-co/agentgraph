@@ -14,6 +14,7 @@ from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_wri
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    AnalyticsEvent,
     Entity,
     ModerationFlag,
     ModerationReason,
@@ -249,6 +250,26 @@ async def get_trust_score(
     # Cache for 5 minutes
     await cache.set(cache_key, response.model_dump(), ttl=cache.TTL_MEDIUM)
 
+    # Task #212: Instrument trust score queries
+    try:
+        querier_id = current_entity.id if current_entity else None
+        event = AnalyticsEvent(
+            event_type="trust_score_query",
+            session_id=str(entity_id),
+            page=f"/entities/{entity_id}/trust",
+            entity_id=querier_id,
+            extra_metadata={
+                "target_entity_id": str(entity_id),
+                "score": effective_score,
+                "context": context,
+                "purpose": "query",
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort trust score analytics failed", exc_info=True)
+
     return response
 
 
@@ -310,6 +331,24 @@ async def refresh_trust_score(
         resource_id=entity_id,
         details={"score": ts.score},
     )
+
+    # Task #212: Instrument trust score computation
+    try:
+        event = AnalyticsEvent(
+            event_type="trust_score_compute",
+            session_id=str(entity_id),
+            page=f"/entities/{entity_id}/trust/refresh",
+            entity_id=current_entity.id,
+            extra_metadata={
+                "target_entity_id": str(entity_id),
+                "score": ts.score,
+                "purpose": "refresh",
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort trust score analytics failed", exc_info=True)
 
     return TrustScoreResponse(
         entity_id=ts.entity_id,
@@ -508,6 +547,28 @@ async def create_attestation(
         })
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Task #214: Track social feature usage (attest)
+    try:
+        event = AnalyticsEvent(
+            event_type="social_attest",
+            session_id=str(current_entity.id),
+            page=f"/entities/{entity_id}/attestations",
+            entity_id=current_entity.id,
+            extra_metadata={
+                "target_entity_id": str(entity_id),
+                "attestation_type": body.attestation_type,
+                "entity_type": (
+                    current_entity.type.value
+                    if hasattr(current_entity.type, "value")
+                    else str(current_entity.type)
+                ),
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort social analytics failed", exc_info=True)
 
     return AttestationResponse(
         id=attestation.id,

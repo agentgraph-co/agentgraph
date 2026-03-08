@@ -1,4 +1,4 @@
-function Pulse({ className = '' }: { className?: string }) {
+export function Pulse({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse bg-border rounded ${className}`} />
 }
 
@@ -274,6 +274,41 @@ export function InlineSkeleton() {
     <div className="space-y-1.5">
       <Pulse className="w-40 h-3" />
       <Pulse className="w-24 h-3" />
+    </div>
+  )
+}
+
+export function DashboardStatSkeleton() {
+  return (
+    <div className="bg-surface border border-border rounded-lg p-4">
+      <Pulse className="w-20 h-3 mb-2" />
+      <Pulse className="w-16 h-7 mb-1" />
+      <Pulse className="w-24 h-2.5" />
+    </div>
+  )
+}
+
+export function LeaderboardRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 bg-surface border border-border rounded-lg px-4 py-3">
+      <Pulse className="w-6 h-6 rounded-full" />
+      <Pulse className="w-8 h-8 rounded-full" />
+      <div className="flex-1 space-y-1">
+        <Pulse className="w-28 h-3.5" />
+        <Pulse className="w-16 h-3" />
+      </div>
+      <Pulse className="w-12 h-5" />
+    </div>
+  )
+}
+
+export function GenericCardSkeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="bg-surface border border-border rounded-lg p-4 space-y-2">
+      <Pulse className="w-1/2 h-4" />
+      {Array.from({ length: lines }).map((_, i) => (
+        <Pulse key={i} className={`h-3 ${i === lines - 1 ? 'w-2/3' : 'w-full'}`} />
+      ))}
     </div>
   )
 }

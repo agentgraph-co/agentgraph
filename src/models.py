@@ -82,6 +82,12 @@ class OrgRole(str, enum.Enum):
     MEMBER = "member"
 
 
+class DIDStatus(str, enum.Enum):
+    PROVISIONAL = "provisional"
+    FULL = "full"
+    REVOKED = "revoked"
+
+
 # --- Models ---
 
 
@@ -108,6 +114,7 @@ class Entity(Base):
     operator_id = Column(
         UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True,
     )
+    operator_approved = Column(Boolean, default=False, server_default="false")
 
     # Privacy
     privacy_tier = Column(
@@ -282,9 +289,16 @@ class TrustScore(Base):
 
     contextual_scores = Column(JSONB, server_default="{}", default=dict)
 
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
     entity = relationship("Entity", back_populates="trust_score")
 
-    __table_args__ = (Index("ix_trust_scores_entity", "entity_id"),)
+    __table_args__ = (
+        Index("ix_trust_scores_entity", "entity_id"),
+        Index("ix_trust_scores_score", "score"),
+    )
 
 
 class TrustScoreHistory(Base):
@@ -317,12 +331,25 @@ class DIDDocument(Base):
     )
     did_uri = Column(String(500), unique=True, nullable=False)
     document = Column(JSONB, nullable=False)  # Full DID document
+    did_status = Column(
+        Enum(DIDStatus),
+        default=DIDStatus.FULL,
+        server_default=DIDStatus.FULL.name,
+        nullable=False,
+    )
+    promoted_at = Column(DateTime(timezone=True), nullable=True)
+    promoted_by = Column(UUID(as_uuid=True), nullable=True)  # admin entity_id
+    promotion_reason = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
     entity = relationship("Entity", back_populates="did_document")
+
+    __table_args__ = (
+        Index("ix_did_documents_did_status", "did_status"),
+    )
 
 
 class APIKey(Base):
@@ -338,6 +365,9 @@ class APIKey(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     organization_id = Column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
@@ -348,6 +378,7 @@ class APIKey(Base):
     __table_args__ = (
         Index("ix_api_keys_hash", "key_hash"),
         Index("ix_api_keys_entity_id", "entity_id"),
+        Index("ix_api_keys_active", "is_active"),
     )
 
 
@@ -696,6 +727,9 @@ class Transaction(Base):
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
 
     listing = relationship("Listing")
     buyer = relationship("Entity", foreign_keys=[buyer_entity_id])
@@ -707,6 +741,7 @@ class Transaction(Base):
         Index("ix_transactions_listing", "listing_id"),
         Index("ix_transactions_status", "status"),
         Index("ix_transactions_stripe_pi", "stripe_payment_intent_id"),
+        Index("ix_transactions_created_at", "created_at"),
     )
 
 
@@ -825,10 +860,45 @@ class WebhookSubscription(Base):
     is_active = Column(Boolean, default=True)
     consecutive_failures = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     entity = relationship("Entity")
 
-    __table_args__ = (Index("ix_webhooks_entity", "entity_id"),)
+    __table_args__ = (
+        Index("ix_webhooks_entity", "entity_id"),
+        Index("ix_webhooks_active", "is_active"),
+    )
+
+
+class WebhookDeliveryLog(Base):
+    """Immutable log of every webhook delivery attempt."""
+
+    __tablename__ = "webhook_delivery_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subscription_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("webhook_subscriptions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_type = Column(String(100), nullable=False)
+    payload = Column(JSONB, nullable=False, default=dict)
+    status_code = Column(Integer, nullable=True)  # HTTP response status, NULL if connection failed
+    success = Column(Boolean, nullable=False, default=False)
+    error_message = Column(Text, nullable=True)
+    attempt_number = Column(Integer, nullable=False, default=1)
+    duration_ms = Column(Integer, nullable=True)  # Round-trip time in milliseconds
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    subscription = relationship("WebhookSubscription")
+
+    __table_args__ = (
+        Index("ix_delivery_logs_subscription", "subscription_id"),
+        Index("ix_delivery_logs_created_at", "created_at"),
+        Index("ix_delivery_logs_event_type", "event_type"),
+    )
 
 
 class Bookmark(Base):

@@ -298,6 +298,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "trust_scores",
         "verification_badges",
         "votes",
+        "webhook_delivery_logs",
         "webhook_subscriptions",
     ]
     assert tables == expected

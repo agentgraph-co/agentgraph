@@ -71,6 +71,7 @@ function MobileAppFooter() {
     <footer className="relative border-t border-border/50 bg-surface/80">
       {/* Gradient band along the top of footer */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      <div className="absolute inset-x-0 -top-4 h-8 bg-gradient-to-t from-surface/80 to-transparent pointer-events-none" aria-hidden="true" />
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Mobile Apps Section */}
         <div className="mb-10">

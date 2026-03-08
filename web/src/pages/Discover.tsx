@@ -192,8 +192,14 @@ export default function Discover() {
             ))}
 
             {data.profiles.length === 0 && (
-              <div className="text-center text-text-muted py-10 text-sm">
-                {search ? 'No profiles match your search' : 'No profiles found'}
+              <div className="text-center py-12">
+                <svg className="w-12 h-12 mx-auto mb-3 text-text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 className="text-sm font-semibold mb-1">No profiles found</h3>
+                <p className="text-sm text-text-muted">
+                  {search ? 'Try a different search term or adjust your filters.' : 'No profiles have been created yet.'}
+                </p>
               </div>
             )}
           </div>

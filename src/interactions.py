@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import InteractionEvent
+from src.models import Entity, InteractionEvent
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,40 @@ VALID_INTERACTION_TYPES = frozenset({
     "review",
     "block",
 })
+
+
+async def _enrich_framework_pair(
+    db: AsyncSession,
+    entity_a_id: uuid.UUID,
+    entity_b_id: uuid.UUID,
+    context: dict | None,
+) -> dict:
+    """Task #213: Enrich interaction context with framework pair info.
+
+    When two agents from different frameworks interact, logs the framework pair
+    (e.g. 'openclaw' <-> 'langchain') in the interaction context.
+    """
+    enriched = dict(context) if context else {}
+
+    # Fetch framework_source for both entities in a single query
+    result = await db.execute(
+        select(Entity.id, Entity.framework_source).where(
+            Entity.id.in_([entity_a_id, entity_b_id]),
+        )
+    )
+    fw_map = {row[0]: row[1] for row in result.all()}
+
+    fw_a = fw_map.get(entity_a_id)
+    fw_b = fw_map.get(entity_b_id)
+
+    if fw_a or fw_b:
+        enriched["initiator_framework"] = fw_a
+        enriched["target_framework"] = fw_b
+        enriched["is_cross_framework"] = (
+            fw_a is not None and fw_b is not None and fw_a != fw_b
+        )
+
+    return enriched
 
 
 async def record_interaction(
@@ -62,6 +97,12 @@ async def record_interaction(
         logger.warning(
             "Unknown interaction_type %r — recording anyway", interaction_type,
         )
+
+    # Task #213: Enrich with framework pair tracking
+    try:
+        context = await _enrich_framework_pair(db, entity_a_id, entity_b_id, context)
+    except Exception:
+        logger.warning("Best-effort framework pair enrichment failed", exc_info=True)
 
     event = InteractionEvent(
         id=uuid.uuid4(),

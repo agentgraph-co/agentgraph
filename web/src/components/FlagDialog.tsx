@@ -114,8 +114,9 @@ export default function FlagDialog({ targetType, targetId, onClose }: FlagDialog
             </div>
           </div>
           <div>
-            <label className="block text-sm text-text-muted mb-1">Details (optional)</label>
+            <label htmlFor="flag-details" className="block text-sm text-text-muted mb-1">Details (optional)</label>
             <textarea
+              id="flag-details"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               rows={3}

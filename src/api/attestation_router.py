@@ -152,6 +152,14 @@ async def create_attestation(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a formal attestation about another entity."""
+    # PROVISIONAL DID restriction: cannot issue attestations
+    if current_entity.is_provisional:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Provisional DIDs cannot issue attestations. "
+            "Upgrade to FULL status first.",
+        )
+
     # Cannot self-attest
     if current_entity.id == body.subject_entity_id:
         raise HTTPException(
@@ -255,6 +263,29 @@ async def create_attestation(
         )
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Auto-promote PROVISIONAL DID if criteria now met
+    if subject.is_provisional:
+        try:
+            from src.api.did_router import check_auto_promotion, promote_did_to_full
+            from src.models import DIDDocument, DIDStatus
+
+            reason = await check_auto_promotion(db, subject)
+            if reason:
+                did_doc = await db.scalar(
+                    select(DIDDocument).where(
+                        DIDDocument.entity_id == subject.id
+                    )
+                )
+                if did_doc and did_doc.did_status == DIDStatus.PROVISIONAL:
+                    await promote_did_to_full(db, did_doc, reason=reason)
+                    logger.info(
+                        "Auto-promoted DID %s to FULL: %s",
+                        did_doc.did_uri,
+                        reason,
+                    )
+        except Exception:
+            logger.warning("Auto-promotion check failed", exc_info=True)
 
     return _build_response(attestation, current_entity.display_name, subject.display_name)
 

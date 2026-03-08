@@ -166,7 +166,12 @@ def profile(entity_id: str) -> None:
 @cli.command()
 @click.option("--name", required=True, help="Agent display name")
 @click.option("--type", "entity_type", default="ai_agent", help="Entity type")
-def register(name: str, entity_type: str) -> None:
+@click.option(
+    "--capabilities",
+    default="",
+    help="Comma-separated capabilities (e.g. web_search,code_review)",
+)
+def register(name: str, entity_type: str, capabilities: str) -> None:
     """Register a new AI agent."""
 
     async def _register() -> None:
@@ -179,6 +184,8 @@ def register(name: str, entity_type: str) -> None:
             agent = data.get("agent", {})
             click.echo(f"Agent registered: {agent.get('display_name', name)}")
             click.echo(f"Agent ID: {agent.get('id', 'N/A')}")
+            if capabilities:
+                click.echo(f"Capabilities: {capabilities}")
             if api_key:
                 click.echo(f"API Key (save this -- shown once): {api_key}")
                 config = _load_config()
@@ -189,6 +196,76 @@ def register(name: str, entity_type: str) -> None:
         _run_async(_register())
     except AgentGraphError as exc:
         click.echo(f"Registration failed: {exc}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+def status() -> None:
+    """Check trust score and DID status for the authenticated agent."""
+
+    async def _status() -> None:
+        async with _get_client() as client:
+            me = await client.get_me()
+            entity_id = me.get("id", "")
+            display_name = me.get("display_name", "N/A")
+            did_web = me.get("did_web", "N/A")
+            entity_type = me.get("type", me.get("entity_type", "N/A"))
+
+            click.echo(f"Entity:  {display_name}")
+            click.echo(f"ID:      {entity_id}")
+            click.echo(f"Type:    {entity_type}")
+            click.echo(f"DID:     {did_web}")
+
+            # Fetch trust score
+            try:
+                trust_data = await client.get_trust_score(entity_id)
+                score = trust_data.get("score", "N/A")
+                click.echo(f"Trust:   {score}")
+                components = trust_data.get("components", {})
+                if components:
+                    click.echo("Trust components:")
+                    for key, val in components.items():
+                        click.echo(f"  {key}: {val}")
+            except AgentGraphError:
+                click.echo("Trust:   N/A (no score yet)")
+
+            verified = me.get("is_verified", False)
+            email_verified = me.get("email_verified", False)
+            click.echo(f"Verified: {verified}")
+            click.echo(f"Email verified: {email_verified}")
+
+    try:
+        _run_async(_status())
+    except AgentGraphError as exc:
+        click.echo(f"Status check failed: {exc}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+def whoami() -> None:
+    """Show the current agent identity from stored credentials."""
+    config = _load_config()
+    if not config.get("token") and not config.get("api_key"):
+        click.echo("Not authenticated. Run 'agentgraph login' first.")
+        sys.exit(1)
+
+    async def _whoami() -> None:
+        async with _get_client() as client:
+            me = await client.get_me()
+            click.echo(f"Name:    {me.get('display_name', 'N/A')}")
+            click.echo(f"ID:      {me.get('id', 'N/A')}")
+            click.echo(f"Type:    {me.get('type', me.get('entity_type', 'N/A'))}")
+            click.echo(f"DID:     {me.get('did_web', 'N/A')}")
+            click.echo(f"Email:   {me.get('email', 'N/A')}")
+            click.echo(f"Active:  {me.get('is_active', 'N/A')}")
+            click.echo(f"Admin:   {me.get('is_admin', False)}")
+            base_url = config.get("base_url", DEFAULT_BASE_URL)
+            click.echo(f"Server:  {base_url}")
+
+    try:
+        _run_async(_whoami())
+    except AgentGraphError as exc:
+        click.echo(f"Identity lookup failed: {exc}", err=True)
         sys.exit(1)
 
 

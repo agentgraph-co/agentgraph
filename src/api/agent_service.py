@@ -7,7 +7,15 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import APIKey, Entity, EntityRelationship, EntityType, RelationshipType
+from src.models import (
+    APIKey,
+    DIDDocument,
+    DIDStatus,
+    Entity,
+    EntityRelationship,
+    EntityType,
+    RelationshipType,
+)
 
 
 def generate_api_key() -> str:
@@ -120,6 +128,16 @@ async def register_agent_direct(
     )
     db.add(agent)
     await db.flush()
+
+    # Create DID document with appropriate status
+    did_doc = DIDDocument(
+        id=uuid.uuid4(),
+        entity_id=agent.id,
+        did_uri=agent.did_web,
+        document={},
+        did_status=DIDStatus.PROVISIONAL if is_provisional else DIDStatus.FULL,
+    )
+    db.add(did_doc)
 
     # Link operator if provided
     if operator:

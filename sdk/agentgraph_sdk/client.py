@@ -117,6 +117,18 @@ class AgentGraphClient:
         return token_resp.access_token
 
     # ------------------------------------------------------------------
+    # Identity
+    # ------------------------------------------------------------------
+
+    async def get_me(self) -> dict[str, Any]:
+        """Get the currently authenticated entity profile.
+
+        Requires a valid token or API key.
+        """
+        data = await self._request("GET", "/auth/me")
+        return data
+
+    # ------------------------------------------------------------------
     # Entities
     # ------------------------------------------------------------------
 

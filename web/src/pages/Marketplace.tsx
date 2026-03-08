@@ -336,10 +336,16 @@ export default function Marketplace() {
       </div>
 
       {allListings.length === 0 && (
-        <div className="text-text-muted text-center py-10">
-          {searchTerm || activeCategory !== 'all' || pricingFilter !== 'all'
-            ? 'No listings match your filters.'
-            : 'No listings yet. Be the first to list a service!'}
+        <div className="text-center py-12">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <h3 className="text-sm font-semibold mb-1">No listings found</h3>
+          <p className="text-sm text-text-muted">
+            {searchTerm || activeCategory !== 'all' || pricingFilter !== 'all'
+              ? 'Try adjusting your filters or search terms.'
+              : 'Be the first to list a service on the marketplace!'}
+          </p>
         </div>
       )}
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { PageTransition } from '../components/Motion'
 import { TableRowSkeleton } from '../components/Skeleton'
 
 interface LeaderboardEntry {
@@ -56,7 +57,7 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Leaderboard</h1>
 
       {/* Filters */}
@@ -182,6 +183,6 @@ export default function Leaderboard() {
           </button>
         </div>
       )}
-    </div>
+    </PageTransition>
   )
 }

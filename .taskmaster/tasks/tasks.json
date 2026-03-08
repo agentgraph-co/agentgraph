@@ -1004,7 +1004,7 @@
         "id": "77",
         "title": "Frontend Polish \u2014 Phase 4 React Web Features",
         "description": "Wire up Phase 4 backend features in the React web app. Add Disputes UI (open/resolve/escalate), AIP Dashboard (delegations, capability registry), Insights Charts (network growth, trust distribution, marketplace volume), and Enterprise org management views.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "75"
         ],
@@ -1032,7 +1032,7 @@
         "id": "79",
         "title": "Load Testing \u2014 Stress Test API at Scale",
         "description": "Design and execute comprehensive load tests against the AgentGraph API. Identify breaking points, bottlenecks, and scalability limits. Test with realistic traffic patterns simulating target user counts (1K, 10K, 100K entities).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "75",
           "78"
@@ -1061,7 +1061,7 @@
         "id": "81",
         "title": "Fix Light Mode Visual Issues \u2014 Hero Art, Animations, Background, Graph Legend, TrustDetail Colors",
         "description": "User-reported: hero face invisible, animations lost, background too white, Graph edge legend and TrustDetail hardcoded dark-mode colors. Comprehensive light mode polish pass.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Changes needed:\n1. web/src/pages/Home.tsx: Verify hero-art-blend CSS fix works (mix-blend-multiply). If still invisible, try opacity bump or invert filter.\n2. web/src/components/Motion.tsx: ParticleField (line 317) default colors ['#2DD4BF','#E879F9','#F59E0B'] are dark-mode-optimized. Make theme-aware. Fix colors array dep bug at line 394 \u2014 extract to module-level constant. MyceliumLines SVG gradient (line 483) uses hardcoded colors. GradientBreath same.\n3. web/src/pages/Graph.tsx lines 243-265: Edge legend uses inline style={{ color: '#a6e3a1' }} etc. Import edgeColor() from graphTheme.ts and use useTheme().\n4. web/src/pages/TrustDetail.tsx lines 41-73: COMPONENT_INFO and ATTESTATION_TYPE_LABELS use hardcoded Catppuccin hex. Create theme-aware color map.\n5. web/src/index.css: Light mode background #f8fafc is too flat/white. Add subtle warm tint or very light gradient for depth.",
@@ -1266,7 +1266,7 @@
         "id": "99",
         "title": "Frontend \u2014 Accessibility: ARIA Labels, Tab Roles, Table Captions",
         "description": "Multiple interactive elements lack proper ARIA attributes for screen reader accessibility.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "1. Agents.tsx: Add aria-label='Autonomy level' and aria-valuetext to range input\n2. ListingDetail.tsx: Add aria-label='Rate N out of 5 stars' to star rating buttons\n3. Webhooks.tsx: Add aria-pressed state to event type toggle buttons\n4. ForceGraph.tsx: Add role='img' aria-label='Trust network graph visualization' to container div\n5. Bookmarks, Leaderboard, TransactionHistory filter buttons: Add role='tab', aria-selected, role='tablist' grouping\n6. Leaderboard.tsx table: Add <caption className='sr-only'>",
@@ -1277,7 +1277,7 @@
         "id": "100",
         "title": "Database \u2014 Add Missing Indexes and updated_at to Mutable Models",
         "description": "Missing indexes on queried FK columns. Mutable models lack updated_at timestamp.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Indexes:\n- Dispute.resolved_by (line 670)\n- TokenBlacklist.entity_id (line 464)\n- ModerationAppeal.appellant_id (line 1131)\n\nupdated_at columns:\n- Dispute model (line 649)\n- Delegation model (line 1377)\n- WebhookSubscription model (line 741)\n- Notification model (line 690)\n\nCreate Alembic migration for all changes.",
@@ -1288,7 +1288,7 @@
         "id": "101",
         "title": "Frontend \u2014 Standardize Loading States to Skeleton Components",
         "description": "9 pages use plain 'Loading...' text instead of skeleton components.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Replace plain text loading in: Agents, Bookmarks, Leaderboard, Submolts, SubmoltDetail, TransactionHistory, TrustDetail, Webhooks, MyListings.\nUse existing PostSkeleton or create appropriate skeleton variants (TableRowSkeleton, CardSkeleton) for each page type.",
@@ -1299,7 +1299,7 @@
         "id": "102",
         "title": "Frontend \u2014 Fix setTimeout Memory Leaks and ParticleField Re-render Bug",
         "description": "Multiple setTimeout calls without cleanup. ParticleField colors dependency causes infinite re-creation.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "1. Toasts.tsx line 23: Store timeout IDs, clear on unmount/dismiss\n2. ResetPassword.tsx line 42: Clear navigate timeout on unmount via useEffect return\n3. Agents.tsx line 235, Webhooks.tsx line 118: Clear copy timers on unmount\n4. Motion.tsx ParticleField line 317/394: Extract default colors array to module-level constant to prevent new reference each render. Currently causes teardown/rebuild on every parent re-render.",
@@ -1310,7 +1310,7 @@
         "id": "103",
         "title": "Code Quality \u2014 Remove Dead Code, Extract Constants, Clean Up",
         "description": "Various dead code, magic numbers, and cleanup items across the codebase.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Dead code:\n- Remove empty packages: src/identity/, src/social/, src/moderation/\n- Move v0-reference components out of web/src/ to docs/design-references/\n- Remove commented-out APScheduler code in main.py lines 210-233\n- Remove unused AuthResponse interface in web/src/types/index.ts\n\nConstants:\n- Export router limits (5000, 10000, etc.) \u2192 named constants\n- Trust modifier values (1.0, 0.8, 0.5) \u2192 named constants in base_scanner\n- Content preview truncation lengths (100, 200) \u2192 named constants\n\nCleanup:\n- Version string '0.1.0' sourced from single location\n- Migrate on_event('shutdown') to lifespan context manager\n- safety_router.py line 110: datetime.utcnow() \u2192 datetime.now(timezone.utc)\n- marketplace_router.py lines 525, 704: Replace str(exc) with generic error message",
@@ -1321,7 +1321,7 @@
         "id": "104",
         "title": "UI Polish \u2014 Header Nav Highlight on Scroll + Footer Gradient Band",
         "description": "Two remaining UI issues from light mode fix: (1) header nav active indicator still occasionally re-animates on scroll \u2014 needs deeper fix (possibly extract NavLink to stable component outside Layout render), (2) bottom gradient band still slightly visible on long list pages in light mode \u2014 vignette needs further tuning or removal.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "",
@@ -1687,7 +1687,7 @@
         "id": "137",
         "title": "Agent SDK \u2014 PyPI Publication + CLI Tool",
         "description": "Publish the existing SDK at sdk/python/ to PyPI as agentgraph-sdk. Add CLI tool entry point using click/typer for agent registration, posting, and trust querying from the command line.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1698,18 +1698,19 @@
         "id": "138",
         "title": "Onboarding Flow \u2014 Guided Paths for New Users",
         "description": "Build guided onboarding that differentiates human vs agent paths. Options: 'I want to discover agents', 'I want to improve my agent', 'I want to build an agent', 'I want to hire an agent'. Identified as #1 user feedback issue in CC Implementation Brief.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "details": "",
         "testStrategy": "",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-08T16:54:08.185Z"
       },
       {
         "id": "139",
         "title": "Trust Explainer \u2014 Educational UX for Dual Scores",
         "description": "Add skippable explainer or contextual tooltips that teach new users what the two trust numbers mean within their first session. CC Implementation Brief Section 4.1.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1720,7 +1721,7 @@
         "id": "140",
         "title": "Subscription & Usage-Based Pricing Models",
         "description": "Implement recurring (subscription) and metered (usage-based) pricing for marketplace listings. Currently only free and one_time models are supported. Requires Stripe subscription/metering integration.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1731,7 +1732,7 @@
         "id": "141",
         "title": "Scheduled Trust Recomputation \u2014 Production Scheduler",
         "description": "Wire existing trust recomputation job (src/jobs/trust_recompute.py) and anomaly scan into a production scheduler (APScheduler, cron, or celery beat). Job code exists but is not scheduled in production.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1742,7 +1743,7 @@
         "id": "142",
         "title": "Formal Attestation & Verification Badge Framework",
         "description": "Complete the attestation framework: badge issuance flow, audit record creation, endorsement tier enforcement, badge expiry/renewal. Models exist (VerificationBadge, AuditRecord) and badges_router exists but full framework not wired end-to-end.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1753,7 +1754,7 @@
         "id": "143",
         "title": "Disputes UI \u2014 Web Frontend",
         "description": "Build web UI for marketplace dispute resolution. Backend exists (disputes_router.py, escrow.py) and SDK supports open_dispute()/get_disputes(). Needs: dispute filing form, dispute detail view, resolution flow, admin dispute panel.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1764,7 +1765,7 @@
         "id": "144",
         "title": "Trust-Scaled Rate Limiting",
         "description": "Implement dynamic rate limits based on entity trust score as defined in AIP v1 spec Section 8.2. Ranges: 0.0-0.3 = 1x base, 0.3-0.5 = 1.5x, 0.5-0.8 = 2x, 0.8-1.0 = 3x. Current rate limiter uses fixed limits.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -1786,7 +1787,7 @@
         "id": "146",
         "title": "Cross-Linking Between Related Content",
         "description": "Posts referencing a tool, library, or agent should deep-link to that entity's profile. Agent profiles should link to skills used, humans worked with, similar agents, and relevant trending tools. CC Implementation Brief Section 8.",
-        "status": "pending",
+        "status": "done",
         "priority": "low",
         "dependencies": [],
         "details": "",
@@ -1929,7 +1930,7 @@
         "id": "159",
         "title": "LangChain Bridge \u2014 Framework Adapter",
         "description": "Build LangChain framework adapter similar to existing MCP and OpenClaw bridges. Allow LangChain agents to register on AgentGraph, post interactions, and build trust scores. CLAUDE.md Layer 2 Bridge Protocols.",
-        "status": "pending",
+        "status": "done",
         "priority": "low",
         "dependencies": [],
         "details": "",
@@ -1940,7 +1941,7 @@
         "id": "160",
         "title": "Additional Framework Bridges (CrewAI, AutoGen, etc.)",
         "description": "Build adapters for major agent frameworks beyond MCP, OpenClaw, and LangChain: CrewAI, AutoGen, Semantic Kernel, Haystack, DSPy. Each bridge allows framework agents to interact with AgentGraph's identity and trust layer.",
-        "status": "pending",
+        "status": "done",
         "priority": "low",
         "dependencies": [],
         "details": "",
@@ -1951,7 +1952,7 @@
         "id": "161",
         "title": "Enhanced Profiles \u2014 Reviews Tab, Attestations Display",
         "description": "Add reviews tab to entity profiles showing received reviews with ratings. Add attestations tab showing verification badges, endorsements, and their expiry dates. Add fork lineage tree component. Phase 2 plan Task 68.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "",
@@ -2215,7 +2216,7 @@
         "id": "183",
         "title": "Agent Onboarding Quickstart Docs \u2014 OpenClaw, CrewAI, LangChain",
         "description": "Write framework-specific quickstart guides: 'Get your bot on AgentGraph in 5 minutes' for OpenClaw, CrewAI, and LangChain. Include curl examples, SDK usage, and bridge import flow.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "180",
           "181",
@@ -2223,13 +2224,14 @@
         ],
         "priority": "high",
         "details": "Must-have for bot onboarding. No docs = no adoption.\n\n- docs/quickstart/openclaw.md \u2014 OpenClaw skill manifest \u2192 bridge import \u2192 posting\n- docs/quickstart/crewai.md \u2014 CrewAI agent crew \u2192 bridge import \u2192 collaboration\n- docs/quickstart/langchain.md \u2014 LangChain agent \u2192 bridge import \u2192 tool usage\n- docs/quickstart/direct-api.md \u2014 Raw API registration for any framework\n- Each guide covers:\n  1. Register (direct or bridge import)\n  2. Authenticate (API key)\n  3. Post to feed\n  4. Discover other agents\n  5. Follow and interact\n  6. Check trust score\n- Include copy-paste curl commands and Python SDK examples\n- Link from README.md",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-08T16:54:08.209Z"
       },
       {
         "id": "184",
         "title": "Operator Approval Flow \u2014 Prevent Agent Spoofing",
         "description": "When an agent claims an operator_email at registration, send approval request to that human. Agent is created but operator_id remains null until human confirms. Prevents anyone from spoofing operator relationships.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Should-have for bot onboarding security.\n\n- On agent register with operator_email:\n  1. Create agent entity (operator_id = null initially)\n  2. Create pending_operator_link record (agent_id, operator_entity_id, created_at, expires_at)\n  3. Send notification to operator (in-app + email if configured)\n  4. Operator approves: POST /api/v1/agents/{id}/approve-operator (authenticated as operator)\n  5. On approve: set agent.operator_id, create OPERATOR_AGENT relationship\n  6. On reject or expire (7 days): delete pending_link\n- Agents without operator still function (just no operator trust inheritance)\n- Admin can force-link operators",
@@ -2239,7 +2241,7 @@
         "id": "185",
         "title": "Agent API Key Recovery via Operator",
         "description": "Allow an agent's operator to regenerate API keys for their agents. Prevents permanent lockout if agent loses its key.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "184"
         ],
@@ -2251,7 +2253,7 @@
         "id": "186",
         "title": "Badge Inheritance \u2014 Operator Verification Propagates to Agents",
         "description": "When an operator has verification badges, their agents automatically inherit partial trust. Verified operator's agents get a 'operator_verified' badge and trust score boost.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "184"
         ],
@@ -2263,7 +2265,7 @@
         "id": "187",
         "title": "Auto-List Agent Capabilities in Marketplace on Bridge Import",
         "description": "When an agent is imported via framework bridge, automatically create a marketplace listing from its capabilities/skills. Removes manual listing friction.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Should-have for bot onboarding visibility.\n\n- On bridge import (openclaw/crewai/langchain/autogen):\n  1. Extract capabilities from manifest\n  2. Auto-create Listing with:\n     - title: agent display_name\n     - description: from manifest description\n     - category: inferred from capabilities\n     - tags: capability names\n     - seller_entity_id: agent entity id\n     - status: 'active'\n  3. Mark listing as auto-generated (new field: is_auto_listed boolean)\n- Agent can edit/delete auto-listing later\n- Don't duplicate if re-imported (check existing listing by agent_id)\n- Category inference: map common capabilities to marketplace categories",
@@ -2310,7 +2312,7 @@
         "id": "191",
         "title": "Webhook Event Delivery Worker \u2014 Actually Send Webhook Callbacks",
         "description": "Implement background worker that listens to Redis event bus (agentgraph:events) and delivers webhook POST requests to subscribed callback URLs. Includes retry logic, failure tracking, and auto-disable after 5 consecutive failures.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "CRITICAL for agent onboarding. Webhook subscriptions exist but events are never sent.\n\n- Listen to Redis pub/sub channel 'agentgraph:events'\n- For each event, find matching webhook subscriptions\n- POST to callback URL with HMAC-SHA256 signature\n- Retry 3x with exponential backoff (1s, 5s, 30s)\n- Track consecutive failures on webhook_subscriptions\n- Auto-disable after 5 consecutive failures\n- Event replay: store last 100 events per subscription for replay endpoint\n- Can run as background task in uvicorn or as separate worker process",
@@ -2348,13 +2350,365 @@
         "priority": "medium",
         "details": "Content filter scores but doesn't auto-hide. This is a security gap for bot traffic.\n\n- In feed_router.py create_post(), after toxicity check:\n  - If should_block: reject post entirely (already done)\n  - If should_flag: create post but set is_hidden=true, create ModerationFlag\n  - Log flagged content for admin review\n- Add notification to admin when auto-flagged post count exceeds threshold\n- Ensure hidden posts don't appear in feed queries\n- Agent receives 201 (created) but post is not visible to others until reviewed\n- Admin can bulk-approve flagged posts",
         "subtasks": []
+      },
+      {
+        "id": "195",
+        "title": "Provisional Registration Flow \u2014 PROVISIONAL/FULL DID State Machine",
+        "description": "Add registration_state (PROVISIONAL/FULL) to Entity model. Provisional agents: trust capped at 0.3, 10 social/100 API per hour, reduced feed visibility, no marketplace, no attestations, 'Unclaimed' badge. Operator claim flow with claim token. 30-day expiration (keep history, mark expired). Alembic migration for new columns. Backfill existing agents as FULL.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Core provisional registration with constraints. Modify: src/models.py, src/api/agent_router.py, agent_service.py. New: migration, claim endpoint, expiry job.",
+        "testStrategy": "Test provisional creation, trust cap enforcement, claim flow, expiration, rate limit enforcement for provisional vs full agents.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "196",
+        "title": "AIP-A2A Reconciliation \u2014 Refactor AIP as Trust Layer on A2A",
+        "description": "Refactor AIP to operate on top of A2A rather than competing. Keep: AIP/TRUST (challenge, verify, attest), AIP/EVOLVE (evolution events), trust metadata on discovery. Deprecate (keep functional, mark deprecated): AIP delegation state machine, negotiation. Don't remove yet \u2014 gradual deprecation. Update aip-v1-spec.md.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Audit complete (see agent report). AIP currently has 8 message types with delegation/negotiation overlapping A2A. Strategy: keep both running, add deprecation warnings, build A2A middleware as the forward path.",
+        "testStrategy": "Existing AIP tests must still pass. Add deprecation warnings to delegation endpoints. Document A2A alignment in protocol spec.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "197",
+        "title": "A2A Trust Middleware \u2014 Intercept A2A Interactions for Trust Verification",
+        "description": "Build src/bridges/a2a_middleware.py that intercepts A2A task delegations to: (1) look up trust scores for both parties, (2) enforce minimum trust thresholds, (3) enrich A2A Agent Cards with trust data, (4) log audit events, (5) allow/deny delegation based on trust. This is the core of 'AIP on A2A'.",
+        "status": "done",
+        "dependencies": [
+          "196"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. The middleware sits between A2A-native frameworks (CrewAI, LangGraph, Pydantic AI) and AgentGraph's trust infrastructure. MCP bridge stays as-is (not A2A-aware).",
+        "testStrategy": "Test trust threshold enforcement, Agent Card enrichment, audit trail logging. Mock A2A interactions.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "198",
+        "title": "OpenClaw Bridge \u2014 Package as Installable Skill with Self-Registration",
+        "description": "Package the OpenClaw bridge adapter as an installable OpenClaw skill that enables autonomous self-registration: (1) generate provisional DID, (2) import capability manifest, (3) run security scan (malicious skills, injection, token exposure), (4) register in provisional state, (5) provide operator claim URL/token.",
+        "status": "done",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Bridge exists at src/bridges/openclaw/. Need to package as installable skill and add provisional registration flow.",
+        "testStrategy": "Test skill install, self-registration, security scan, provisional state, claim token generation.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "199",
+        "title": "Validate CrewAI Bridge \u2014 Crew-Level Batch Registration",
+        "description": "Validate that the CrewAI bridge supports crew-level registration: one operator registers a crew, all member agents get DIDs linked to the operator. Handle crew lifecycle (agents joining/leaving).",
+        "status": "done",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Bridge exists at src/bridges/crewai/. Need to add batch DID creation for crew members.",
+        "testStrategy": "Test batch registration of 3-agent crew, operator linking, agent add/remove from crew.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "200",
+        "title": "Validate LangChain Bridge \u2014 LangGraph State Graph Capability Declaration",
+        "description": "Validate that the LangChain bridge handles LangGraph's state graph structure for capability declaration. Agent's graph topology should map to capabilities.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Bridge exists at src/bridges/langchain/.",
+        "testStrategy": "Test LangGraph state graph import, capability extraction from graph nodes.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "201",
+        "title": "Validate AutoGen Bridge \u2014 Audit Trail Compliance Export",
+        "description": "Validate that the AutoGen bridge provides interaction audit trail data in a format suitable for enterprise compliance exports.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md. Bridge exists at src/bridges/autogen/.",
+        "testStrategy": "Test audit trail export format, compliance metadata fields.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "202",
+        "title": "Validate Bridge Security Scanning for All Tier 1 Frameworks",
+        "description": "Ensure bridge-level security scanning is implemented for all Tier 1 frameworks: known-malicious skills/plugins, prompt injection patterns, API token exposure, CVE checks. Document coverage per framework.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Current content_filter.py handles some patterns but not framework-specific scanning.",
+        "testStrategy": "Test each scanner against known-bad inputs. Document coverage matrix.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "203",
+        "title": "Reconcile Rate Limiting \u2014 Hybrid Type + Trust Score Tiers",
+        "description": "Reconcile our deployed type-based rate limits (anonymous/human/agent/trusted_agent) with v2's trust-score-based tiers. Implement hybrid: type determines base tier, trust score multiplies within tier. Provisional agents get lowest tier regardless of type. Config-driven thresholds.",
+        "status": "done",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Current: type-based (30/100/300/600 reads/min). V2 wants: trust-based (10/50/200/1000 interactions/hr). Hybrid avoids cold-start problem.",
+        "testStrategy": "Test provisional rate limits, trust-score multiplier, config changes without code changes.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "204",
+        "title": "Build Pydantic AI Bridge Adapter",
+        "description": "Build a Pydantic AI bridge adapter. Given native A2A support: (1) map Pydantic AI agent metadata to AgentGraph profiles, (2) enrich A2A Agent Cards with trust data, (3) provide @agentgraph.register decorator, (4) integrate with Logfire for observability. Target: pip install agentgraph-bridge-pydantic.",
+        "status": "done",
+        "dependencies": [
+          "197"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. NEW bridge \u2014 Pydantic AI is Tier 1. A2A-native means cleanest integration path.",
+        "testStrategy": "Test registration decorator, Agent Card enrichment, Logfire event emission.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "205",
+        "title": "Build agentgraph-trust MCP Server \u2014 Publish to MCP Registry",
+        "description": "Build and publish a standalone agentgraph-trust MCP server that any MCP-capable agent can use to: query trust scores, self-register, verify agents before interacting, flag suspicious behavior, look up capabilities/profiles. This is both product feature and distribution channel.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md. Different from our internal MCP tools \u2014 this is a standalone MCP server package published to MCP Registry.",
+        "testStrategy": "Test all 5 tools, MCP schema compliance, publish to registry.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "206",
+        "title": "A2A Agent Card Enrichment Service",
+        "description": "Build a service/endpoint that enriches A2A Agent Cards with AgentGraph trust data: trust score, verification status (provisional/full), framework trust modifier, interaction history summary, endorsements. Plugs into A2A discovery flow.",
+        "status": "done",
+        "dependencies": [
+          "197"
+        ],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md. Could be an API endpoint or middleware intercept.",
+        "testStrategy": "Test Agent Card enrichment with trust data, provisional vs full status display.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "207",
+        "title": "Package Bridge Adapters as Published PyPI/npm Packages",
+        "description": "Package each bridge adapter as an installable package with <5 lines to register. PyPI: agentgraph-bridge-crewai, agentgraph-bridge-langchain, agentgraph-bridge-pydantic, agentgraph-bridge-autogen. npm: @agentgraph/bridge-openclaw. Each with setup.py, README, minimal API.",
+        "status": "done",
+        "dependencies": [
+          "198",
+          "199",
+          "200",
+          "204"
+        ],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md. Currently bridges are in-repo. Need to extract as standalone packages.",
+        "testStrategy": "Test pip install, import, 5-line registration example for each package.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "208",
+        "title": "Trust Badge Embeddable \u2014 SVG/PNG Badge for READMEs",
+        "description": "Build an embeddable trust badge (SVG) that operators add to README/website: [![AgentGraph Trust](https://agentgraph.co/badge/{agent-did})](https://agentgraph.co/agent/{agent-did}). Shows current trust score, links to profile. Every badge is organic awareness.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md. Simple GET endpoint returning SVG with trust score.",
+        "testStrategy": "Test SVG generation, trust score display, caching, link to profile.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "209",
+        "title": "Spec Google ADK Integration as A2A Trust Enrichment Layer",
+        "description": "Spec (don't build yet) the Google ADK integration as A2A trust enrichment. Since ADK has native A2A support, the bridge should be minimal \u2014 primarily metadata mapping and trust injection. Defer building until Tier 1 is validated.",
+        "status": "pending",
+        "dependencies": [
+          "197"
+        ],
+        "priority": "low",
+        "details": "From ecosystem-targeting-v2.md. Tier 2 \u2014 spec only, build later.",
+        "testStrategy": "Design doc review only.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "210",
+        "title": "Build Moltbook Migration Tool",
+        "description": "Build migration tool: (1) export bot profile from Moltbook API (if available), (2) map capabilities, (3) create AgentGraph DID + profile, (4) generate 'Migrated from Moltbook' social proof.",
+        "status": "done",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "low",
+        "details": "From ecosystem-targeting-v2.md. Depends on Moltbook API availability.",
+        "testStrategy": "Test with mock Moltbook data. Validate capability mapping.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "211",
+        "title": "GitHub Action for CI/CD Agent Registration",
+        "description": "Build a GitHub Action (agentgraph/register-action@v1) that auto-registers an agent with AgentGraph on deploy. Takes framework, manifest path, operator email.",
+        "status": "done",
+        "dependencies": [
+          "207"
+        ],
+        "priority": "low",
+        "details": "From ecosystem-targeting-v2.md. Lower priority than PyPI packages.",
+        "testStrategy": "Test action execution, registration, manifest parsing.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "212",
+        "title": "Instrument Trust Scores at Interaction Time for Correlation Analysis",
+        "description": "Log trust scores of both parties at time of every interaction (delegation, follow, endorsement) for later correlation analysis. Validates Assumption 2: trust scores influence interaction decisions.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md assumption validation plan.",
+        "testStrategy": "Verify trust scores logged in interaction_events, queryable for correlation analysis.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "213",
+        "title": "Add Framework-Pair Tracking to Interaction Analytics",
+        "description": "Track framework_source of both parties in every interaction to measure cross-framework activity. Validates Assumption 3: cross-framework discovery is valued.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md assumption validation plan.",
+        "testStrategy": "Verify framework pair logged, queryable for % cross-framework interactions.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "214",
+        "title": "Instrument Social Feature Usage Tracking",
+        "description": "Track which social features each registered agent uses (posting, following, endorsing, marketplace) vs API-only interactions. Validates Assumption 4: social interaction patterns exist.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md assumption validation plan.",
+        "testStrategy": "Verify feature usage logged per agent, queryable for adoption %.",
+        "subtasks": [],
+        "owner": "cc"
+      },
+      {
+        "id": "215",
+        "title": "[KENNE] Join Top 5 Framework Discord/Slack Communities",
+        "description": "Join and become active in CrewAI, LangChain, Pydantic AI, AutoGen, and OpenClaw Discord/Slack communities. Build presence by sharing agent trust/security insights \u2014 no product pitches. Become a known voice before promoting AgentGraph.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md Persona 1 (Indie Builder) channel strategy.",
+        "testStrategy": "Active in all 5 communities. At least 1 post/week for 4 weeks before any AgentGraph mention.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "216",
+        "title": "[KENNE] Write 2-3 Blog Posts / Twitter Threads on Agent Security",
+        "description": "Write thought leadership content on agent security and trust using Moltbook/OpenClaw data as examples. Genuinely useful content, not promotional. Position as authority on agent trust infrastructure.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md Persona 1 GTM. Topics: Moltbook breach analysis, OpenClaw vulnerability landscape, why agents need verifiable identity.",
+        "testStrategy": "Published on blog + Twitter/X. Track engagement metrics.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "217",
+        "title": "[KENNE] Create 'State of Agent Security' Report",
+        "description": "Create a downloadable report using publicly available data: Moltbook breach details, OpenClaw Cisco audit findings, framework vulnerability data. Positions AgentGraph as the authority on agent security. PDF/blog format.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md Persona 2 (Startup Team) lead generation.",
+        "testStrategy": "Published report, downloadable. Track downloads as leads.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "218",
+        "title": "[KENNE] Draft Enterprise Tier Feature Set and Pricing",
+        "description": "Draft the enterprise tier offering even if not built yet: SLAs, custom trust scoring, compliance exports, dedicated support, organization-level management. Price points: $29/mo indie, $99/mo startup, $499+/mo enterprise. Captures inbound interest early.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md revenue tiers section.",
+        "testStrategy": "Pricing page/doc ready. Validated against comparable B2B SaaS pricing.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "219",
+        "title": "[KENNE] Explore Partnership Conversations \u2014 Google Cloud, Anthropic, Linux Foundation A2A",
+        "description": "Initiate partnership exploration: (1) Google Cloud \u2014 ADK/A2A alignment, AgentGraph as trust layer, (2) Anthropic \u2014 MCP alignment, (3) Linux Foundation A2A project \u2014 contributing member for protocol governance and credibility.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md. AgentGraph as trust layer for A2A is a natural partnership pitch.",
+        "testStrategy": "Initial conversations started with at least 2 of 3 targets.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "220",
+        "title": "[KENNE] Define and Deploy First 3 Bots on Moltbook",
+        "description": "Define 3 genuinely useful bots that also have AgentGraph DIDs. Deploy on Moltbook. They include AgentGraph trust score in profiles, verify identity before engaging, publicly decline interactions with unverified bots. Ideas: code review bot, security scanning bot, research assistant.",
+        "status": "pending",
+        "dependencies": [
+          "195",
+          "198"
+        ],
+        "priority": "medium",
+        "details": "From ecosystem-targeting-v2.md cross-platform presence strategy. These must be genuinely useful, not recruitment vehicles.",
+        "testStrategy": "3 bots live on Moltbook with AgentGraph DIDs. Demonstrating trust-verified interactions.",
+        "subtasks": [],
+        "owner": "kenne"
+      },
+      {
+        "id": "221",
+        "title": "[KENNE] Design and Run Assumption Validation Survey \u2014 50 Operators",
+        "description": "Recruit 50 OpenClaw/CrewAI operators in beta. Survey at 30 and 60 days. Key questions: Does verifiable identity matter? Do trust scores influence decisions? Do they want cross-framework discovery? Success: >60% say identity influenced joining, >40% cite as primary reason.",
+        "status": "pending",
+        "dependencies": [
+          "215"
+        ],
+        "priority": "high",
+        "details": "From ecosystem-targeting-v2.md assumption validation plan. Budget 4-6 weeks for recruitment + data collection.",
+        "testStrategy": "50 responses collected. Data analyzed. Pivot decisions documented.",
+        "subtasks": [],
+        "owner": "kenne"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-04T00:22:01.030Z",
-      "taskCount": 178,
-      "completedCount": 98,
+      "lastModified": "2026-03-08T16:54:08.210Z",
+      "taskCount": 220,
+      "completedCount": 104,
       "tags": [
         "master"
       ]

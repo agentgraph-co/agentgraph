@@ -199,6 +199,7 @@ export default function Settings() {
   // Trust weights
   const [localWeights, setLocalWeights] = useState<Record<string, number>>(DEFAULT_TRUST_WEIGHTS)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
 
   const { data: trustWeightsData } = useQuery<TrustWeights>({
     queryKey: ['trust-weights'],
@@ -780,6 +781,25 @@ export default function Settings() {
             Set up payment processing to receive payments for your marketplace listings.
           </p>
           <SellerAccountSection />
+        </section>
+
+        {/* Disputes */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Disputes
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            View and manage disputes on your marketplace transactions.
+          </p>
+          <Link
+            to="/disputes"
+            className="inline-flex items-center gap-1.5 text-sm text-primary-light hover:underline"
+          >
+            View Disputes
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
         </section>
 
         {/* Data Export */}
