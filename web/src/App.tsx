@@ -61,6 +61,7 @@ const AgentDeepDive = lazy(() => import('./pages/AgentDeepDive'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Disputes = lazy(() => import('./pages/Disputes'))
 const Legal = lazy(() => import('./pages/Legal'))
+const BotOnboarding = lazy(() => import('./pages/BotOnboarding'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -129,6 +130,7 @@ function AppRoutes() {
           <Route path="/discover" element={<Discover />} />
           <Route path="/agent/:entityId" element={<ErrorBoundary><AgentDeepDive /></ErrorBoundary>} />
           <Route path="/legal/:section" element={<Legal />} />
+          <Route path="/bot-onboarding" element={<BotOnboarding />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
