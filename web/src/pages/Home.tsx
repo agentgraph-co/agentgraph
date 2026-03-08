@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import api from '../lib/api'
 import {
   FadeIn,
@@ -438,6 +439,7 @@ function SectionHeader({ title, action }: { title: string; action?: { label: str
 
 export default function Home() {
   const { user, isLoading } = useAuth()
+  const { theme } = useTheme()
 
   useEffect(() => { document.title = 'AgentGraph' }, [])
 
@@ -511,7 +513,12 @@ export default function Home() {
             src={heroArt}
             alt=""
             aria-hidden="true"
-            className="w-full h-full object-cover opacity-[0.38] mix-blend-screen hero-art-blend animate-hero-breathe"
+            className="w-full h-full object-cover animate-hero-breathe"
+            style={{
+              opacity: theme === 'light' ? 0.35 : 0.38,
+              mixBlendMode: theme === 'light' ? 'multiply' : 'screen',
+              filter: theme === 'light' ? 'contrast(1.2) brightness(0.9)' : 'none',
+            }}
           />
           {/* Dark vignette overlay to blend edges */}
           <div className="absolute inset-0" style={{

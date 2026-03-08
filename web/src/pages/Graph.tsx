@@ -10,7 +10,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
-import { edgeColor, NODE_TYPE_COLORS } from '../lib/graphTheme'
+import { edgeColor, nodeTypeColor } from '../lib/graphTheme'
 import {
   useRichGraph,
   useGraphClusters,
@@ -244,11 +244,11 @@ export default function Graph() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: NODE_TYPE_COLORS.human }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: nodeTypeColor('human', theme) }} />
             <span>Human</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: NODE_TYPE_COLORS.agent }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: nodeTypeColor('agent', theme) }} />
             <span>Agent</span>
           </div>
           <div className="flex items-center gap-1">
