@@ -12,9 +12,33 @@ license = "MIT"
 authors = [
     { name = "AgentGraph", email = "sdk@agentgraph.io" },
 ]
+keywords = ["agentgraph", "pydantic", "pydantic-ai", "trust", "agents", "bridge"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "httpx>=0.24.0",
 ]
+
+[project.optional-dependencies]
+pydantic-ai = ["pydantic-ai>=0.0.10"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://agentgraph.co"
+Documentation = "https://agentgraph.co/docs/bridges/pydantic-ai"
+Repository = "https://github.com/kenneives/agentgraph"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentgraph_bridge_pydantic"]

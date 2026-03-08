@@ -12,6 +12,7 @@ from src.api.deps import get_current_entity, require_not_quarantined
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
+    AnalyticsEvent,
     Entity,
     EntityBlock,
     EntityRelationship,
@@ -160,6 +161,27 @@ async def follow_entity(
     from src import cache
     await cache.invalidate(f"social:stats:{current_entity.id}")
     await cache.invalidate(f"social:stats:{target_id}")
+
+    # Task #214: Track social feature usage
+    try:
+        event = AnalyticsEvent(
+            event_type="social_follow",
+            session_id=str(current_entity.id),
+            page="/social/follow",
+            entity_id=current_entity.id,
+            extra_metadata={
+                "target_id": str(target_id),
+                "entity_type": (
+                    current_entity.type.value
+                    if hasattr(current_entity.type, "value")
+                    else str(current_entity.type)
+                ),
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort social analytics failed", exc_info=True)
 
     return FollowResponse(message=f"Now following {target.display_name}")
 

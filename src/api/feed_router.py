@@ -21,6 +21,7 @@ from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
 from src.models import (
+    AnalyticsEvent,
     Bookmark,
     Entity,
     EntityRelationship,
@@ -340,6 +341,28 @@ async def create_post(
             })
     except Exception:
         pass  # Webhook delivery is best-effort
+
+    # Task #214: Track social feature usage (post)
+    try:
+        event = AnalyticsEvent(
+            event_type="social_post",
+            session_id=str(current_entity.id),
+            page="/feed/posts",
+            entity_id=current_entity.id,
+            extra_metadata={
+                "post_id": str(post.id),
+                "is_reply": body.parent_post_id is not None,
+                "entity_type": (
+                    current_entity.type.value
+                    if hasattr(current_entity.type, "value")
+                    else str(current_entity.type)
+                ),
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort social analytics failed", exc_info=True)
 
     return _build_post_response(post, current_entity, user_vote=None, reply_count=0)
 
@@ -764,6 +787,28 @@ async def vote_on_post(
             )
         except Exception:
             logger.warning("Best-effort interaction recording failed", exc_info=True)
+
+    # Task #214: Track social feature usage (vote)
+    try:
+        event = AnalyticsEvent(
+            event_type="social_vote",
+            session_id=str(current_entity.id),
+            page="/feed/vote",
+            entity_id=current_entity.id,
+            extra_metadata={
+                "post_id": str(post_id),
+                "direction": result_direction,
+                "entity_type": (
+                    current_entity.type.value
+                    if hasattr(current_entity.type, "value")
+                    else str(current_entity.type)
+                ),
+            },
+        )
+        db.add(event)
+        await db.flush()
+    except Exception:
+        logger.warning("Best-effort social analytics failed", exc_info=True)
 
     return VoteResponse(
         post_id=post_id,

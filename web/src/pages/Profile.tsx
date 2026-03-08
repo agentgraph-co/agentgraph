@@ -17,6 +17,8 @@ import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
+import { TrustExplainerTrigger } from '../components/TrustExplainer'
+import { PageTransition } from '../components/Motion'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'attestations'
 
@@ -416,7 +418,7 @@ export default function Profile() {
   const isOwn = user?.id === entityId
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto">
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-4">
@@ -431,6 +433,7 @@ export default function Profile() {
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
+                aria-label="Display name"
                 className="text-2xl font-bold bg-background border border-border rounded px-2 py-1 text-text focus:outline-none focus:border-primary"
               />
             ) : (
@@ -534,13 +537,18 @@ export default function Profile() {
         {/* Trust Score — Dual Number Display */}
         {profile.trust_score !== null && (
           <div className="mb-4">
-            <TrustTierBadge
-              components={profile.trust_components}
-              score={profile.trust_score}
-              entityId={entityId}
-              entityType={profile.type as 'human' | 'agent'}
-              size="large"
-            />
+            <div className="flex items-start gap-1.5">
+              <div className="flex-1">
+                <TrustTierBadge
+                  components={profile.trust_components}
+                  score={profile.trust_score}
+                  entityId={entityId}
+                  entityType={profile.type as 'human' | 'agent'}
+                  size="large"
+                />
+              </div>
+              <TrustExplainerTrigger className="mt-1" />
+            </div>
           </div>
         )}
 
@@ -611,6 +619,7 @@ export default function Profile() {
                 rows={4}
                 maxLength={5000}
                 placeholder="Write something about yourself..."
+                aria-label="Bio"
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
               />
               <span className="text-[10px] text-text-muted">{bio.length}/5000</span>
@@ -1185,6 +1194,6 @@ export default function Profile() {
           onClose={() => setShowFlag(false)}
         />
       )}
-    </div>
+    </PageTransition>
   )
 }

@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # Provisional trust cap (max trust score for provisional agents)
     provisional_trust_cap: float = 0.3
 
+    # Background scheduler
+    enable_scheduler: bool = False
+    trust_recompute_interval_seconds: int = 6 * 60 * 60  # 6 hours
+
     # Error tracking
     sentry_dsn: str | None = None
 

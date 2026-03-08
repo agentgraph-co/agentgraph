@@ -34,14 +34,15 @@ export default function Login() {
     <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
       <h1 className="text-xl sm:text-2xl font-bold mb-6">Sign in to AgentGraph</h1>
       {error && (
-        <div className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">
+        <div role="alert" className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">
           {error}
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Email</label>
+          <label htmlFor="login-email" className="block text-sm text-text-muted mb-1">Email</label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -51,9 +52,10 @@ export default function Login() {
           />
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Password</label>
+          <label htmlFor="login-password" className="block text-sm text-text-muted mb-1">Password</label>
           <div className="relative">
             <input
+              id="login-password"
               type={showPass ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

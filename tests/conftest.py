@@ -24,6 +24,7 @@ _TABLES = [
     "submolt_memberships", "direct_messages", "conversations",
     "entity_blocks", "reviews", "trust_attestations",
     "capability_endorsements", "post_edits", "bookmarks",
+    "webhook_delivery_logs",
     "webhook_subscriptions", "notification_preferences", "notifications",
     "disputes", "transactions", "listing_reviews", "listings",
     "token_blacklist", "password_reset_tokens", "email_verifications",
@@ -215,6 +216,11 @@ async def _clean_db_once():
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
             "onboarding_data JSONB DEFAULT '{}'::jsonb"
         ))
+        # Ensure operator_approved column exists on entities (task #184)
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "operator_approved BOOLEAN NOT NULL DEFAULT false"
+        ))
         # Ensure aip_channels table exists (migration r05)
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS aip_channels ("
@@ -325,6 +331,122 @@ async def _clean_db_once():
         await conn.execute(text(
             "ALTER TABLE posts ADD COLUMN IF NOT EXISTS "
             "media_type VARCHAR(20)"
+        ))
+        # Ensure webhook_delivery_logs table exists (webhook worker)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS webhook_delivery_logs ("
+            "  id UUID PRIMARY KEY,"
+            "  subscription_id UUID NOT NULL"
+            "    REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,"
+            "  event_type VARCHAR(100) NOT NULL,"
+            "  payload JSONB NOT NULL DEFAULT '{}'::jsonb,"
+            "  status_code INTEGER,"
+            "  success BOOLEAN NOT NULL DEFAULT false,"
+            "  error_message TEXT,"
+            "  attempt_number INTEGER NOT NULL DEFAULT 1,"
+            "  duration_ms INTEGER,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_delivery_logs_subscription "
+            "ON webhook_delivery_logs (subscription_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_delivery_logs_created_at "
+            "ON webhook_delivery_logs (created_at)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_delivery_logs_event_type "
+            "ON webhook_delivery_logs (event_type)"
+        ))
+        # Ensure updated_at columns exist on all tables that have them
+        for tbl in [
+            "agent_capability_registry", "aip_channels", "api_keys",
+            "attestation_providers", "delegations", "did_documents",
+            "disputes", "entities", "evolution_records",
+            "listing_reviews", "listings", "moderation_flags",
+            "notification_preferences", "notifications",
+            "organizations", "posts", "reviews",
+            "service_contracts", "submolts", "transactions",
+            "trust_scores", "webhook_subscriptions",
+        ]:
+            await conn.execute(text(
+                f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS "
+                "updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ))
+        # Ensure trust_scores has contextual_scores column
+        await conn.execute(text(
+            "ALTER TABLE trust_scores ADD COLUMN IF NOT EXISTS "
+            "contextual_scores JSONB DEFAULT '{}'::jsonb"
+        ))
+        # Ensure api_keys has organization_id column
+        await conn.execute(text(
+            "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS "
+            "organization_id UUID"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_webhooks_active "
+            "ON webhook_subscriptions (is_active)"
+        ))
+        # Performance indexes (migration s01)
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_trust_scores_score "
+            "ON trust_scores (score)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_api_keys_active "
+            "ON api_keys (is_active)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_transactions_created_at "
+            "ON transactions (created_at)"
+        ))
+        # Ensure DID status columns exist (migration s01)
+        # Check if enum exists; if it has wrong values, drop column + type first
+        enum_check = await conn.execute(text(
+            "SELECT 1 FROM pg_type WHERE typname = 'didstatus'"
+        ))
+        if enum_check.scalar_one_or_none():
+            # Check if values are uppercase (SQLAlchemy uses enum names)
+            val_check = await conn.execute(text(
+                "SELECT unnest(enum_range(NULL::didstatus))::text LIMIT 1"
+            ))
+            first_val = val_check.scalar_one_or_none()
+            if first_val and first_val != "PROVISIONAL":
+                # Wrong case — drop and recreate with uppercase
+                await conn.execute(text(
+                    "ALTER TABLE did_documents DROP COLUMN IF EXISTS did_status"
+                ))
+                await conn.execute(text("DROP TYPE didstatus"))
+                await conn.execute(text(
+                    "CREATE TYPE didstatus AS ENUM "
+                    "('PROVISIONAL', 'FULL', 'REVOKED')"
+                ))
+        else:
+            await conn.execute(text(
+                "CREATE TYPE didstatus AS ENUM "
+                "('PROVISIONAL', 'FULL', 'REVOKED')"
+            ))
+        await conn.execute(text(
+            "ALTER TABLE did_documents ADD COLUMN IF NOT EXISTS "
+            "did_status didstatus NOT NULL DEFAULT 'FULL'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE did_documents ADD COLUMN IF NOT EXISTS "
+            "promoted_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE did_documents ADD COLUMN IF NOT EXISTS "
+            "promoted_by UUID"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE did_documents ADD COLUMN IF NOT EXISTS "
+            "promotion_reason VARCHAR(200)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_did_documents_did_status "
+            "ON did_documents (did_status)"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

@@ -121,6 +121,7 @@ class AgentResponse(BaseModel):
     capabilities: list[str]
     autonomy_level: int | None
     operator_id: uuid.UUID | None
+    operator_approved: bool = False
     is_active: bool
     is_provisional: bool = False
     created_at: datetime

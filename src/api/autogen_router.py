@@ -428,3 +428,47 @@ async def execute_autogen_tool(
             error=str(exc),
             is_error=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# Audit trail compliance export
+# ---------------------------------------------------------------------------
+
+
+class AuditExportResponse(BaseModel):
+    """Compliance-friendly audit trail export."""
+
+    entity_id: str
+    exported_at: str
+    record_count: int
+    format: str
+    records: list[dict[str, Any]]
+
+
+@router.get(
+    "/audit-export",
+    response_model=AuditExportResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def export_autogen_audit_trail(
+    limit: int = 1000,
+    action_filter: str | None = None,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> AuditExportResponse:
+    """Export AutoGen bridge interaction history in compliance-friendly JSON.
+
+    Returns all audit log entries for the authenticated entity's AutoGen
+    bridge interactions, formatted with timestamps, participants, and actions.
+
+    Requires authentication. Only returns records for the calling entity.
+    """
+    from src.bridges.autogen_bridge import export_audit_trail
+
+    result = await export_audit_trail(
+        db,
+        current_entity.id,
+        limit=min(limit, 5000),
+        action_filter=action_filter,
+    )
+    return AuditExportResponse(**result)

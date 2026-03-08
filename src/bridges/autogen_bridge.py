@@ -342,3 +342,77 @@ class AgentGraphAutoGenToolkit:
     def get_tool_descriptors() -> list[dict[str, Any]]:
         """Return tool descriptors (always available, no AutoGen needed)."""
         return [d.copy() for d in TOOL_DESCRIPTORS]
+
+
+# ---------------------------------------------------------------------------
+# Audit trail compliance export
+# ---------------------------------------------------------------------------
+
+
+async def export_audit_trail(
+    db: Any,
+    entity_id: Any,
+    *,
+    limit: int = 1000,
+    action_filter: str | None = None,
+) -> dict[str, Any]:
+    """Export AutoGen bridge interaction history in a compliance-friendly format.
+
+    Returns a JSON-serializable dict containing:
+    - ``entity_id``: the entity whose interactions are exported
+    - ``exported_at``: ISO-8601 timestamp of the export
+    - ``record_count``: number of records returned
+    - ``records``: list of audit log entries with timestamps, actions,
+      resource types, and details
+
+    Args:
+        db: AsyncSession for database access.
+        entity_id: UUID of the entity to export audit trail for.
+        limit: Maximum number of records to return (default 1000).
+        action_filter: Optional filter to restrict to a specific action prefix
+            (e.g. ``"bridges.autogen"``).
+
+    Returns:
+        Compliance-formatted dict with all matching audit log entries.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select as sa_select
+
+    from src.models import AuditLog
+
+    stmt = (
+        sa_select(AuditLog)
+        .where(AuditLog.entity_id == entity_id)
+    )
+
+    if action_filter:
+        stmt = stmt.where(AuditLog.action.like(f"{action_filter}%"))
+    else:
+        # Default: only AutoGen bridge actions
+        stmt = stmt.where(AuditLog.action.like("bridges.autogen%"))
+
+    stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit)
+
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+
+    records = []
+    for log in logs:
+        records.append({
+            "id": str(log.id),
+            "timestamp": log.created_at.isoformat() if log.created_at else None,
+            "action": log.action,
+            "resource_type": log.resource_type,
+            "resource_id": str(log.resource_id) if log.resource_id else None,
+            "details": log.details or {},
+            "ip_address": log.ip_address,
+        })
+
+    return {
+        "entity_id": str(entity_id),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "record_count": len(records),
+        "format": "agentgraph_compliance_v1",
+        "records": records,
+    }

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bridges.scanner_base import ScanResult
-from src.models import Entity, EntityType, FrameworkSecurityScan
+from src.models import Entity, EntityType, FrameworkSecurityScan, Listing
 
 
 def _trust_modifier(severity: str) -> float:
@@ -88,7 +88,68 @@ async def import_agent(
 
     await db.flush()
     await db.refresh(agent)
+
+    # Task #187: Auto-list capabilities in marketplace on bridge import
+    try:
+        await auto_list_capabilities(db, agent)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Best-effort marketplace auto-listing failed for %s", agent.id,
+            exc_info=True,
+        )
+
     return agent, scan_record
+
+
+async def auto_list_capabilities(
+    db: AsyncSession,
+    agent: Entity,
+) -> list[Listing]:
+    """Create marketplace listings for each declared capability of a bridge-imported agent.
+
+    Listings are created as free, active, and categorized as 'capability'.
+    Skips capabilities that already have listings for this agent.
+    """
+    capabilities = agent.capabilities or []
+    if not capabilities:
+        return []
+
+    # Get existing listing titles for this agent to avoid duplicates
+    existing_result = await db.execute(
+        select(Listing.title).where(
+            Listing.entity_id == agent.id,
+            Listing.is_active.is_(True),
+        )
+    )
+    existing_titles = {row[0].lower() for row in existing_result.all()}
+
+    created: list[Listing] = []
+    for cap in capabilities:
+        if cap.lower() in existing_titles:
+            continue
+
+        listing = Listing(
+            id=uuid.uuid4(),
+            entity_id=agent.id,
+            title=cap[:200],
+            description=(
+                f"Auto-listed capability from "
+                f"{agent.framework_source or 'bridge'} import: {cap}"
+            ),
+            category="capability",
+            tags=[agent.framework_source or "bridge", "auto-listed"],
+            pricing_model="free",
+            price_cents=0,
+            is_active=True,
+        )
+        db.add(listing)
+        created.append(listing)
+
+    if created:
+        await db.flush()
+
+    return created
 
 
 async def rescan_entity(

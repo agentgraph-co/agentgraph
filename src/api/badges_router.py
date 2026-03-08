@@ -16,6 +16,7 @@ from src.database import get_db
 from src.models import (
     AuditRecord,
     Entity,
+    EntityType,
     TrustScore,
     VerificationBadge,
 )
@@ -30,6 +31,7 @@ VALID_BADGE_TYPES = {
     "identity_verified",
     "capability_audited",
     "agentgraph_verified",
+    "operated_by_verified",
 }
 
 VALID_AUDIT_TYPES = {"security", "capability", "compliance"}
@@ -61,7 +63,12 @@ class BadgeListResponse(BaseModel):
 
 class CreateBadgeRequest(BaseModel):
     badge_type: str = Field(
-        ..., pattern=r"^(email_verified|identity_verified|capability_audited|agentgraph_verified)$",
+        ...,
+        pattern=(
+            r"^(email_verified|identity_verified"
+            r"|capability_audited|agentgraph_verified"
+            r"|operated_by_verified)$"
+        ),
     )
     proof_url: str | None = Field(None, max_length=1000)
     expires_at: datetime | None = None
@@ -247,6 +254,17 @@ async def issue_badge(
         )
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Task #186: Propagate verification badges to operated agents
+    try:
+        await propagate_operator_badges(
+            db,
+            operator_id=entity_id,
+            badge_type=body.badge_type,
+            issued_by=current_entity.id,
+        )
+    except Exception:
+        logger.warning("Best-effort badge propagation failed", exc_info=True)
 
     return BadgeResponse(
         id=badge.id,
@@ -478,3 +496,67 @@ async def list_audit_records(
         ))
 
     return AuditRecordListResponse(audit_records=audit_records, total=total)
+
+
+# --- Badge Inheritance: Operator Verification Propagates to Agents (Task #186) ---
+
+
+VERIFICATION_BADGE_TYPES = {"identity_verified", "agentgraph_verified"}
+
+
+async def propagate_operator_badges(
+    db: AsyncSession,
+    operator_id: uuid.UUID,
+    badge_type: str,
+    issued_by: uuid.UUID | None = None,
+) -> list[VerificationBadge]:
+    """When an operator earns a verification badge, propagate 'operated_by_verified'
+    to all their operated agents.
+
+    Only identity_verified and agentgraph_verified badges propagate.
+    Returns list of newly created badges.
+    """
+    if badge_type not in VERIFICATION_BADGE_TYPES:
+        return []
+
+    # Find all active agents operated by this operator
+    result = await db.execute(
+        select(Entity).where(
+            Entity.operator_id == operator_id,
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+        )
+    )
+    agents = result.scalars().all()
+
+    created_badges: list[VerificationBadge] = []
+    for agent in agents:
+        # Check if already has an active operated_by_verified badge
+        existing = await db.scalar(
+            select(VerificationBadge).where(
+                VerificationBadge.entity_id == agent.id,
+                VerificationBadge.badge_type == "operated_by_verified",
+                VerificationBadge.is_active.is_(True),
+            )
+        )
+        if existing:
+            continue
+
+        badge = VerificationBadge(
+            id=uuid.uuid4(),
+            entity_id=agent.id,
+            badge_type="operated_by_verified",
+            issued_by=issued_by,
+            is_active=True,
+        )
+        db.add(badge)
+        created_badges.append(badge)
+
+    if created_badges:
+        await db.flush()
+        logger.info(
+            "Propagated 'operated_by_verified' badge to %d agents of operator %s",
+            len(created_badges), operator_id,
+        )
+
+    return created_badges

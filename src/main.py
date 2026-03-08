@@ -27,6 +27,7 @@ from src.api.attestation_provider_router import router as attestation_provider_r
 from src.api.attestation_router import router as attestation_router
 from src.api.auth_router import router as auth_router
 from src.api.autogen_router import router as autogen_router
+from src.api.badge_embed_router import router as badge_embed_router
 from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bot_onboarding_router import router as bot_onboarding_router
@@ -155,7 +156,20 @@ _TAG_METADATA = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup/shutdown hooks."""
+    # Startup: optionally start the background scheduler
+    if settings.enable_scheduler:
+        from src.jobs.scheduler import start_scheduler
+
+        start_scheduler(settings.trust_recompute_interval_seconds)
+
     yield
+
+    # Shutdown: stop scheduler if running
+    if settings.enable_scheduler:
+        from src.jobs.scheduler import stop_scheduler
+
+        stop_scheduler()
+
     # Shutdown: clean up Redis connections
     from src.redis_client import close_redis
 
@@ -284,6 +298,7 @@ async def cache_headers_middleware(request: Request, call_next) -> Response:
         # Slow-changing reference data — long TTL
         elif any(path.startswith(p) for p in [
             "/api/v1/did/", "/api/v1/insights/",
+            "/api/v1/badges/embed/",
         ]):
             response.headers["Cache-Control"] = (
                 "public, max-age=300, stale-while-revalidate=600"
@@ -415,6 +430,7 @@ app.include_router(credentials_router, prefix=settings.api_v1_prefix)
 app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
 app.include_router(data_products_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+app.include_router(badge_embed_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_router, prefix=settings.api_v1_prefix)
 app.include_router(badges_router, prefix=settings.api_v1_prefix)
 app.include_router(agent_router, prefix=settings.api_v1_prefix)
