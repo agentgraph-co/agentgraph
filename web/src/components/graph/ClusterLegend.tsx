@@ -3,7 +3,8 @@
  * Clicking a cluster highlights/filters nodes to that cluster.
  */
 import type { ClusterInfo } from '../../hooks/useGraphData'
-import { clusterColor, UNCLUSTERED_COLOR } from '../../lib/graphTheme'
+import { clusterColorThemed, UNCLUSTERED_COLOR, UNCLUSTERED_COLOR_LIGHT } from '../../lib/graphTheme'
+import { useTheme } from '../../hooks/useTheme'
 
 interface ClusterLegendProps {
   clusters: ClusterInfo[]
@@ -12,6 +13,7 @@ interface ClusterLegendProps {
 }
 
 export default function ClusterLegend({ clusters, activeCluster, onClusterClick }: ClusterLegendProps) {
+  const { theme } = useTheme()
   if (clusters.length === 0) return null
 
   return (
@@ -31,7 +33,7 @@ export default function ClusterLegend({ clusters, activeCluster, onClusterClick 
       >
         <span
           className="w-2.5 h-2.5 rounded-full shrink-0 border border-border"
-          style={{ background: UNCLUSTERED_COLOR }}
+          style={{ background: theme === 'light' ? UNCLUSTERED_COLOR_LIGHT : UNCLUSTERED_COLOR }}
         />
         <span className="flex-1 text-left">All clusters</span>
       </button>
@@ -50,7 +52,7 @@ export default function ClusterLegend({ clusters, activeCluster, onClusterClick 
           >
             <span
               className="w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ background: clusterColor(c.cluster_id) }}
+              style={{ background: clusterColorThemed(c.cluster_id, theme) }}
             />
             <span className="flex-1 text-left truncate">
               Cluster {c.cluster_id}

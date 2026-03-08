@@ -76,6 +76,41 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   human: '#a6e3a1',
 }
 
+/** Node type colors — light theme (darkened for visibility on light bg) */
+export const NODE_TYPE_COLORS_LIGHT: Record<string, string> = {
+  agent: '#0D9488',
+  human: '#16a34a',
+}
+
+/** Get node type color, theme-aware */
+export function nodeTypeColor(type: string, theme: 'dark' | 'light' = 'dark'): string {
+  const colors = theme === 'light' ? NODE_TYPE_COLORS_LIGHT : NODE_TYPE_COLORS
+  return colors[type] ?? (theme === 'light' ? UNCLUSTERED_COLOR_LIGHT : UNCLUSTERED_COLOR)
+}
+
+/** Catppuccin Mocha palette — light theme variants (saturated for visibility) */
+export const CLUSTER_COLORS_LIGHT = [
+  '#2563eb', // Blue
+  '#dc2626', // Red
+  '#16a34a', // Green
+  '#ca8a04', // Yellow
+  '#7c3aed', // Mauve
+  '#ea580c', // Peach
+  '#0d9488', // Teal
+  '#db2777', // Pink
+  '#0284c7', // Sapphire
+  '#e11d48', // Flamingo
+  '#6d28d9', // Lavender
+  '#0891b2', // Sky
+] as const
+
+/** Map a cluster_id to a color (wraps around if > 12 clusters), theme-aware */
+export function clusterColorThemed(clusterId: number | null | undefined, theme: 'dark' | 'light' = 'dark'): string {
+  if (clusterId == null) return theme === 'light' ? UNCLUSTERED_COLOR_LIGHT : UNCLUSTERED_COLOR
+  const colors = theme === 'light' ? CLUSTER_COLORS_LIGHT : CLUSTER_COLORS
+  return colors[clusterId % colors.length]
+}
+
 /** Canvas background colors */
 export const GRAPH_BG = '#11111b'
 export const GRAPH_BG_LIGHT = '#f1f5f9'

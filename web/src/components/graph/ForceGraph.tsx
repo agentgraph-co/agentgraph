@@ -11,9 +11,10 @@ import ForceGraph3D from 'react-force-graph-3d'
 import type { GraphData, GraphNode, GraphEdge } from '../../hooks/useGraphData'
 import { useTheme } from '../../hooks/useTheme'
 import {
-  clusterColor,
+  clusterColorThemed,
   edgeColor,
   nodeRadius,
+  nodeTypeColor,
   GRAPH_BG,
   GRAPH_BG_LIGHT,
   GRAPH_LABEL_DARK,
@@ -22,13 +23,10 @@ import {
   GRAPH_BADGE_LIGHT,
   GRAPH_NODE_STROKE_DARK,
   GRAPH_NODE_STROKE_LIGHT,
-  UNCLUSTERED_COLOR,
-  UNCLUSTERED_COLOR_LIGHT,
   ZOOM_THRESHOLDS,
   CLUSTER_GLOW_ALPHA,
   PARTICLE_CONFIG,
   DEFAULT_PARTICLE_COUNT,
-  NODE_TYPE_COLORS,
 } from '../../lib/graphTheme'
 
 // Pause/resume force simulation when browser tab is hidden/visible
@@ -191,10 +189,10 @@ export default function ForceGraph({
       }
       // Cluster color
       if (n.cluster_id != null) {
-        return clusterColor(n.cluster_id)
+        return clusterColorThemed(n.cluster_id, theme)
       }
       // Fallback: type-based color
-      return NODE_TYPE_COLORS[n.type] ?? (theme === 'light' ? UNCLUSTERED_COLOR_LIGHT : UNCLUSTERED_COLOR)
+      return nodeTypeColor(n.type, theme)
     },
     [searchLower, theme],
   )
@@ -227,7 +225,7 @@ export default function ForceGraph({
         const glowR = r + 3 * sem
         ctx.beginPath()
         ctx.arc(n.x, n.y, glowR, 0, 2 * Math.PI)
-        const cc = clusterColor(n.cluster_id)
+        const cc = clusterColorThemed(n.cluster_id, theme)
         ctx.fillStyle = cc + Math.round(CLUSTER_GLOW_ALPHA * 255).toString(16).padStart(2, '0')
         ctx.fill()
       }
