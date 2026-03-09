@@ -11,7 +11,7 @@ RUN apt-get update && \
 # Copy all source first, then install
 COPY pyproject.toml ./
 COPY src/ src/
-RUN pip install --no-cache-dir "."
+RUN pip install --no-cache-dir ".[prod]"
 
 # Copy remaining files
 COPY migrations/ migrations/

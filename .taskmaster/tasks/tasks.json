@@ -1554,7 +1554,7 @@
         "id": "125",
         "title": "Sentry DSN Configuration",
         "description": "Create Sentry account, create agentgraph project, get DSN, and add SENTRY_DSN env var to production .env. The Sentry SDK is already wired in src/main.py \u2014 just needs the DSN configured. MANUAL task.",
-        "status": "pending",
+        "status": "done",
         "priority": "low",
         "dependencies": [],
         "details": "MANUAL TASK \u2014 User must create Sentry account and configure.\n\nThe Sentry integration code is already in place:\n- sentry-sdk[fastapi] is in pyproject.toml [prod] optional deps\n- src/main.py already has sentry_sdk.init() wired up\n\nSteps:\n1. Go to https://sentry.io and create account (or use existing)\n2. Create new project: Platform=Python, Framework=FastAPI\n3. Copy the DSN string\n4. Add to production .env on EC2:\n   SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx\n5. Restart the backend container:\n   sudo docker-compose -f docker-compose.prod.yml restart backend\n6. Trigger a test error to verify:\n   curl -X POST https://agentgraph.io/api/v1/sentry-test (if endpoint exists)\n   Or check Sentry dashboard for any captured errors\n\nOptional enhancements (later):\n- Set up Sentry alerts for error rate spikes\n- Configure release tracking\n- Add frontend Sentry SDK to web app",
