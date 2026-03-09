@@ -30,6 +30,37 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/moderation", tags=["moderation"])
 
 
+async def _get_target_entity_info(
+    db: AsyncSession,
+    flag: ModerationFlag,
+) -> tuple[str | None, str, str]:
+    """Resolve the target entity's email, display name, and a content preview.
+
+    Returns (email, display_name, content_preview).
+    email may be None if not found.
+    """
+    email: str | None = None
+    display_name = "User"
+    content_preview = f"{flag.target_type} ({flag.target_id})"
+
+    if flag.target_type == "post":
+        post = await db.get(Post, flag.target_id)
+        if post:
+            content_preview = (post.content or "")[:120]
+            entity = await db.get(Entity, post.author_entity_id)
+            if entity:
+                email = entity.email
+                display_name = entity.display_name or "User"
+    elif flag.target_type == "entity":
+        entity = await db.get(Entity, flag.target_id)
+        if entity:
+            email = entity.email
+            display_name = entity.display_name or "User"
+            content_preview = f"Account: {display_name}"
+
+    return email, display_name, content_preview
+
+
 class CreateFlagRequest(BaseModel):
     target_type: str = Field(..., pattern="^(post|entity)$")
     target_id: uuid.UUID
@@ -170,6 +201,24 @@ async def create_flag(
             "reason": body.reason.value,
         },
     )
+
+    # Best-effort email notification to the flagged entity
+    try:
+        from src.config import settings
+        from src.email import send_moderation_flag_email
+
+        email, name, preview = await _get_target_entity_info(db, flag)
+        if email:
+            appeal_url = f"{settings.base_url}/moderation/flags/{flag.id}"
+            await send_moderation_flag_email(
+                to=email,
+                entity_name=name,
+                content_preview=preview,
+                reason=body.reason.value,
+                appeal_url=appeal_url,
+            )
+    except Exception:
+        logger.warning("Best-effort moderation email failed", exc_info=True)
 
     return FlagResponse(
         id=flag.id,
@@ -403,6 +452,22 @@ async def resolve_flag(
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
 
+    # Best-effort email notification of resolution to the flagged entity
+    try:
+        from src.email import send_moderation_resolved_email
+
+        email, name, preview = await _get_target_entity_info(db, flag)
+        if email:
+            await send_moderation_resolved_email(
+                to=email,
+                entity_name=name,
+                content_preview=preview,
+                decision=body.status.value,
+                reason=body.resolution_note or flag.reason.value,
+            )
+    except Exception:
+        logger.warning("Best-effort moderation email failed", exc_info=True)
+
     await db.flush()
 
     return FlagResponse(
@@ -564,6 +629,20 @@ async def appeal_flag(
         details={"flag_id": str(flag_id)},
     )
     await db.flush()
+
+    # Best-effort appeal received confirmation email
+    try:
+        from src.email import send_moderation_appeal_received_email
+
+        email, name, preview = await _get_target_entity_info(db, flag)
+        if email:
+            await send_moderation_appeal_received_email(
+                to=email,
+                entity_name=name,
+                content_preview=preview,
+            )
+    except Exception:
+        logger.warning("Best-effort moderation email failed", exc_info=True)
 
     return {
         "id": str(appeal.id),
@@ -759,6 +838,22 @@ async def resolve_appeal(
         )
     except Exception:
         logger.warning("Best-effort side effect failed", exc_info=True)
+
+    # Best-effort appeal decision email to the appellant
+    try:
+        from src.email import send_moderation_appeal_decision_email
+
+        appellant_entity = await db.get(Entity, appeal.appellant_id)
+        if appellant_entity and appellant_entity.email:
+            decision_text = "upheld" if body.action == "uphold" else "overturned"
+            await send_moderation_appeal_decision_email(
+                to=appellant_entity.email,
+                entity_name=appellant_entity.display_name or "User",
+                decision=f"Appeal {decision_text}",
+                reason=body.note or "No additional details provided",
+            )
+    except Exception:
+        logger.warning("Best-effort moderation email failed", exc_info=True)
 
     await db.flush()
 

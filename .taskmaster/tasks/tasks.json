@@ -1459,7 +1459,7 @@
         "id": "117",
         "title": "Set Up Moderation Email Addresses",
         "description": "Create or configure email forwarding for legal@agentgraph.io, privacy@agentgraph.io, dmca@agentgraph.io, and safety@agentgraph.io. These are referenced in the legal pages and moderation playbook.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "116"
@@ -1483,7 +1483,7 @@
         "id": "119",
         "title": "SSL/TLS \u2014 Let's Encrypt + nginx HTTPS",
         "description": "Set up certbot for Let's Encrypt SSL certificates, configure nginx for HTTPS termination, add HTTP\u2192HTTPS redirect, and set up auto-renewal cron job.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "120"
@@ -1496,7 +1496,7 @@
         "id": "120",
         "title": "Domain Setup \u2014 Point agentgraph.io DNS to EC2",
         "description": "Configure Cloudflare DNS A record for agentgraph.io pointing to Elastic IP ***REMOVED***. Set up nginx server_name. This is a MANUAL task the user must do in Cloudflare dashboard.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "details": "MANUAL TASK \u2014 User must perform in Cloudflare dashboard.\n\nSteps:\n1. Log into Cloudflare dashboard for agentgraph.io domain\n2. Go to DNS settings\n3. Add A record:\n   - Name: @ (root)\n   - Content: ***REMOVED***\n   - Proxy status: DNS only (grey cloud) \u2014 important for certbot HTTP challenge\n   - TTL: Auto\n4. Add A record for www:\n   - Name: www\n   - Content: ***REMOVED***\n   - Proxy status: DNS only\n5. Update nginx.conf server_name directive:\n   - server_name agentgraph.io www.agentgraph.io;\n6. Verify DNS propagation:\n   - dig agentgraph.io should return ***REMOVED***\n   - nslookup agentgraph.io\n\nNote: Keep Cloudflare proxy OFF initially so certbot can do HTTP-01 challenge. Can enable proxy later after SSL is set up.",
@@ -1507,7 +1507,7 @@
         "id": "121",
         "title": "Email SMTP Configuration",
         "description": "Configure SMTP credentials in production .env for email verification and password reset flows. The email service code is already built (src/email.py + src/templates/). Just needs SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL env vars set in production.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "MANUAL TASK \u2014 User must set up SMTP provider and configure env vars.\n\nThe email sending code is complete:\n- src/email.py \u2014 async email sending via aiosmtplib\n- src/templates/ \u2014 HTML email templates for verification, password reset, etc.\n\nSteps:\n1. Choose SMTP provider (options: AWS SES, Mailgun, SendGrid, Resend)\n   - AWS SES recommended since already on AWS, cheap for low volume\n   - Resend is developer-friendly alternative\n2. Set up sender domain verification (SPF, DKIM, DMARC records in Cloudflare)\n3. Add to production .env:\n   - SMTP_HOST=<provider host>\n   - SMTP_PORT=587\n   - SMTP_USER=<provider user>\n   - SMTP_PASSWORD=<provider password>\n   - FROM_EMAIL=noreply@agentgraph.io\n4. Test email delivery:\n   - Register new account, verify email arrives\n   - Trigger password reset, verify email arrives\n5. Monitor deliverability (check spam folder initially)\n\nNo code changes needed \u2014 just environment configuration.",
@@ -1565,7 +1565,7 @@
         "id": "126",
         "title": "Daily Backup Cron Setup",
         "description": "Add crontab entry on MacBook for scripts/backup-prod.sh to run daily at 3 AM. MANUAL task \u2014 user must configure the cron job.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "MANUAL TASK \u2014 User must add crontab entry.\n\nThe backup script (scripts/backup-prod.sh) should already exist and handle:\n- SSH into EC2 instance\n- Run pg_dump on production PostgreSQL\n- Download the backup file\n- Store locally with date-stamped filename\n- Optionally upload to S3 or other remote storage\n- Clean up old backups (keep last 30 days)\n\nSteps:\n1. Verify scripts/backup-prod.sh exists and works manually:\n   bash scripts/backup-prod.sh\n2. Make executable: chmod +x scripts/backup-prod.sh\n3. Add crontab entry:\n   crontab -e\n   0 3 * * * /Users/kserver/projects/agentgraph/scripts/backup-prod.sh >> /Users/kserver/projects/agentgraph/logs/backup.log 2>&1\n4. Verify crontab was saved:\n   crontab -l\n5. Wait for next 3 AM run and check logs\n6. Verify backup file was created and is valid:\n   pg_restore --list <backup_file>\n\nAlternative: Use launchd plist instead of cron on macOS for better reliability.",
