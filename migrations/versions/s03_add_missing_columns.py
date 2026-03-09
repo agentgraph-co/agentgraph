@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision = "s03_missing_columns"
 down_revision = "s02_merge_heads"
@@ -22,86 +21,48 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
     # --- entities.operator_approved (task #184) ---
-    op.add_column(
-        "entities",
-        sa.Column(
-            "operator_approved",
-            sa.Boolean(),
-            server_default="false",
-            nullable=False,
-        ),
-    )
+    conn.execute(sa.text(
+        "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+        "operator_approved BOOLEAN NOT NULL DEFAULT false"
+    ))
 
     # --- entities.onboarding_data (bot onboarding) ---
-    op.add_column(
-        "entities",
-        sa.Column(
-            "onboarding_data",
-            postgresql.JSONB(),
-            server_default="{}",
-            nullable=True,
-        ),
-    )
+    conn.execute(sa.text(
+        "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+        "onboarding_data JSONB DEFAULT '{}'::jsonb"
+    ))
 
     # --- webhook_delivery_logs table (task #191) ---
-    op.create_table(
-        "webhook_delivery_logs",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-        ),
-        sa.Column(
-            "subscription_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("webhook_subscriptions.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("event_type", sa.String(100), nullable=False),
-        sa.Column(
-            "payload",
-            postgresql.JSONB(),
-            nullable=False,
-            server_default="{}",
-        ),
-        sa.Column("status_code", sa.Integer(), nullable=True),
-        sa.Column(
-            "success",
-            sa.Boolean(),
-            nullable=False,
-            server_default="false",
-        ),
-        sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column(
-            "attempt_number",
-            sa.Integer(),
-            nullable=False,
-            server_default="1",
-        ),
-        sa.Column("duration_ms", sa.Integer(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.func.now(),
-            nullable=False,
-        ),
-    )
-    op.create_index(
-        "ix_delivery_logs_subscription",
-        "webhook_delivery_logs",
-        ["subscription_id"],
-    )
-    op.create_index(
-        "ix_delivery_logs_created_at",
-        "webhook_delivery_logs",
-        ["created_at"],
-    )
-    op.create_index(
-        "ix_delivery_logs_event_type",
-        "webhook_delivery_logs",
-        ["event_type"],
-    )
+    conn.execute(sa.text(
+        "CREATE TABLE IF NOT EXISTS webhook_delivery_logs ("
+        "  id UUID PRIMARY KEY,"
+        "  subscription_id UUID NOT NULL"
+        "    REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,"
+        "  event_type VARCHAR(100) NOT NULL,"
+        "  payload JSONB NOT NULL DEFAULT '{}'::jsonb,"
+        "  status_code INTEGER,"
+        "  success BOOLEAN NOT NULL DEFAULT false,"
+        "  error_message TEXT,"
+        "  attempt_number INTEGER NOT NULL DEFAULT 1,"
+        "  duration_ms INTEGER,"
+        "  created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+        ")"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_delivery_logs_subscription "
+        "ON webhook_delivery_logs (subscription_id)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_delivery_logs_created_at "
+        "ON webhook_delivery_logs (created_at)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_delivery_logs_event_type "
+        "ON webhook_delivery_logs (event_type)"
+    ))
 
 
 def downgrade() -> None:
