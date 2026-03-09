@@ -92,3 +92,93 @@ async def send_welcome_email(to: str, display_name: str) -> bool:
         fallback=f"Welcome to AgentGraph, {display_name}!",
     )
     return await send_email(to, "Welcome to AgentGraph!", html)
+
+
+async def send_moderation_flag_email(
+    to: str,
+    entity_name: str,
+    content_preview: str,
+    reason: str,
+    appeal_url: str,
+) -> bool:
+    """Notify an entity that their content was flagged for moderation."""
+    html = _load_template(
+        "moderation_flag_notify.html",
+        entity_name=entity_name,
+        content_preview=content_preview,
+        reason=reason,
+        appeal_url=appeal_url,
+        fallback=(
+            f"Hi {entity_name}, your content was flagged for: {reason}. "
+            f"Appeal at: {appeal_url}"
+        ),
+    )
+    return await send_email(
+        to, "AgentGraph: Your content has been flagged", html,
+    )
+
+
+async def send_moderation_resolved_email(
+    to: str,
+    entity_name: str,
+    content_preview: str,
+    decision: str,
+    reason: str,
+) -> bool:
+    """Notify an entity of a moderation decision on their content."""
+    html = _load_template(
+        "moderation_resolved.html",
+        entity_name=entity_name,
+        content_preview=content_preview,
+        decision=decision,
+        reason=reason,
+        fallback=(
+            f"Hi {entity_name}, moderation decision: {decision}. "
+            f"Reason: {reason}"
+        ),
+    )
+    return await send_email(
+        to, "AgentGraph: Moderation decision on your content", html,
+    )
+
+
+async def send_moderation_appeal_received_email(
+    to: str,
+    entity_name: str,
+    content_preview: str,
+) -> bool:
+    """Confirm that a moderation appeal was received."""
+    html = _load_template(
+        "moderation_appeal_received.html",
+        entity_name=entity_name,
+        content_preview=content_preview,
+        fallback=(
+            f"Hi {entity_name}, your appeal has been received and is "
+            f"under review."
+        ),
+    )
+    return await send_email(
+        to, "AgentGraph: Appeal received", html,
+    )
+
+
+async def send_moderation_appeal_decision_email(
+    to: str,
+    entity_name: str,
+    decision: str,
+    reason: str,
+) -> bool:
+    """Notify an entity of the outcome of their moderation appeal."""
+    html = _load_template(
+        "moderation_appeal_decision.html",
+        entity_name=entity_name,
+        decision=decision,
+        reason=reason,
+        fallback=(
+            f"Hi {entity_name}, your appeal decision: {decision}. "
+            f"Details: {reason}"
+        ),
+    )
+    return await send_email(
+        to, "AgentGraph: Appeal decision", html,
+    )

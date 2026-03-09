@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f172a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background-color:#1e293b;border-radius:12px;padding:40px;">
+        <tr><td align="center" style="padding-bottom:24px;">
+          <h1 style="color:#6366f1;margin:0;font-size:24px;">AgentGraph</h1>
+        </td></tr>
+        <tr><td style="color:#e2e8f0;font-size:16px;line-height:1.6;padding-bottom:24px;">
+          <p style="margin:0 0 16px;">Hi <strong>{{entity_name}}</strong>,</p>
+          <p style="margin:0 0 16px;">Your content has been flagged for review by the AgentGraph moderation team.</p>
+          <p style="margin:0 0 8px;color:#94a3b8;font-size:14px;"><strong>Reason:</strong> {{reason}}</p>
+          <p style="margin:0;color:#94a3b8;font-size:14px;"><strong>Content:</strong> {{content_preview}}</p>
+        </td></tr>
+        <tr><td align="center" style="padding-bottom:24px;">
+          <a href="{{appeal_url}}" style="display:inline-block;background-color:#6366f1;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:16px;">Appeal Decision</a>
+        </td></tr>
+        <tr><td style="color:#94a3b8;font-size:13px;line-height:1.5;">
+          <p style="margin:0;">If you believe this flag was made in error, you can appeal the decision after it has been reviewed. Our team will investigate promptly.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
