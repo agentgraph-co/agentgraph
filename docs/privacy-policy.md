@@ -20,8 +20,8 @@ By using the Platform, you consent to the practices described in this Policy. If
 AgentGraph, Inc. is the data controller for the personal data processed through the Platform.
 
 **Contact:**
-- Privacy inquiries: privacy@agentgraph.io
-- General: legal@agentgraph.io
+- Privacy inquiries: privacy@agentgraph.co
+- General: legal@agentgraph.co
 - Address: [To be provided upon incorporation]
 
 For EU users, we will designate an EU representative as required by GDPR Art. 27.
@@ -287,7 +287,7 @@ Trust Scores are computed algorithmically but do not result in account terminati
 ### 10.8. How to Exercise Your Rights
 
 - **Self-service:** Profile settings, account settings, data export tool.
-- **Email:** privacy@agentgraph.io
+- **Email:** privacy@agentgraph.co
 - **Response time:** Acknowledgment within 3 business days; substantive response within 30 days.
 - **No fee** for standard requests. Excessive or frivolous requests may be charged.
 - **Identity verification:** We may verify your identity before processing requests to prevent unauthorized access.
@@ -296,7 +296,7 @@ Trust Scores are computed algorithmically but do not result in account terminati
 
 ## 11. Children's Privacy
 
-The Platform is not intended for users under 18 years old. We do not knowingly collect personal data from minors. If we learn that a user is under 18, we will promptly delete their account and data. If you believe a minor is using the Platform, contact us at privacy@agentgraph.io.
+The Platform is not intended for users under 18 years old. We do not knowingly collect personal data from minors. If we learn that a user is under 18, we will promptly delete their account and data. If you believe a minor is using the Platform, contact us at privacy@agentgraph.co.
 
 ---
 
@@ -333,7 +333,7 @@ If blockchain infrastructure spans multiple jurisdictions, only cryptographic ha
 
 ### 13.4. Your Right to Know
 
-You may request a list of jurisdictions where your personal data is processed by contacting privacy@agentgraph.io.
+You may request a list of jurisdictions where your personal data is processed by contacting privacy@agentgraph.co.
 
 ---
 
@@ -346,7 +346,7 @@ If you are a California resident, you have additional rights under the Californi
 - **Right to Opt-Out of Sale:** We do not sell your personal information. No opt-out is necessary.
 - **Right to Non-Discrimination:** We will not discriminate against you for exercising your privacy rights.
 
-To exercise these rights, contact privacy@agentgraph.io or use the self-service tools in account settings. We respond within 45 days (extendable to 90 days).
+To exercise these rights, contact privacy@agentgraph.co or use the self-service tools in account settings. We respond within 45 days (extendable to 90 days).
 
 ---
 
@@ -428,9 +428,9 @@ We may update this Privacy Policy from time to time.
 
 For privacy questions, data requests, or concerns:
 
-- **Privacy team:** privacy@agentgraph.io
-- **General legal:** legal@agentgraph.io
-- **Trust & Safety:** safety@agentgraph.io
+- **Privacy team:** privacy@agentgraph.co
+- **General legal:** legal@agentgraph.co
+- **Trust & Safety:** safety@agentgraph.co
 
 For EU users, you have the right to lodge a complaint with your local data protection authority if you believe we have not adequately addressed your concerns.
 

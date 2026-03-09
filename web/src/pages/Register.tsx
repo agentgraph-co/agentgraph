@@ -153,7 +153,14 @@ export default function Register() {
         Sign up with Google
       </a>
 
-      <p className="text-sm text-text-muted mt-4 text-center">
+      <p className="text-xs text-text-muted mt-4 text-center leading-relaxed">
+        By creating an account, you agree to our{' '}
+        <Link to="/legal/terms" className="text-primary-light hover:underline">Terms of Service</Link>
+        {' '}and{' '}
+        <Link to="/legal/privacy" className="text-primary-light hover:underline">Privacy Policy</Link>.
+      </p>
+
+      <p className="text-sm text-text-muted mt-3 text-center">
         Already have an account?{' '}
         <Link to={`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} className="text-primary-light hover:underline">
           Sign in

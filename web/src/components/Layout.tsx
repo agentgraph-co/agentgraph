@@ -460,6 +460,7 @@ export default function Layout() {
             onClick={() => setMobileOpen(!mobileOpen)}
             className="lg:hidden text-text-muted hover:text-text cursor-pointer p-1.5 rounded-lg hover:bg-surface-hover/50 transition-colors"
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
             whileTap={{ scale: 0.9 }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

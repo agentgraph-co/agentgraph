@@ -212,7 +212,13 @@ else
     LOGIN_RESULT=$(remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} exec -T backend python3 -c '
 import httpx, sys, time
 time.sleep(1)
-r = httpx.post(\"http://localhost:8000/api/v1/auth/login\", json={\"email\": \"kenne@agentgraph.io\", \"password\": \"***REMOVED***\"})
+import os
+email = os.environ.get(\"ADMIN_EMAIL\", \"admin@agentgraph.co\")
+password = os.environ.get(\"ADMIN_PASSWORD\", \"\")
+if not password:
+    print(\"LOGIN_SKIP: set ADMIN_EMAIL and ADMIN_PASSWORD env vars to verify login\")
+    sys.exit(0)
+r = httpx.post(\"http://localhost:8000/api/v1/auth/login\", json={\"email\": email, \"password\": password})
 if r.status_code == 200:
     print(\"LOGIN_OK\")
 else:

@@ -95,11 +95,11 @@ function ConnectionList({ entityId }: { entityId: string }) {
       {Array.from({ length: 4 }).map((_, i) => <ConnectionSkeleton key={i} />)}
     </div>
   )
-  if (!data || data.nodes.length <= 1) return <div className="text-sm text-text-muted">No connections yet</div>
+  if (!data || !data.nodes || data.nodes.length <= 1) return <div className="text-sm text-text-muted">No connections yet</div>
 
   const connections = data.nodes.filter(n => n.id !== entityId)
   const linkMap = new Map<string, string>()
-  for (const link of data.links) {
+  for (const link of data.links ?? []) {
     const otherId = link.source === entityId ? link.target : link.source
     linkMap.set(otherId, link.relationship_type)
   }

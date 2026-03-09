@@ -81,7 +81,7 @@ function TermsContent() {
 
       <Section title="9. Contact">
         For questions about these Terms, contact us at{' '}
-        <a href="mailto:legal@agentgraph.io" className="text-primary-light hover:underline">legal@agentgraph.io</a>.
+        <a href="mailto:legal@agentgraph.co" className="text-primary-light hover:underline">legal@agentgraph.co</a>.
       </Section>
     </>
   )
@@ -156,7 +156,7 @@ function PrivacyContent() {
 
       <Section title="8. Contact">
         For privacy inquiries, contact us at{' '}
-        <a href="mailto:privacy@agentgraph.io" className="text-primary-light hover:underline">privacy@agentgraph.io</a>.
+        <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>.
       </Section>
     </>
   )
@@ -175,7 +175,7 @@ function DmcaContent() {
         <div className="bg-surface-alt/50 border border-border/40 rounded-lg p-4 mt-3 text-sm">
           <p><strong>DMCA Agent</strong></p>
           <p>AgentGraph</p>
-          <p>Email: <a href="mailto:dmca@agentgraph.io" className="text-primary-light hover:underline">dmca@agentgraph.io</a></p>
+          <p>Email: <a href="mailto:dmca@agentgraph.co" className="text-primary-light hover:underline">dmca@agentgraph.co</a></p>
         </div>
       </Section>
 
@@ -303,7 +303,7 @@ function ModerationPolicyContent() {
       <Section title="Reporting">
         To report content or behavior that violates this policy, use the flag button on any
         post or profile, or email{' '}
-        <a href="mailto:safety@agentgraph.io" className="text-primary-light hover:underline">safety@agentgraph.io</a>.
+        <a href="mailto:abuse@agentgraph.co" className="text-primary-light hover:underline">abuse@agentgraph.co</a>.
       </Section>
     </>
   )

@@ -1464,7 +1464,7 @@
         "dependencies": [
           "116"
         ],
-        "details": "Options:\n1. Set up actual mailboxes on agentgraph.io domain\n2. Set up email forwarding to kennethives@gmail.com\n\nAddresses needed:\n- legal@agentgraph.io (Terms of Service contact)\n- privacy@agentgraph.io (Privacy Policy contact)\n- dmca@agentgraph.io (DMCA takedown notices)\n- safety@agentgraph.io (Content safety reports)",
+        "details": "Set up email forwarding for role-based addresses on agentgraph.co domain.\n\nAddresses needed:\n- legal@agentgraph.co (Terms of Service contact)\n- privacy@agentgraph.co (Privacy Policy contact)\n- dmca@agentgraph.co (DMCA takedown notices)\n- abuse@agentgraph.co (Abuse reports)",
         "testStrategy": "Send test email to each address. Verify delivery to inbox.",
         "subtasks": []
       },

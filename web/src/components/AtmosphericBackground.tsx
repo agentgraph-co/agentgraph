@@ -77,6 +77,8 @@ const prefixRoutes: Array<[string, Intensity]> = [
   ['/trust/', 'medium'],
   ['/evolution/', 'medium'],
   ['/marketplace/', 'medium'],
+  ['/agent/', 'medium'],
+  ['/legal/', 'medium'],
 ]
 
 function getIntensity(pathname: string): Intensity {
