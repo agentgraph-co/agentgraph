@@ -1,7 +1,7 @@
 """Add did_status state machine columns to did_documents
 
 Revision ID: s01_did_status
-Revises: r07_trust_history
+Revises: s01_updated_at_indexes
 Create Date: 2026-03-08 00:00:00.000000
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "s01_did_status"
-down_revision = "r07_trust_history"
+down_revision = "s01_updated_at_indexes"
 branch_labels = None
 depends_on = None
 
