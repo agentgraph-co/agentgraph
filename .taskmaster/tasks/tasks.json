@@ -2702,6 +2702,24 @@
         "testStrategy": "50 responses collected. Data analyzed. Pivot decisions documented.",
         "subtasks": [],
         "owner": "kenne"
+      },
+      {
+        "id": "222",
+        "title": "Register DMCA designated agent with US Copyright Office",
+        "description": "File DMCA designated agent registration with the US Copyright Office for safe harbor protection under 17 U.S.C. 512.",
+        "details": "Go to https://www.copyright.gov/dmca-directory/ and register AgentGraph as a service provider. Cost is $6. Required for DMCA safe harbor to be legally effective. Use dmca@agentgraph.co as the designated agent email.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": []
+      },
+      {
+        "id": "223",
+        "title": "Replace TestFlight PLACEHOLDER link with real URL",
+        "description": "Update the TestFlight link on the Home page and Register page once the iOS app is ready for beta testing.",
+        "details": "Search for PLACEHOLDER in web/src/ and replace with the real TestFlight join URL. Affected files: web/src/pages/Home.tsx, web/src/pages/Register.tsx, web/src/components/Layout.tsx.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": []
       }
     ],
     "metadata": {
