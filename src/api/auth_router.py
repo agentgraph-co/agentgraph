@@ -71,7 +71,11 @@ async def register(
             message="Registration successful. Please check your email for verification.",
         )
 
-    entity = await register_human(db, body.email, body.password, body.display_name)
+    reg_ip = request.client.host if request.client else None
+    entity = await register_human(
+        db, body.email, body.password, body.display_name,
+        registration_ip=reg_ip,
+    )
     verification_token = await create_verification_token(db, entity.id)
 
     await log_action(
@@ -484,6 +488,7 @@ async def google_callback(
             email_verified=True,  # Google already verified
             did_web=f"did:web:agentgraph.co:users:{entity_id}",
             sso_provider_id=f"google:{userinfo.get('id', '')}",
+            registration_ip=request.client.host if request.client else None,
         )
         db.add(entity)
         await db.flush()

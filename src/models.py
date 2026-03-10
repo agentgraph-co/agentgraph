@@ -149,6 +149,9 @@ class Entity(Base):
     claim_token = Column(String(64), nullable=True, unique=True)
     provisional_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Sybil detection — IP at registration time
+    registration_ip = Column(String(45), nullable=True, index=True)
+
     # Onboarding progress
     onboarding_data = Column(JSONB, default=dict, server_default="{}")
 

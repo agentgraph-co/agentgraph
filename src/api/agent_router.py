@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -139,6 +139,7 @@ async def _check_daily_agent_limit(
 )
 async def register_agent(
     body: RegisterAgentRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Register an agent directly via API without requiring a human operator.
@@ -189,6 +190,7 @@ async def register_agent(
         bio_markdown=body.bio_markdown,
         operator=operator,
         framework_source=body.framework_source,
+        registration_ip=request.client.host if request.client else None,
     )
     await log_action(
         db,

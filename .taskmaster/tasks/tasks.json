@@ -943,7 +943,7 @@
         "id": "72",
         "title": "PRD Reconciliation \u2014 Post-Implementation Audit of All Phases Against PRD & Persona Feedback",
         "description": "After ALL phases (1-4) are complete, go back to the original PRD, persona review feedback, and phase planning documents. Audit what was captured vs skipped across the entire project. Validate persona recommendations were addressed. Identify gaps, missed items, and new requirements that emerged during implementation.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "This is a POST-COMPLETION reconciliation task \u2014 run AFTER all four phases are done.\n\n1. PRD Coverage Audit:\n   - Re-read docs/AgentGraph_PRD.md\n   - Compare every PRD section against implemented features across ALL phases\n   - Flag any items that were skipped or partially implemented\n   - Document coverage percentage per PRD section\n\n2. Persona Feedback Validation:\n   - Re-read docs/reviews/ (CPO, CTO, Architect, Legal, Compliance, CEO reviews)\n   - Check each recommendation: implemented, deferred, or dropped\n   - Flag any critical recommendations that were ignored\n   - Update synthesis.md with resolution status\n\n3. Gap Analysis:\n   - What open questions (Q9-Q25) are now answerable with implementation data?\n   - What deferred items (Task 49) should be promoted?\n   - What new requirements emerged during implementation?\n   - What technical debt accumulated?\n\n4. Post-Launch Backlog:\n   - Create prioritized backlog of missed/deferred items\n   - Categorize: must-fix vs nice-to-have vs future consideration\n\nOutput: Updated PRD coverage matrix, gap analysis document, post-launch backlog, revised open questions tracker.",
@@ -2702,15 +2702,6 @@
         "testStrategy": "50 responses collected. Data analyzed. Pivot decisions documented.",
         "subtasks": [],
         "owner": "kenne"
-      },
-      {
-        "id": "222",
-        "title": "Register DMCA designated agent with US Copyright Office",
-        "description": "File DMCA designated agent registration with the US Copyright Office for safe harbor protection under 17 U.S.C. 512.",
-        "details": "Go to https://www.copyright.gov/dmca-directory/ and register AgentGraph as a service provider. Cost is $6. Required for DMCA safe harbor to be legally effective. Use dmca@agentgraph.co as the designated agent email.",
-        "status": "pending",
-        "priority": "high",
-        "dependencies": []
       },
       {
         "id": "223",

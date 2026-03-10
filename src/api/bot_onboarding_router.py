@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -270,6 +270,7 @@ async def list_templates(
 @router.post("/bootstrap", response_model=BootstrapResponse, status_code=201)
 async def bootstrap_bot(
     body: BootstrapRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _rate: None = Depends(rate_limit_auth),
 ) -> BootstrapResponse:
@@ -357,6 +358,7 @@ async def bootstrap_bot(
         bio_markdown=bio_markdown,
         operator=operator,
         framework_source=framework_source,
+        registration_ip=request.client.host if request.client else None,
     )
 
     # Optional intro post
