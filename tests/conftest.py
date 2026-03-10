@@ -221,6 +221,15 @@ async def _clean_db_once():
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
             "operator_approved BOOLEAN NOT NULL DEFAULT false"
         ))
+        # Ensure registration_ip column exists (Sybil detection, migration s04)
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "registration_ip VARCHAR(45)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_entities_registration_ip "
+            "ON entities (registration_ip)"
+        ))
         # Ensure aip_channels table exists (migration r05)
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS aip_channels ("

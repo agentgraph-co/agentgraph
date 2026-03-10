@@ -301,20 +301,50 @@ async def detect_sybil_cluster(
     max_same_ip: int = 5,
     window_hours: int = 24,
 ) -> list[PopulationAlert]:
-    """Alert if >max_same_ip new entities share same registration IP in window.
+    """Alert if >max_same_ip new entities share same registration IP in window."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
 
-    NOTE: The Entity model does not currently have a `registration_ip` field.
-    This detector is a placeholder and will return an empty list until the
-    `registration_ip` column is added to the entities table. When that field
-    is added, uncomment the query logic below and remove this early return.
-    """
-    # TODO: Enable when Entity.registration_ip column is added.
-    # The implementation would group recent registrations by IP and flag
-    # any IP with more than max_same_ip registrations in the window.
-    logger.debug(
-        "Sybil cluster detector skipped: Entity.registration_ip field not yet available"
+    # Group recent registrations by IP, filter to IPs with too many
+    stmt = (
+        select(
+            Entity.registration_ip,
+            func.count().label("cnt"),
+        )
+        .where(
+            and_(
+                Entity.created_at >= cutoff,
+                Entity.registration_ip.isnot(None),
+                Entity.registration_ip != "",
+            )
+        )
+        .group_by(Entity.registration_ip)
+        .having(func.count() > max_same_ip)
     )
-    return []
+    rows = (await db.execute(stmt)).all()
+
+    alerts: list[PopulationAlert] = []
+    for row in rows:
+        ip_addr, count = row[0], row[1]
+        alerts.append(
+            PopulationAlert(
+                id=_uuid.uuid4(),
+                alert_type="sybil_cluster",
+                severity="high",
+                message=(
+                    f"Possible Sybil cluster: {count} entities registered from "
+                    f"IP {ip_addr} in the last {window_hours}h (threshold: {max_same_ip})"
+                ),
+                details={"ip": ip_addr, "count": count, "window_hours": window_hours},
+            )
+        )
+
+    if alerts:
+        for a in alerts:
+            db.add(a)
+        await db.flush()
+        logger.warning("Sybil cluster alerts: %d IPs flagged", len(alerts))
+
+    return alerts
 
 
 # ---------------------------------------------------------------------------

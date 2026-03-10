@@ -78,6 +78,7 @@ async def register_human(
     email: str,
     password: str,
     display_name: str,
+    registration_ip: str | None = None,
 ) -> Entity:
     entity_id = uuid.uuid4()
     entity = Entity(
@@ -87,6 +88,7 @@ async def register_human(
         password_hash=hash_password(password),
         display_name=display_name,
         did_web=generate_did_web(entity_id),
+        registration_ip=registration_ip,
     )
     db.add(entity)
     await db.flush()

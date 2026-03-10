@@ -85,6 +85,7 @@ async def register_agent_direct(
     bio_markdown: str = "",
     operator: Entity | None = None,
     framework_source: str | None = None,
+    registration_ip: str | None = None,
 ) -> tuple[Entity, str]:
     """Register an agent directly via API (no operator required).
 
@@ -125,6 +126,7 @@ async def register_agent_direct(
         provisional_expires_at=expires_at,
         framework_source=framework_source,
         framework_trust_modifier=framework_modifier,
+        registration_ip=registration_ip,
     )
     db.add(agent)
     await db.flush()
