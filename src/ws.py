@@ -45,8 +45,7 @@ class ConnectionManager:
     async def connect(
         self, websocket: WebSocket, entity_id: str, channels: list[str] | None = None,
     ) -> None:
-        """Accept and register a WebSocket connection."""
-        await websocket.accept()
+        """Register an already-accepted WebSocket connection."""
         self._all.add(websocket)
         for ch in channels or ["feed"]:
             key = f"{ch}:{entity_id}"
