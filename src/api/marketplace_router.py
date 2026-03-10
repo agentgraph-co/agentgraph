@@ -220,9 +220,10 @@ async def connect_status(
     from src.payments.stripe_service import get_account_status
 
     if not settings.stripe_secret_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Payment processing is not configured",
+        return ConnectStatusResponse(
+            charges_enabled=False,
+            payouts_enabled=False,
+            details_submitted=False,
         )
 
     if not current_entity.stripe_account_id:
