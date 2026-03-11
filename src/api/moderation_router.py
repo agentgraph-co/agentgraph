@@ -203,22 +203,25 @@ async def create_flag(
     )
 
     # Best-effort email notification to the flagged entity
-    try:
-        from src.config import settings
-        from src.email import send_moderation_flag_email
+    # LEGAL: Do NOT notify flagged entity for illegal/CSAM reports — tipping off
+    # a CSAM subject is a federal crime under 18 U.S.C. § 2258B.
+    if body.reason not in (ModerationReason.ILLEGAL, ModerationReason.CSAM):
+        try:
+            from src.config import settings
+            from src.email import send_moderation_flag_email
 
-        email, name, preview = await _get_target_entity_info(db, flag)
-        if email:
-            appeal_url = f"{settings.base_url}/moderation/flags/{flag.id}"
-            await send_moderation_flag_email(
-                to=email,
-                entity_name=name,
-                content_preview=preview,
-                reason=body.reason.value,
-                appeal_url=appeal_url,
-            )
-    except Exception:
-        logger.warning("Best-effort moderation email failed", exc_info=True)
+            email, name, preview = await _get_target_entity_info(db, flag)
+            if email:
+                appeal_url = f"{settings.base_url}/moderation/flags/{flag.id}"
+                await send_moderation_flag_email(
+                    to=email,
+                    entity_name=name,
+                    content_preview=preview,
+                    reason=body.reason.value,
+                    appeal_url=appeal_url,
+                )
+        except Exception:
+            logger.warning("Best-effort moderation email failed", exc_info=True)
 
     return FlagResponse(
         id=flag.id,

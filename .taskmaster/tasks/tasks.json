@@ -2720,6 +2720,127 @@
         "status": "deferred",
         "priority": "low",
         "dependencies": []
+      },
+      {
+        "id": "225",
+        "title": "P2: Progressive Login Delay After Failed Attempts",
+        "description": "Add Redis-based progressive delay after failed login attempts. Currently rate-limited at 5/min but no lockout. Implement: 1) Track failed login count per email in Redis with TTL, 2) After 5 failures, add 1s delay doubling each time (1s, 2s, 4s, 8s...), 3) After 10 failures, lock for 15min, 4) Log excessive failures to audit log. Already rate-limited at 5/min so this is P2.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Test progressive delay increases after each failed attempt. Verify lockout after 10 failures. Verify successful login resets counter.",
+        "subtasks": []
+      },
+      {
+        "id": "226",
+        "title": "P2: Bot Bootstrap Abuse Monitoring",
+        "description": "Bot bootstrap endpoint is intentionally unauthenticated for easy onboarding, but needs abuse monitoring. Add: 1) Rate limit per IP (5 bootstraps/hour), 2) Redis-backed counter for total daily bootstraps (alert if >100/day), 3) Log all bootstraps to audit log with IP. The endpoint already captures registration_ip for Sybil detection.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Test rate limit triggers after 5 bootstraps from same IP. Verify audit logging.",
+        "subtasks": []
+      },
+      {
+        "id": "227",
+        "title": "SEO: Create og:image Social Share Card (1200x630)",
+        "description": "Create a 1200x630 PNG social share image for og:image and twitter:image. Should feature the AgentGraph brand (hero face + logo + tagline). Place at web/public/og-image.png. The index.html already references this path. Without this, every shared link shows no thumbnail on Slack, Twitter, iMessage, etc.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Share a link on Slack/Twitter/iMessage and verify the card renders with the image.",
+        "subtasks": []
+      },
+      {
+        "id": "228",
+        "title": "SEO: Per-Page Dynamic Meta Tags with react-helmet-async",
+        "description": "Install react-helmet-async and add per-page dynamic meta tags (title, description, og:title, og:description, og:url, canonical). Currently only document.title changes per page \u2014 crawlers and social previews always see the static index.html tags. Priority pages: Home, Feed, Profile (dynamic name), PostDetail (dynamic author), ListingDetail (dynamic title), Marketplace, Bot Onboarding.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "View page source (or use og:debugger) on each page and verify unique meta tags render.",
+        "subtasks": []
+      },
+      {
+        "id": "229",
+        "title": "SEO: Structured Data (JSON-LD) for Key Pages",
+        "description": "Add JSON-LD structured data to key pages: Organization schema on Home, WebSite schema with SearchAction on Search, SoftwareApplication on marketplace listings, Person/ProfilePage on user profiles. This enables Google rich results and improves discoverability.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "",
+        "testStrategy": "Validate with Google Rich Results Test tool.",
+        "subtasks": []
+      },
+      {
+        "id": "230",
+        "title": "CSAM: Suppress Notification to Flagged Entity on Illegal Reports",
+        "description": "CRITICAL LEGAL FIX: The moderation system currently emails the flagged entity when ANY flag is submitted (moderation_router.py). For CSAM/illegal reports, this constitutes illegal tip-off under 18 U.S.C. 2258B. Fix: skip entity notification email when ModerationReason is ILLEGAL. Also add a dedicated CSAM reason to ModerationReason enum to enable separate workflow.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Test that flagging with reason=illegal does NOT send notification email. Test that flagging with other reasons still sends notification.",
+        "subtasks": []
+      },
+      {
+        "id": "231",
+        "title": "CSAM: Add csam Reason to ModerationReason Enum + Dedicated Queue",
+        "description": "Add CSAM as a distinct ModerationReason value (separate from generic illegal). Enable: separate admin queue filtering, automatic notification suppression, evidence preservation trigger, future CyberTip automation. Update moderation_router to handle csam flags with highest priority sorting.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Test flag creation with reason=csam. Verify it appears in moderation queue with high priority. Verify no notification sent to flagged entity.",
+        "subtasks": []
+      },
+      {
+        "id": "232",
+        "title": "[DEFERRED] CSAM: PhotoDNA / Hash-Based Media Scanning",
+        "description": "Implement hash-based CSAM detection on media URLs before they are displayed. Options: Microsoft PhotoDNA Cloud Service, or restrict media to allowlisted CDNs only. Current media support is URL-reference only (no uploads), which reduces liability but does not eliminate it. Depends on media feature maturity.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Test that known CSAM hashes are blocked. Test that clean media passes.",
+        "subtasks": []
+      },
+      {
+        "id": "233",
+        "title": "[DEFERRED] CSAM: Automated NCMEC CyberTip Submission Pipeline",
+        "description": "Build automated CyberTip submission via NCMEC API when CSAM is confirmed by admin. Preserve evidence bundle (URL, timestamp, user IP, account info, content hash). Required by 18 U.S.C. 2258A. Fines up to K per violation for failure to report. Currently a manual process.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Test evidence bundle generation. Test CyberTip API call (mock in tests).",
+        "subtasks": []
+      },
+      {
+        "id": "234",
+        "title": "Accessibility: Add htmlFor/id Label Associations to All Forms",
+        "description": "Fix ~24 form inputs across 6 pages missing proper label associations. Pages: Settings.tsx (5 inputs), BotOnboarding.tsx (6), ForgotPassword.tsx (1), ResetPassword.tsx (2), CreateListing.tsx (6), Webhooks.tsx (2). Login and Register are already correct. Add id to inputs and htmlFor to labels, or aria-label where no visible label exists.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "",
+        "testStrategy": "Run axe accessibility audit on each page. Verify no missing label warnings.",
+        "subtasks": []
+      },
+      {
+        "id": "235",
+        "title": "[KENNE] SEO: Google Search Console Setup + Domain Verification",
+        "description": "Register agentgraph.co with Google Search Console. Verify domain ownership via DNS TXT record. Submit sitemap.xml. Monitor indexing. This is a manual step the user must perform.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Verify site appears in Search Console dashboard and sitemap is accepted.",
+        "subtasks": []
       }
     ],
     "metadata": {

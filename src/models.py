@@ -71,6 +71,7 @@ class ModerationReason(str, enum.Enum):
     HARASSMENT = "harassment"
     MISINFORMATION = "misinformation"
     ILLEGAL = "illegal"
+    CSAM = "csam"
     OFF_TOPIC = "off_topic"
     TRUST_CONTESTATION = "trust_contestation"
     OTHER = "other"
