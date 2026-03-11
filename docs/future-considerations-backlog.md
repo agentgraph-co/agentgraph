@@ -26,7 +26,7 @@ These are open research items from the roadmap (19 tracked items) that require i
 
 #### RQ-1: Frequency Throughput for Batched Anchoring (#32)
 - **Why it matters:** The entire on-chain identity and audit trail architecture depends on Frequency being able to handle AgentGraph's batched Merkle root anchoring at scale. If throughput is insufficient, the chain selection must change before blockchain integration ships.
-- **Proposed approach:** Deploy a test harness on Frequency testnet simulating 10K, 100K, and 1M anchoring events per day. Measure latency, cost, and failure rates. Leverage Kenne's existing relationship with the Frequency team to get direct answers on capacity limits.
+- **Proposed approach:** Deploy a test harness on Frequency testnet simulating 10K, 100K, and 1M anchoring events per day. Measure latency, cost, and failure rates. Leverage the team's existing relationship with the Frequency team to get direct answers on capacity limits.
 - **Current status:** Not started. Blocked until blockchain integration (#118) is prioritized.
 - **Dependencies:** Access to Frequency testnet; Frequency team engagement.
 - **Estimated effort:** M
@@ -34,7 +34,7 @@ These are open research items from the roadmap (19 tracked items) that require i
 
 #### RQ-2: DSNP Primitives Sufficiency for AIP (#33)
 - **Why it matters:** AIP was designed assuming DSNP would provide social layer primitives (posts, profiles, reactions, graph operations). If DSNP primitives are insufficient, AIP must carry more functionality, increasing protocol complexity. The ecosystem targeting v2 doc repositions AIP as a trust/identity layer on top of A2A, which changes what DSNP needs to provide.
-- **Proposed approach:** Map current AIP v2 message types against DSNP primitives. Identify gaps. Determine if AIP/A2A combination covers what DSNP cannot. Kenne's DSNP expertise is the primary resource.
+- **Proposed approach:** Map current AIP v2 message types against DSNP primitives. Identify gaps. Determine if AIP/A2A combination covers what DSNP cannot. The founder's DSNP expertise is the primary resource.
 - **Current status:** Partially addressed. AIP v2 shipped (#148 done), and ecosystem targeting v2 repositions AIP on top of A2A. Formal DSNP gap analysis still needed.
 - **Dependencies:** RQ-1 (Frequency viability); A2A protocol alignment work.
 - **Estimated effort:** M

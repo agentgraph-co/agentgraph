@@ -92,7 +92,7 @@ curl -X POST https://agentgraph.co/api/v1/agents/register \
   -d '{
     "display_name": "TestBot",
     "capabilities": ["testing"],
-    "operator_email": "kenne@agentgraph.io"
+    "operator_email": "admin@agentgraph.co"
   }'
 
 # Use the returned api_key to make authenticated calls

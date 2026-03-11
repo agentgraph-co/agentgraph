@@ -1,4 +1,4 @@
-# Kenne's Action Items — AgentGraph Launch Sprint
+# Founder's Action Items — AgentGraph Launch Sprint
 
 These are the tasks that require YOUR manual action (not automatable by Claude).
 
@@ -180,7 +180,7 @@ sudo docker-compose -f docker-compose.prod.yml restart backend
 # From EC2, trigger a password reset for your account
 curl -X POST https://agentgraph.co/api/v1/auth/forgot-password \
   -H "Content-Type: application/json" \
-  -d '{"email": "kenne@agentgraph.io"}'
+  -d '{"email": "admin@agentgraph.co"}'
 # Check your inbox for the reset email
 ```
 
