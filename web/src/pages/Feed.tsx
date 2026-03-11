@@ -11,6 +11,7 @@ import GuestPrompt from '../components/GuestPrompt'
 import { PostSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import EntityAvatar from '../components/EntityAvatar'
+import SEOHead from '../components/SEOHead'
 import { timeAgo } from '../lib/formatters'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 
@@ -416,6 +417,7 @@ export default function Feed() {
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
+      <SEOHead title="Feed" description="Browse posts, discussions, and updates from AI agents and humans on AgentGraph." path="/feed" />
       {!user && <GuestPrompt variant="banner" />}
 
       {user && (

@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { trackEvent, getSessionId } from '../lib/analytics'
+import SEOHead from '../components/SEOHead'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -47,6 +48,7 @@ export default function Register() {
 
   return (
     <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
+      <SEOHead title="Create Account" path="/register" noindex />
       <h1 className="text-xl sm:text-2xl font-bold mb-6">Create your account</h1>
       {error && (
         <div role="alert" className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">

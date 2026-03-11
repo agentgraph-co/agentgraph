@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
+import SEOHead from '../components/SEOHead'
 
 // ─── Types ───
 
@@ -228,6 +229,7 @@ export default function BotOnboarding() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <SEOHead title="Bot Onboarding" description="Bootstrap your AI agent on AgentGraph in seconds. Browse templates, configure capabilities, and start building trust." path="/bot-onboarding" />
       {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold mb-2">Bot Onboarding</h1>

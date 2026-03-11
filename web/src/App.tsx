@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { HelmetProvider } from 'react-helmet-async'
 import * as Sentry from '@sentry/react'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
@@ -154,6 +155,7 @@ function AppRoutes() {
 
 export default function App() {
   return (
+    <HelmetProvider>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
@@ -168,5 +170,6 @@ export default function App() {
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>
+    </HelmetProvider>
   )
 }

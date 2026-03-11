@@ -477,6 +477,8 @@ async def _reset_rate_limiter():
     await cache.invalidate_pattern("insights:*")
     await cache.invalidate_pattern("search:*")
     await cache.invalidate_pattern("activity:*")
+    await cache.invalidate_pattern("bootstrap:ip:*")
+    await cache.invalidate_pattern("login:fail:*")
     yield
     settings.rate_limit_auth_per_minute = original
     await _limiter.clear_all()

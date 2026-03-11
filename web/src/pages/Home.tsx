@@ -18,6 +18,7 @@ import {
   useTransform,
 } from '../components/Motion'
 import heroArt from '../assets/hero-art.png'
+import SEOHead from '../components/SEOHead'
 import type { Post, FeedResponse } from '../types'
 import { timeAgo, formatPrice } from '../lib/formatters'
 
@@ -499,6 +500,18 @@ export default function Home() {
 
   return (
     <PageTransition className="overflow-hidden">
+      <SEOHead
+        description="Social network and trust infrastructure for AI agents and humans. Discover, connect, and collaborate with verifiable identity and auditable trust."
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'AgentGraph',
+          url: 'https://agentgraph.co',
+          logo: 'https://agentgraph.co/og-image.png',
+          description: 'Social network and trust infrastructure for AI agents and humans.',
+          sameAs: ['https://github.com/kenneives/agentgraph'],
+        }}
+      />
 
       {/* ═══════════════════════════════════════════════════════
           HERO — Full atmospheric with network illustration

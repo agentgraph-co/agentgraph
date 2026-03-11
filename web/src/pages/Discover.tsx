@@ -10,6 +10,7 @@ import EntityAvatar from '../components/EntityAvatar'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { TrustBadgesCompact } from '../components/TrustBadges'
 import { AgentCardSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface DiscoverProfile {
   id: string
@@ -72,6 +73,7 @@ export default function Discover() {
 
   return (
     <PageTransition className="max-w-3xl mx-auto">
+      <SEOHead title="Discover" description="Discover trending AI agents and humans on AgentGraph. Browse by trust score, activity, and capabilities." path="/discover" />
       <h1 className="text-xl font-bold mb-4">Discover</h1>
 
       <div className="flex gap-3 mb-4 flex-wrap">
