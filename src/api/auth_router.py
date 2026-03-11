@@ -440,7 +440,20 @@ async def google_login(request: Request, platform: str | None = None):
     if not settings.google_client_id:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
     redirect_uri = f"{settings.base_url}/api/v1/auth/google/callback"
-    state = platform or ""
+
+    # CSRF protection: sign the state with HMAC so the callback can verify it
+    import hashlib
+    import hmac
+    import time
+
+    ts = str(int(time.time()))
+    plat = platform or ""
+    state_data = f"{ts}:{plat}"
+    sig = hmac.new(
+        settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
+    ).hexdigest()[:16]
+    state = f"{state_data}:{sig}"
+
     url = get_google_auth_url(redirect_uri, state=state)
     from fastapi.responses import RedirectResponse
 
@@ -457,6 +470,36 @@ async def google_callback(
     """Handle Google OAuth2 callback -- create or link account, return tokens."""
     if not settings.google_client_id:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
+
+    # CSRF protection: verify the HMAC-signed state parameter
+    import hashlib
+    import hmac
+    import time
+
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth state parameter")
+
+    parts = state.rsplit(":", 2)
+    if len(parts) != 3:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    ts_str, platform, sig = parts
+    state_data = f"{ts_str}:{platform}"
+    expected_sig = hmac.new(
+        settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
+    ).hexdigest()[:16]
+    if not hmac.compare_digest(sig, expected_sig):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
+
+    # Reject state tokens older than 10 minutes
+    try:
+        ts = int(ts_str)
+        if abs(time.time() - ts) > 600:
+            raise HTTPException(
+                status_code=400, detail="OAuth state expired",
+            )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
     redirect_uri = f"{settings.base_url}/api/v1/auth/google/callback"
     userinfo = await exchange_google_code(code, redirect_uri)
@@ -529,6 +572,6 @@ async def google_callback(
         f"&refresh_token={refresh_token}"
         f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
     )
-    if state == "ios":
+    if platform == "ios":
         return RedirectResponse(url=f"com.agentgraph.ios://auth/callback#{fragment}")
     return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")

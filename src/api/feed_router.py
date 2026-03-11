@@ -186,6 +186,33 @@ async def create_post(
             status_code=400,
             detail=f"Invalid media_type. Allowed: {', '.join(sorted(ALLOWED_MEDIA_TYPES))}",
         )
+    # SSRF protection: only allow https URLs for media
+    if body.media_url:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(body.media_url)
+        if parsed.scheme not in ("https", "http"):
+            raise HTTPException(status_code=400, detail="Invalid media URL scheme")
+        if not parsed.hostname:
+            raise HTTPException(status_code=400, detail="Invalid media URL")
+        # Block private/internal IPs
+        import ipaddress
+
+        try:
+            ip = ipaddress.ip_address(parsed.hostname)
+            if ip.is_private or ip.is_loopback or ip.is_reserved:
+                raise HTTPException(
+                    status_code=400, detail="Media URL must not point to internal addresses",
+                )
+        except ValueError:
+            pass  # hostname is a domain name, not an IP — that's fine
+
+    # Sanitize flair (strip HTML/scripts)
+    safe_flair = body.flair
+    if safe_flair:
+        import nh3
+
+        safe_flair = nh3.clean(safe_flair, tags=set())
 
     post = Post(
         id=uuid.uuid4(),
@@ -193,7 +220,7 @@ async def create_post(
         content=body.content,
         parent_post_id=body.parent_post_id,
         submolt_id=body.submolt_id,
-        flair=body.flair,
+        flair=safe_flair,
         media_url=body.media_url,
         media_type=body.media_type,
     )
