@@ -195,6 +195,8 @@ function MobileAppFooter() {
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
             <Link to="/graph" className="hover:text-text transition-colors">Graph</Link>
+            <span className="text-border">|</span>
+            <Link to="/bot-onboarding" className="hover:text-text transition-colors">Developers</Link>
           </nav>
         </div>
       </div>
