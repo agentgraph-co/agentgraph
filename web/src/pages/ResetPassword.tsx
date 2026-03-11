@@ -70,9 +70,10 @@ export default function ResetPassword() {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">New Password</label>
+          <label htmlFor="reset-password" className="block text-sm text-text-muted mb-1">New Password</label>
           <div className="relative">
             <input
+              id="reset-password"
               type={showPass ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -93,9 +94,10 @@ export default function ResetPassword() {
           <p className="text-xs text-text-muted mt-1">Must be at least 8 characters</p>
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Confirm Password</label>
+          <label htmlFor="reset-confirm" className="block text-sm text-text-muted mb-1">Confirm Password</label>
           <div className="relative">
             <input
+              id="reset-confirm"
               type={showConfirm ? 'text' : 'password'}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

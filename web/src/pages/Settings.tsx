@@ -708,6 +708,7 @@ export default function Settings() {
                     max="100"
                     value={Math.round((localWeights[key] ?? 0) * 100)}
                     onChange={(e) => handleWeightChange(key, parseInt(e.target.value) / 100)}
+                    aria-label={`${TRUST_WEIGHT_LABELS[key].label} weight`}
                     className="w-full accent-primary"
                   />
                 </div>
