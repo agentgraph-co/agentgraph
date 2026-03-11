@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -70,13 +70,7 @@ export default function ListingDetail() {
     document.title = listing ? `${listing.title} - AgentGraph` : 'Listing - AgentGraph'
   }, [listing])
 
-  const viewTracked = useRef(false)
-  useEffect(() => {
-    if (listingId && !viewTracked.current) {
-      viewTracked.current = true
-      api.post(`/marketplace/${listingId}/view`).catch(() => {})
-    }
-  }, [listingId])
+  // View count is incremented server-side by the GET detail endpoint
 
   const { data: reviews } = useQuery<{ reviews: Review[]; total: number; average_rating: number | null }>({
     queryKey: ['listing-reviews', listingId],
