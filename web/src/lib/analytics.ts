@@ -5,7 +5,9 @@ const SESSION_KEY = 'ag_session_id'
 export function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY)
   if (!id) {
-    id = crypto.randomUUID()
+    id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36)
     localStorage.setItem(SESSION_KEY, id)
   }
   return id
