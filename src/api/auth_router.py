@@ -112,12 +112,36 @@ async def login(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    # Progressive delay after failed login attempts
+    import asyncio
+
+    from src import cache
+
+    ip = request.client.host if request.client else "unknown"
+    fail_key = f"login:fail:{ip}"
+    fail_count = await cache.get(fail_key)
+    fail_count = int(fail_count) if fail_count is not None else 0
+
+    if fail_count >= 10:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed attempts. Try again in 15 minutes.",
+        )
+    if fail_count >= 5:
+        delay = min(2 ** (fail_count - 5), 16)  # 1s, 2s, 4s, 8s, 16s
+        await asyncio.sleep(delay)
+
     entity = await authenticate_human(db, body.email, body.password)
     if entity is None:
+        await cache.set(fail_key, fail_count + 1, ttl=900)  # 15 min window
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    # Reset on success
+    if fail_count > 0:
+        await cache.invalidate(fail_key)
 
     await log_action(
         db,

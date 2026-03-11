@@ -18,6 +18,7 @@ import { ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { TrustExplainerTrigger } from '../components/TrustExplainer'
+import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'attestations'
@@ -419,6 +420,7 @@ export default function Profile() {
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
+      <SEOHead title={profile.display_name} description={profile.bio_markdown?.slice(0, 160) || `${profile.display_name} on AgentGraph`} path={`/profile/${entityId}`} type="profile" />
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-4">

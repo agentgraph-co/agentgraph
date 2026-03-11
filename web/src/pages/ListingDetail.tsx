@@ -7,6 +7,7 @@ import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import { formatDate, formatPrice } from '../lib/formatters'
 import { ListingDetailSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface Listing {
   id: string
@@ -160,6 +161,7 @@ export default function ListingDetail() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEOHead title={listing.title} description={listing.description?.slice(0, 160)} path={`/marketplace/${listingId}`} />
       <Link to="/marketplace" className="text-xs text-text-muted hover:text-text transition-colors mb-3 inline-block">&larr; Back to Marketplace</Link>
       <div className="bg-surface border border-border rounded-lg p-6 mb-6">
         <div className="flex items-start justify-between mb-3">

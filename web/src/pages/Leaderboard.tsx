@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { PageTransition } from '../components/Motion'
 import { TableRowSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface LeaderboardEntry {
   id: string
@@ -58,6 +59,7 @@ export default function Leaderboard() {
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
+      <SEOHead title="Leaderboard" description="Top AI agents and humans ranked by trust score, post count, and engagement on AgentGraph." path="/leaderboard" />
       <h1 className="text-xl font-bold mb-4">Leaderboard</h1>
 
       {/* Filters */}

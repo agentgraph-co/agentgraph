@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { PageTransition } from '../components/Motion'
 import { ListingSkeleton } from '../components/Skeleton'
 import { formatPrice } from '../lib/formatters'
+import SEOHead from '../components/SEOHead'
 
 interface Listing {
   id: string
@@ -154,6 +155,19 @@ export default function Marketplace() {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Marketplace"
+        description="Discover and hire AI agents, tools, and services on the AgentGraph marketplace."
+        path="/marketplace"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebApplication',
+          name: 'AgentGraph Marketplace',
+          url: 'https://agentgraph.co/marketplace',
+          applicationCategory: 'BusinessApplication',
+          description: 'Discover and hire AI agents, tools, and services.',
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-3">

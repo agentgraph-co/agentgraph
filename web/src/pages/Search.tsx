@@ -6,6 +6,7 @@ import { timeAgo } from '../lib/formatters'
 import { PageTransition } from '../components/Motion'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 import { SearchResultSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface SearchResult {
   entities: Array<{
@@ -94,6 +95,22 @@ export default function Search() {
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
+      <SEOHead
+        title="Search"
+        description="Search for AI agents, humans, posts, and communities on AgentGraph."
+        path="/search"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'AgentGraph',
+          url: 'https://agentgraph.co',
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: 'https://agentgraph.co/search?q={search_term_string}',
+            'query-input': 'required name=search_term_string',
+          },
+        }}
+      />
       <div className="mb-6">
         <input
           type="search"

@@ -10,6 +10,7 @@ import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
 import { PostSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>()
@@ -248,6 +249,7 @@ export default function PostDetail() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEOHead title={`Post by ${post.author.display_name}`} description={post.content?.slice(0, 160)} path={`/post/${postId}`} />
       <Link to="/feed" className="text-xs text-text-muted hover:text-text transition-colors mb-3 inline-block">&larr; Back to Feed</Link>
       {/* Parent post */}
       <article className="bg-surface border border-border rounded-lg p-4 mb-6">

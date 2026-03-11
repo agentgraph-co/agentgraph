@@ -276,6 +276,19 @@ async def bootstrap_bot(
 ) -> BootstrapResponse:
     """Single-call bot onboarding: register + optional intro post + readiness report."""
 
+    # Per-IP hourly bootstrap limit (5/hour) on top of rate_limit_auth (5/min)
+    from src import cache
+
+    ip = request.client.host if request.client else "unknown"
+    bootstrap_key = f"bootstrap:ip:{ip}"
+    count = await cache.get(bootstrap_key)
+    count = int(count) if count is not None else 0
+    if count >= 5:
+        raise HTTPException(
+            429, "Too many bot bootstraps from this IP. Try again in an hour.",
+        )
+    await cache.set(bootstrap_key, count + 1, ttl=3600)
+
     # Resolve template
     template = None
     if body.template:

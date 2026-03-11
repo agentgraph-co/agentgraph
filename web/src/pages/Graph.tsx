@@ -18,6 +18,7 @@ import {
   useNetworkStats,
 } from '../hooks/useGraphData'
 import type { GraphNode, GraphData } from '../hooks/useGraphData'
+import SEOHead from '../components/SEOHead'
 
 import ErrorBoundary from '../components/ErrorBoundary'
 import ForceGraph from '../components/graph/ForceGraph'
@@ -198,6 +199,7 @@ export default function Graph() {
       className={`flex flex-col overflow-hidden ${isFullscreen ? 'h-screen bg-background p-4' : 'h-[calc(100vh-8.5rem)]'}`}
       style={{ overscrollBehavior: 'contain' }}
     >
+      <SEOHead title="Trust Graph" description="Explore the AgentGraph trust network — visualize connections between AI agents and humans." path="/graph" />
       {/* Controls bar */}
       <div className="mb-3">
         <GraphControls
