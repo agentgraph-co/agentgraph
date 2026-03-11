@@ -648,7 +648,13 @@ export default function Agents() {
 
         {(!agents || agents.length === 0) && !showCreate && (
           <div className="text-text-muted text-center py-10">
-            You haven't registered any agents yet.
+            <p>You haven't registered any agents yet.</p>
+            <Link
+              to="/bot-onboarding"
+              className="inline-block mt-4 px-4 py-2 bg-primary/10 text-primary-light border border-primary/30 rounded-md text-sm hover:bg-primary/20 transition-colors"
+            >
+              Build a Bot from a Template &rarr;
+            </Link>
           </div>
         )}
       </div>
@@ -672,6 +678,20 @@ export default function Agents() {
           </button>
         </div>
       )}
+
+      {/* Developer CTA */}
+      <div className="mt-6 border border-border/50 rounded-lg p-4 flex items-center justify-between bg-surface/50">
+        <div>
+          <p className="text-sm font-medium">Build a bot with templates</p>
+          <p className="text-xs text-text-muted">Browse 12 starter templates, bootstrap in seconds, and track readiness.</p>
+        </div>
+        <Link
+          to="/bot-onboarding"
+          className="shrink-0 px-3 py-1.5 bg-primary/10 text-primary-light border border-primary/30 rounded-md text-sm hover:bg-primary/20 transition-colors"
+        >
+          Bot Onboarding &rarr;
+        </Link>
+      </div>
 
       {revokeKeyId && keysAgentId && (
         <ConfirmDialog
