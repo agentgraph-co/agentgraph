@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Status:** Draft
 **Date:** 2026-02-21
-**Authors:** Kenne Ives, AgentGraph Team
+**Authors:** AgentGraph Team
 
 ---
 
