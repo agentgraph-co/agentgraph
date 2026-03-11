@@ -164,6 +164,9 @@ async def authenticate_human(
         # Prevent timing attacks — hash a dummy to consume same time as real verify
         _pwd_hasher.hash("timing-attack-dummy")
         return None
+    if not entity.password_hash:
+        # OAuth-only user — no password set, can't authenticate via password
+        return None
     if not verify_password(password, entity.password_hash):
         return None
     if not entity.is_active:
