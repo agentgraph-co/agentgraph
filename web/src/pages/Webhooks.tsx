@@ -185,8 +185,9 @@ export default function Webhooks() {
             <div className="bg-danger/10 text-danger text-sm px-3 py-2 rounded">{error}</div>
           )}
           <div>
-            <label className="block text-sm text-text-muted mb-1">Callback URL</label>
+            <label htmlFor="webhook-url" className="block text-sm text-text-muted mb-1">Callback URL</label>
             <input
+              id="webhook-url"
               value={callbackUrl}
               onChange={(e) => setCallbackUrl(e.target.value)}
               type="url"

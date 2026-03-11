@@ -309,8 +309,9 @@ export default function BotOnboarding() {
 
               {/* Display Name */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">Display Name *</label>
+                <label htmlFor="bot-name" className="block text-sm text-text-muted mb-1">Display Name *</label>
                 <input
+                  id="bot-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. MyCodeBot"
@@ -338,7 +339,7 @@ export default function BotOnboarding() {
 
               {/* Capabilities */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">
+                <label htmlFor="bot-capabilities" className="block text-sm text-text-muted mb-1">
                   Capabilities <span className="text-text-muted/60">({capabilities.length}/50)</span>
                 </label>
                 <div className="flex flex-wrap gap-1.5 bg-background border border-border rounded-md px-3 py-2 focus-within:border-primary min-h-[42px]">
@@ -358,6 +359,7 @@ export default function BotOnboarding() {
                     </span>
                   ))}
                   <input
+                    id="bot-capabilities"
                     value={capInput}
                     onChange={(e) => setCapInput(e.target.value)}
                     onKeyDown={handleCapKeyDown}
@@ -373,10 +375,11 @@ export default function BotOnboarding() {
 
               {/* Autonomy Level */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">
+                <label htmlFor="bot-autonomy" className="block text-sm text-text-muted mb-1">
                   Autonomy Level: {autonomyLevel}/5 — {AUTONOMY_LABELS[autonomyLevel]}
                 </label>
                 <input
+                  id="bot-autonomy"
                   type="range"
                   min={1}
                   max={5}
@@ -393,8 +396,9 @@ export default function BotOnboarding() {
 
               {/* Bio */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">Description</label>
+                <label htmlFor="bot-bio" className="block text-sm text-text-muted mb-1">Description</label>
                 <textarea
+                  id="bot-bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="What does this bot do?"
@@ -406,10 +410,11 @@ export default function BotOnboarding() {
 
               {/* Operator Email */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">
+                <label htmlFor="bot-operator-email" className="block text-sm text-text-muted mb-1">
                   Operator Email <span className="text-text-muted/60">(optional)</span>
                 </label>
                 <input
+                  id="bot-operator-email"
                   type="email"
                   value={operatorEmail}
                   onChange={(e) => setOperatorEmail(e.target.value)}
@@ -420,10 +425,11 @@ export default function BotOnboarding() {
 
               {/* Intro Post */}
               <div>
-                <label className="block text-sm text-text-muted mb-1">
+                <label htmlFor="bot-intro-post" className="block text-sm text-text-muted mb-1">
                   Intro Post <span className="text-text-muted/60">(optional — posted on bootstrap)</span>
                 </label>
                 <textarea
+                  id="bot-intro-post"
                   value={introPost}
                   onChange={(e) => setIntroPost(e.target.value)}
                   placeholder="Hello! I'm a bot that..."

@@ -65,8 +65,9 @@ export default function CreateListing() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Title <span className="text-danger">*</span></label>
+          <label htmlFor="listing-title" className="block text-sm text-text-muted mb-1">Title <span className="text-danger">*</span></label>
           <input
+            id="listing-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
@@ -78,8 +79,9 @@ export default function CreateListing() {
         </div>
 
         <div>
-          <label className="block text-sm text-text-muted mb-1">Description <span className="text-danger">*</span></label>
+          <label htmlFor="listing-description" className="block text-sm text-text-muted mb-1">Description <span className="text-danger">*</span></label>
           <textarea
+            id="listing-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required
@@ -93,8 +95,9 @@ export default function CreateListing() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-text-muted mb-1">Category</label>
+            <label htmlFor="listing-category" className="block text-sm text-text-muted mb-1">Category</label>
             <select
+              id="listing-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
@@ -105,8 +108,9 @@ export default function CreateListing() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-text-muted mb-1">Pricing Model</label>
+            <label htmlFor="listing-pricing" className="block text-sm text-text-muted mb-1">Pricing Model</label>
             <select
+              id="listing-pricing"
               value={pricingModel}
               onChange={(e) => setPricingModel(e.target.value)}
               className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
@@ -122,12 +126,13 @@ export default function CreateListing() {
 
         {pricingModel !== 'free' && (
           <div>
-            <label className="block text-sm text-text-muted mb-1">
+            <label htmlFor="listing-price" className="block text-sm text-text-muted mb-1">
               Price ({pricingModel === 'subscription' ? 'per month' : 'one-time'})
             </label>
             <div className="relative">
               <span className="absolute left-3 top-2 text-text-muted">$</span>
               <input
+                id="listing-price"
                 type="number"
                 value={(priceCents / 100).toFixed(2)}
                 onChange={(e) => {
@@ -143,8 +148,9 @@ export default function CreateListing() {
         )}
 
         <div>
-          <label className="block text-sm text-text-muted mb-1">Tags (comma-separated, max 10)</label>
+          <label htmlFor="listing-tags" className="block text-sm text-text-muted mb-1">Tags (comma-separated, max 10)</label>
           <input
+            id="listing-tags"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="ai, automation, nlp"
