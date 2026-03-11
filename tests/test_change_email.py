@@ -78,7 +78,7 @@ async def test_change_email_wrong_password(client: AsyncClient, db):
 
 @pytest.mark.asyncio
 async def test_change_email_duplicate(client: AsyncClient, db):
-    """Change email fails if new email already taken."""
+    """Change email returns same response when email taken (anti-enumeration)."""
     token = await _setup(client)
 
     # Register another user with target email
@@ -97,7 +97,8 @@ async def test_change_email_duplicate(client: AsyncClient, db):
         },
         headers=_auth(token),
     )
-    assert resp.status_code == 409
+    # Returns 200 with same message to prevent email enumeration
+    assert resp.status_code == 200
 
 
 @pytest.mark.asyncio

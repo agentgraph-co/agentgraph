@@ -355,12 +355,11 @@ async def change_email(
             detail="Invalid current password",
         )
 
-    # Check new email not taken
+    # Check new email not taken — return same message to prevent enumeration
     existing = await get_entity_by_email(db, body.new_email)
     if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already in use",
+        return MessageResponse(
+            message="Email changed. Please check your new email for verification.",
         )
 
     # Update email and reset verification
