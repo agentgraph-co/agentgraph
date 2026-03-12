@@ -1844,9 +1844,9 @@
       },
       {
         "id": "150",
-        "title": "Android App (React Native)",
+        "title": "[DEFERRED] Android App (React Native)",
         "description": "Build Android client using React Native. Currently only iOS (SwiftUI) exists at ios/AgentGraph/. CLAUDE.md architecture specifies 'Mobile App \u2014 React Native (iOS + Android)'. Consider cross-platform rewrite or standalone Android app.",
-        "status": "pending",
+        "status": "deferred",
         "priority": "low",
         "dependencies": [],
         "details": "",
@@ -2720,10 +2720,10 @@
       },
       {
         "id": "223",
-        "title": "Replace TestFlight PLACEHOLDER link with real URL",
+        "title": "[DEFERRED] Replace TestFlight PLACEHOLDER link with real URL",
         "description": "Update the TestFlight link on the Home page and Register page once the iOS app is ready for beta testing.",
         "details": "Search for PLACEHOLDER in web/src/ and replace with the real TestFlight join URL. Affected files: web/src/pages/Home.tsx, web/src/pages/Register.tsx, web/src/components/Layout.tsx.",
-        "status": "pending",
+        "status": "deferred",
         "priority": "low",
         "dependencies": [],
         "subtasks": []
