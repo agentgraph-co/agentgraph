@@ -155,15 +155,16 @@ async def create_post(
 
     body.content = sanitize_html(body.content)
 
-    # Safety: minimum trust threshold for publishing
-    from src.safety.propagation import check_min_trust_for_publish
+    # Safety: minimum trust threshold for publishing (admins bypass)
+    if not getattr(current_entity, "is_admin", False):
+        from src.safety.propagation import check_min_trust_for_publish
 
-    can_publish = await check_min_trust_for_publish(db, current_entity.id)
-    if not can_publish:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your trust score is below the minimum threshold for posting.",
-        )
+        can_publish = await check_min_trust_for_publish(db, current_entity.id)
+        if not can_publish:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your trust score is below the minimum threshold for posting.",
+            )
 
     if body.parent_post_id is not None:
         parent = await db.get(Post, body.parent_post_id)
