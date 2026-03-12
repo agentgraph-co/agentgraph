@@ -1,8 +1,9 @@
 """Production-ready scheduler for periodic jobs.
 
-Runs two jobs on the same interval (default 6 hours):
+Runs three jobs on the same interval (default 6 hours):
 1. Trust recomputation — recalculate all trust scores with attestation decay
 2. Provisional agent expiry — deactivate expired provisional agents and revoke keys
+3. Bot scheduled posts — official platform bots post content on a cycle
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -62,6 +63,20 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
                         logger.debug("Provisional expiry: nothing to expire")
         except Exception:
             logger.exception("Scheduled provisional expiry failed")
+
+        # Job 3: Bot scheduled posts
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    from src.bots.engine import run_scheduled_posts
+
+                    summary = await run_scheduled_posts(session)
+                    if summary["posted"]:
+                        logger.info(
+                            "Scheduled bot posts completed: %s", summary,
+                        )
+        except Exception:
+            logger.exception("Scheduled bot posts failed")
 
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
