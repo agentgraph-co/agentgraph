@@ -462,11 +462,9 @@ export default function Admin() {
   // ─── Infrastructure tab queries ───
 
   const { data: emailStats } = useQuery<{
-    total_entities: number
-    verified_count: number
     unverified_count: number
-    registered_24h: number
-    verified_24h: number
+    registered_last_24h: number
+    verified_last_24h: number
   }>({
     queryKey: ['admin-email-stats'],
     queryFn: async () => (await api.get('/admin/email-stats')).data,
@@ -475,8 +473,8 @@ export default function Admin() {
   })
 
   const { data: rateLimits } = useQuery<{
-    active_keys: number
-    sample_keys: string[]
+    total_tracked_keys: number
+    active_keys: { key: string; requests_last_60s: number; oldest_request_age_s: number }[]
   }>({
     queryKey: ['admin-rate-limits'],
     queryFn: async () => (await api.get('/admin/rate-limits')).data,
@@ -1553,11 +1551,10 @@ export default function Admin() {
           <div>
             <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Email Verification</h2>
             {emailStats ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Total Entities" value={emailStats.total_entities} />
-                <StatCard label="Verified" value={emailStats.verified_count} sub={`${((emailStats.verified_count / Math.max(emailStats.total_entities, 1)) * 100).toFixed(0)}%`} />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <StatCard label="Unverified" value={emailStats.unverified_count} />
-                <StatCard label="Registered (24h)" value={emailStats.registered_24h} sub={`${emailStats.verified_24h} verified`} />
+                <StatCard label="Registered (24h)" value={emailStats.registered_last_24h} />
+                <StatCard label="Verified (24h)" value={emailStats.verified_last_24h} />
               </div>
             ) : (
               <div className="py-6"><InlineSkeleton /></div>
@@ -1570,17 +1567,17 @@ export default function Admin() {
             {rateLimits ? (
               <div className="bg-surface border border-border rounded-lg p-4">
                 <div className="text-sm mb-2">
-                  <span className="font-medium">{rateLimits.active_keys}</span>{' '}
+                  <span className="font-medium">{rateLimits.total_tracked_keys}</span>{' '}
                   <span className="text-text-muted">active rate limit keys in Redis</span>
                 </div>
-                {rateLimits.sample_keys.length > 0 && (
-                  <div className="mt-2">
-                    <span className="text-xs text-text-muted">Sample keys:</span>
-                    <div className="mt-1 space-y-0.5">
-                      {rateLimits.sample_keys.slice(0, 10).map((key) => (
-                        <div key={key} className="text-[10px] font-mono text-text-muted/80">{key}</div>
-                      ))}
-                    </div>
+                {rateLimits.active_keys.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {rateLimits.active_keys.map((entry) => (
+                      <div key={entry.key} className="flex items-center justify-between text-xs">
+                        <span className="font-mono text-text-muted/80 truncate mr-3">{entry.key}</span>
+                        <span className="text-text-muted shrink-0">{entry.requests_last_60s} req/min</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
