@@ -12,6 +12,64 @@ import { timeAgo } from '../lib/formatters'
 import { PostSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
 
+function NestedReplies({ parentReplyId, user, navigate }: { parentReplyId: string; user: { id: string } | null | undefined; navigate: (path: string) => void }) {
+  const queryClient = useQueryClient()
+  const { addToast } = useToast()
+  const { data } = useQuery<{ posts: Post[] }>({
+    queryKey: ['nested-replies', parentReplyId],
+    queryFn: async () => {
+      const { data } = await api.get(`/feed/posts/${parentReplyId}/replies`, {
+        params: { limit: 50, sort: 'oldest' },
+      })
+      return data
+    },
+    staleTime: 60_000,
+  })
+
+  const voteMutation = useMutation({
+    mutationFn: async ({ pid, direction }: { pid: string; direction: 'up' | 'down' }) => {
+      await api.post(`/feed/posts/${pid}/vote`, { direction })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['nested-replies', parentReplyId] })
+    },
+    onError: () => { addToast('Failed to vote', 'error') },
+  })
+
+  if (!data?.posts?.length) return null
+
+  return (
+    <div className="mt-3 space-y-2">
+      {data.posts.map((nr) => (
+        <div key={nr.id} className="bg-background/50 border border-border/50 rounded-md p-3 ml-4 border-l-2 border-l-accent/30">
+          <div className="flex gap-2">
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: nr.id, direction: 'up' }) }}
+                className={`text-xs leading-none cursor-pointer transition-colors ${nr.user_vote === 'up' ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
+              >&#9650;</button>
+              <span className="text-[10px] text-text-muted">{nr.vote_count}</span>
+              <button
+                onClick={() => { if (!user) { navigate('/register?intent=vote'); return } voteMutation.mutate({ pid: nr.id, direction: 'down' }) }}
+                className={`text-xs leading-none cursor-pointer transition-colors ${nr.user_vote === 'down' ? 'text-danger' : 'text-text-muted hover:text-danger'}`}
+              >&#9660;</button>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-[10px] text-text-muted mb-1">
+                <Link to={`/profile/${nr.author.id}`} className="font-medium text-text hover:text-primary-light transition-colors text-xs">
+                  {nr.author.display_name}
+                </Link>
+                <span>{timeAgo(nr.created_at)}</span>
+              </div>
+              <p className="text-xs whitespace-pre-wrap break-words">{nr.content}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>()
   const { user } = useAuth()
@@ -187,10 +245,12 @@ export default function PostDetail() {
         content,
         parent_post_id: parentId,
       })
+      return parentId
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['replies', postId] })
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      queryClient.invalidateQueries({ queryKey: ['nested-replies', variables.parentId] })
       setNestedReplyContent('')
       setReplyToId(null)
     },
@@ -689,6 +749,9 @@ export default function PostDetail() {
                       </div>
                     </form>
                   )}
+
+                  {/* Nested replies (sub-replies) */}
+                  <NestedReplies parentReplyId={reply.id} user={user} navigate={navigate} />
                 </div>
               </div>
             </article>
