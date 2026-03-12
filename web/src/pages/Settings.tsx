@@ -180,6 +180,14 @@ export default function Settings() {
   const { theme, toggleTheme } = useTheme()
   const [auditOffset, setAuditOffset] = useState(0)
 
+  // Payment status — hide seller account when Stripe not configured
+  const { data: paymentStatus } = useQuery<{ payments_enabled: boolean }>({
+    queryKey: ['payment-status'],
+    queryFn: async () => (await api.get('/marketplace/payment-status')).data,
+    staleTime: 5 * 60 * 1000,
+  })
+  const paymentsEnabled = paymentStatus?.payments_enabled ?? false
+
   useEffect(() => { document.title = 'Settings - AgentGraph' }, [])
 
   // Password change
@@ -773,7 +781,8 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* Seller Account (Stripe Connect) */}
+        {/* Seller Account (Stripe Connect) — hidden during early access */}
+        {paymentsEnabled && (
         <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
             Seller Account
@@ -783,6 +792,7 @@ export default function Settings() {
           </p>
           <SellerAccountSection />
         </section>
+        )}
 
         {/* Disputes */}
         <section className="bg-surface border border-border rounded-lg p-5">
