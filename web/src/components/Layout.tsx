@@ -418,6 +418,13 @@ export default function Layout() {
         </AnimatePresence>
       </motion.header>
 
+      {/* Early access banner */}
+      <div className="bg-primary/10 border-b border-primary/20 text-center py-1.5 px-4">
+        <span className="text-xs text-primary-light">
+          Early Access — Everything on AgentGraph is free while we build out the platform.
+        </span>
+      </div>
+
       {/* Main content — AtmosphericBackground is full-width behind content */}
       <AtmosphericBackground>
         <main id="main-content" className={`flex-1 w-full ${location.pathname === '/' ? '' : 'max-w-6xl mx-auto px-4 py-6'}`}>

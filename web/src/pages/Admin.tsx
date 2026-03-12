@@ -74,7 +74,7 @@ interface Appeal {
   resolved_at: string | null
 }
 
-type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'waitlist'
+type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'waitlist' | 'trust' | 'safety' | 'infra'
 
 interface AuditLogEntry {
   id: string
@@ -234,6 +234,28 @@ export default function Admin() {
     },
   })
 
+  const promoteMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.patch(`/admin/entities/${entityId}/promote`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
+      addToast('Entity promoted to admin', 'success')
+    },
+    onError: () => { addToast('Failed to promote entity', 'error') },
+  })
+
+  const demoteMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.patch(`/admin/entities/${entityId}/demote`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-entities'] })
+      addToast('Admin rights removed', 'success')
+    },
+    onError: () => { addToast('Failed to demote entity', 'error') },
+  })
+
   const resolveFlagMutation = useMutation({
     mutationFn: async ({ flagId, status }: { flagId: string; status: string }) => {
       await api.patch(`/moderation/flags/${flagId}/resolve`, {
@@ -361,6 +383,125 @@ export default function Admin() {
     staleTime: 30_000,
   })
 
+  // ─── Trust tab queries ───
+
+  const { data: trustStats } = useQuery<{
+    distribution: { range: string; count: number }[]
+    by_type: Record<string, { avg: number; count: number }>
+    total_scored: number
+  }>({
+    queryKey: ['admin-trust-stats'],
+    queryFn: async () => (await api.get('/admin/trust/stats')).data,
+    enabled: !!user?.is_admin && tab === 'trust',
+    staleTime: 2 * 60_000,
+  })
+
+  const recomputeAllMutation = useMutation({
+    mutationFn: async () => { await api.post('/admin/trust/recompute-all') },
+    onSuccess: () => {
+      addToast('Full trust recomputation started', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-trust-stats'] })
+    },
+    onError: () => { addToast('Failed to start recomputation', 'error') },
+  })
+
+  // ─── Safety tab queries ───
+
+  const { data: collusionAlerts } = useQuery<{
+    alerts: { id: string; type: string; severity: string; entities: string[]; detail: string; created_at: string }[]
+    total: number
+  }>({
+    queryKey: ['admin-collusion-alerts'],
+    queryFn: async () => (await api.get('/admin/collusion/alerts', { params: { limit: 20 } })).data,
+    enabled: !!user?.is_admin && tab === 'safety',
+    staleTime: 2 * 60_000,
+  })
+
+  const { data: populationData } = useQuery<{
+    total_entities: number
+    human_count: number
+    agent_count: number
+    human_ratio: number
+    framework_distribution: Record<string, number>
+    top_operators: { operator_id: string; display_name: string; agent_count: number }[]
+  }>({
+    queryKey: ['admin-population'],
+    queryFn: async () => (await api.get('/admin/population/composition')).data,
+    enabled: !!user?.is_admin && tab === 'safety',
+    staleTime: 2 * 60_000,
+  })
+
+  const { data: popAlerts } = useQuery<{
+    alerts: { id: string; alert_type: string; severity: string; message: string; created_at: string }[]
+    total: number
+  }>({
+    queryKey: ['admin-population-alerts'],
+    queryFn: async () => (await api.get('/admin/population/alerts', { params: { limit: 20 } })).data,
+    enabled: !!user?.is_admin && tab === 'safety',
+    staleTime: 2 * 60_000,
+  })
+
+  const collusionScanMutation = useMutation({
+    mutationFn: async () => { await api.post('/admin/collusion/scan') },
+    onSuccess: () => {
+      addToast('Collusion scan started', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-collusion-alerts'] })
+    },
+    onError: () => { addToast('Failed to start scan', 'error') },
+  })
+
+  const populationScanMutation = useMutation({
+    mutationFn: async () => { await api.post('/admin/population/scan') },
+    onSuccess: () => {
+      addToast('Population scan started', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-population-alerts'] })
+    },
+    onError: () => { addToast('Failed to start scan', 'error') },
+  })
+
+  // ─── Infrastructure tab queries ───
+
+  const { data: emailStats } = useQuery<{
+    total_entities: number
+    verified_count: number
+    unverified_count: number
+    registered_24h: number
+    verified_24h: number
+  }>({
+    queryKey: ['admin-email-stats'],
+    queryFn: async () => (await api.get('/admin/email-stats')).data,
+    enabled: !!user?.is_admin && tab === 'infra',
+    staleTime: 2 * 60_000,
+  })
+
+  const { data: rateLimits } = useQuery<{
+    active_keys: number
+    sample_keys: string[]
+  }>({
+    queryKey: ['admin-rate-limits'],
+    queryFn: async () => (await api.get('/admin/rate-limits')).data,
+    enabled: !!user?.is_admin && tab === 'infra',
+    staleTime: 30_000,
+  })
+
+  const cleanupTokenMutation = useMutation({
+    mutationFn: async () => { await api.post('/admin/cleanup/token-blacklist') },
+    onSuccess: (data: unknown) => {
+      const d = data as { cleaned: number } | undefined
+      addToast(`Cleaned ${d?.cleaned ?? 0} expired tokens`, 'success')
+    },
+    onError: () => { addToast('Failed to clean token blacklist', 'error') },
+  })
+
+  const expireProvMutation = useMutation({
+    mutationFn: async () => (await api.post('/admin/jobs/expire-provisional')).data,
+    onSuccess: (data: unknown) => {
+      const d = data as { expired_count: number } | undefined
+      addToast(`Expired ${d?.expired_count ?? 0} provisional agents`, 'success')
+    },
+    onError: () => { addToast('Failed to run expiry job', 'error') },
+  })
+
   if (!user?.is_admin) {
     return (
       <div className="text-danger text-center mt-10">
@@ -378,6 +519,9 @@ export default function Admin() {
     { value: 'growth', label: 'Growth' },
     { value: 'conversion', label: 'Conversion' },
     { value: 'waitlist', label: 'Waitlist' },
+    { value: 'trust', label: 'Trust' },
+    { value: 'safety', label: 'Safety' },
+    { value: 'infra', label: 'Infra' },
   ]
 
   return (
@@ -628,6 +772,24 @@ export default function Admin() {
                           >
                             Deactivate
                           </button>
+                          {!entity.is_admin && entity.type === 'human' && (
+                            <button
+                              onClick={() => promoteMutation.mutate(entity.id)}
+                              disabled={promoteMutation.isPending}
+                              className="text-xs text-text-muted hover:text-warning transition-colors cursor-pointer disabled:opacity-30"
+                            >
+                              Promote
+                            </button>
+                          )}
+                          {entity.is_admin && entity.id !== user?.id && (
+                            <button
+                              onClick={() => demoteMutation.mutate(entity.id)}
+                              disabled={demoteMutation.isPending}
+                              className="text-xs text-text-muted hover:text-warning transition-colors cursor-pointer disabled:opacity-30"
+                            >
+                              Demote
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -1173,6 +1335,280 @@ export default function Admin() {
               )}
             </div>
           ) : null}
+        </div>
+      )}
+
+      {/* Trust */}
+      {tab === 'trust' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Trust Distribution</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => recomputeTrustMutation.mutate()}
+                disabled={recomputeTrustMutation.isPending}
+                className="text-xs bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {recomputeTrustMutation.isPending ? 'Running...' : 'Quick Recompute'}
+              </button>
+              <button
+                onClick={() => recomputeAllMutation.mutate()}
+                disabled={recomputeAllMutation.isPending}
+                className="text-xs bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {recomputeAllMutation.isPending ? 'Running...' : 'Full Recompute (with decay)'}
+              </button>
+            </div>
+          </div>
+
+          {trustStats ? (
+            <>
+              <div className="text-xs text-text-muted">{trustStats.total_scored} entities scored</div>
+
+              {/* Distribution bar chart */}
+              <div className="bg-surface border border-border rounded-lg p-4">
+                <h3 className="text-xs font-medium mb-3">Score Distribution</h3>
+                <div className="space-y-2">
+                  {trustStats.distribution.map((bucket) => {
+                    const maxCount = Math.max(...trustStats.distribution.map((b) => b.count), 1)
+                    const pct = (bucket.count / maxCount) * 100
+                    return (
+                      <div key={bucket.range} className="flex items-center gap-3">
+                        <span className="text-xs text-text-muted w-20 shrink-0">{bucket.range}</span>
+                        <div className="flex-1 bg-background rounded-full h-4 relative">
+                          <div
+                            className="h-4 rounded-full bg-primary/60 transition-all"
+                            style={{ width: `${Math.max(pct, 2)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-mono w-8 text-right">{bucket.count}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* By type */}
+              <div className="bg-surface border border-border rounded-lg p-4">
+                <h3 className="text-xs font-medium mb-3">Average Score by Type</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Object.entries(trustStats.by_type).map(([type, data]) => (
+                    <div key={type} className="text-center">
+                      <div className="text-xl font-bold">{data.avg.toFixed(2)}</div>
+                      <div className="text-xs text-text-muted capitalize">{type}</div>
+                      <div className="text-[10px] text-text-muted/60">{data.count} entities</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="py-10"><InlineSkeleton /></div>
+          )}
+        </div>
+      )}
+
+      {/* Safety */}
+      {tab === 'safety' && (
+        <div className="space-y-6">
+          {/* Population composition */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Population Composition</h2>
+              <button
+                onClick={() => populationScanMutation.mutate()}
+                disabled={populationScanMutation.isPending}
+                className="text-xs bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {populationScanMutation.isPending ? 'Scanning...' : 'Run Population Scan'}
+              </button>
+            </div>
+
+            {populationData ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <StatCard label="Total Entities" value={populationData.total_entities} />
+                <StatCard label="Humans" value={populationData.human_count} sub={`${(populationData.human_ratio * 100).toFixed(0)}%`} />
+                <StatCard label="Agents" value={populationData.agent_count} sub={`${((1 - populationData.human_ratio) * 100).toFixed(0)}%`} />
+                <StatCard label="Top Operators" value={populationData.top_operators.length} />
+              </div>
+            ) : (
+              <div className="py-6"><InlineSkeleton /></div>
+            )}
+
+            {/* Framework distribution */}
+            {populationData?.framework_distribution && Object.keys(populationData.framework_distribution).length > 0 && (
+              <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+                <h3 className="text-xs font-medium mb-3">Framework Distribution</h3>
+                <div className="space-y-1.5">
+                  {Object.entries(populationData.framework_distribution)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([framework, count]) => {
+                      const maxFw = Math.max(...Object.values(populationData.framework_distribution), 1)
+                      return (
+                        <div key={framework} className="flex items-center gap-3">
+                          <span className="text-xs text-text-muted w-24 shrink-0 truncate">{framework}</span>
+                          <div className="flex-1 bg-background rounded-full h-3">
+                            <div
+                              className="h-3 rounded-full bg-accent/60"
+                              style={{ width: `${(count / maxFw) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono w-6 text-right">{count}</span>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Top operators */}
+            {populationData?.top_operators && populationData.top_operators.length > 0 && (
+              <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+                <h3 className="text-xs font-medium mb-3">Top Operators</h3>
+                <div className="space-y-1">
+                  {populationData.top_operators.map((op) => (
+                    <div key={op.operator_id} className="flex items-center justify-between text-xs">
+                      <Link to={`/profile/${op.operator_id}`} className="hover:text-primary-light transition-colors">
+                        {op.display_name}
+                      </Link>
+                      <span className="text-text-muted">{op.agent_count} agents</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Collusion alerts */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Collusion Alerts</h2>
+              <button
+                onClick={() => collusionScanMutation.mutate()}
+                disabled={collusionScanMutation.isPending}
+                className="text-xs bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {collusionScanMutation.isPending ? 'Scanning...' : 'Run Collusion Scan'}
+              </button>
+            </div>
+
+            {collusionAlerts && collusionAlerts.alerts.length > 0 ? (
+              <div className="space-y-2">
+                {collusionAlerts.alerts.map((alert) => (
+                  <div key={alert.id} className={`bg-surface border rounded-lg p-3 ${
+                    alert.severity === 'critical' ? 'border-danger/50' : alert.severity === 'high' ? 'border-warning/50' : 'border-border'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${
+                        alert.severity === 'critical' ? 'bg-danger/20 text-danger' :
+                        alert.severity === 'high' ? 'bg-warning/20 text-warning' : 'bg-surface-hover text-text-muted'
+                      }`}>{alert.severity}</span>
+                      <span className="text-xs font-medium">{alert.type}</span>
+                      <span className="text-[10px] text-text-muted ml-auto">{timeAgo(alert.created_at)}</span>
+                    </div>
+                    <p className="text-xs text-text-muted">{alert.detail}</p>
+                    <div className="flex gap-1 mt-1">
+                      {alert.entities.slice(0, 5).map((eid) => (
+                        <Link key={eid} to={`/profile/${eid}`} className="text-[10px] font-mono text-primary-light hover:underline">
+                          {eid.slice(0, 8)}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-text-muted text-center py-6 text-sm">No collusion alerts</div>
+            )}
+          </div>
+
+          {/* Population alerts */}
+          {popAlerts && popAlerts.alerts.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Population Alerts</h2>
+              <div className="space-y-2">
+                {popAlerts.alerts.map((alert) => (
+                  <div key={alert.id} className={`bg-surface border rounded-lg p-3 ${
+                    alert.severity === 'critical' ? 'border-danger/50' : 'border-border'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${
+                        alert.severity === 'critical' ? 'bg-danger/20 text-danger' : 'bg-warning/20 text-warning'
+                      }`}>{alert.severity}</span>
+                      <span className="text-xs">{alert.message}</span>
+                      <span className="text-[10px] text-text-muted ml-auto">{timeAgo(alert.created_at)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Infrastructure */}
+      {tab === 'infra' && (
+        <div className="space-y-6">
+          {/* Email verification stats */}
+          <div>
+            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Email Verification</h2>
+            {emailStats ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Total Entities" value={emailStats.total_entities} />
+                <StatCard label="Verified" value={emailStats.verified_count} sub={`${((emailStats.verified_count / Math.max(emailStats.total_entities, 1)) * 100).toFixed(0)}%`} />
+                <StatCard label="Unverified" value={emailStats.unverified_count} />
+                <StatCard label="Registered (24h)" value={emailStats.registered_24h} sub={`${emailStats.verified_24h} verified`} />
+              </div>
+            ) : (
+              <div className="py-6"><InlineSkeleton /></div>
+            )}
+          </div>
+
+          {/* Rate limits */}
+          <div>
+            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Rate Limiting</h2>
+            {rateLimits ? (
+              <div className="bg-surface border border-border rounded-lg p-4">
+                <div className="text-sm mb-2">
+                  <span className="font-medium">{rateLimits.active_keys}</span>{' '}
+                  <span className="text-text-muted">active rate limit keys in Redis</span>
+                </div>
+                {rateLimits.sample_keys.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-xs text-text-muted">Sample keys:</span>
+                    <div className="mt-1 space-y-0.5">
+                      {rateLimits.sample_keys.slice(0, 10).map((key) => (
+                        <div key={key} className="text-[10px] font-mono text-text-muted/80">{key}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-6"><InlineSkeleton /></div>
+            )}
+          </div>
+
+          {/* Admin actions */}
+          <div>
+            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Maintenance Actions</h2>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => cleanupTokenMutation.mutate()}
+                disabled={cleanupTokenMutation.isPending}
+                className="text-xs bg-surface border border-border hover:border-primary/50 px-4 py-2 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {cleanupTokenMutation.isPending ? 'Cleaning...' : 'Cleanup Expired Tokens'}
+              </button>
+              <button
+                onClick={() => expireProvMutation.mutate()}
+                disabled={expireProvMutation.isPending}
+                className="text-xs bg-surface border border-border hover:border-primary/50 px-4 py-2 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {expireProvMutation.isPending ? 'Running...' : 'Expire Provisional Agents'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -56,6 +56,12 @@ export default function ListingDetail() {
   const [purchaseNotes, setPurchaseNotes] = useState('')
   const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
+  const { data: paymentStatus } = useQuery<{ payments_enabled: boolean }>({
+    queryKey: ['payment-status'],
+    queryFn: async () => (await api.get('/marketplace/payment-status')).data,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const { data: listing, isLoading, isError, refetch } = useQuery<Listing>({
     queryKey: ['listing', listingId],
     queryFn: async () => {
@@ -174,9 +180,11 @@ export default function ListingDetail() {
           </div>
           <div className="text-right">
             <div className="text-lg font-bold text-primary-light">
-              {formatPrice(listing.price_cents, listing.pricing_model)}
+              {paymentStatus?.payments_enabled ? formatPrice(listing.price_cents, listing.pricing_model) : 'Free'}
             </div>
-            <div className="text-xs text-text-muted capitalize">{listing.pricing_model}</div>
+            {paymentStatus?.payments_enabled && (
+              <div className="text-xs text-text-muted capitalize">{listing.pricing_model}</div>
+            )}
           </div>
         </div>
 
@@ -232,7 +240,7 @@ export default function ListingDetail() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Confirm Purchase</span>
                   <span className="text-lg font-bold text-primary-light">
-                    {formatPrice(listing.price_cents, listing.pricing_model)}
+                    {paymentStatus?.payments_enabled ? formatPrice(listing.price_cents, listing.pricing_model) : 'Free'}
                   </span>
                 </div>
                 <div>
@@ -271,6 +279,13 @@ export default function ListingDetail() {
                   </button>
                 </div>
               </div>
+            ) : listing.pricing_model !== 'free' && !paymentStatus?.payments_enabled ? (
+              <button
+                onClick={() => setShowPurchase(true)}
+                className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
+              >
+                Get for Free <span className="text-xs opacity-75">(Early Access)</span>
+              </button>
             ) : (
               <button
                 onClick={() => setShowPurchase(true)}

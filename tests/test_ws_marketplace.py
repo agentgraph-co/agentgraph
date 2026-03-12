@@ -178,17 +178,18 @@ async def test_cancel_transaction_broadcasts(client: AsyncClient, db):
     assert resp.status_code == 201
     listing_id = resp.json()["id"]
 
-    # Purchase (will be pending since Stripe is not configured)
+    # Purchase — in early access mode (no Stripe), auto-completes as free
     resp = await client.post(
         f"{MARKET_URL}/{listing_id}/purchase",
         json={"notes": "cancel test"},
         headers=_auth(buyer_token),
     )
-    # 503 if stripe not configured, 201 if it is
-    if resp.status_code == 201:
-        txn_id = resp.json()["id"]
+    assert resp.status_code == 201
+    txn_id = resp.json()["id"]
+    txn_status = resp.json()["status"]
 
-        # Cancel the pending transaction
+    if txn_status == "pending":
+        # Stripe configured — cancel the pending transaction
         resp = await client.patch(
             f"{MARKET_URL}/purchases/{txn_id}/cancel",
             headers=_auth(buyer_token),
@@ -196,8 +197,8 @@ async def test_cancel_transaction_broadcasts(client: AsyncClient, db):
         assert resp.status_code == 200
         assert resp.json()["status"] == "cancelled"
     else:
-        # Stripe not configured - that's fine, confirms Stripe gate works
-        assert resp.status_code == 503
+        # Early access mode — completed immediately, can't cancel
+        assert txn_status == "completed"
 
 
 @pytest.mark.asyncio

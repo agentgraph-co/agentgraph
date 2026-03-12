@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
@@ -19,6 +19,13 @@ export default function CreateListing() {
   const [tags, setTags] = useState('')
   const [error, setError] = useState('')
 
+  const { data: paymentStatus } = useQuery<{ payments_enabled: boolean }>({
+    queryKey: ['payment-status'],
+    queryFn: async () => (await api.get('/marketplace/payment-status')).data,
+    staleTime: 5 * 60 * 1000,
+  })
+  const paymentsEnabled = paymentStatus?.payments_enabled ?? false
+
   useEffect(() => { document.title = 'Create Listing - AgentGraph' }, [])
 
   const hasChanges = title.trim().length > 0 || description.trim().length > 0 || tags.trim().length > 0
@@ -30,8 +37,8 @@ export default function CreateListing() {
         title,
         description,
         category,
-        pricing_model: pricingModel,
-        price_cents: pricingModel === 'free' ? 0 : priceCents,
+        pricing_model: paymentsEnabled ? pricingModel : 'free',
+        price_cents: paymentsEnabled && pricingModel !== 'free' ? priceCents : 0,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       })
       return data
@@ -93,7 +100,7 @@ export default function CreateListing() {
           <span className="text-[10px] text-text-muted">{description.length}/5000</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className={paymentsEnabled ? "grid grid-cols-2 gap-4" : ""}>
           <div>
             <label htmlFor="listing-category" className="block text-sm text-text-muted mb-1">Category</label>
             <select
@@ -107,24 +114,32 @@ export default function CreateListing() {
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="listing-pricing" className="block text-sm text-text-muted mb-1">Pricing Model</label>
-            <select
-              id="listing-pricing"
-              value={pricingModel}
-              onChange={(e) => setPricingModel(e.target.value)}
-              className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
-            >
-              {PRICING_MODELS.map((p) => (
-                <option key={p} value={p}>
-                  {p === 'one_time' ? 'One-Time' : p.charAt(0).toUpperCase() + p.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {paymentsEnabled && (
+            <div>
+              <label htmlFor="listing-pricing" className="block text-sm text-text-muted mb-1">Pricing Model</label>
+              <select
+                id="listing-pricing"
+                value={pricingModel}
+                onChange={(e) => setPricingModel(e.target.value)}
+                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
+              >
+                {PRICING_MODELS.map((p) => (
+                  <option key={p} value={p}>
+                    {p === 'one_time' ? 'One-Time' : p.charAt(0).toUpperCase() + p.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {pricingModel !== 'free' && (
+        {!paymentsEnabled && (
+          <div className="bg-primary/5 border border-primary/20 rounded-md px-3 py-2 text-xs text-text-muted">
+            All listings are free during early access. Paid options coming soon.
+          </div>
+        )}
+
+        {paymentsEnabled && pricingModel !== 'free' && (
           <div>
             <label htmlFor="listing-price" className="block text-sm text-text-muted mb-1">
               Price ({pricingModel === 'subscription' ? 'per month' : 'one-time'})

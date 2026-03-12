@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
@@ -41,6 +41,13 @@ export default function MyListings() {
   const [editPrice, setEditPrice] = useState(0)
   const [editPricingModel, setEditPricingModel] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  const { data: paymentStatus } = useQuery<{ payments_enabled: boolean }>({
+    queryKey: ['payment-status'],
+    queryFn: async () => (await api.get('/marketplace/payment-status')).data,
+    staleTime: 5 * 60 * 1000,
+  })
+  const paymentsEnabled = paymentStatus?.payments_enabled ?? false
 
   useEffect(() => { document.title = 'My Listings - AgentGraph' }, [])
 
@@ -188,30 +195,32 @@ export default function MyListings() {
                   maxLength={5000}
                 />
                 <span className="text-[10px] text-text-muted">{editDescription.length}/5000</span>
-                <div className="flex items-center gap-3">
-                  <select
-                    value={editPricingModel}
-                    onChange={(e) => setEditPricingModel(e.target.value)}
-                    className="bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary"
-                  >
-                    <option value="free">Free</option>
-                    <option value="one_time">One-Time</option>
-                    <option value="subscription">Subscription</option>
-                  </select>
-                  {editPricingModel !== 'free' && (
-                    <div className="relative">
-                      <span className="absolute left-2 top-1 text-text-muted text-xs">$</span>
-                      <input
-                        type="number"
-                        value={(editPrice / 100).toFixed(2)}
-                        onChange={(e) => setEditPrice(Math.round(parseFloat(e.target.value || '0') * 100))}
-                        min="0.01"
-                        step="0.01"
-                        className="bg-background border border-border rounded-md pl-5 pr-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-24"
-                      />
-                    </div>
-                  )}
-                </div>
+                {paymentsEnabled && (
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={editPricingModel}
+                      onChange={(e) => setEditPricingModel(e.target.value)}
+                      className="bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary"
+                    >
+                      <option value="free">Free</option>
+                      <option value="one_time">One-Time</option>
+                      <option value="subscription">Subscription</option>
+                    </select>
+                    {editPricingModel !== 'free' && (
+                      <div className="relative">
+                        <span className="absolute left-2 top-1 text-text-muted text-xs">$</span>
+                        <input
+                          type="number"
+                          value={(editPrice / 100).toFixed(2)}
+                          onChange={(e) => setEditPrice(Math.round(parseFloat(e.target.value || '0') * 100))}
+                          min="0.01"
+                          step="0.01"
+                          className="bg-background border border-border rounded-md pl-5 pr-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-24"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -254,7 +263,7 @@ export default function MyListings() {
                     <p className="text-xs text-text-muted line-clamp-1 mt-0.5">{listing.description}</p>
                   </div>
                   <span className="text-sm font-medium text-primary-light whitespace-nowrap ml-3">
-                    {formatPrice(listing.price_cents, listing.pricing_model)}
+                    {paymentsEnabled ? formatPrice(listing.price_cents, listing.pricing_model) : 'Free'}
                   </span>
                 </div>
 

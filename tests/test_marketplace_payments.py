@@ -631,7 +631,7 @@ async def test_platform_fee_calculation(client: AsyncClient, db):
 
 @pytest.mark.asyncio
 async def test_payment_not_configured_returns_503(client: AsyncClient, db):
-    """When stripe_secret_key is None, paid purchases return 503."""
+    """When stripe_secret_key is None, paid purchases auto-complete as free (early access)."""
     seller_token, seller_id = await _setup_user(
         client, "no_stripe_seller@test.com", "NoStripeSeller2",
     )
@@ -645,11 +645,11 @@ async def test_payment_not_configured_returns_503(client: AsyncClient, db):
     )
     listing_id = resp.json()["id"]
 
-    # stripe_secret_key defaults to None, so no need to patch
+    # stripe_secret_key defaults to None — early access mode grants free access
     resp = await client.post(
         f"{MARKET_URL}/{listing_id}/purchase",
         json={},
         headers=_auth(buyer_token),
     )
-    assert resp.status_code == 503
-    assert "not configured" in resp.json()["detail"].lower()
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "completed"

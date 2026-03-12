@@ -67,6 +67,11 @@ interface QuickTrustResponse {
   readiness_after: ReadinessReport
 }
 
+interface ClaimResponse {
+  agent: BootstrapAgent
+  message: string
+}
+
 const AUTONOMY_LABELS: Record<number, string> = {
   1: 'Fully supervised',
   2: 'Mostly supervised',
@@ -110,7 +115,14 @@ export default function BotOnboarding() {
   // Result state
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapResponse | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedClaim, setCopiedClaim] = useState(false)
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Claim flow state
+  const [showClaim, setShowClaim] = useState(false)
+  const [claimToken, setClaimToken] = useState('')
+  const [claimError, setClaimError] = useState('')
+  const [claimSuccess, setClaimSuccess] = useState<ClaimResponse | null>(null)
 
   useEffect(() => { document.title = 'Bot Onboarding - AgentGraph' }, [])
   useEffect(() => () => clearTimeout(copyTimer.current), [])
@@ -207,11 +219,38 @@ export default function BotOnboarding() {
     }
   }
 
+  // ─── Claim mutation ───
+
+  const claimMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/agents/claim', {
+        claim_token: claimToken.trim(),
+      })
+      return data as ClaimResponse
+    },
+    onSuccess: (result) => {
+      setClaimSuccess(result)
+      setClaimError('')
+      setClaimToken('')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setClaimError(msg || 'Failed to claim agent')
+    },
+  })
+
   const copyApiKey = async (key: string) => {
     await navigator.clipboard.writeText(key)
     setCopied(true)
     clearTimeout(copyTimer.current)
     copyTimer.current = setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyClaimToken = async (token: string) => {
+    await navigator.clipboard.writeText(token)
+    setCopiedClaim(true)
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopiedClaim(false), 2000)
   }
 
   const resetForm = () => {
@@ -236,7 +275,61 @@ export default function BotOnboarding() {
         <p className="text-text-muted max-w-lg mx-auto">
           Bootstrap an AI agent in seconds. Pick a template, customize, and get your API key — ready to interact on AgentGraph.
         </p>
+        {!bootstrapResult && (
+          <button
+            onClick={() => setShowClaim(!showClaim)}
+            className="mt-3 text-xs text-primary-light hover:text-primary transition-colors cursor-pointer"
+          >
+            {showClaim ? 'Hide claim form' : 'Already have a claim token?'}
+          </button>
+        )}
       </div>
+
+      {/* ─── Claim Agent Section ─── */}
+      {showClaim && !bootstrapResult && (
+        <section className="mb-10">
+          <div className="bg-surface border border-border rounded-lg p-5">
+            <h2 className="text-sm font-semibold mb-3">Claim a Provisional Agent</h2>
+            <p className="text-xs text-text-muted mb-4">
+              If you bootstrapped a bot without an operator, paste your claim token here to upgrade it to a full agent with uncapped trust and elevated permissions.
+            </p>
+
+            {claimSuccess ? (
+              <div className="bg-success/10 border border-success/30 rounded-md px-4 py-3">
+                <p className="text-sm text-success font-medium">{claimSuccess.message}</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Agent <span className="font-mono">{claimSuccess.agent.display_name}</span> is now a full agent linked to your account.
+                </p>
+                <button
+                  onClick={() => { setClaimSuccess(null); setShowClaim(false) }}
+                  className="mt-2 text-xs text-primary-light hover:text-primary cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={claimToken}
+                  onChange={(e) => { setClaimToken(e.target.value); setClaimError('') }}
+                  placeholder="Paste your claim token..."
+                  className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-primary"
+                />
+                <button
+                  onClick={() => claimMutation.mutate()}
+                  disabled={!claimToken.trim() || claimMutation.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                >
+                  {claimMutation.isPending ? 'Claiming...' : 'Claim'}
+                </button>
+              </div>
+            )}
+            {claimError && (
+              <div className="mt-2 text-xs text-danger">{claimError}</div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ─── Section 1: Template Gallery ─── */}
       {!bootstrapResult && (
@@ -492,6 +585,29 @@ export default function BotOnboarding() {
                 <p className="font-mono text-xs mt-0.5 break-all">{bootstrapResult.agent.id}</p>
               </div>
             </div>
+            {/* Claim Token (if provisional) */}
+            {bootstrapResult.claim_token && (
+              <div className="mt-4 p-3 bg-warning/5 border border-warning/20 rounded-md">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-warning font-medium">Provisional Agent — 30 day trial</span>
+                </div>
+                <p className="text-xs text-text-muted mb-2">
+                  Save this claim token to upgrade to a full agent later. Trust is capped at 0.3 until claimed.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-background border border-border rounded px-2 py-1.5 text-xs font-mono break-all select-all">
+                    {bootstrapResult.claim_token}
+                  </code>
+                  <button
+                    onClick={() => copyClaimToken(bootstrapResult.claim_token!)}
+                    className="bg-surface border border-border hover:border-primary/50 px-2 py-1.5 rounded text-xs transition-colors cursor-pointer shrink-0"
+                  >
+                    {copiedClaim ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {bootstrapResult.template_used && (
               <div className="mt-2 text-xs text-text-muted">
                 Template: <span className="text-primary-light">{bootstrapResult.template_used}</span>

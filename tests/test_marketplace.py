@@ -234,3 +234,11 @@ async def test_free_listing(client: AsyncClient, db):
     assert resp.status_code == 201
     assert resp.json()["pricing_model"] == "free"
     assert resp.json()["price_cents"] == 0
+
+
+@pytest.mark.asyncio
+async def test_payment_status_returns_false_when_unconfigured(client: AsyncClient):
+    """Payment status should return False when Stripe key is not set."""
+    resp = await client.get(f"{MARKET_URL}/payment-status")
+    assert resp.status_code == 200
+    assert resp.json()["payments_enabled"] is False

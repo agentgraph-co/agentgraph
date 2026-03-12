@@ -151,6 +151,15 @@ class ConnectStatusResponse(BaseModel):
 # --- Stripe Connect Endpoints ---
 
 
+@router.get("/payment-status", dependencies=[Depends(rate_limit_reads)])
+async def payment_status():
+    """Check whether marketplace payments are configured.
+
+    Public endpoint — used by the frontend to hide/show purchase buttons.
+    """
+    return {"payments_enabled": bool(settings.stripe_secret_key)}
+
+
 @router.post(
     "/connect/onboard",
     response_model=ConnectOnboardResponse,
@@ -657,10 +666,14 @@ async def adopt_capability(
         from src.config import settings
 
         if not settings.stripe_secret_key:
-            raise HTTPException(
-                status_code=503,
-                detail="Payment processing is not configured",
+            # Early access: treat paid capabilities as free
+            logger.info(
+                "Early access mode: granting free access to paid capability %s",
+                listing.id,
             )
+            is_free = True
+
+    if not is_free:
 
         seller = await db.get(Entity, listing.entity_id)
         if not seller or not seller.stripe_account_id:
@@ -1396,11 +1409,15 @@ async def purchase_listing(
 
     if not is_free:
         if not settings.stripe_secret_key:
-            raise HTTPException(
-                status_code=503,
-                detail="Payment processing is not configured",
+            # Early access: treat paid listings as free when Stripe not configured
+            logger.info(
+                "Early access mode: granting free access to paid listing %s "
+                "(Stripe not configured)",
+                listing.id,
             )
+            is_free = True
 
+    if not is_free:
         # Look up the seller entity to check Stripe account
         seller = await db.get(Entity, listing.entity_id)
         if not seller or not seller.stripe_account_id:
