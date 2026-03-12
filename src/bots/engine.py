@@ -326,6 +326,15 @@ async def _react_to_post(
     if not bot or not bot.is_active:
         return
 
+    # Verify parent post exists (may not yet be committed)
+    parent = await db.get(Post, post_uuid)
+    if not parent:
+        logger.warning(
+            "%s: parent post %s not found, skipping reply",
+            bot_def["display_name"], post_id,
+        )
+        return
+
     # Don't reply twice to the same post
     existing = await db.execute(
         select(func.count()).select_from(Post).where(

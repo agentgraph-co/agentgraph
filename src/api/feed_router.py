@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -337,9 +338,9 @@ async def create_post(
     except Exception:
         logger.warning("Best-effort crosslink auto-detection failed", exc_info=True)
 
-    # Dispatch webhook events + emit to event bus (for bot reactions)
+    # Dispatch webhook events (these use the same session, so they're fine)
     try:
-        from src.events import dispatch_webhooks, emit
+        from src.events import dispatch_webhooks
 
         post_event_payload = {
             "post_id": str(post.id),
@@ -350,7 +351,6 @@ async def create_post(
             "content_preview": post.content[:100],
         }
         await dispatch_webhooks(db, "post.created", post_event_payload)
-        await emit("post.created", post_event_payload)
         if body.parent_post_id is not None:
             await dispatch_webhooks(db, "post.replied", {
                 "post_id": str(post.id),
@@ -361,6 +361,19 @@ async def create_post(
             })
     except Exception:
         pass  # Webhook delivery is best-effort
+
+    # Emit to event bus AFTER a brief delay so the transaction commits
+    # first. Bot handlers open new sessions that need committed data.
+    from src.events import emit
+
+    async def _deferred_emit():
+        await asyncio.sleep(0.5)
+        try:
+            await emit("post.created", post_event_payload)
+        except Exception:
+            pass
+
+    asyncio.create_task(_deferred_emit())
 
     # Task #214: Track social feature usage (post)
     try:
