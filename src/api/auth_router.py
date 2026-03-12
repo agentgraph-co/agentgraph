@@ -101,6 +101,15 @@ async def register(
 
     await send_verification_email(body.email, verification_token)
 
+    # Emit registration event for bot reactions (WelcomeBot)
+    from src.events import emit
+
+    await emit("entity.registered", {
+        "entity_id": str(entity.id),
+        "display_name": entity.display_name,
+        "entity_type": "human",
+    })
+
     return MessageResponse(
         message="Registration successful. Please check your email for verification.",
     )

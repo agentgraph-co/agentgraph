@@ -336,16 +336,20 @@ async def create_post(
     except Exception:
         logger.warning("Best-effort crosslink auto-detection failed", exc_info=True)
 
-    # Dispatch webhook events
+    # Dispatch webhook events + emit to event bus (for bot reactions)
     try:
-        from src.events import dispatch_webhooks
+        from src.events import dispatch_webhooks, emit
 
-        await dispatch_webhooks(db, "post.created", {
+        post_event_payload = {
             "post_id": str(post.id),
+            "author_entity_id": str(current_entity.id),
             "author_id": str(current_entity.id),
             "author_name": current_entity.display_name,
+            "content": post.content,
             "content_preview": post.content[:100],
-        })
+        }
+        await dispatch_webhooks(db, "post.created", post_event_payload)
+        await emit("post.created", post_event_payload)
         if body.parent_post_id is not None:
             await dispatch_webhooks(db, "post.replied", {
                 "post_id": str(post.id),

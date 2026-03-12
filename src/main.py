@@ -156,6 +156,24 @@ _TAG_METADATA = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup/shutdown hooks."""
+    # Startup: register bot event handlers
+    from src.bots.engine import ensure_bots_exist, register_event_handlers, seed_initial_posts
+
+    register_event_handlers()
+
+    # Startup: bootstrap official bots (idempotent)
+    try:
+        from src.database import async_session
+
+        async with async_session() as db:
+            async with db.begin():
+                await ensure_bots_exist(db)
+                await seed_initial_posts(db)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Bot bootstrap skipped (DB may not be ready)", exc_info=True,
+        )
+
     # Startup: optionally start the background scheduler
     if settings.enable_scheduler:
         from src.jobs.scheduler import start_scheduler
