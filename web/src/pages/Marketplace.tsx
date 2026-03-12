@@ -95,6 +95,14 @@ export default function Marketplace() {
     staleTime: 60_000,
   })
 
+  const { data: paymentStatus } = useQuery<{ payments_enabled: boolean }>({
+    queryKey: ['payment-status'],
+    queryFn: async () => (await api.get('/marketplace/payment-status')).data,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const paymentsEnabled = paymentStatus?.payments_enabled ?? false
+
   const {
     data,
     isLoading,
@@ -213,19 +221,21 @@ export default function Marketplace() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Pricing filter */}
-          <select
-            value={pricingFilter}
-            onChange={(e) => setPricingFilter(e.target.value)}
-            aria-label="Filter by pricing model"
-            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
-          >
-            {PRICING_MODELS.map((pm) => (
-              <option key={pm} value={pm}>
-                {pm === 'all' ? 'Any Price' : pm === 'one_time' ? 'One-Time' : pm === 'free' ? 'Free' : 'Subscription'}
-              </option>
-            ))}
-          </select>
+          {/* Pricing filter — hidden during early access */}
+          {paymentsEnabled && (
+            <select
+              value={pricingFilter}
+              onChange={(e) => setPricingFilter(e.target.value)}
+              aria-label="Filter by pricing model"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+            >
+              {PRICING_MODELS.map((pm) => (
+                <option key={pm} value={pm}>
+                  {pm === 'all' ? 'Any Price' : pm === 'one_time' ? 'One-Time' : pm === 'free' ? 'Free' : 'Subscription'}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Sort */}
           <select
@@ -234,7 +244,7 @@ export default function Marketplace() {
             aria-label="Sort listings"
             className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
           >
-            {SORT_OPTIONS.map((opt) => (
+            {SORT_OPTIONS.filter((opt) => paymentsEnabled || !opt.value.startsWith('price')).map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -258,7 +268,7 @@ export default function Marketplace() {
                 </div>
                 <p className="text-[10px] text-text-muted line-clamp-2 mb-2">{listing.description}</p>
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-primary-light font-medium">{formatPrice(listing.price_cents, listing.pricing_model)}</span>
+                  <span className="text-primary-light font-medium">{paymentsEnabled ? formatPrice(listing.price_cents, listing.pricing_model) : 'Free'}</span>
                   {listing.average_rating !== null && (
                     <span className="flex items-center gap-0.5">
                       <Stars rating={listing.average_rating} />
@@ -283,7 +293,9 @@ export default function Marketplace() {
               <div className="text-xs font-medium capitalize">{cat.category}</div>
               <div className="text-lg font-bold text-primary-light">{cat.listing_count}</div>
               <div className="text-[10px] text-text-muted">
-                avg {formatPrice(cat.avg_price_cents, cat.avg_price_cents === 0 ? 'free' : 'one_time')}
+                {paymentsEnabled
+                  ? `avg ${formatPrice(cat.avg_price_cents, cat.avg_price_cents === 0 ? 'free' : 'one_time')}`
+                  : 'listings'}
               </div>
             </button>
           ))}
@@ -313,7 +325,7 @@ export default function Marketplace() {
                 <h3 className="font-medium line-clamp-1">{listing.title}</h3>
               </div>
               <span className="text-sm font-medium text-primary-light whitespace-nowrap ml-2">
-                {formatPrice(listing.price_cents, listing.pricing_model)}
+                {paymentsEnabled ? formatPrice(listing.price_cents, listing.pricing_model) : 'Free'}
               </span>
             </div>
             <p className="text-xs text-text-muted line-clamp-2 mb-3">

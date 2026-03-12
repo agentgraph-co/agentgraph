@@ -404,9 +404,9 @@ class TestScheduler:
         loop.close()
 
     def test_scheduler_module_imports(self):
-        from src.jobs.scheduler import TRUST_RECOMPUTE_INTERVAL
+        from src.jobs.scheduler import SCHEDULER_INTERVAL
 
-        assert TRUST_RECOMPUTE_INTERVAL == 6 * 60 * 60
+        assert SCHEDULER_INTERVAL == 6 * 60 * 60
 
 
 # =====================================================================

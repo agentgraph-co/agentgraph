@@ -1,6 +1,9 @@
 """Production-ready scheduler for periodic jobs.
 
-Uses a simple asyncio-based loop to run trust recomputation every 6 hours.
+Runs two jobs on the same interval (default 6 hours):
+1. Trust recomputation — recalculate all trust scores with attestation decay
+2. Provisional agent expiry — deactivate expired provisional agents and revoke keys
+
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
 """
@@ -12,21 +15,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Default interval: 6 hours (in seconds)
-TRUST_RECOMPUTE_INTERVAL = 6 * 60 * 60
+SCHEDULER_INTERVAL = 6 * 60 * 60
 
 _scheduler_task: asyncio.Task | None = None
 
 
-async def _trust_recompute_loop(interval: int = TRUST_RECOMPUTE_INTERVAL) -> None:
-    """Periodically run trust recomputation in the background."""
+async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
+    """Periodically run all scheduled jobs in the background."""
     from src.database import async_session
 
     logger.info(
-        "Trust recompute scheduler started (interval=%ds)", interval,
+        "Background scheduler started (interval=%ds)", interval,
     )
 
     while True:
         await asyncio.sleep(interval)
+
+        # Job 1: Trust recomputation
         try:
             async with async_session() as session:
                 async with session.begin():
@@ -38,6 +43,25 @@ async def _trust_recompute_loop(interval: int = TRUST_RECOMPUTE_INTERVAL) -> Non
                     )
         except Exception:
             logger.exception("Scheduled trust recompute failed")
+
+        # Job 2: Provisional agent expiry
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    from src.jobs.expire_provisional import (
+                        expire_provisional_agents,
+                    )
+
+                    summary = await expire_provisional_agents(session)
+                    if summary["expired_count"] > 0:
+                        logger.info(
+                            "Scheduled provisional expiry completed: %s",
+                            summary,
+                        )
+                    else:
+                        logger.debug("Provisional expiry: nothing to expire")
+        except Exception:
+            logger.exception("Scheduled provisional expiry failed")
 
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
@@ -52,10 +76,10 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
         logger.debug("Scheduler already running, skipping start")
         return _scheduler_task
 
-    effective_interval = interval or TRUST_RECOMPUTE_INTERVAL
+    effective_interval = interval or SCHEDULER_INTERVAL
     _scheduler_task = asyncio.create_task(
-        _trust_recompute_loop(effective_interval),
-        name="trust-recompute-scheduler",
+        _scheduler_loop(effective_interval),
+        name="background-scheduler",
     )
     logger.info("Scheduler task created (interval=%ds)", effective_interval)
     return _scheduler_task
