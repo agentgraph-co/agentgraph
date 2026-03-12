@@ -162,6 +162,27 @@ async def send_moderation_appeal_received_email(
     )
 
 
+async def send_social_notification_email(
+    to: str,
+    entity_name: str,
+    title: str,
+    body: str,
+    action_url: str,
+    action_label: str = "View on AgentGraph",
+) -> bool:
+    """Send email notification for social events (reply, follow, mention, vote)."""
+    html = _load_template(
+        "social_notification.html",
+        entity_name=entity_name,
+        title=title,
+        body=body,
+        action_url=action_url,
+        action_label=action_label,
+        fallback=f"{title}: {body}",
+    )
+    return await send_email(to, title, html)
+
+
 async def send_moderation_appeal_decision_email(
     to: str,
     entity_name: str,

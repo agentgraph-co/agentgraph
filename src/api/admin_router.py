@@ -25,6 +25,7 @@ from src.models import (
     EntityRelationship,
     EntityType,
     EvolutionRecord,
+    IssueReport,
     Listing,
     ModerationFlag,
     ModerationStatus,
@@ -1561,3 +1562,209 @@ async def trigger_weekly_baselines(
     summary = await run_weekly_baselines(db)
     await db.commit()
     return WeeklyBaselinesSummary(**summary)
+
+
+# ---------------------------------------------------------------------------
+# Issue Tracking (Bug Reports / Feature Requests)
+# ---------------------------------------------------------------------------
+
+
+class IssueResponse(BaseModel):
+    id: uuid.UUID
+    post_id: uuid.UUID
+    bot_reply_id: uuid.UUID | None
+    reporter_entity_id: uuid.UUID
+    bot_entity_id: uuid.UUID
+    issue_type: str
+    status: str
+    title: str
+    resolution_note: str | None
+    resolved_by: uuid.UUID | None
+    resolved_at: datetime | None
+    resolution_reply_id: uuid.UUID | None
+    created_at: datetime
+    reporter_name: str | None = None
+    bot_name: str | None = None
+    post_content: str | None = None
+
+
+class IssueListResponse(BaseModel):
+    issues: list[IssueResponse]
+    total: int
+
+
+class ResolveIssueRequest(BaseModel):
+    status: str  # "resolved", "closed", "wontfix"
+    resolution_note: str | None = None
+
+
+@router.get(
+    "/issues",
+    response_model=IssueListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_issues(
+    status: str | None = Query(None),
+    issue_type: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all issue reports with optional filters. Admin only."""
+    require_admin(current_entity)
+
+    base = select(IssueReport)
+    count_base = select(func.count()).select_from(IssueReport)
+
+    if status:
+        base = base.where(IssueReport.status == status)
+        count_base = count_base.where(IssueReport.status == status)
+    if issue_type:
+        base = base.where(IssueReport.issue_type == issue_type)
+        count_base = count_base.where(IssueReport.issue_type == issue_type)
+
+    total = await db.scalar(count_base) or 0
+
+    result = await db.execute(
+        base.order_by(IssueReport.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    issues = result.scalars().all()
+
+    # Gather related data
+    entity_ids = set()
+    post_ids = set()
+    for iss in issues:
+        entity_ids.add(iss.reporter_entity_id)
+        entity_ids.add(iss.bot_entity_id)
+        post_ids.add(iss.post_id)
+
+    name_map: dict[uuid.UUID, str] = {}
+    if entity_ids:
+        name_result = await db.execute(
+            select(Entity.id, Entity.display_name).where(Entity.id.in_(entity_ids))
+        )
+        name_map = {eid: name for eid, name in name_result.all()}
+
+    content_map: dict[uuid.UUID, str] = {}
+    if post_ids:
+        post_result = await db.execute(
+            select(Post.id, Post.content).where(Post.id.in_(post_ids))
+        )
+        content_map = {pid: content for pid, content in post_result.all()}
+
+    return IssueListResponse(
+        issues=[
+            IssueResponse(
+                id=iss.id,
+                post_id=iss.post_id,
+                bot_reply_id=iss.bot_reply_id,
+                reporter_entity_id=iss.reporter_entity_id,
+                bot_entity_id=iss.bot_entity_id,
+                issue_type=iss.issue_type,
+                status=iss.status,
+                title=iss.title,
+                resolution_note=iss.resolution_note,
+                resolved_by=iss.resolved_by,
+                resolved_at=iss.resolved_at,
+                resolution_reply_id=iss.resolution_reply_id,
+                created_at=iss.created_at,
+                reporter_name=name_map.get(iss.reporter_entity_id),
+                bot_name=name_map.get(iss.bot_entity_id),
+                post_content=(content_map.get(iss.post_id) or "")[:200],
+            )
+            for iss in issues
+        ],
+        total=total,
+    )
+
+
+@router.patch(
+    "/issues/{issue_id}/resolve",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def resolve_issue(
+    issue_id: uuid.UUID,
+    body: ResolveIssueRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve an issue report. Bot posts a follow-up reply. Admin only."""
+    require_admin(current_entity)
+
+    if body.status not in ("resolved", "closed", "wontfix"):
+        raise HTTPException(
+            status_code=400,
+            detail="status must be 'resolved', 'closed', or 'wontfix'",
+        )
+
+    issue = await db.get(IssueReport, issue_id)
+    if issue is None:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    if issue.status in ("resolved", "closed", "wontfix"):
+        raise HTTPException(status_code=409, detail="Issue is already resolved")
+
+    issue.status = body.status
+    issue.resolution_note = body.resolution_note
+    issue.resolved_by = current_entity.id
+    issue.resolved_at = datetime.now(
+        __import__("datetime").timezone.utc
+    )
+    await db.flush()
+
+    # Bot posts a follow-up reply to the original post
+    status_label = {
+        "resolved": "resolved",
+        "closed": "closed",
+        "wontfix": "won't fix",
+    }
+    reply_content = (
+        f"**Update:** This {issue.issue_type} report has been marked as "
+        f"**{status_label[body.status]}**."
+    )
+    if body.resolution_note:
+        reply_content += f"\n\n{body.resolution_note}"
+    reply_content += "\n\nThank you for your report!"
+
+    from src.bots.engine import _post_as_bot
+
+    reply = await _post_as_bot(
+        db,
+        issue.bot_entity_id,
+        reply_content,
+        flair="discussion",
+        parent_post_id=issue.post_id,
+    )
+    if reply:
+        issue.resolution_reply_id = reply.id
+        await db.flush()
+
+    # Notify the original reporter
+    from src.api.notification_router import create_notification
+
+    await create_notification(
+        db,
+        entity_id=issue.reporter_entity_id,
+        kind="reply",
+        title=f"Your {issue.issue_type} report was {status_label[body.status]}",
+        body=body.resolution_note or f"Your {issue.issue_type} report has been addressed.",
+        reference_id=str(issue.post_id),
+    )
+
+    await log_action(
+        db,
+        action="admin.issue.resolve",
+        entity_id=current_entity.id,
+        resource_type="issue_report",
+        resource_id=issue.id,
+        details={"status": body.status, "resolution_note": body.resolution_note},
+    )
+
+    return {
+        "message": f"Issue {status_label[body.status]}",
+        "issue_id": str(issue.id),
+        "resolution_reply_id": str(reply.id) if reply else None,
+    }
