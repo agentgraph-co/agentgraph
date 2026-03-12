@@ -6,18 +6,18 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bots.definitions import BOT_DEFINITIONS, BOT_BY_KEY, bot_uuid, BOT_IDS
+from src.bots.definitions import BOT_BY_KEY, BOT_DEFINITIONS, BOT_IDS, bot_uuid
 from src.bots.engine import (
+    _post_as_bot,
     ensure_bots_exist,
-    seed_initial_posts,
-    run_scheduled_posts,
     handle_entity_registered,
     handle_post_created,
     register_event_handlers,
-    _post_as_bot,
+    run_scheduled_posts,
+    seed_initial_posts,
 )
 from src.database import get_db
 from src.main import app
@@ -139,7 +139,7 @@ async def test_seed_initial_posts(db: AsyncSession):
 async def test_seed_initial_posts_idempotent(db: AsyncSession):
     """Seeding twice doesn't duplicate posts."""
     await ensure_bots_exist(db)
-    result1 = await seed_initial_posts(db)
+    await seed_initial_posts(db)
     result2 = await seed_initial_posts(db)
     assert len(result2["seeded"]) == 0
 
