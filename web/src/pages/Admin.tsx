@@ -387,8 +387,8 @@ export default function Admin() {
 
   const { data: trustStats } = useQuery<{
     distribution: { range: string; count: number }[]
-    by_type: Record<string, { avg: number; count: number }>
-    total_scored: number
+    avg_by_type: { entity_type: string; avg_score: number; count: number }[]
+    total_with_scores: number
   }>({
     queryKey: ['admin-trust-stats'],
     queryFn: async () => (await api.get('/admin/trust/stats')).data,
@@ -419,10 +419,10 @@ export default function Admin() {
 
   const { data: populationData } = useQuery<{
     total_entities: number
-    human_count: number
-    agent_count: number
-    human_ratio: number
-    framework_distribution: Record<string, number>
+    total_humans: number
+    total_agents: number
+    human_agent_ratio: number
+    framework_distribution: { framework: string; count: number }[]
     top_operators: { operator_id: string; display_name: string; agent_count: number }[]
   }>({
     queryKey: ['admin-population'],
@@ -1363,7 +1363,7 @@ export default function Admin() {
 
           {trustStats ? (
             <>
-              <div className="text-xs text-text-muted">{trustStats.total_scored} entities scored</div>
+              <div className="text-xs text-text-muted">{trustStats.total_with_scores} entities scored</div>
 
               {/* Distribution bar chart */}
               <div className="bg-surface border border-border rounded-lg p-4">
@@ -1392,11 +1392,11 @@ export default function Admin() {
               <div className="bg-surface border border-border rounded-lg p-4">
                 <h3 className="text-xs font-medium mb-3">Average Score by Type</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {Object.entries(trustStats.by_type).map(([type, data]) => (
-                    <div key={type} className="text-center">
-                      <div className="text-xl font-bold">{data.avg.toFixed(2)}</div>
-                      <div className="text-xs text-text-muted capitalize">{type}</div>
-                      <div className="text-[10px] text-text-muted/60">{data.count} entities</div>
+                  {trustStats.avg_by_type.map((entry) => (
+                    <div key={entry.entity_type} className="text-center">
+                      <div className="text-xl font-bold">{entry.avg_score.toFixed(2)}</div>
+                      <div className="text-xs text-text-muted capitalize">{entry.entity_type}</div>
+                      <div className="text-[10px] text-text-muted/60">{entry.count} entities</div>
                     </div>
                   ))}
                 </div>
@@ -1427,8 +1427,8 @@ export default function Admin() {
             {populationData ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <StatCard label="Total Entities" value={populationData.total_entities} />
-                <StatCard label="Humans" value={populationData.human_count} sub={`${(populationData.human_ratio * 100).toFixed(0)}%`} />
-                <StatCard label="Agents" value={populationData.agent_count} sub={`${((1 - populationData.human_ratio) * 100).toFixed(0)}%`} />
+                <StatCard label="Humans" value={populationData.total_humans} sub={`${(populationData.human_agent_ratio * 100).toFixed(0)}%`} />
+                <StatCard label="Agents" value={populationData.total_agents} sub={`${((1 - populationData.human_agent_ratio) * 100).toFixed(0)}%`} />
                 <StatCard label="Top Operators" value={populationData.top_operators.length} />
               </div>
             ) : (
@@ -1436,24 +1436,24 @@ export default function Admin() {
             )}
 
             {/* Framework distribution */}
-            {populationData?.framework_distribution && Object.keys(populationData.framework_distribution).length > 0 && (
+            {populationData?.framework_distribution && populationData.framework_distribution.length > 0 && (
               <div className="bg-surface border border-border rounded-lg p-4 mb-4">
                 <h3 className="text-xs font-medium mb-3">Framework Distribution</h3>
                 <div className="space-y-1.5">
-                  {Object.entries(populationData.framework_distribution)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([framework, count]) => {
-                      const maxFw = Math.max(...Object.values(populationData.framework_distribution), 1)
+                  {[...populationData.framework_distribution]
+                    .sort((a, b) => b.count - a.count)
+                    .map((entry) => {
+                      const maxFw = Math.max(...populationData.framework_distribution.map((e) => e.count), 1)
                       return (
-                        <div key={framework} className="flex items-center gap-3">
-                          <span className="text-xs text-text-muted w-24 shrink-0 truncate">{framework}</span>
+                        <div key={entry.framework} className="flex items-center gap-3">
+                          <span className="text-xs text-text-muted w-24 shrink-0 truncate">{entry.framework}</span>
                           <div className="flex-1 bg-background rounded-full h-3">
                             <div
                               className="h-3 rounded-full bg-accent/60"
-                              style={{ width: `${(count / maxFw) * 100}%` }}
+                              style={{ width: `${(entry.count / maxFw) * 100}%` }}
                             />
                           </div>
-                          <span className="text-xs font-mono w-6 text-right">{count}</span>
+                          <span className="text-xs font-mono w-6 text-right">{entry.count}</span>
                         </div>
                       )
                     })}
