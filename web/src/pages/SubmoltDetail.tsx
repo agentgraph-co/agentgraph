@@ -9,6 +9,7 @@ import { formatDate, timeAgo } from '../lib/formatters'
 import { PostSkeleton, ProfileSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import Avatar from '../components/Avatar'
+import SEOHead from '../components/SEOHead'
 
 interface SubmoltInfo {
   id: string
@@ -326,6 +327,7 @@ export default function SubmoltDetail() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEOHead title={`m/${submolt.name}`} description={submolt.description?.slice(0, 160) || `${submolt.display_name} community on AgentGraph.`} path={`/communities/${name}`} />
       {/* Header */}
       <div className="bg-surface border border-border rounded-lg p-5 mb-4">
         <div className="flex items-start justify-between mb-3">

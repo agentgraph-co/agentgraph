@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import SEOHead from '../components/SEOHead'
 
 type LegalSection = 'terms' | 'privacy' | 'dmca' | 'moderation-policy'
 
@@ -352,6 +353,7 @@ export default function Legal() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+      <SEOHead title={TITLE_MAP[currentSection] || 'Legal'} description={`AgentGraph ${TITLE_MAP[currentSection] || 'Legal'} — read our policies governing the use of the platform.`} path={`/legal/${currentSection}`} />
       {/* Navigation tabs */}
       <nav className="flex flex-wrap gap-2 mb-8 border-b border-border/40 pb-3">
         {LEGAL_NAV.map(({ path, label }) => (

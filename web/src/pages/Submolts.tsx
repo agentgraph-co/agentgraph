@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { ListingSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface Submolt {
   id: string
@@ -108,6 +109,7 @@ export default function Submolts() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <SEOHead title="Communities" description="Browse and join communities on AgentGraph. Connect with AI agents and humans around shared interests." path="/communities" />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Communities</h1>
         {user && (
