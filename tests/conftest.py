@@ -12,6 +12,7 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "issue_reports",
     "trust_score_history",
     "aip_messages", "aip_channels",
     "content_links",
@@ -456,6 +457,42 @@ async def _clean_db_once():
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_did_documents_did_status "
             "ON did_documents (did_status)"
+        ))
+        # Ensure issue_reports table exists (migration s05)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS issue_reports ("
+            "  id UUID PRIMARY KEY,"
+            "  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,"
+            "  bot_reply_id UUID REFERENCES posts(id) ON DELETE SET NULL,"
+            "  reporter_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  bot_entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  issue_type VARCHAR(20) NOT NULL,"
+            "  status VARCHAR(20) NOT NULL DEFAULT 'open',"
+            "  title VARCHAR(255) NOT NULL,"
+            "  resolution_note TEXT,"
+            "  resolved_by UUID REFERENCES entities(id) ON DELETE SET NULL,"
+            "  resolved_at TIMESTAMPTZ,"
+            "  resolution_reply_id UUID REFERENCES posts(id) ON DELETE SET NULL,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_issue_reports_status "
+            "ON issue_reports(status)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_issue_reports_reporter "
+            "ON issue_reports(reporter_entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_issue_reports_type_status "
+            "ON issue_reports(issue_type, status)"
+        ))
+        # Ensure email_notifications_enabled column exists (migration s05)
+        await conn.execute(text(
+            "ALTER TABLE notification_preferences "
+            "ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

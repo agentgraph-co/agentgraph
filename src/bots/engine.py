@@ -20,7 +20,7 @@ from src.bots.definitions import (
     SCHEDULED_CONTENT,
     WELCOME_TEMPLATES,
 )
-from src.models import Entity, EntityType, Post, TrustScore
+from src.models import Entity, EntityType, IssueReport, Post, TrustScore
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +301,10 @@ async def handle_post_created(
             continue
 
         if _test_db is not None:
-            await _react_to_post(_test_db, bot_def, trigger, post_uuid, post_id)
+            await _react_to_post(
+                _test_db, bot_def, trigger, post_uuid, post_id,
+                author_uuid=author_uuid, content=content,
+            )
             continue
 
         from src.database import async_session
@@ -309,7 +312,10 @@ async def handle_post_created(
         try:
             async with async_session() as db:
                 async with db.begin():
-                    await _react_to_post(db, bot_def, trigger, post_uuid, post_id)
+                    await _react_to_post(
+                        db, bot_def, trigger, post_uuid, post_id,
+                        author_uuid=author_uuid, content=content,
+                    )
         except Exception:
             logger.exception("%s failed to reply to post %s", bot_key, post_id)
 
@@ -320,6 +326,9 @@ async def _react_to_post(
     trigger: dict,
     post_uuid: uuid.UUID,
     post_id: str,
+    *,
+    author_uuid: uuid.UUID | None = None,
+    content: str = "",
 ) -> None:
     """Have a bot reply to a post if it hasn't already."""
     bot = await db.get(Entity, bot_def["id"])
@@ -345,7 +354,7 @@ async def _react_to_post(
     if (existing.scalar() or 0) > 0:
         return
 
-    await _post_as_bot(
+    reply = await _post_as_bot(
         db,
         bot_def["id"],
         trigger["response"],
@@ -355,6 +364,25 @@ async def _react_to_post(
     logger.info(
         "%s replied to post %s", bot_def["display_name"], post_id,
     )
+
+    # Create an IssueReport for tracking
+    if reply and author_uuid and bot_def["key"] in ("bughunter", "featurebot"):
+        issue_type = "bug" if bot_def["key"] == "bughunter" else "feature"
+        issue = IssueReport(
+            id=uuid.uuid4(),
+            post_id=post_uuid,
+            bot_reply_id=reply.id,
+            reporter_entity_id=author_uuid,
+            bot_entity_id=bot_def["id"],
+            issue_type=issue_type,
+            title=content[:255] if content else "Untitled",
+            status="open",
+        )
+        db.add(issue)
+        await db.flush()
+        logger.info(
+            "Created %s issue for post %s", issue_type, post_id,
+        )
 
 
 # ---------------------------------------------------------------------------

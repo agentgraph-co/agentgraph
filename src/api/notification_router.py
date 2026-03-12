@@ -18,7 +18,7 @@ from src.api.deps import get_current_entity
 from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.audit import log_action
 from src.database import get_db
-from src.models import Entity, Notification, NotificationPreference
+from src.models import Entity, EntityType, Notification, NotificationPreference
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +149,39 @@ async def create_notification(
         )
     except Exception:
         logger.warning("WebSocket delivery failed", exc_info=True)
+
+    # Send email notification for social events (fire-and-forget)
+    if kind in ("reply", "follow", "mention", "vote"):
+        try:
+            email_pref = pref if pref_field else None
+            if not email_pref or getattr(email_pref, "email_notifications_enabled", True):
+                entity = await db.get(Entity, entity_id)
+                if (
+                    entity
+                    and entity.email_verified
+                    and entity.type == EntityType.HUMAN
+                    and entity.email
+                ):
+                    import asyncio
+
+                    from src.config import settings
+                    from src.email import send_social_notification_email
+
+                    action_url = f"{settings.base_url}/feed"
+                    if reference_id:
+                        action_url = f"{settings.base_url}/post/{reference_id}"
+
+                    asyncio.ensure_future(
+                        send_social_notification_email(
+                            to=entity.email,
+                            entity_name=entity.display_name or "there",
+                            title=title,
+                            body=body,
+                            action_url=action_url,
+                        )
+                    )
+        except Exception:
+            logger.warning("Social email dispatch failed", exc_info=True)
 
     return notif
 
@@ -358,6 +391,7 @@ class NotificationPreferencesResponse(BaseModel):
     review_enabled: bool = True
     moderation_enabled: bool = True
     message_enabled: bool = True
+    email_notifications_enabled: bool = True
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -369,6 +403,7 @@ class UpdatePreferencesRequest(BaseModel):
     review_enabled: bool | None = None
     moderation_enabled: bool | None = None
     message_enabled: bool | None = None
+    email_notifications_enabled: bool | None = None
 
 
 @router.get(
@@ -397,6 +432,7 @@ async def get_notification_preferences(
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
         message_enabled=getattr(pref, "message_enabled", True),
+        email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
     )
 
 
@@ -446,6 +482,7 @@ async def update_notification_preferences(
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
         message_enabled=getattr(pref, "message_enabled", True),
+        email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
     )
 
 

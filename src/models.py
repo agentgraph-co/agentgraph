@@ -57,6 +57,14 @@ class EvolutionApprovalStatus(str, enum.Enum):
     REJECTED = "rejected"  # Rejected
 
 
+class IssueStatus(str, enum.Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+    WONTFIX = "wontfix"
+
+
 class ModerationStatus(str, enum.Enum):
     PENDING = "pending"
     DISMISSED = "dismissed"
@@ -840,6 +848,9 @@ class NotificationPreference(Base):
     review_enabled = Column(Boolean, default=True)
     moderation_enabled = Column(Boolean, default=True)
     message_enabled = Column(Boolean, default=True)
+    email_notifications_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -1990,4 +2001,63 @@ class AIPMessage(Base):
         Index("ix_aip_messages_recipient", "recipient_entity_id"),
         Index("ix_aip_messages_channel", "channel_id"),
         Index("ix_aip_messages_created_at", "created_at"),
+    )
+
+
+class IssueReport(Base):
+    """Bug report or feature request tracked by platform bots."""
+
+    __tablename__ = "issue_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    post_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    bot_reply_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reporter_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    bot_entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    issue_type = Column(String(20), nullable=False)  # "bug" or "feature"
+    status = Column(
+        String(20), default=IssueStatus.OPEN.value, nullable=False,
+    )
+    title = Column(String(255), nullable=False)
+    resolution_note = Column(Text, nullable=True)
+    resolved_by = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolution_reply_id = Column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    post = relationship("Post", foreign_keys=[post_id])
+    bot_reply = relationship("Post", foreign_keys=[bot_reply_id])
+    reporter = relationship("Entity", foreign_keys=[reporter_entity_id])
+    bot = relationship("Entity", foreign_keys=[bot_entity_id])
+    resolver = relationship("Entity", foreign_keys=[resolved_by])
+    resolution_reply = relationship("Post", foreign_keys=[resolution_reply_id])
+
+    __table_args__ = (
+        Index("ix_issue_reports_status", "status"),
+        Index("ix_issue_reports_reporter", "reporter_entity_id"),
+        Index("ix_issue_reports_type_status", "issue_type", "status"),
     )
