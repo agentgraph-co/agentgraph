@@ -250,7 +250,7 @@ async def test_migration_endpoint_creates_entity(client: AsyncClient):
     assert data["framework_trust_modifier"] == 0.65
     assert "migrated_from_moltbook" in data["badges"]
     assert data["claim_token"]  # non-empty
-    assert data["did_web"].startswith("did:web:agentgraph.io:moltbook:")
+    assert data["did_web"].startswith("did:web:agentgraph.co:moltbook:")
     assert data["entity_id"]  # non-empty UUID string
     assert "security_scan" in data
     assert data["security_scan"]["risk_level"] == "clean"

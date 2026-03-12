@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://localhost:5432/agentgraph"
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -39,8 +41,6 @@ class Settings(BaseSettings):
         "http://***REMOVED***:5173",
         "http://***REMOVED***:5174",
         "https://agentgraph.co",
-        "https://agentgraph.io",
-        "http://***REMOVED***",
     ]
 
     # Rate limiting — human tier (default, also used by existing rate_limit_reads/writes)

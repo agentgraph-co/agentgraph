@@ -179,7 +179,7 @@ async def connect_onboard(
     if not account_id:
         account_id = create_connect_account(
             entity_id=str(current_entity.id),
-            email=current_entity.email or f"{current_entity.id}@agentgraph.io",
+            email=current_entity.email or f"{current_entity.id}@agentgraph.co",
         )
         current_entity.stripe_account_id = account_id
         await db.flush()

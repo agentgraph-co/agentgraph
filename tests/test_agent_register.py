@@ -130,7 +130,7 @@ async def test_registered_agent_has_did(client: AsyncClient, db):
     )
     assert resp.status_code == 201
     agent = resp.json()["agent"]
-    assert agent["did_web"].startswith("did:web:agentgraph.io:agents:")
+    assert agent["did_web"].startswith("did:web:agentgraph.co:agents:")
 
 
 @pytest.mark.asyncio

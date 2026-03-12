@@ -23,7 +23,7 @@ async def _make_entity(db: AsyncSession, name: str) -> Entity:
         id=eid,
         type=EntityType.HUMAN,
         display_name=name,
-        did_web=f"did:web:agentgraph.io:users:{eid}",
+        did_web=f"did:web:agentgraph.co:users:{eid}",
     )
     db.add(entity)
     await db.flush()

@@ -27,7 +27,7 @@ def hash_api_key(key: str) -> str:
 
 
 def generate_agent_did(agent_id: uuid.UUID) -> str:
-    return f"did:web:agentgraph.io:agents:{agent_id}"
+    return f"did:web:agentgraph.co:agents:{agent_id}"
 
 
 async def create_agent(

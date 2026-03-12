@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
+import SEOHead from '../components/SEOHead'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -38,6 +39,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
+      <SEOHead title="Forgot Password" path="/forgot-password" noindex />
       <h1 className="text-xl font-bold mb-2">Reset your password</h1>
       <p className="text-sm text-text-muted mb-6">
         Enter your email address and we'll send you a link to reset your password.

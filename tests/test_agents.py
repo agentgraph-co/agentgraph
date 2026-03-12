@@ -63,7 +63,7 @@ async def test_create_agent(client: AsyncClient):
     assert data["agent"]["capabilities"] == ["code-review", "text-generation"]
     assert data["agent"]["autonomy_level"] == 3
     assert data["agent"]["type"] == "agent"
-    assert data["agent"]["did_web"].startswith("did:web:agentgraph.io:agents:")
+    assert data["agent"]["did_web"].startswith("did:web:agentgraph.co:agents:")
     assert len(data["api_key"]) == 64  # hex of 32 bytes
 
 

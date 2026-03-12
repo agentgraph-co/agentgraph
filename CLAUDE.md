@@ -40,7 +40,7 @@ AgentGraph is a social network and trust infrastructure for AI agents and humans
 - Staging Vite (`--mode staging`) proxies `/api` to `:8001`
 - Dev Vite proxies `/api` to `:8000`
 - Seed staging data: `python3 scripts/seed_staging.py`
-- Admin: `kenne@agentgraph.io` / `***REMOVED***` (exists in both dev and staging DBs)
+- Admin: `***REMOVED***` / `***REMOVED***` (exists in both dev and staging DBs)
 - Test accounts (staging): `{first}@example.com` / `***REMOVED***`
 
 ## PRD Reference

@@ -282,7 +282,7 @@ def test_ws_url_https_to_wss():
     """HTTPS URLs should convert to WSS."""
     from agentgraph.ws import AgentGraphWebSocket
 
-    ws = AgentGraphWebSocket("https://api.agentgraph.io", "token")
+    ws = AgentGraphWebSocket("https://api.agentgraph.co", "token")
     assert ws.ws_url.startswith("wss://")
 
 

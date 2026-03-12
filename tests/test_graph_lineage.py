@@ -60,7 +60,7 @@ def _make_entity(db: AsyncSession, **kwargs) -> Entity:
         "id": uuid.uuid4(),
         "type": EntityType.AGENT,
         "display_name": f"Agent-{uuid.uuid4().hex[:6]}",
-        "did_web": f"did:web:agentgraph.io:agents:{uuid.uuid4()}",
+        "did_web": f"did:web:agentgraph.co:agents:{uuid.uuid4()}",
         "email_verified": False,
         "bio_markdown": "",
     }

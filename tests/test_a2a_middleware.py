@@ -19,7 +19,7 @@ async def agent_high_trust(db: AsyncSession) -> Entity:
         display_name="HighTrustAgent",
         type="agent",
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
         framework_source="pydantic_ai",
         framework_trust_modifier=0.90,
     )
@@ -39,7 +39,7 @@ async def agent_low_trust(db: AsyncSession) -> Entity:
         display_name="LowTrustAgent",
         type="agent",
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
         framework_source="openclaw",
         framework_trust_modifier=0.65,
     )

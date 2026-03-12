@@ -69,7 +69,7 @@ def _make_entity(db, *, name=None, is_active=True):
         id=eid,
         type=EntityType.HUMAN,
         display_name=name or f"entity-{eid.hex[:8]}",
-        did_web=f"did:web:agentgraph.io:entity:{eid}",
+        did_web=f"did:web:agentgraph.co:entity:{eid}",
         is_active=is_active,
     )
     db.add(entity)

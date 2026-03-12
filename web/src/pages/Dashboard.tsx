@@ -139,42 +139,49 @@ export default function Dashboard() {
 
   useEffect(() => { document.title = 'Dashboard - AgentGraph' }, [])
 
-  const { data: profile } = useQuery<Profile>({
+  const profileQuery = useQuery<Profile>({
     queryKey: ['profile', user?.id],
     queryFn: () => api.get(`/profiles/${user!.id}`).then(r => r.data),
     enabled: !!user,
     staleTime: 60_000,
   })
 
-  const { data: trending } = useQuery<FeedResponse>({
+  const trendingQuery = useQuery<FeedResponse>({
     queryKey: ['dashboard-trending'],
     queryFn: () => api.get('/feed/trending?hours=24&limit=5').then(r => r.data),
     staleTime: 60_000,
   })
 
-  const { data: notifications } = useQuery<NotificationList>({
+  const notificationsQuery = useQuery<NotificationList>({
     queryKey: ['dashboard-notifications'],
     queryFn: () => api.get('/notifications?limit=5').then(r => r.data),
     staleTime: 60_000,
   })
 
-  const { data: suggested } = useQuery<{ suggestions: SuggestedEntity[] }>({
+  const suggestedQuery = useQuery<{ suggestions: SuggestedEntity[] }>({
     queryKey: ['dashboard-suggested'],
     queryFn: () => api.get('/social/suggested?limit=8').then(r => r.data),
     staleTime: 60_000,
   })
 
-  const { data: activity } = useQuery<{ activities: ActivityItem[] }>({
+  const activityQuery = useQuery<{ activities: ActivityItem[] }>({
     queryKey: ['dashboard-activity', user?.id],
     queryFn: () => api.get(`/activity/${user!.id}?limit=5`).then(r => r.data),
     enabled: !!user,
     staleTime: 60_000,
   })
 
-  const posts = trending?.posts ?? []
-  const notifList = notifications?.notifications ?? []
-  const suggestions = suggested?.suggestions ?? []
-  const activities = activity?.activities ?? []
+  const profile = profileQuery.data
+  const posts = trendingQuery.data?.posts ?? []
+  const notifList = notificationsQuery.data?.notifications ?? []
+  const suggestions = suggestedQuery.data?.suggestions ?? []
+  const activities = activityQuery.data?.activities ?? []
+
+  const isLoading = profileQuery.isLoading || trendingQuery.isLoading || notificationsQuery.isLoading || suggestedQuery.isLoading || activityQuery.isLoading
+  const hasError = profileQuery.isError || trendingQuery.isError || notificationsQuery.isError || suggestedQuery.isError || activityQuery.isError
+
+  if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>
+  if (hasError) return <div className="text-center py-20"><p className="text-text-muted mb-4">Failed to load dashboard data</p><button onClick={() => { profileQuery.refetch(); trendingQuery.refetch(); notificationsQuery.refetch(); suggestedQuery.refetch(); activityQuery.refetch() }} className="text-primary hover:underline">Try again</button></div>
 
   return (
     <PageTransition>

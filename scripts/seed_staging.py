@@ -2,7 +2,7 @@
 
 Direct DB insertion via raw SQL — no project model imports needed.
 Idempotent — uses ON CONFLICT DO NOTHING and checks before inserting.
-Does NOT touch kenne@agentgraph.io if it already exists.
+Does NOT touch ***REMOVED*** if it already exists.
 
 Usage:
     python3 scripts/seed_staging.py
@@ -603,10 +603,10 @@ async def exec_returning(session: AsyncSession, sql: str, params: dict | None = 
 # ---------------------------------------------------------------------------
 
 async def check_admin_exists(session: AsyncSession) -> uuid.UUID | None:
-    """Check if kenne@agentgraph.io exists. Return its UUID or None."""
+    """Check if ***REMOVED*** exists. Return its UUID or None."""
     result = await session.execute(
         text("SELECT id FROM entities WHERE email = :email"),
-        {"email": "kenne@agentgraph.io"},
+        {"email": "***REMOVED***"},
     )
     row = result.fetchone()
     return row[0] if row else None
@@ -1685,12 +1685,12 @@ async def main() -> None:
             await engine.dispose()
             return
 
-        # Check if admin (kenne@agentgraph.io) exists — don't touch it
+        # Check if admin (***REMOVED***) exists — don't touch it
         admin_id = await check_admin_exists(session)
         if admin_id:
-            print(f"Found admin kenne@agentgraph.io (id={admin_id}). Will not modify.")
+            print(f"Found admin ***REMOVED*** (id={admin_id}). Will not modify.")
         else:
-            print("Admin kenne@agentgraph.io not found. Skipping admin-specific seeds.")
+            print("Admin ***REMOVED*** not found. Skipping admin-specific seeds.")
 
         print()
         print("Seeding data...")
@@ -1752,7 +1752,7 @@ async def main() -> None:
         print("-" * 45)
         print()
         print("All test account password: ***REMOVED***")
-        print("Admin account (untouched): kenne@agentgraph.io")
+        print("Admin account (untouched): ***REMOVED***")
 
     await engine.dispose()
 

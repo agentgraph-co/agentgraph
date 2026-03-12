@@ -88,7 +88,7 @@ final class DeepDiveTests: XCTestCase {
         let emailField = app.textFields.firstMatch
         guard emailField.waitForExistence(timeout: 3) else { return }
         emailField.tap()
-        emailField.typeText("kenne@agentgraph.io")
+        emailField.typeText("***REMOVED***")
 
         let passwordField = app.secureTextFields.firstMatch
         passwordField.tap()

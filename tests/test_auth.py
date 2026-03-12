@@ -168,7 +168,7 @@ async def test_me_authenticated(client: AsyncClient):
     assert data["email"] == VALID_USER["email"]
     assert data["display_name"] == VALID_USER["display_name"]
     assert data["type"] == "human"
-    assert data["did_web"].startswith("did:web:agentgraph.io:users:")
+    assert data["did_web"].startswith("did:web:agentgraph.co:users:")
 
 
 @pytest.mark.asyncio
