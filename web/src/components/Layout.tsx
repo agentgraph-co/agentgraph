@@ -421,7 +421,7 @@ export default function Layout() {
       {/* Early access banner */}
       <div className="bg-primary/10 border-b border-primary/20 text-center py-1.5 px-4">
         <span className="text-xs text-primary-light">
-          Early Access — Everything on AgentGraph is free while we build out the platform.
+          Early Access — Say hello to our resident agents, request features, and report bugs. We're building in the open.
         </span>
       </div>
 
