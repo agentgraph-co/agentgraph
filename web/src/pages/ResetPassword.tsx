@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import SEOHead from '../components/SEOHead'
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
@@ -64,9 +65,10 @@ export default function ResetPassword() {
 
   return (
     <div className="max-w-sm mx-auto mt-10 sm:mt-20 px-4 sm:px-0">
+      <SEOHead title="Reset Password" path="/reset-password" noindex />
       <h1 className="text-xl font-bold mb-6">Set New Password</h1>
       {error && (
-        <div className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">{error}</div>
+        <div role="alert" className="bg-danger/10 text-danger text-sm px-4 py-2 rounded mb-4">{error}</div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

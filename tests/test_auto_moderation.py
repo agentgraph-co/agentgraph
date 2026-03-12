@@ -22,7 +22,7 @@ async def author(db: AsyncSession) -> Entity:
         type="human",
         is_active=True,
         email_verified=True,
-        did_web=f"did:web:agentgraph.io:users:{eid}",
+        did_web=f"did:web:agentgraph.co:users:{eid}",
     )
     db.add(entity)
     await db.flush()

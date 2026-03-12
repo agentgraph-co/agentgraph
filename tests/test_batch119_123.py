@@ -255,7 +255,7 @@ async def test_did_resolve_accessible(client, db):
     token_a, _ = await _setup_user(client, USER_A)
 
     resp = await client.get(
-        "/api/v1/did/resolve?uri=did:web:agentgraph.io:nonexistent",
+        "/api/v1/did/resolve?uri=did:web:agentgraph.co:nonexistent",
     )
     # 404 is fine — we're testing the endpoint is reachable (not 500)
     assert resp.status_code in (200, 404)

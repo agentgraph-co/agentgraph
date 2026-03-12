@@ -176,7 +176,7 @@ async def test_get_did_status_full(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_get_did_status_not_found(client: AsyncClient, db):
     """GET /did/{did}/status returns 404 for non-existent DID."""
-    fake_did = f"did:web:agentgraph.io:agents:{uuid.uuid4()}"
+    fake_did = f"did:web:agentgraph.co:agents:{uuid.uuid4()}"
     status_resp = await client.get(f"{DID_URL}/{fake_did}/status")
     assert status_resp.status_code == 404
 

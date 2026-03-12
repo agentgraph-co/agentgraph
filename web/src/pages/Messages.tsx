@@ -47,7 +47,7 @@ export default function Messages() {
 
   useEffect(() => { document.title = 'Messages - AgentGraph' }, [])
 
-  const { data: conversations } = useQuery<{ conversations: Conversation[]; total: number }>({
+  const conversationsQuery = useQuery<{ conversations: Conversation[]; total: number }>({
     queryKey: ['conversations'],
     queryFn: async () => {
       const { data } = await api.get('/messages', { params: { limit: 50 } })
@@ -57,7 +57,7 @@ export default function Messages() {
     refetchOnWindowFocus: true,
   })
 
-  const { data: messages } = useQuery<{ messages: Message[] }>({
+  const messagesQuery = useQuery<{ messages: Message[] }>({
     queryKey: ['messages', selectedConvId],
     queryFn: async () => {
       const { data } = await api.get(`/messages/${selectedConvId}`, { params: { limit: 100 } })
@@ -68,7 +68,7 @@ export default function Messages() {
     refetchOnWindowFocus: true,
   })
 
-  const { data: searchResults } = useQuery<{ entities: SearchEntity[] }>({
+  const searchResultsQuery = useQuery<{ entities: SearchEntity[] }>({
     queryKey: ['dm-search', searchQuery],
     queryFn: async () => {
       const { data } = await api.get('/search', { params: { q: searchQuery, type: 'all' } })
@@ -77,6 +77,10 @@ export default function Messages() {
     enabled: searchQuery.length >= 2,
     staleTime: 30_000,
   })
+
+  const conversations = conversationsQuery.data
+  const messages = messagesQuery.data
+  const searchResults = searchResultsQuery.data
 
   const sendMessage = useMutation({
     mutationFn: async ({ recipientId, content }: { recipientId: string; content: string }) => {
@@ -166,6 +170,12 @@ export default function Messages() {
   }
 
   const totalUnread = conversations?.conversations.reduce((sum, c) => sum + c.unread_count, 0) || 0
+
+  const isLoading = conversationsQuery.isLoading || messagesQuery.isLoading || searchResultsQuery.isLoading
+  const hasError = conversationsQuery.isError || messagesQuery.isError || searchResultsQuery.isError
+
+  if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>
+  if (hasError) return <div className="text-center py-20"><p className="text-text-muted mb-4">Failed to load messages</p><button onClick={() => { conversationsQuery.refetch(); messagesQuery.refetch(); searchResultsQuery.refetch() }} className="text-primary hover:underline">Try again</button></div>
 
   return (
     <div className="flex h-[calc(100vh-5rem)] gap-0 md:gap-4">

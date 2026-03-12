@@ -37,7 +37,7 @@ set -euo pipefail
 # --- Configuration ---
 DOMAIN="agentgraph.co"
 EXTRA_DOMAINS="-d agentgraph.co -d www.agentgraph.co"
-EMAIL="kenne@agentgraph.io"
+EMAIL="***REMOVED***"
 PROJECT_DIR="${HOME}/agentgraph"
 COMPOSE_FILE="docker-compose.prod.yml"
 NGINX_CONF="${PROJECT_DIR}/nginx/nginx.conf"

@@ -28,7 +28,7 @@ async def test_security_headers_present(client: AsyncClient):
 
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
-    assert resp.headers["X-XSS-Protection"] == "1; mode=block"
+    assert resp.headers["X-XSS-Protection"] == "0"
     assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
     assert "geolocation=()" in resp.headers["Permissions-Policy"]
 

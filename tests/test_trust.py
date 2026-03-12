@@ -19,7 +19,7 @@ def _make_entity(**kwargs) -> Entity:
         "id": uuid.uuid4(),
         "type": EntityType.HUMAN,
         "display_name": "Test",
-        "did_web": f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        "did_web": f"did:web:agentgraph.co:users:{uuid.uuid4()}",
         "email_verified": False,
         "bio_markdown": "",
         "operator_id": None,
@@ -91,7 +91,7 @@ async def test_compute_trust_score_new_entity(db: AsyncSession):
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="New User",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     db.add(entity)
     await db.flush()
@@ -113,7 +113,7 @@ async def test_compute_trust_score_active_entity(db: AsyncSession):
         email_verified=True,
         display_name="Active User",
         bio_markdown="I post a lot",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     db.add(entity)
     await db.flush()
@@ -139,7 +139,7 @@ async def test_compute_trust_score_upserts(db: AsyncSession):
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="Upsert User",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     db.add(entity)
     await db.flush()
@@ -166,13 +166,13 @@ async def test_activity_log_scale_diminishing_returns(db: AsyncSession):
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="Few Posts",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     entity_many = Entity(
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="Many Posts",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     db.add_all([entity_few, entity_many])
     await db.flush()

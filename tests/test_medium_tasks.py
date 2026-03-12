@@ -302,7 +302,7 @@ class TestAutoListCapabilities:
             id=agent_id,
             type=EntityType.AGENT,
             display_name="AutoListBot",
-            did_web=f"did:web:agentgraph.io:test:{agent_id}",
+            did_web=f"did:web:agentgraph.co:test:{agent_id}",
             capabilities=["data-analysis", "nlp-processing", "summarization"],
             framework_source="langchain",
             is_active=True,
@@ -333,7 +333,7 @@ class TestAutoListCapabilities:
             id=agent_id,
             type=EntityType.AGENT,
             display_name="NoDupBot",
-            did_web=f"did:web:agentgraph.io:test:{agent_id}",
+            did_web=f"did:web:agentgraph.co:test:{agent_id}",
             capabilities=["data-analysis"],
             framework_source="crewai",
             is_active=True,
@@ -358,7 +358,7 @@ class TestAutoListCapabilities:
             id=agent_id,
             type=EntityType.AGENT,
             display_name="EmptyBot",
-            did_web=f"did:web:agentgraph.io:test:{agent_id}",
+            did_web=f"did:web:agentgraph.co:test:{agent_id}",
             capabilities=[],
             framework_source="openclaw",
             is_active=True,
@@ -489,13 +489,13 @@ class TestFrameworkPairTracking:
         agent_a = Entity(
             id=a_id, type=EntityType.AGENT,
             display_name="AgentA",
-            did_web=f"did:web:agentgraph.io:test:{a_id}",
+            did_web=f"did:web:agentgraph.co:test:{a_id}",
             framework_source="openclaw", is_active=True,
         )
         agent_b = Entity(
             id=b_id, type=EntityType.AGENT,
             display_name="AgentB",
-            did_web=f"did:web:agentgraph.io:test:{b_id}",
+            did_web=f"did:web:agentgraph.co:test:{b_id}",
             framework_source="langchain", is_active=True,
         )
         db.add(agent_a)
@@ -517,13 +517,13 @@ class TestFrameworkPairTracking:
         agent_a = Entity(
             id=a_id, type=EntityType.AGENT,
             display_name="SameA",
-            did_web=f"did:web:agentgraph.io:test:{a_id}",
+            did_web=f"did:web:agentgraph.co:test:{a_id}",
             framework_source="crewai", is_active=True,
         )
         agent_b = Entity(
             id=b_id, type=EntityType.AGENT,
             display_name="SameB",
-            did_web=f"did:web:agentgraph.io:test:{b_id}",
+            did_web=f"did:web:agentgraph.co:test:{b_id}",
             framework_source="crewai", is_active=True,
         )
         db.add(agent_a)
@@ -542,13 +542,13 @@ class TestFrameworkPairTracking:
         agent_a = Entity(
             id=a_id, type=EntityType.AGENT,
             display_name="InterA",
-            did_web=f"did:web:agentgraph.io:test:{a_id}",
+            did_web=f"did:web:agentgraph.co:test:{a_id}",
             framework_source="autogen", is_active=True,
         )
         agent_b = Entity(
             id=b_id, type=EntityType.AGENT,
             display_name="InterB",
-            did_web=f"did:web:agentgraph.io:test:{b_id}",
+            did_web=f"did:web:agentgraph.co:test:{b_id}",
             framework_source="langchain", is_active=True,
         )
         db.add(agent_a)
@@ -679,7 +679,7 @@ class TestOperatorApprovedField:
             id=entity_id,
             type=EntityType.AGENT,
             display_name="FieldTest",
-            did_web=f"did:web:agentgraph.io:test:{entity_id}",
+            did_web=f"did:web:agentgraph.co:test:{entity_id}",
             is_active=True,
         )
         db.add(entity)
@@ -694,7 +694,7 @@ class TestOperatorApprovedField:
             id=entity_id,
             type=EntityType.AGENT,
             display_name="SetTest",
-            did_web=f"did:web:agentgraph.io:test:{entity_id}",
+            did_web=f"did:web:agentgraph.co:test:{entity_id}",
             operator_approved=True,
             is_active=True,
         )

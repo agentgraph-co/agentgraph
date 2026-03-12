@@ -129,7 +129,7 @@ async def import_moltbook_bot(
     """
     translated = translate_moltbook_profile(profile)
     agent_id = uuid.uuid4()
-    did_web = f"did:web:agentgraph.io:moltbook:{agent_id}"
+    did_web = f"did:web:agentgraph.co:moltbook:{agent_id}"
 
     # Generate a claim token so the operator can prove ownership
     claim_token = uuid.uuid4().hex

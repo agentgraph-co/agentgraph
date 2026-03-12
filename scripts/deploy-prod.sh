@@ -233,7 +233,7 @@ else:
   done
 
   if echo "$LOGIN_RESULT" | grep -q "LOGIN_OK"; then
-    ok "Login verified (kenne@agentgraph.io)"
+    ok "Login verified (***REMOVED***)"
   else
     echo "    $LOGIN_RESULT"
     fail "Login verification failed. Check backend logs."

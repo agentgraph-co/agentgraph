@@ -327,7 +327,7 @@ async def test_quick_trust_follow_suggested(client: AsyncClient, db):
         id=uuid.uuid4(),
         type=EntityType.AGENT,
         display_name="HighTrustBot",
-        did_web=f"did:web:agentgraph.io:agents:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:agents:{uuid.uuid4()}",
         capabilities=["testing"],
     )
     db.add(target)

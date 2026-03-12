@@ -19,7 +19,7 @@ async def agent_a(db: AsyncSession) -> Entity:
         display_name="Agent A",
         type="agent",
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
     )
     db.add(agent)
     await db.flush()
@@ -35,7 +35,7 @@ async def agent_b(db: AsyncSession) -> Entity:
         display_name="Agent B",
         type="agent",
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
     )
     db.add(agent)
     await db.flush()

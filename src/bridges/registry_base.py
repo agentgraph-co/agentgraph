@@ -57,7 +57,7 @@ async def import_agent(
         capabilities = manifest.get("capabilities", [])
 
     agent_id = uuid.uuid4()
-    did_web = f"did:web:agentgraph.io:{framework}:{agent_id}"
+    did_web = f"did:web:agentgraph.co:{framework}:{agent_id}"
 
     scan_result = scan_manifest_fn(manifest)
     trust_mod = _trust_modifier(scan_result.severity)

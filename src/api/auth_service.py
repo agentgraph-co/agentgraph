@@ -70,7 +70,7 @@ def decode_token(token: str) -> dict | None:
 
 
 def generate_did_web(entity_id: uuid.UUID) -> str:
-    return f"did:web:agentgraph.io:users:{entity_id}"
+    return f"did:web:agentgraph.co:users:{entity_id}"
 
 
 async def register_human(

@@ -104,7 +104,7 @@ def _build_did_document(entity: Entity, did_doc: DIDDocument | None) -> dict:
             {
                 "id": f"{did}#agentgraph",
                 "type": "AgentGraphProfile",
-                "serviceEndpoint": f"https://agentgraph.io/entities/{entity.id}",
+                "serviceEndpoint": f"https://agentgraph.co/entities/{entity.id}",
             }
         ],
     }

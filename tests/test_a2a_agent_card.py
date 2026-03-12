@@ -62,7 +62,7 @@ async def agent_with_trust(db: AsyncSession) -> Entity:
         display_name="CardTestAgent",
         type=EntityType.AGENT,
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
         capabilities=["chat", "code-review"],
         framework_source="pydantic_ai",
         framework_trust_modifier=0.90,
@@ -85,7 +85,7 @@ async def provisional_agent(db: AsyncSession) -> Entity:
         display_name="ProvisionalBot",
         type=EntityType.AGENT,
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
         capabilities=["chat"],
         framework_source="openclaw",
         framework_trust_modifier=0.65,
@@ -162,7 +162,7 @@ async def test_trust_tier_mapping(client: AsyncClient, db: AsyncSession):
             display_name=f"Tier{expected_tier}",
             type=EntityType.AGENT,
             is_active=True,
-            did_web=f"did:web:agentgraph.io:agents:{eid}",
+            did_web=f"did:web:agentgraph.co:agents:{eid}",
         )
         db.add(agent)
         ts = TrustScore(id=uuid.uuid4(), entity_id=eid, score=score)
@@ -187,7 +187,7 @@ async def test_agent_card_no_trust_score(
         display_name="NoScoreBot",
         type=EntityType.AGENT,
         is_active=True,
-        did_web=f"did:web:agentgraph.io:agents:{eid}",
+        did_web=f"did:web:agentgraph.co:agents:{eid}",
     )
     db.add(agent)
     await db.flush()
@@ -248,7 +248,7 @@ async def test_list_agent_cards_pagination(
             display_name=f"PaginateBot{i}",
             type=EntityType.AGENT,
             is_active=True,
-            did_web=f"did:web:agentgraph.io:agents:{eid}",
+            did_web=f"did:web:agentgraph.co:agents:{eid}",
         )
         db.add(agent)
     await db.flush()

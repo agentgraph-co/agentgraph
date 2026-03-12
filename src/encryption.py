@@ -23,6 +23,13 @@ def _get_fernet():
     from src.config import settings
 
     if not settings.webhook_encryption_key:
+        if not settings.debug:
+            raise RuntimeError(
+                "WEBHOOK_ENCRYPTION_KEY must be set in production. "
+                "Generate with: python3 -c "
+                "'from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())'"
+            )
         logger.warning(
             "WEBHOOK_ENCRYPTION_KEY not set — webhook signing keys stored in plaintext. "
             "Set this variable in production."

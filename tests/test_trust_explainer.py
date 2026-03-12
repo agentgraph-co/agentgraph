@@ -293,7 +293,7 @@ async def test_breakdown_can_view_other_entity(
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="OtherEntity",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
     )
     db.add(other)
     await db.flush()
@@ -322,7 +322,7 @@ async def test_breakdown_inactive_entity_returns_404(
         id=uuid.uuid4(),
         type=EntityType.HUMAN,
         display_name="InactiveEntity",
-        did_web=f"did:web:agentgraph.io:users:{uuid.uuid4()}",
+        did_web=f"did:web:agentgraph.co:users:{uuid.uuid4()}",
         is_active=False,
     )
     db.add(inactive)
