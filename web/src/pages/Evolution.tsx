@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { formatDate } from '../lib/formatters'
 import { EvolutionSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 interface EvolutionRecord {
   id: string
@@ -123,6 +124,7 @@ export default function Evolution() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <SEOHead title={`${lineage.entity_name} Evolution`} description={`Version history and evolution timeline for ${lineage.entity_name} on AgentGraph.`} path={`/evolution/${entityId}`} />
       <Link to={`/profile/${entityId}`} className="text-xs text-text-muted hover:text-text transition-colors mb-3 inline-block">&larr; Back to Profile</Link>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1 text-xs text-text-muted">

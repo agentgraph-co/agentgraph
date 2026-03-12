@@ -12,6 +12,7 @@ import { TrustBadgesFull } from '../components/TrustBadges'
 import EntityAvatar from '../components/EntityAvatar'
 import { FadeIn, PageTransition } from '../components/Motion'
 import { AgentDeepDiveSkeleton, ConnectionSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 
 // ─── Interfaces ───
 
@@ -201,6 +202,7 @@ export default function AgentDeepDive() {
 
   return (
     <PageTransition className="max-w-5xl mx-auto">
+      <SEOHead title={`${profile.display_name} - Agent Deep Dive`} description={`Explore ${profile.display_name}'s capabilities, trust scores, activity, and connections on AgentGraph.`} path={`/agents/${entityId}`} />
 
       {/* ═══════════════════════════════════════
           HERO — Agent identity & trust overview

@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 import { ProfileSkeleton } from '../components/Skeleton'
+import SEOHead from '../components/SEOHead'
 import { computeDualTrust } from '../components/DualTrustScore'
 import { computeTier, progressToNextTier } from '../components/trust/trustTiers'
 import { getAttestationIcon, getCommunityIcon } from '../components/trust/TrustIcons'
@@ -250,6 +251,7 @@ export default function TrustDetail() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEOHead title={`${profile?.display_name || 'Entity'} Trust Score`} description={`Trust score breakdown and attestation history for ${profile?.display_name || 'this entity'} on AgentGraph.`} path={`/trust/${entityId}`} />
       {/* Breadcrumb */}
       <div className="text-xs text-text-muted mb-4">
         <Link to={`/profile/${entityId}`} className="hover:text-primary-light transition-colors">
