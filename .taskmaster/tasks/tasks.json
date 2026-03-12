@@ -2929,6 +2929,127 @@
         "details": "1. Convert hero-art.png to hero-art.webp using: `cwebp -q 85 hero-art.png -o hero-art.webp`\n2. Update AtmosphericBackground.tsx import to use .webp\n3. Add a .png fallback using <picture> element for older browsers, or just use .webp (Safari 14+, Chrome 32+, Firefox 65+ all support it)\n4. Verify visual quality is acceptable\n5. Also consider: the 1.45MB graph chunk (force-graph + three.js) could be code-split further, but this is lower priority since graph is lazy-loaded",
         "testStrategy": "Compare visual quality of .webp vs .png side by side. Check AtmosphericBackground renders correctly on all intensity levels. Measure page load improvement with Lighthouse.",
         "subtasks": []
+      },
+      {
+        "id": "242",
+        "title": "Legal P1: Cookie & Tracking Technology Disclosure",
+        "description": "Add a Cookies and Tracking Technologies section to the Privacy Policy disclosing: JWT auth tokens, ag_gate access cookie, analytics event tracking, Google OAuth cookies.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The platform uses at minimum: JWT tokens in localStorage, ag_gate cookie in production, analytics events (analytics_router.py), Google OAuth (may set third-party cookies). All must be disclosed. Add to Privacy Policy between current sections 6 (Security) and 7 (Your Rights).",
+        "testStrategy": "Review Privacy Policy page on staging. Verify section renders correctly and accurately describes all tracking technologies.",
+        "subtasks": []
+      },
+      {
+        "id": "243",
+        "title": "Legal P1: CCPA-Specific Privacy Rights",
+        "description": "Add California Privacy Rights section to Privacy Policy with CCPA-required disclosures: right to know, right to delete, right to opt-out of sale, non-discrimination, categories of PI collected.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "CCPA requires explicit disclosure of:\n- Right to know what personal information is collected\n- Right to delete personal information\n- Right to opt out of sale (state we do NOT sell)\n- Right to non-discrimination for exercising CCPA rights\n- Specific categories of PI collected in preceding 12 months\n- 'Do Not Sell My Personal Information' statement (even if we don't sell)",
+        "testStrategy": "Review Privacy Policy page. Verify CCPA section is present with all required elements.",
+        "subtasks": []
+      },
+      {
+        "id": "244",
+        "title": "Legal P1: GDPR-Specific Privacy Disclosures",
+        "description": "Add European Users / International Users section to Privacy Policy with GDPR-required elements: legal basis for processing, international data transfers, right to lodge complaint with supervisory authority.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "GDPR requires:\n- Legal basis for processing (consent, legitimate interest, contract performance)\n- International data transfers disclosure (data stored in AWS us-east-1)\n- Right to lodge complaint with supervisory authority\n- Data Protection Officer contact (if applicable)\n- Sub-processor disclosure (AWS, Google OAuth, SES/ImprovMX)",
+        "testStrategy": "Review Privacy Policy page. Verify GDPR section covers all required elements.",
+        "subtasks": []
+      },
+      {
+        "id": "245",
+        "title": "Legal P1: Account Termination Terms",
+        "description": "Add Termination section to Terms of Service covering: what happens to user data on termination, data export rights, notice period, effect on marketplace transactions, user self-deletion.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Current Terms say 'We reserve the right to suspend or terminate accounts' but don't cover:\n- What happens to user data on termination\n- Whether users can export data before termination\n- Notice period for termination\n- Effect of termination on outstanding marketplace transactions\n- User's right to self-deactivate (which already exists via /account)",
+        "testStrategy": "Review Terms page. Verify Termination section is present and accurate.",
+        "subtasks": []
+      },
+      {
+        "id": "246",
+        "title": "Legal P1: Platform Intellectual Property Clause",
+        "description": "Add Platform Ownership section to Terms stating AgentGraph owns its code, design, logos, trademarks, and documentation. No right to use branding without consent.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Current Terms Section 5 covers user content licensing but says nothing about AgentGraph's own IP. Add a short section asserting ownership of platform IP and prohibiting unauthorized use of trademarks.",
+        "testStrategy": "Review Terms page. Verify IP ownership section is present.",
+        "subtasks": []
+      },
+      {
+        "id": "247",
+        "title": "Legal P2: API Terms of Service",
+        "description": "Add API Usage section to Terms or create separate API Terms covering: rate limits, fair use, right to revoke access, no SLA guarantee, redistribution restrictions, SDK terms.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The Terms mention API keys briefly but have no API-specific terms. Need to cover:\n- Rate limits and fair use policies\n- Prohibition on reverse-engineering\n- No guarantee of API uptime or SLA\n- Right to revoke API access\n- Restrictions on redistributing data obtained via API\n- Agent SDK usage terms",
+        "testStrategy": "Review Terms page. Verify API section covers all listed items.",
+        "subtasks": []
+      },
+      {
+        "id": "248",
+        "title": "Legal P2: AI-Generated Content Disclosure Policy",
+        "description": "Add AI-Generated Content section to Terms requiring labeling of AI-generated content, establishing operator liability for AI output, and clarifying AgentGraph's non-liability for AI-generated misinformation.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Current Terms say agents must identify as non-human but don't address:\n- Whether AI-generated content must be labeled\n- Liability for AI-generated misinformation\n- Agent autonomy levels and operator oversight requirements\n- Chain of liability (agent fault vs operator fault)",
+        "testStrategy": "Review Terms page.",
+        "subtasks": []
+      },
+      {
+        "id": "249",
+        "title": "Legal P2: Marketplace Terms",
+        "description": "Add Marketplace section to Terms governing: liability for transactions, AgentGraph as venue (not party), dispute resolution for transactions, payment terms, listing accuracy requirements.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The platform has a full marketplace but the Terms have zero governing provisions. Need to clarify:\n- AgentGraph acts as a venue, not an intermediary\n- Buyer/seller bear responsibility for transactions\n- Dispute resolution for marketplace disputes\n- Payment terms and refund policies\n- Listing accuracy and prohibited listings",
+        "testStrategy": "Review Terms page. Verify marketplace section is present.",
+        "subtasks": []
+      },
+      {
+        "id": "250",
+        "title": "Legal P2: DMCA Registration Number + Address + Counter-Notification Timeline",
+        "description": "Add DMCA registration number (DMCA-1070517) to the DMCA page. Add physical mailing address or Copyright Office directory link. Add 10-14 business day counter-notification restoration timeline.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Three DMCA fixes:\n1. Add registration number DMCA-1070517\n2. Add physical address or link to Copyright Office directory (17 USC 512(c)(2) requires it)\n3. Add counter-notification timeline: content restored within 10-14 business days unless original complainant files court action within 10 business days",
+        "testStrategy": "Review DMCA page. Verify registration number, address, and timeline are present.",
+        "subtasks": []
+      },
+      {
+        "id": "251",
+        "title": "Legal P3: Sub-Processor Disclosure in Privacy Policy",
+        "description": "Add a list of third-party service providers / sub-processors to the Privacy Policy: AWS (hosting), Google (OAuth), SES/ImprovMX (email), Sentry (error tracking).",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Privacy Policy mentions sharing with 'service providers' but doesn't name them. GDPR best practice is to maintain a sub-processor list. At minimum disclose categories: cloud hosting (AWS), email delivery (SES/ImprovMX), authentication (Google OAuth), error monitoring (Sentry).",
+        "testStrategy": "Review Privacy Policy page.",
+        "subtasks": []
+      },
+      {
+        "id": "252",
+        "title": "Legal P3: NCMEC/CSAM Reporting Disclosure in Moderation Policy",
+        "description": "Add disclosure to Moderation Policy that AgentGraph is registered as an ESP with NCMEC and reports CSAM to the CyberTipline as required by 18 U.S.C. 2258A.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "low",
+        "details": "The moderation policy prohibits CSAM but does not mention the legal obligation to report to NCMEC CyberTipline. AgentGraph is registered as an ESP with NCMEC. Add a paragraph:\n'AgentGraph is registered with the National Center for Missing & Exploited Children (NCMEC). Any CSAM discovered on the Platform is reported to the NCMEC CyberTipline as required by federal law (18 U.S.C. 2258A).'",
+        "testStrategy": "Review Moderation Policy page.",
+        "subtasks": []
       }
     ],
     "metadata": {
