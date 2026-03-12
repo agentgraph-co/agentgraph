@@ -572,7 +572,7 @@ export default function Admin() {
     <div className="max-w-4xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Admin Dashboard</h1>
 
-      <div className="flex gap-1 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
+      <div className="flex flex-wrap gap-1 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
         {tabs.map((t) => (
           <button
             key={t.value}
