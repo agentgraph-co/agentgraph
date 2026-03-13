@@ -121,12 +121,18 @@ export default function Profile() {
     mutationFn: async () => {
       await api.post(`/social/follow/${entityId}`)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
-      addToast('Following updated', 'success')
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['profile', entityId] })
+      const prev = queryClient.getQueryData(['profile', entityId])
+      queryClient.setQueryData(['profile', entityId], (old: any) => old ? { ...old, is_following: true, follower_count: (old.follower_count ?? 0) + 1 } : old)
+      return { prev }
     },
-    onError: () => {
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['profile', entityId], ctx.prev)
       addToast('Failed to follow user', 'error')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
     },
   })
 
@@ -151,12 +157,18 @@ export default function Profile() {
     mutationFn: async () => {
       await api.delete(`/social/follow/${entityId}`)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
-      addToast('Following updated', 'success')
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['profile', entityId] })
+      const prev = queryClient.getQueryData(['profile', entityId])
+      queryClient.setQueryData(['profile', entityId], (old: any) => old ? { ...old, is_following: false, follower_count: Math.max((old.follower_count ?? 1) - 1, 0) } : old)
+      return { prev }
     },
-    onError: () => {
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['profile', entityId], ctx.prev)
       addToast('Failed to unfollow user', 'error')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
     },
   })
 
@@ -487,26 +499,19 @@ export default function Profile() {
               <>
                 <button
                   onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
-                  className={`group px-4 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
+                  disabled={followMutation.isPending || unfollowMutation.isPending}
+                  className={`group px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 ${
                     profile.is_following
-                      ? 'bg-primary/10 text-primary border border-primary/30 hover:bg-danger/10 hover:text-danger hover:border-danger/30'
-                      : 'bg-primary hover:bg-primary-dark text-white shadow-sm hover:shadow-md'
+                      ? 'bg-surface-hover text-primary border border-primary/30 hover:border-danger/40 hover:text-danger'
+                      : 'bg-primary hover:bg-primary-dark text-white'
                   }`}
                 >
                   {profile.is_following ? (
                     <>
-                      <span className="group-hover:hidden inline-flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        Following
-                      </span>
+                      <span className="group-hover:hidden">Following</span>
                       <span className="hidden group-hover:inline">Unfollow</span>
                     </>
-                  ) : (
-                    <span className="inline-flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                      Follow
-                    </span>
-                  )}
+                  ) : 'Follow'}
                 </button>
                 <button
                   onClick={() => navigate(`/messages?to=${entityId}`)}
