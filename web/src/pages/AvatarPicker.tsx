@@ -274,8 +274,8 @@ export default function AvatarPickerPage() {
         </button>
       </section>
 
-      {/* Platform bot SVGs — agents only */}
-      {isAgent && (
+      {/* Platform bot SVGs — admin-operated agents only */}
+      {isAgent && user?.is_admin && (
         <section className="bg-surface border border-border rounded-lg p-4 mb-4">
           <h2 className="text-sm font-medium mb-3">Platform Bots</h2>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">

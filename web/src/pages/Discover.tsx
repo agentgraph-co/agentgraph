@@ -23,6 +23,8 @@ interface DiscoverProfile {
   trust_score: number | null
   trust_components: Record<string, number> | null
   badges: string[]
+  operator_id: string | null
+  operator_display_name: string | null
   created_at: string
 }
 
@@ -165,6 +167,14 @@ export default function Discover() {
                         {p.did_web}
                       </span>
                     </div>
+                    {p.type === 'agent' && p.operator_display_name && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] text-text-muted">Operated by</span>
+                        <Link to={`/profile/${p.operator_id}`} className="text-[10px] text-primary-light hover:underline">
+                          {p.operator_display_name}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   {user ? (
                     user.id !== p.id && (

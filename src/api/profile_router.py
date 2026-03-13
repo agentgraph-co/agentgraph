@@ -73,6 +73,8 @@ class ProfileResponse(BaseModel):
     is_provisional: bool = False
     provisional_expires_at: str | None = None
     created_at: str
+    operator_id: str | None = None
+    operator_display_name: str | None = None
     is_own_profile: bool = False
     is_following: bool = False
 
@@ -305,6 +307,16 @@ async def browse_profiles(
             trust_map[ts.entity_id] = ts.score
             trust_comp_map[ts.entity_id] = ts.components
 
+    # Batch-fetch operator display names for agents (avoids N+1)
+    operator_ids = {e.operator_id for e in entities if e.operator_id}
+    operator_names: dict = {}
+    if operator_ids:
+        op_result = await db.execute(
+            select(Entity.id, Entity.display_name).where(Entity.id.in_(operator_ids))
+        )
+        for row in op_result.all():
+            operator_names[row[0]] = row[1]
+
     profiles = []
     for entity in entities:
         profiles.append(
@@ -322,6 +334,8 @@ async def browse_profiles(
                 trust_score=trust_map.get(entity.id),
                 trust_components=trust_comp_map.get(entity.id),
                 badges=_compute_badges(entity),
+                operator_id=str(entity.operator_id) if entity.operator_id else None,
+                operator_display_name=operator_names.get(entity.operator_id),
                 created_at=entity.created_at.isoformat(),
             )
         )
@@ -390,6 +404,14 @@ async def get_profile(
                 is_own_profile=False,
             )
 
+    # Fetch operator display name for agents
+    operator_name = None
+    if entity.operator_id:
+        op = await db.execute(
+            select(Entity.display_name).where(Entity.id == entity.operator_id)
+        )
+        operator_name = op.scalar_one_or_none()
+
     ts = await db.scalar(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
@@ -434,6 +456,8 @@ async def get_profile(
         post_count=stats["post_count"],
         follower_count=stats["follower_count"],
         following_count=stats["following_count"],
+        operator_id=str(entity.operator_id) if entity.operator_id else None,
+        operator_display_name=operator_name,
         is_provisional=getattr(entity, "is_provisional", False) or False,
         provisional_expires_at=(
             entity.provisional_expires_at.isoformat()
@@ -466,19 +490,33 @@ async def update_profile(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_entity.id != entity_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only edit your own profile",
-        )
-
     entity = await db.get(Entity, entity_id)
     if entity is None:
         raise HTTPException(status_code=404, detail="Profile not found")
 
+    # Allow self-edit OR operator editing their bot
+    is_self = current_entity.id == entity_id
+    is_operator = (
+        entity.type == EntityType.AGENT
+        and entity.operator_id == current_entity.id
+    )
+    if not is_self and not is_operator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own profile or your operated bots",
+        )
+
     from src.content_filter import check_content, sanitize_html, sanitize_text
 
     update_data = body.model_dump(exclude_unset=True)
+
+    # Platform bot SVGs are admin-only
+    av = update_data.get("avatar_url")
+    if av and av.startswith("/avatars/") and not current_entity.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform bot avatars are reserved for administrators",
+        )
     if "bio_markdown" in update_data and update_data["bio_markdown"]:
         filter_result = check_content(update_data["bio_markdown"])
         if not filter_result.is_clean:
@@ -554,9 +592,56 @@ async def update_profile(
         post_count=stats["post_count"],
         follower_count=stats["follower_count"],
         following_count=stats["following_count"],
+        operator_id=str(entity.operator_id) if entity.operator_id else None,
         created_at=entity.created_at.isoformat(),
-        is_own_profile=True,
+        is_own_profile=is_self,
     )
+
+
+@router.get(
+    "/{entity_id}/operated-bots",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_operated_bots(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get bots operated by a given entity."""
+    result = await db.execute(
+        select(Entity).where(
+            Entity.operator_id == entity_id,
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+        ).order_by(Entity.display_name)
+    )
+    bots = result.scalars().all()
+
+    # Batch trust scores
+    bot_ids = [b.id for b in bots]
+    trust_map: dict = {}
+    if bot_ids:
+        ts_result = await db.execute(
+            select(TrustScore).where(TrustScore.entity_id.in_(bot_ids))
+        )
+        for ts in ts_result.scalars().all():
+            trust_map[ts.entity_id] = ts.score
+
+    return {
+        "bots": [
+            {
+                "id": str(b.id),
+                "display_name": b.display_name,
+                "avatar_url": b.avatar_url,
+                "bio_markdown": b.bio_markdown or "",
+                "trust_score": trust_map.get(b.id),
+                "framework_source": b.framework_source,
+                "capabilities": b.capabilities,
+                "created_at": b.created_at.isoformat(),
+            }
+            for b in bots
+        ],
+        "total": len(bots),
+    }
 
 
 # --- Activity Summary ---
