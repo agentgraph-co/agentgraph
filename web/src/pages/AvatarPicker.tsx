@@ -7,8 +7,67 @@ import EntityAvatar from '../components/EntityAvatar'
 import { useToast } from '../components/Toasts'
 import SEOHead from '../components/SEOHead'
 
-const HUMAN_AVATARS = Array.from({ length: 36 }, (_, i) => `/avatars/library/human/h${String(i).padStart(2, '0')}.svg`)
-const AGENT_AVATARS = Array.from({ length: 36 }, (_, i) => `/avatars/library/agent/a${String(i).padStart(2, '0')}.svg`)
+const DICEBEAR = 'https://api.dicebear.com/9.x'
+
+// Human avatar styles with diverse seeds
+const HUMAN_STYLES: { style: string; label: string; seeds: string[] }[] = [
+  {
+    style: 'adventurer',
+    label: 'Characters',
+    seeds: [
+      'Felix', 'Aneka', 'Milo', 'Luna', 'Jasper', 'Nora',
+      'Zoe', 'Kai', 'Aria', 'Leo', 'Maya', 'Oscar',
+    ],
+  },
+  {
+    style: 'fun-emoji',
+    label: 'Emoji',
+    seeds: [
+      'happy', 'cool', 'love', 'star', 'fire', 'rainbow',
+      'peace', 'rocket', 'sparkle', 'sun', 'moon', 'wave',
+    ],
+  },
+  {
+    style: 'lorelei',
+    label: 'Illustrated',
+    seeds: [
+      'Sophie', 'James', 'Emma', 'Liam', 'Olivia', 'Noah',
+      'Ava', 'Ethan', 'Mia', 'Alex', 'Chloe', 'Ryan',
+    ],
+  },
+]
+
+// Agent/bot avatar styles
+const AGENT_STYLES: { style: string; label: string; seeds: string[] }[] = [
+  {
+    style: 'bottts',
+    label: 'Robots',
+    seeds: [
+      'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta',
+      'Theta', 'Iota', 'Kappa', 'Lambda', 'Sigma', 'Omega',
+    ],
+  },
+  {
+    style: 'bottts-neutral',
+    label: 'Minimal Bots',
+    seeds: [
+      'Circuit', 'Spark', 'Pulse', 'Nexus', 'Forge', 'Drift',
+      'Echo', 'Core', 'Flux', 'Node', 'Byte', 'Grid',
+    ],
+  },
+  {
+    style: 'pixel-art',
+    label: 'Pixel Art',
+    seeds: [
+      'bot1', 'bot2', 'bot3', 'bot4', 'bot5', 'bot6',
+      'agent1', 'agent2', 'agent3', 'agent4', 'agent5', 'agent6',
+    ],
+  },
+]
+
+function avatarUrl(style: string, seed: string): string {
+  return `${DICEBEAR}/${style}/svg?seed=${encodeURIComponent(seed)}&radius=20`
+}
 
 // Letter avatars — clear the avatar_url so EntityAvatar renders the initial
 const LETTER_OPTION = '__letter__'
@@ -97,8 +156,8 @@ export default function AvatarPickerPage() {
   const handleSelect = (url: string) => {
     setSelected(url)
     if (selectedEntity) {
-      const avatarUrl = url === LETTER_OPTION ? null : url
-      mutation.mutate({ entityId: selectedEntity.id, avatarUrl })
+      const avatarUrlValue = url === LETTER_OPTION ? null : url
+      mutation.mutate({ entityId: selectedEntity.id, avatarUrl: avatarUrlValue })
     }
   }
 
@@ -110,7 +169,7 @@ export default function AvatarPickerPage() {
   if (authLoading || !user) return null
 
   const isAgent = selectedEntity?.type === 'agent'
-  const avatars = isAgent ? AGENT_AVATARS : HUMAN_AVATARS
+  const styles = isAgent ? AGENT_STYLES : HUMAN_STYLES
   const currentAvatarUrl = selected === LETTER_OPTION ? null : selected
 
   return (
@@ -181,7 +240,6 @@ export default function AvatarPickerPage() {
 
       {/* Letter avatar option */}
       <section className="bg-surface border border-border rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-medium mb-3">Letter Avatar</h2>
         <button
           onClick={() => handleSelect(LETTER_OPTION)}
           className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors cursor-pointer w-full text-left ${
@@ -197,45 +255,48 @@ export default function AvatarPickerPage() {
             size="md"
           />
           <div>
-            <p className="text-sm">Use initial letter</p>
+            <p className="text-sm font-medium">Letter Avatar</p>
             <p className="text-xs text-text-muted">Display your first letter as the avatar</p>
           </div>
         </button>
       </section>
 
-      {/* Avatar library grid */}
-      <section className="bg-surface border border-border rounded-lg p-4">
-        <h2 className="text-sm font-medium mb-3">
-          {isAgent ? 'Agent Avatars' : 'Avatar Library'}
-        </h2>
-        <div className="grid grid-cols-6 sm:grid-cols-9 gap-2">
-          {avatars.map((url) => (
-            <button
-              key={url}
-              onClick={() => handleSelect(url)}
-              className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${
-                selected === url
-                  ? 'border-primary ring-2 ring-primary/30'
-                  : 'border-border hover:border-primary/50'
-              }`}
-            >
-              <img
-                src={url}
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              {selected === url && (
-                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* Avatar style sections */}
+      {styles.map(({ style, label, seeds }) => (
+        <section key={style} className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <h2 className="text-sm font-medium mb-3">{label}</h2>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+            {seeds.map((seed) => {
+              const url = avatarUrl(style, seed)
+              return (
+                <button
+                  key={seed}
+                  onClick={() => handleSelect(url)}
+                  className={`relative w-full aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${
+                    selected === url
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <img
+                    src={url}
+                    alt={seed}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  {selected === url && (
+                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
