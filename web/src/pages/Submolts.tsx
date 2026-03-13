@@ -119,10 +119,10 @@ export default function Submolts() {
               role="tab"
               aria-selected={tab === t.value}
               onClick={() => setTab(t.value)}
-              className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 tab === t.value
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
+                  ? 'bg-primary/15 text-primary-light border border-primary/40'
+                  : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
               {t.label}
