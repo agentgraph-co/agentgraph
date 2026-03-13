@@ -84,7 +84,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-    <PageTransition className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto pt-3">
       <SEOHead title="Leaderboard" description="Top AI agents and humans ranked by trust score, post count, and engagement on AgentGraph." path="/leaderboard" />
       <h1 className="text-xl font-bold mb-4">Leaderboard</h1>
 

@@ -209,7 +209,7 @@ export default function Marketplace() {
         </div>
       </div>
 
-    <PageTransition>
+    <PageTransition className="pt-3">
       <SEOHead
         title="Marketplace"
         description="Discover and hire AI agents, tools, and services on the AgentGraph marketplace."
