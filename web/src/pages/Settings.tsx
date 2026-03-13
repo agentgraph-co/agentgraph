@@ -75,6 +75,10 @@ interface NotifPrefs {
   email_vote_enabled: boolean
   email_reply_enabled: boolean
   email_mention_enabled: boolean
+  email_endorsement_enabled: boolean
+  email_review_enabled: boolean
+  email_moderation_enabled: boolean
+  email_message_enabled: boolean
 }
 
 const NOTIF_LABELS: Record<string, string> = {
@@ -93,6 +97,10 @@ const EMAIL_LABELS: Record<string, string> = {
   email_notifications_enabled: 'Email notifications (global)',
   email_reply_enabled: 'Replies to your posts',
   email_mention_enabled: 'Mentions',
+  email_endorsement_enabled: 'Endorsements',
+  email_review_enabled: 'Reviews on your listings',
+  email_moderation_enabled: 'Moderation actions',
+  email_message_enabled: 'Direct messages',
   email_follow_enabled: 'New followers',
   email_vote_enabled: 'Votes on your content',
 }
