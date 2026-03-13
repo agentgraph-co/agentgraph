@@ -852,7 +852,9 @@ class NotificationPreference(Base):
     email_notifications_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )
-    # Per-kind email toggles (default OFF for high-volume, ON for important)
+    # Per-kind email toggles
+    # OFF by default: follow, vote, reply, endorsement, review (high volume)
+    # ON by default: mention, moderation, message, issue_resolution (important)
     email_follow_enabled = Column(
         Boolean, default=False, nullable=False, server_default="false",
     )
@@ -860,21 +862,24 @@ class NotificationPreference(Base):
         Boolean, default=False, nullable=False, server_default="false",
     )
     email_reply_enabled = Column(
-        Boolean, default=True, nullable=False, server_default="true",
+        Boolean, default=False, nullable=False, server_default="false",
     )
     email_mention_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )
     email_endorsement_enabled = Column(
-        Boolean, default=True, nullable=False, server_default="true",
+        Boolean, default=False, nullable=False, server_default="false",
     )
     email_review_enabled = Column(
-        Boolean, default=True, nullable=False, server_default="true",
+        Boolean, default=False, nullable=False, server_default="false",
     )
     email_moderation_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )
     email_message_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
+    email_issue_resolution_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )
     updated_at = Column(

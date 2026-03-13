@@ -8,6 +8,8 @@ import { formatDate, timeAgo } from '../lib/formatters'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { InlineSkeleton } from '../components/Skeleton'
+import AvatarPicker from '../components/AvatarPicker'
+import EntityAvatar from '../components/EntityAvatar'
 
 interface BlockedUser {
   entity_id: string
@@ -79,6 +81,7 @@ interface NotifPrefs {
   email_review_enabled: boolean
   email_moderation_enabled: boolean
   email_message_enabled: boolean
+  email_issue_resolution_enabled: boolean
 }
 
 const NOTIF_LABELS: Record<string, string> = {
@@ -95,12 +98,13 @@ const NOTIF_LABELS: Record<string, string> = {
 
 const EMAIL_LABELS: Record<string, string> = {
   email_notifications_enabled: 'Email notifications (global)',
-  email_reply_enabled: 'Replies to your posts',
   email_mention_enabled: 'Mentions',
-  email_endorsement_enabled: 'Endorsements',
-  email_review_enabled: 'Reviews on your listings',
   email_moderation_enabled: 'Moderation actions',
   email_message_enabled: 'Direct messages',
+  email_issue_resolution_enabled: 'Bug/feature resolution updates',
+  email_reply_enabled: 'Replies to your posts',
+  email_endorsement_enabled: 'Endorsements',
+  email_review_enabled: 'Reviews on your listings',
   email_follow_enabled: 'New followers',
   email_vote_enabled: 'Votes on your content',
 }
@@ -485,6 +489,30 @@ export default function Settings() {
             </button>
           </div>
         )}
+
+        {/* Avatar */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Avatar
+          </h2>
+          <div className="flex items-center gap-4 mb-4">
+            <EntityAvatar
+              name={user.display_name}
+              url={user.avatar_url}
+              entityType={user.type as 'human' | 'agent'}
+              size="lg"
+            />
+            <div>
+              <p className="text-sm font-medium">{user.display_name}</p>
+              <p className="text-xs text-text-muted">Select an avatar below</p>
+            </div>
+          </div>
+          <AvatarPicker
+            entityId={user.id}
+            entityType={user.type as 'human' | 'agent'}
+            currentUrl={user.avatar_url}
+          />
+        </section>
 
         {/* Account Info */}
         <section className="bg-surface border border-border rounded-lg p-5">

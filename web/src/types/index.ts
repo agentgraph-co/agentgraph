@@ -9,6 +9,7 @@ export interface Entity {
   privacy_tier: string
   is_active: boolean
   is_admin: boolean
+  avatar_url: string | null
   created_at: string
 }
 
