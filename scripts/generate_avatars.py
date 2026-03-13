@@ -42,295 +42,104 @@ def _hash_int(seed: str, mod: int) -> int:
     return int(hashlib.md5(seed.encode()).hexdigest()[:8], 16) % mod
 
 
-# ─── Human Avatars ─── Recognizable silhouettes and icons
+# ─── Human Avatars ─── Bold colored icons on pastel backgrounds
+# Uses 24x24 icon paths (standard viewBox) scaled to center of 256x256
 
-# 6 color palettes for the 6 groups
-HUMAN_PALETTES = [
-    ("#6366f1", "#818cf8", "#c7d2fe"),  # Indigo — animals
-    ("#10b981", "#34d399", "#a7f3d0"),  # Emerald — nature/objects
-    ("#f59e0b", "#fbbf24", "#fde68a"),  # Amber — characters
-    ("#f43f5e", "#fb7185", "#fecdd3"),  # Rose — food/fun
-    ("#06b6d4", "#22d3ee", "#a5f3fc"),  # Cyan — abstract
-    ("#a855f7", "#c084fc", "#e9d5ff"),  # Purple — (extra cycle)
-]
-
-# SVG path data for each icon, designed for a 256x256 viewBox.
-# Each value is the SVG content (paths, circles, etc.) to draw in white/light color.
-
-HUMAN_ICONS: list[tuple[str, str]] = [
-    # ── Group 0: Animal silhouettes (Indigo) ──
-    ("cat",
-     '<path d="M128 200c-35 0-60-20-60-50 0-25 15-40 25-50l-15-60 30 25 20-10 20 10 30-25-15 60c10 10 25 25 25 50 0 30-25 50-60 50z" fill="white" opacity="0.9"/>'
-     '<circle cx="108" cy="130" r="8" fill="white" opacity="0.5"/>'
-     '<circle cx="148" cy="130" r="8" fill="white" opacity="0.5"/>'
-     '<ellipse cx="128" cy="148" rx="6" ry="4" fill="white" opacity="0.5"/>'
-     '<path d="M118 160q10 8 20 0" fill="none" stroke="white" stroke-width="2.5" opacity="0.5"/>'),
-    ("dog",
-     '<path d="M128 205c-40 0-65-25-65-55 0-20 10-35 20-45l-8-15c-5-10 0-22 8-28l15 20 30-15 30 15 15-20c8 6 13 18 8 28l-8 15c10 10 20 25 20 45 0 30-25 55-65 55z" fill="white" opacity="0.9"/>'
-     '<circle cx="105" cy="125" r="9" fill="white" opacity="0.5"/>'
-     '<circle cx="151" cy="125" r="9" fill="white" opacity="0.5"/>'
-     '<ellipse cx="128" cy="150" rx="10" ry="7" fill="white" opacity="0.5"/>'
-     '<path d="M120 165q8 6 16 0" fill="none" stroke="white" stroke-width="2" opacity="0.5"/>'),
-    ("fox",
-     '<path d="M128 205c-38 0-58-22-58-48 0-22 12-38 22-48L72 60l28 30 28-20 28 20 28-30-20 49c10 10 22 26 22 48 0 26-20 48-58 48z" fill="white" opacity="0.9"/>'
-     '<circle cx="108" cy="130" r="7" fill="white" opacity="0.5"/>'
-     '<circle cx="148" cy="130" r="7" fill="white" opacity="0.5"/>'
-     '<path d="M128 152l-6 8h12z" fill="white" opacity="0.5"/>'),
-    ("owl",
-     '<ellipse cx="128" cy="140" rx="55" ry="65" fill="white" opacity="0.9"/>'
-     '<path d="M73 105l-15-40 30 20z" fill="white" opacity="0.9"/>'
-     '<path d="M183 105l15-40-30 20z" fill="white" opacity="0.9"/>'
-     '<circle cx="108" cy="125" r="22" fill="white" opacity="0.4"/>'
-     '<circle cx="148" cy="125" r="22" fill="white" opacity="0.4"/>'
-     '<circle cx="108" cy="125" r="10" fill="white" opacity="0.6"/>'
-     '<circle cx="148" cy="125" r="10" fill="white" opacity="0.6"/>'
-     '<path d="M122 155l6 10 6-10" fill="white" opacity="0.5"/>'),
-    ("bear",
-     '<circle cx="88" cy="80" r="22" fill="white" opacity="0.85"/>'
-     '<circle cx="168" cy="80" r="22" fill="white" opacity="0.85"/>'
-     '<ellipse cx="128" cy="145" rx="60" ry="62" fill="white" opacity="0.9"/>'
-     '<circle cx="108" cy="128" r="8" fill="white" opacity="0.4"/>'
-     '<circle cx="148" cy="128" r="8" fill="white" opacity="0.4"/>'
-     '<ellipse cx="128" cy="155" rx="15" ry="10" fill="white" opacity="0.4"/>'
-     '<circle cx="128" cy="150" r="5" fill="white" opacity="0.5"/>'),
-    ("penguin",
-     '<ellipse cx="128" cy="148" rx="48" ry="65" fill="white" opacity="0.9"/>'
-     '<ellipse cx="128" cy="148" rx="30" ry="55" fill="white" opacity="0.5"/>'
-     '<circle cx="128" cy="95" r="32" fill="white" opacity="0.9"/>'
-     '<circle cx="116" cy="90" r="5" fill="white" opacity="0.4"/>'
-     '<circle cx="140" cy="90" r="5" fill="white" opacity="0.4"/>'
-     '<path d="M122 102l6 8 6-8" fill="white" opacity="0.6"/>'
-     '<path d="M80 130q-10 20 5 45" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'
-     '<path d="M176 130q10 20-5 45" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'),
-
-    # ── Group 1: Nature/Object icons (Emerald) ──
-    ("mountain",
-     '<path d="M20 200L90 70l30 40 38-60 78 150z" fill="white" opacity="0.9"/>'
-     '<path d="M158 50l-25 40 10 12 15-20 15 20 10-12z" fill="white" opacity="0.6"/>'),
-    ("tree",
-     '<rect x="118" y="160" width="20" height="50" rx="4" fill="white" opacity="0.7"/>'
-     '<path d="M128 40l-50 55h25l-20 35h25l-15 30h70l-15-30h25l-20-35h25z" fill="white" opacity="0.9"/>'),
-    ("star",
-     '<path d="M128 35l22 50 55 5-42 35 14 53-49-30-49 30 14-53-42-35 55-5z" fill="white" opacity="0.9"/>'),
-    ("moon",
-     '<path d="M148 50a75 75 0 1 0 0 156 85 85 0 0 1 0-156z" fill="white" opacity="0.9"/>'
-     '<circle cx="155" cy="85" r="4" fill="white" opacity="0.4"/>'
-     '<circle cx="180" cy="110" r="3" fill="white" opacity="0.3"/>'
-     '<circle cx="170" cy="145" r="5" fill="white" opacity="0.35"/>'),
-    ("flower",
-     '<circle cx="128" cy="128" r="18" fill="white" opacity="0.9"/>'
-     '<ellipse cx="128" cy="85" rx="18" ry="25" fill="white" opacity="0.65"/>'
-     '<ellipse cx="128" cy="171" rx="18" ry="25" fill="white" opacity="0.65"/>'
-     '<ellipse cx="85" cy="128" rx="25" ry="18" fill="white" opacity="0.65"/>'
-     '<ellipse cx="171" cy="128" rx="25" ry="18" fill="white" opacity="0.65"/>'
-     '<ellipse cx="98" cy="98" rx="20" ry="18" fill="white" opacity="0.55" transform="rotate(-45 98 98)"/>'
-     '<ellipse cx="158" cy="98" rx="20" ry="18" fill="white" opacity="0.55" transform="rotate(45 158 98)"/>'
-     '<ellipse cx="98" cy="158" rx="20" ry="18" fill="white" opacity="0.55" transform="rotate(45 98 158)"/>'
-     '<ellipse cx="158" cy="158" rx="20" ry="18" fill="white" opacity="0.55" transform="rotate(-45 158 158)"/>'),
-    ("sun",
-     '<circle cx="128" cy="128" r="35" fill="white" opacity="0.9"/>'
-     '<line x1="128" y1="55" x2="128" y2="75" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'
-     '<line x1="128" y1="181" x2="128" y2="201" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'
-     '<line x1="55" y1="128" x2="75" y2="128" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'
-     '<line x1="181" y1="128" x2="201" y2="128" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.7"/>'
-     '<line x1="76" y1="76" x2="90" y2="90" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.6"/>'
-     '<line x1="166" y1="76" x2="180" y2="90" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.6"/>'  # noqa: E501
-     '<line x1="76" y1="180" x2="90" y2="166" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.6"/>'
-     '<line x1="166" y1="180" x2="180" y2="166" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.6"/>'),
-
-    # ── Group 2: Character silhouettes (Amber) ──
-    ("astronaut",
-     '<circle cx="128" cy="100" r="45" fill="white" opacity="0.9"/>'
-     '<rect x="83" y="95" width="90" height="50" rx="22" fill="white" opacity="0.5"/>'
-     '<rect x="95" y="145" width="66" height="60" rx="10" fill="white" opacity="0.85"/>'
-     '<circle cx="108" cy="95" r="5" fill="white" opacity="0.3"/>'
-     '<circle cx="148" cy="95" r="5" fill="white" opacity="0.3"/>'
-     '<rect x="75" y="155" width="20" height="35" rx="8" fill="white" opacity="0.7"/>'
-     '<rect x="161" y="155" width="20" height="35" rx="8" fill="white" opacity="0.7"/>'),
-    ("ninja",
-     '<circle cx="128" cy="100" r="40" fill="white" opacity="0.9"/>'
-     '<rect x="85" y="88" width="86" height="18" rx="4" fill="white" opacity="0.4"/>'
-     '<circle cx="112" cy="97" r="5" fill="white" opacity="0.6"/>'
-     '<circle cx="144" cy="97" r="5" fill="white" opacity="0.6"/>'
-     '<path d="M100 140l28 65 28-65z" fill="white" opacity="0.85"/>'
-     '<path d="M80 95l-25-15" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.6"/>'
-     '<path d="M176 95l25-15" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.6"/>'),
-    ("wizard",
-     '<path d="M128 30l-35 80h70z" fill="white" opacity="0.9"/>'
-     '<rect x="85" y="108" width="86" height="8" rx="3" fill="white" opacity="0.7"/>'
-     '<circle cx="128" cy="140" r="32" fill="white" opacity="0.85"/>'
-     '<circle cx="118" cy="135" r="4" fill="white" opacity="0.4"/>'
-     '<circle cx="138" cy="135" r="4" fill="white" opacity="0.4"/>'
-     '<path d="M100 170l28 40 28-40z" fill="white" opacity="0.75"/>'
-     '<circle cx="128" cy="65" r="6" fill="white" opacity="0.6"/>'),
-    ("robot-face",
-     '<rect x="78" y="70" width="100" height="90" rx="16" fill="white" opacity="0.9"/>'
-     '<rect x="68" y="100" width="12" height="25" rx="5" fill="white" opacity="0.7"/>'
-     '<rect x="176" y="100" width="12" height="25" rx="5" fill="white" opacity="0.7"/>'
-     '<rect x="100" y="95" width="22" height="18" rx="4" fill="white" opacity="0.4"/>'
-     '<rect x="134" y="95" width="22" height="18" rx="4" fill="white" opacity="0.4"/>'
-     '<rect x="108" y="132" width="40" height="8" rx="3" fill="white" opacity="0.4"/>'
-     '<rect x="118" y="55" width="20" height="18" rx="6" fill="white" opacity="0.7"/>'
-     '<rect x="88" y="170" width="80" height="30" rx="8" fill="white" opacity="0.75"/>'),
-    ("pirate",
-     '<circle cx="128" cy="120" r="40" fill="white" opacity="0.9"/>'
-     '<path d="M75 80q53-50 106 0" fill="white" opacity="0.7"/>'
-     '<rect x="75" y="75" width="106" height="10" rx="3" fill="white" opacity="0.6"/>'
-     '<circle cx="145" cy="115" r="12" fill="white" opacity="0.35"/>'
-     '<line x1="133" y1="103" x2="157" y2="127" stroke="white" stroke-width="3" opacity="0.4"/>'
-     '<circle cx="112" cy="115" r="5" fill="white" opacity="0.5"/>'
-     '<path d="M112 138q16 12 32 0" fill="none" stroke="white" stroke-width="2.5" opacity="0.5"/>'
-     '<path d="M100 165l28 40 28-40z" fill="white" opacity="0.8"/>'),
-    ("superhero",
-     '<circle cx="128" cy="85" r="32" fill="white" opacity="0.9"/>'
-     '<path d="M85 115h86l10 90H75z" fill="white" opacity="0.85"/>'
-     '<path d="M75 130l-35 25 40-5z" fill="white" opacity="0.7"/>'
-     '<path d="M181 130l35 25-40-5z" fill="white" opacity="0.7"/>'
-     '<path d="M100 85l28-25 28 25" fill="white" opacity="0.5"/>'
-     '<path d="M118 155l10 12 10-12z" fill="white" opacity="0.45"/>'),
-
-    # ── Group 3: Food/Fun (Rose) ──
-    ("pizza",
-     '<path d="M128 55l-65 150h130z" fill="white" opacity="0.9"/>'
-     '<circle cx="115" cy="140" r="10" fill="white" opacity="0.45"/>'
-     '<circle cx="145" cy="155" r="9" fill="white" opacity="0.45"/>'
-     '<circle cx="125" cy="170" r="8" fill="white" opacity="0.4"/>'
-     '<path d="M63 205q65-15 130 0" fill="none" stroke="white" stroke-width="5" opacity="0.6"/>'),
-    ("cupcake",
-     '<path d="M88 130q0-45 40-45t40 45z" fill="white" opacity="0.9"/>'
-     '<path d="M78 130q10 8 20-2t20 4 20-4 20 2" fill="white" opacity="0.7"/>'
-     '<rect x="85" y="140" width="86" height="55" rx="8" fill="white" opacity="0.8"/>'
-     '<rect x="90" y="195" width="76" height="10" rx="4" fill="white" opacity="0.6"/>'
-     '<circle cx="128" cy="100" r="6" fill="white" opacity="0.5"/>'),
-    ("coffee",
-     '<rect x="78" y="80" width="90" height="110" rx="12" fill="white" opacity="0.9"/>'
-     '<path d="M168 110q30 0 30 30t-30 30" fill="none" stroke="white" stroke-width="6" opacity="0.7"/>'
-     '<rect x="75" y="195" width="96" height="10" rx="4" fill="white" opacity="0.6"/>'
-     '<path d="M105 55q8-15 16 0t16 0" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.5"/>'),
-    ("taco",
-     '<path d="M45 165q83-110 166 0" fill="white" opacity="0.9"/>'
-     '<path d="M45 165q83 30 166 0" fill="white" opacity="0.7"/>'
-     '<circle cx="100" cy="140" r="8" fill="white" opacity="0.4"/>'
-     '<circle cx="128" cy="130" r="7" fill="white" opacity="0.4"/>'
-     '<circle cx="156" cy="140" r="8" fill="white" opacity="0.4"/>'
-     '<path d="M80 155q48-10 96 0" fill="none" stroke="white" stroke-width="3" opacity="0.4"/>'),
-    ("ice-cream",
-     '<circle cx="128" cy="90" r="40" fill="white" opacity="0.9"/>'
-     '<circle cx="100" cy="85" r="25" fill="white" opacity="0.75"/>'
-     '<circle cx="156" cy="85" r="25" fill="white" opacity="0.75"/>'
-     '<path d="M95 115l33 90 33-90z" fill="white" opacity="0.8"/>'
-     '<path d="M95 115q33 15 66 0" fill="white" opacity="0.5"/>'),
-    ("sushi",
-     '<ellipse cx="128" cy="145" rx="65" ry="40" fill="white" opacity="0.9"/>'
-     '<ellipse cx="128" cy="130" rx="55" ry="30" fill="white" opacity="0.7"/>'
-     '<ellipse cx="128" cy="120" rx="35" ry="20" fill="white" opacity="0.5"/>'
-     '<rect x="118" y="95" width="20" height="55" rx="6" fill="white" opacity="0.6"/>'
-     '<rect x="85" y="140" width="86" height="10" rx="3" fill="white" opacity="0.4"/>'),
-
-    # ── Group 4: Abstract but appealing (Cyan) ──
-    ("gradient-circle",
-     '<circle cx="128" cy="128" r="70" fill="white" opacity="0.9"/>'
-     '<circle cx="128" cy="128" r="55" fill="white" opacity="0.25"/>'
-     '<circle cx="128" cy="128" r="40" fill="white" opacity="0.25"/>'
-     '<circle cx="128" cy="128" r="25" fill="white" opacity="0.2"/>'),
-    ("rainbow-arc",
-     '<path d="M40 180A88 88 0 0 1 216 180" fill="none" stroke="white" stroke-width="10" opacity="0.9"/>'
-     '<path d="M55 180A73 73 0 0 1 201 180" fill="none" stroke="white" stroke-width="8" opacity="0.7"/>'
-     '<path d="M70 180A58 58 0 0 1 186 180" fill="none" stroke="white" stroke-width="7" opacity="0.5"/>'
-     '<path d="M85 180A43 43 0 0 1 171 180" fill="none" stroke="white" stroke-width="6" opacity="0.35"/>'),
-    ("yin-yang",
-     '<circle cx="128" cy="128" r="70" fill="white" opacity="0.9"/>'
-     '<path d="M128 58a70 70 0 0 1 0 140a35 35 0 0 1 0-70a35 35 0 0 0 0-70z" fill="white" opacity="0.35"/>'
-     '<circle cx="128" cy="93" r="10" fill="white" opacity="0.6"/>'
-     '<circle cx="128" cy="163" r="10" fill="white" opacity="0.4"/>'),
-    ("mandala",
-     '<circle cx="128" cy="128" r="12" fill="white" opacity="0.9"/>'
-     '<circle cx="128" cy="128" r="30" fill="none" stroke="white" stroke-width="2.5" opacity="0.7"/>'
-     '<circle cx="128" cy="128" r="50" fill="none" stroke="white" stroke-width="2" opacity="0.55"/>'
-     '<circle cx="128" cy="128" r="70" fill="none" stroke="white" stroke-width="1.5" opacity="0.4"/>'
-     + ''.join(
-         f'<ellipse cx="128" cy="128" rx="10" ry="50" fill="white" opacity="0.2" transform="rotate({a} 128 128)"/>'
-         for a in range(0, 180, 30)
-     )
-     + ''.join(
-         f'<circle cx="{128 + int(50 * math.cos(math.radians(a)))}" cy="{128 + int(50 * math.sin(math.radians(a)))}" r="5" fill="white" opacity="0.6"/>'
-         for a in range(0, 360, 45)
-     )),
-    ("spiral",
-     '<path d="M128 128'
-     + ''.join(
-         f'A{8+i*4} {8+i*4} 0 0 {1 if i % 2 == 0 else 0} '
-         f'{128 + int((8+i*4) * math.cos(math.radians(i * 180)))} '
-         f'{128 + int((8+i*4) * math.sin(math.radians(i * 180)))}'
-         for i in range(1, 10)
-     )
-     + '" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>'
-     + ''.join(
-         f'<circle cx="{128 + int((8+i*4) * math.cos(math.radians(i * 180)))}" '
-         f'cy="{128 + int((8+i*4) * math.sin(math.radians(i * 180)))}" r="3" fill="white" opacity="0.5"/>'
-         for i in range(1, 10, 2)
-     )),
-    ("gem",
-     '<path d="M88 95h80l-40 100z" fill="white" opacity="0.9"/>'
-     '<path d="M88 95l40-40 40 40z" fill="white" opacity="0.7"/>'
-     '<path d="M128 55l-40 40 40 100 40-100z" fill="white" opacity="0.2"/>'
-     '<line x1="128" y1="55" x2="128" y2="195" stroke="white" stroke-width="1.5" opacity="0.4"/>'
-     '<line x1="88" y1="95" x2="128" y2="195" stroke="white" stroke-width="1" opacity="0.3"/>'
-     '<line x1="168" y1="95" x2="128" y2="195" stroke="white" stroke-width="1" opacity="0.3"/>'),
-
-    # ── Group 5: Sports/Hobby (Purple) ──
-    ("headphones",
-     '<path d="M68 140a60 60 0 0 1 120 0" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.9"/>'
-     '<rect x="58" y="135" width="22" height="40" rx="10" fill="white" opacity="0.85"/>'
-     '<rect x="176" y="135" width="22" height="40" rx="10" fill="white" opacity="0.85"/>'
-     '<rect x="62" y="140" width="14" height="30" rx="6" fill="white" opacity="0.4"/>'
-     '<rect x="180" y="140" width="14" height="30" rx="6" fill="white" opacity="0.4"/>'),
-    ("gamepad",
-     '<rect x="58" y="95" width="140" height="75" rx="30" fill="white" opacity="0.9"/>'
-     '<circle cx="102" cy="128" r="6" fill="white" opacity="0.4"/>'
-     '<rect x="95" y="110" width="14" height="4" rx="2" fill="white" opacity="0.4"/>'
-     '<rect x="100" y="105" width="4" height="14" rx="2" fill="white" opacity="0.4"/>'
-     '<circle cx="158" cy="120" r="5" fill="white" opacity="0.4"/>'
-     '<circle cx="170" cy="128" r="5" fill="white" opacity="0.4"/>'
-     '<circle cx="158" cy="136" r="5" fill="white" opacity="0.4"/>'
-     '<circle cx="146" cy="128" r="5" fill="white" opacity="0.4"/>'),
-    ("music-note",
-     '<circle cx="100" cy="175" r="22" fill="white" opacity="0.85"/>'
-     '<rect x="118" y="65" width="8" height="115" rx="3" fill="white" opacity="0.9"/>'
-     '<path d="M126 65l40-15v30l-40 12z" fill="white" opacity="0.7"/>'),
-    ("camera",
-     '<rect x="65" y="90" width="126" height="90" rx="14" fill="white" opacity="0.9"/>'
-     '<circle cx="128" cy="138" r="30" fill="white" opacity="0.35"/>'
-     '<circle cx="128" cy="138" r="20" fill="white" opacity="0.35"/>'
-     '<rect x="105" y="75" width="46" height="20" rx="6" fill="white" opacity="0.7"/>'
-     '<circle cx="170" cy="105" r="6" fill="white" opacity="0.4"/>'),
-    ("rocket",
-     '<path d="M128 50c-20 30-25 70-25 100h50c0-30-5-70-25-100z" fill="white" opacity="0.9"/>'
-     '<path d="M103 140l-18 30h18z" fill="white" opacity="0.7"/>'
-     '<path d="M153 140l18 30h-18z" fill="white" opacity="0.7"/>'
-     '<circle cx="128" cy="120" r="10" fill="white" opacity="0.35"/>'
-     '<path d="M118 175l10 20 10-20z" fill="white" opacity="0.6"/>'),
-    ("lightning",
-     '<path d="M145 50l-50 85h35l-15 75 55-95h-35z" fill="white" opacity="0.9"/>'),
+# (name, bg_light, icon_color, 24x24_path_d)
+# Each icon is drawn in a 24x24 viewBox, we scale+center it in the 256 SVG.
+HUMAN_ICONS = [
+    # ── Animals ──
+    ("cat", "#EEF2FF", "#6366f1",
+     "M12 2c-1 0-2.5.7-3 2L7 2C6 2 5.5 3 6 4l1.5 3C6 8 5 9.5 5 11.5 5 15 8 18 12 18s7-3 7-6.5c0-2-1-3.5-2.5-4.5L18 4c.5-1 0-2-1-2l-2 2c-.5-1.3-2-2-3-2zm-2.5 9a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM10 15h4"),
+    ("dog", "#EEF2FF", "#818cf8",
+     "M12 2C9 2 7 4.5 7 7v1H5.5C4.7 8 4 8.7 4 9.5v3C4 13.3 4.7 14 5.5 14H7v2c0 3 2.2 6 5 6s5-3 5-6v-2h1.5c.8 0 1.5-.7 1.5-1.5v-3c0-.8-.7-1.5-1.5-1.5H17V7c0-2.5-2-5-5-5zm-2 8a1 1 0 110-2 1 1 0 010 2zm4 0a1 1 0 110-2 1 1 0 010 2zm-4 4h4l-2 2z"),
+    ("fox", "#EEF2FF", "#a78bfa",
+     "M18 3l-3 5h-2V5L12 2 11 5v3H9L6 3C5.2 3 5 4 5.4 4.6L8 10c-1.5 1.5-2 3.5-2 5.5C6 19 9 22 12 22s6-3 6-6.5c0-2-0.5-4-2-5.5l2.6-5.4C19 4 18.8 3 18 3zM10 13a1 1 0 110-2 1 1 0 010 2zm4 0a1 1 0 110-2 1 1 0 010 2zm-2 4l-1.5-2h3z"),
+    ("owl", "#FFF7ED", "#f59e0b",
+     "M12 2C8.5 2 5 5 5 9v4c0 4 3 9 7 9s7-5 7-9V9c0-4-3.5-7-7-7zm0 2c.5 0 1 .1 1.5.3L12 6l-1.5-1.7c.5-.2 1-.3 1.5-.3zM8.5 10a2.5 2.5 0 110 5 2.5 2.5 0 010-5zm7 0a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM8.5 12a.5.5 0 100 1 .5.5 0 000-1zm7 0a.5.5 0 100 1 .5.5 0 000-1zM12 17l-1 1.5h2z"),
+    ("bear", "#FEF2F2", "#ef4444",
+     "M8 4a3 3 0 00-2 5.2V11c0 4.4 2.7 9 6 9s6-4.6 6-9V9.2A3 3 0 0016 4a3 3 0 00-2.8 2H10.8A3 3 0 008 4zm2 7a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm4 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-2 5c-1 0-1.8.5-2 1h4c-.2-.5-1-1-2-1z"),
+    ("penguin", "#F0FDF4", "#10b981",
+     "M12 2C9.5 2 8 4 8 6v1c-1.5 1-3 3-3 6 0 4 2.5 6 4 7v1h6v-1c1.5-1 4-3 4-7 0-3-1.5-5-3-6V6c0-2-1.5-4-4-4zm0 2c1 0 2 1 2 2H10c0-1 1-2 2-2zm-2 7a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm4 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"),
+    # ── Nature ──
+    ("mountain", "#ECFDF5", "#059669",
+     "M13 3.5L7.5 13l2 0-5.5 7.5h16L14.5 13l2 0zM17 10l4 10.5h-6z"),
+    ("tree", "#F0FDF4", "#16a34a",
+     "M12 2L5 10h3l-3 5h3l-3 5h14l-3-5h3l-3-5h3zm-1 18h2v2h-2z"),
+    ("star", "#FFFBEB", "#d97706",
+     "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"),
+    ("moon", "#EFF6FF", "#2563eb",
+     "M12 3a9 9 0 109 9c0-.5 0-1-.06-1.5A5 5 0 0113.5 3.06 9.06 9.06 0 0012 3z"),
+    ("flower", "#FDF2F8", "#db2777",
+     "M12 22c1 0 2-1 2-2h-4c0 1 1 2 2 2zm0-20C10 2 9 3 9 4c0 .4.1.7.3 1A5 5 0 007 10c0 2.5 1 4.5 2.5 5.5l-.5 2.5h6l-.5-2.5C16 14.5 17 12.5 17 10a5 5 0 00-2.3-5c.2-.3.3-.6.3-1 0-1-1-2-3-2zm-3 9a1 1 0 112 0 1 1 0 01-2 0zm4 0a1 1 0 112 0 1 1 0 01-2 0z"),
+    ("sun", "#FEF3C7", "#b45309",
+     "M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2v-2H2zm18 0h2v-2h-2zM11 2v2h2V2zm0 18v2h2v-2zM5.99 4.58l-1.41 1.41 1.41 1.42 1.42-1.42zm12.02 12.02l-1.41 1.41 1.41 1.42 1.42-1.42zM4.58 18.01l1.41 1.41 1.42-1.41-1.42-1.42zm12.02-12.02l1.41 1.41 1.42-1.41-1.42-1.42z"),
+    # ── Characters ──
+    ("astronaut", "#F5F3FF", "#7c3aed",
+     "M12 2a5 5 0 00-5 5v2a5 5 0 003 4.58V15H8v5a2 2 0 002 2h4a2 2 0 002-2v-5h-2v-1.42A5 5 0 0017 9V7a5 5 0 00-5-5zm0 2a3 3 0 013 3v2a3 3 0 01-6 0V7a3 3 0 013-3zM9 8h6v1a3 3 0 01-6 0z"),
+    ("ninja", "#FEF2F2", "#dc2626",
+     "M12 2C8 2 5 5 5 9c0 2 .8 3.8 2 5v2l-2 4h14l-2-4v-2c1.2-1.2 2-3 2-5 0-4-3-7-7-7zm-4 7h8v2H8zm4 7l-2-3h4z"),
+    ("wizard", "#F5F3FF", "#6d28d9",
+     "M12 2L7 12h3v3H7l5 7 5-7h-3v-3h3zm-2 20h4v-1h-4z"),
+    ("robot", "#E0F2FE", "#0284c7",
+     "M12 2a1 1 0 00-1 1v1H7a3 3 0 00-3 3v8a3 3 0 003 3h1v2a2 2 0 002 2h4a2 2 0 002-2v-2h1a3 3 0 003-3V7a3 3 0 00-3-3h-4V3a1 1 0 00-1-1zM9 9a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-5 6h4l-2 2z"),
+    ("pirate", "#FFF7ED", "#c2410c",
+     "M15 2l-1 3H10L9 2 7 3l1.5 3C6.5 7 5 9 5 12c0 4 3 8 7 8s7-4 7-8c0-3-1.5-5-3.5-6L17 3zM10 11a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm4 .5a2 2 0 11-1 1l2-1.5zM9 16h6c-.5 1.5-1.5 2-3 2s-2.5-.5-3-2z"),
+    ("superhero", "#EFF6FF", "#1d4ed8",
+     "M12 2L9 5v2H7a2 2 0 00-2 2v5l3 4v2a2 2 0 002 2h4a2 2 0 002-2v-2l3-4V9a2 2 0 00-2-2h-2V5zm0 2l1.5 2h-3zM9 10.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm3 2.5l2 3h-4z"),
+    # ── Food ──
+    ("pizza", "#FEF2F2", "#e11d48",
+     "M12 2L3 20h18zm0 4l5.5 12h-11zm-1 5a1 1 0 112 0 1 1 0 01-2 0zm-2 3a1 1 0 112 0 1 1 0 01-2 0zm5 0a1 1 0 112 0 1 1 0 01-2 0z"),
+    ("cupcake", "#FDF2F8", "#c026d3",
+     "M8 13v5a4 4 0 008 0v-5zM7 12h10c.5 0 1-.5 1-1-1-3-3-5-6-5s-5 2-6 5c0 .5.5 1 1 1zm3-8c0-.5.4-1 1-1h2c.6 0 1 .5 1 1v1h-4z"),
+    ("coffee", "#FEF9C3", "#a16207",
+     "M6 7h8a1 1 0 011 1v7a4 4 0 01-4 4H9a4 4 0 01-4-4V8a1 1 0 011-1zm10 2h1a3 3 0 010 6h-1zM8 3v2m2-3v3m2-2v2"),
+    ("taco", "#FFF7ED", "#ea580c",
+     "M4 16c0 3 3.5 6 8 6s8-3 8-6l-1-4c-.5-2-2-4-4-5l-1-4h-4l-1 4c-2 1-3.5 3-4 5zm4-2a1 1 0 112 0 1 1 0 01-2 0zm3 0a1 1 0 112 0 1 1 0 01-2 0zm3 0a1 1 0 112 0 1 1 0 01-2 0z"),
+    ("icecream", "#FCE7F3", "#be185d",
+     "M12 2a5 5 0 00-5 5c0 2 1 3.5 2.5 4.5L8 22h8l-1.5-10.5C16 10.5 17 9 17 7a5 5 0 00-5-5zm0 2a3 3 0 013 3c0 1.2-.7 2.2-1.7 2.7L12 16l-1.3-6.3A3 3 0 019 7a3 3 0 013-3z"),
+    ("sushi", "#F0FDF4", "#15803d",
+     "M4 12c0-3 3.5-6 8-6s8 3 8 6-3.5 6-8 6-8-3-8-6zm3 0c0 1.5 2 3 5 3s5-1.5 5-3-2-3-5-3-5 1.5-5 3zm3-1a1 1 0 112 0 1 1 0 01-2 0zm3 1a1 1 0 112 0 1 1 0 01-2 0z"),
+    # ── Hobby ──
+    ("headphones", "#F5F3FF", "#7c3aed",
+     "M12 3C7 3 3 7 3 12v4a3 3 0 003 3h1a2 2 0 002-2v-4a2 2 0 00-2-2H6c0-3.3 2.7-6 6-6s6 2.7 6 6h-1a2 2 0 00-2 2v4a2 2 0 002 2h1a3 3 0 003-3v-4c0-5-4-9-9-9z"),
+    ("gamepad", "#EEF2FF", "#4f46e5",
+     "M6 9a4 4 0 00-4 4v0a4 4 0 004 4h12a4 4 0 004-4v0a4 4 0 00-4-4zm2 2v2h-2v-2zm0 2v2h-2v-2zm-2-2h-2v2h2zM15 11a1 1 0 110 2 1 1 0 010-2zm2 2a1 1 0 110 2 1 1 0 010-2z"),
+    ("music", "#FDF4FF", "#a21caf",
+     "M12 3v12.26A4 4 0 008 13a4 4 0 000 8 4 4 0 004-4V7h4V3zm0 14a2 2 0 11-4 0 2 2 0 014 0z"),
+    ("camera", "#ECFEFF", "#0891b2",
+     "M9 3l-1.5 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2h-3.5L15 3zm3 5a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6z"),
+    ("rocket", "#FEF2F2", "#dc2626",
+     "M12 2c-3 4-5 8-5 13h3v5h4v-5h3c0-5-2-9-5-13zm0 4c1 2 2 4.5 2.5 7h-5C10 10.5 11 8 12 6z"),
+    ("lightning", "#FEF9C3", "#ca8a04",
+     "M13 2L5 13h5l-2 9 9-12h-5z"),
+    # ── Abstract ──
+    ("globe", "#E0F2FE", "#0369a1",
+     "M12 2a10 10 0 100 20 10 10 0 000-20zm0 2c1.1 0 2.5 1.8 3.2 5H8.8C9.5 5.8 10.9 4 12 4zM8.2 11h7.6c.1.6.2 1.3.2 2s-.1 1.4-.2 2H8.2c-.1-.6-.2-1.3-.2-2s.1-1.4.2-2zM12 20c-1.1 0-2.5-1.8-3.2-5h6.4c-.7 3.2-2.1 5-3.2 5z"),
+    ("heart", "#FDF2F8", "#be185d",
+     "M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53z"),
+    ("diamond", "#F5F3FF", "#7c3aed",
+     "M12 2L2 9l10 13L22 9zm0 3.5L18 9l-6 8.5L6 9z"),
+    ("flame", "#FFF7ED", "#ea580c",
+     "M12 2c-3 5-7 8-7 12a7 7 0 0014 0c0-4-4-7-7-12zm0 6c1.5 2.5 3 4 3 6a3 3 0 01-6 0c0-2 1.5-3.5 3-6z"),
+    ("leaf", "#F0FDF4", "#16a34a",
+     "M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.5 3.5 4 5C7 15 9 12 12 10c-4 6-2 8-2 8l.5.5C15 16 17 8 17 8z"),
+    ("sparkle", "#FFFBEB", "#d97706",
+     "M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"),
 ]
 
 
 def _human_icon(idx: int) -> str:
-    """Generate a human avatar with a recognizable silhouette/icon on a gradient background."""
-    group = idx // 6          # 0-5: which color palette group
-    design = idx % 6          # 0-5: which design within the group
-    icon_idx = group * 6 + design
-
-    # Wrap palette index for safety
-    pal = HUMAN_PALETTES[group % len(HUMAN_PALETTES)]
-    _name, icon_svg = HUMAN_ICONS[icon_idx % len(HUMAN_ICONS)]
-
-    grad = _gradient("bg", pal[0], pal[1], 135)
+    """Generate a human avatar with a bold colored icon on a pastel background."""
+    name, bg_color, icon_color, path_d = HUMAN_ICONS[idx % len(HUMAN_ICONS)]
+    # The path is in a 24x24 viewBox. We scale it to fit nicely in 256x256.
+    # Scale factor: 7x, centered with translate to (44, 44) for a 168x168 icon area
     return (
         f'<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">'
-        f'<defs>{grad}</defs>'
-        f'<rect width="256" height="256" rx="32" fill="url(#bg)"/>'
-        f'{icon_svg}'
+        f'<rect width="256" height="256" rx="32" fill="{bg_color}"/>'
+        f'<g transform="translate(44,44) scale(7)">'
+        f'<path d="{path_d}" fill="{icon_color}" fill-rule="evenodd"/>'
+        f'</g>'
         f'</svg>'
     )
 
@@ -456,7 +265,7 @@ def main() -> None:
     os.makedirs(os.path.join(OUTPUT_DIR, "human"), exist_ok=True)
     os.makedirs(os.path.join(OUTPUT_DIR, "agent"), exist_ok=True)
 
-    # Generate 36 human avatars (6 groups x 6 designs)
+    # Generate 36 human avatars
     for i in range(36):
         svg = _human_icon(i)
         path = os.path.join(OUTPUT_DIR, "human", f"h{i:02d}.svg")
