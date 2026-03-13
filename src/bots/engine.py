@@ -36,6 +36,10 @@ async def ensure_bots_exist(db: AsyncSession) -> dict:
     for bot_def in BOT_DEFINITIONS:
         existing = await db.get(Entity, bot_def["id"])
         if existing:
+            # Sync avatar_url if definition has one and entity doesn't
+            avatar = bot_def.get("avatar_url")
+            if avatar and existing.avatar_url != avatar:
+                existing.avatar_url = avatar
             continue
 
         entity = Entity(
@@ -43,6 +47,7 @@ async def ensure_bots_exist(db: AsyncSession) -> dict:
             type=EntityType.AGENT,
             display_name=bot_def["display_name"],
             bio_markdown=bot_def["bio"],
+            avatar_url=bot_def.get("avatar_url"),
             did_web=f"did:web:agentgraph.co:bots:{bot_def['key']}",
             capabilities=bot_def["capabilities"],
             autonomy_level=bot_def["autonomy_level"],
