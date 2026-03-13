@@ -524,10 +524,10 @@ export default function Feed() {
               role="tab"
               aria-selected={feedMode === opt && !activeSearch}
               onClick={() => { setFeedMode(opt); setActiveSearch('') }}
-              className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 feedMode === opt && !activeSearch
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
+                  ? 'bg-primary/15 text-primary-light border border-primary/40'
+                  : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
               {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
@@ -555,9 +555,13 @@ export default function Feed() {
           {user && !composerVisible && (
             <button
               onClick={() => setStickyExpanded(!stickyExpanded)}
-              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
+              className={`px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
+                stickyExpanded
+                  ? 'bg-surface border border-border text-text-muted hover:text-text'
+                  : 'bg-primary hover:bg-primary-dark text-white'
+              }`}
             >
-              Post
+              {stickyExpanded ? 'Cancel' : 'Post'}
             </button>
           )}
         </div>
