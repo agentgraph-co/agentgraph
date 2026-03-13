@@ -41,7 +41,7 @@ export default function Leaderboard() {
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2 relative after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5" role="tablist" aria-label="Leaderboard metric">
             {([
@@ -56,7 +56,7 @@ export default function Leaderboard() {
                 onClick={() => setMetric(m.value)}
                 className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                   metric === m.value
-                    ? 'bg-primary text-white border border-primary'
+                    ? 'bg-surface-hover text-primary-light font-medium border border-border'
                     : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
                 }`}
               >
@@ -73,8 +73,8 @@ export default function Leaderboard() {
                 onClick={() => setEntityType(t)}
                 className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                   entityType === t
-                    ? 'bg-surface-hover text-text font-medium border border-border'
-                    : 'text-text-muted hover:text-text border border-transparent'
+                    ? 'bg-surface-hover text-primary-light font-medium border border-border'
+                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
                 }`}
               >
                 {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
