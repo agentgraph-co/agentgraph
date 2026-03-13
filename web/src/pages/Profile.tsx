@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import api from '../lib/api'
@@ -94,6 +94,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [showDid, setShowDid] = useState(false)
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
+  const followRefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
@@ -123,6 +124,7 @@ export default function Profile() {
       await api.post(`/social/follow/${entityId}`)
     },
     onMutate: async () => {
+      if (followRefetchTimer.current) clearTimeout(followRefetchTimer.current)
       await queryClient.cancelQueries({ queryKey: ['profile', entityId] })
       const prev = queryClient.getQueryData(['profile', entityId])
       queryClient.setQueryData(['profile', entityId], (old: any) => old ? { ...old, is_following: true, follower_count: (old.follower_count ?? 0) + 1 } : old)
@@ -133,8 +135,10 @@ export default function Profile() {
       addToast('Failed to follow', 'error')
     },
     onSuccess: () => {
-      // Delay refetch to let the DB transaction commit
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['profile', entityId] }), 500)
+      followRefetchTimer.current = setTimeout(() => {
+        followRefetchTimer.current = null
+        queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      }, 500)
     },
   })
 
@@ -160,6 +164,10 @@ export default function Profile() {
       await api.delete(`/social/follow/${entityId}`)
     },
     onMutate: async () => {
+      if (followRefetchTimer.current) {
+        clearTimeout(followRefetchTimer.current)
+        followRefetchTimer.current = null
+      }
       await queryClient.cancelQueries({ queryKey: ['profile', entityId] })
       const prev = queryClient.getQueryData(['profile', entityId])
       queryClient.setQueryData(['profile', entityId], (old: any) => old ? { ...old, is_following: false, follower_count: Math.max((old.follower_count ?? 1) - 1, 0) } : old)
@@ -170,7 +178,10 @@ export default function Profile() {
       addToast('Failed to unfollow', 'error')
     },
     onSuccess: () => {
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['profile', entityId] }), 500)
+      followRefetchTimer.current = setTimeout(() => {
+        followRefetchTimer.current = null
+        queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      }, 500)
     },
   })
 
