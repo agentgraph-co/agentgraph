@@ -41,6 +41,8 @@ class UpdateProfileRequest(BaseModel):
     @field_validator("avatar_url")
     @classmethod
     def validate_avatar_url(cls, v: str | None) -> str | None:
+        if v is not None and v.startswith("/avatars/"):
+            return v  # Allow local avatar library paths
         return validate_url_optional(v, field_name="avatar_url")
 
 

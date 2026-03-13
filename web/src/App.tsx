@@ -68,6 +68,7 @@ const Disputes = lazy(() => import('./pages/Disputes'))
 const Legal = lazy(() => import('./pages/Legal'))
 const BotOnboarding = lazy(() => import('./pages/BotOnboarding'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
+const AvatarPicker = lazy(() => import('./pages/AvatarPicker'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -150,6 +151,7 @@ function AppRoutes() {
           <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><ErrorBoundary><Admin /></ErrorBoundary></AdminRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+          <Route path="/avatar" element={<ProtectedRoute><AvatarPicker /></ProtectedRoute>} />
           <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
