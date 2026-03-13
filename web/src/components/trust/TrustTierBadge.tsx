@@ -21,8 +21,8 @@ interface TrustTierBadgeProps {
   attestationCount?: number
 }
 
-function TierNumber({ value, level }: { value: number; level: number }) {
-  const gradient = getTierGradient(level)
+function TierNumber({ value, level, axis }: { value: number; level: number; axis: 'attestation' | 'community' }) {
+  const gradient = getTierGradient(level, axis)
   if (gradient) {
     return (
       <span
@@ -39,7 +39,7 @@ function TierNumber({ value, level }: { value: number; level: number }) {
     )
   }
   return (
-    <span className="font-semibold" style={{ color: getTierColor(level) }}>
+    <span className="font-semibold" style={{ color: getTierColor(level, axis) }}>
       {value}
     </span>
   )
@@ -47,8 +47,8 @@ function TierNumber({ value, level }: { value: number; level: number }) {
 
 function TierIcon({ axis, level, size }: { axis: 'attestation' | 'community'; level: number; size: number }) {
   const Icon = axis === 'attestation' ? getAttestationIcon(level) : getCommunityIcon(level)
-  const gradient = getTierGradient(level)
-  const color = getTierColor(level)
+  const gradient = getTierGradient(level, axis)
+  const color = getTierColor(level, axis)
   const label = axis === 'attestation' ? getAttestationLabel(level) : getCommunityLabel(level)
 
   return (
@@ -58,7 +58,7 @@ function TierIcon({ axis, level, size }: { axis: 'attestation' | 'community'; le
       style={{ color: gradient ? undefined : color }}
     >
       {gradient ? (
-        <span style={{ color: getTierColor(level) }}>
+        <span style={{ color: getTierColor(level, axis) }}>
           <Icon size={size} />
         </span>
       ) : (
@@ -70,8 +70,8 @@ function TierIcon({ axis, level, size }: { axis: 'attestation' | 'community'; le
 
 function ProgressBar({ score, level, axis }: { score: number; level: number; axis: 'attestation' | 'community' }) {
   const progress = progressToNextTier(score)
-  const color = getTierColor(level)
-  const gradient = getTierGradient(level)
+  const color = getTierColor(level, axis)
+  const gradient = getTierGradient(level, axis)
   const tier = computeTier(score, axis)
 
   return (
@@ -119,12 +119,12 @@ function MicroBadge({ att, com, prestige }: { att: { score: number; level: numbe
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-flex items-center gap-0.5">
         <TierIcon axis="attestation" level={att.level} size={14} />
-        <TierNumber value={att.score} level={att.level} />
+        <TierNumber value={att.score} level={att.level} axis="attestation" />
       </span>
       <span className="text-border text-[10px]">|</span>
       <span className="inline-flex items-center gap-0.5">
         <TierIcon axis="community" level={com.level} size={14} />
-        <TierNumber value={com.score} level={com.level} />
+        <TierNumber value={com.score} level={com.level} axis="community" />
       </span>
       {prestige && <PrestigeBadgeDisplay size="micro" />}
     </span>
@@ -137,12 +137,12 @@ function SmallBadge({ att, com, prestige }: { att: { score: number; level: numbe
     <span className="inline-flex items-center gap-2">
       <span className="inline-flex items-center gap-1" title={`Attestation: ${att.label} (${att.score})`}>
         <TierIcon axis="attestation" level={att.level} size={18} />
-        <TierNumber value={att.score} level={att.level} />
+        <TierNumber value={att.score} level={att.level} axis="attestation" />
       </span>
       <span className="text-border text-xs">|</span>
       <span className="inline-flex items-center gap-1" title={`Community: ${com.label} (${com.score})`}>
         <TierIcon axis="community" level={com.level} size={18} />
-        <TierNumber value={com.score} level={com.level} />
+        <TierNumber value={com.score} level={com.level} axis="community" />
       </span>
       {prestige && <PrestigeBadgeDisplay size="small" />}
     </span>
@@ -160,7 +160,7 @@ function MediumBadge({ att, com, prestige }: { att: { score: number; level: numb
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg">
-            <TierNumber value={att.score} level={att.level} />
+            <TierNumber value={att.score} level={att.level} axis="attestation" />
           </span>
           <span className="text-[10px] text-text-muted">{att.label}</span>
         </div>
@@ -172,7 +172,7 @@ function MediumBadge({ att, com, prestige }: { att: { score: number; level: numb
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg">
-            <TierNumber value={com.score} level={com.level} />
+            <TierNumber value={com.score} level={com.level} axis="community" />
           </span>
           <span className="text-[10px] text-text-muted">{com.label}</span>
         </div>
@@ -197,7 +197,7 @@ function LargeBadge({ att, com, prestige }: { att: { score: number; level: numbe
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg">
-            <TierNumber value={att.score} level={att.level} />
+            <TierNumber value={att.score} level={att.level} axis="attestation" />
           </span>
           <span className="text-xs text-text-muted">{att.label}</span>
         </div>
@@ -210,7 +210,7 @@ function LargeBadge({ att, com, prestige }: { att: { score: number; level: numbe
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg">
-            <TierNumber value={com.score} level={com.level} />
+            <TierNumber value={com.score} level={com.level} axis="community" />
           </span>
           <span className="text-xs text-text-muted">{com.label}</span>
         </div>
