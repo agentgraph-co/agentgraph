@@ -164,7 +164,7 @@ export default function Marketplace() {
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg border-b border-border/50 py-2">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg py-2">
         <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Marketplace categories">
           {CATEGORIES.map((cat) => (
             <button
@@ -172,10 +172,10 @@ export default function Marketplace() {
               role="tab"
               aria-selected={activeCategory === cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1 text-sm transition-colors capitalize cursor-pointer ${
+              className={`px-3 py-1 rounded-md text-sm transition-colors capitalize cursor-pointer ${
                 activeCategory === cat
-                  ? 'font-medium text-primary-light'
-                  : 'text-text-muted hover:text-text'
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
               }`}
             >
               {cat}
