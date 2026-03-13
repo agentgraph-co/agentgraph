@@ -36,19 +36,35 @@ const COMMUNITY_TIERS: readonly { min: number; label: string }[] = [
   { min: 90, label: 'Pillar' },
 ]
 
-// ─── Tier Colors (accessible, color-blind safe) ───
+// ─── Tier Colors (axis-specific, accessible, color-blind safe) ───
+// Attestation = cool spectrum (blue/indigo) — institutional/credential trust
+// Community   = warm spectrum (green/emerald) — peer/social trust
 
-const TIER_COLORS: readonly string[] = [
-  '#6C7086', // 0 — gray/muted
-  '#F59E0B', // 1 — amber
-  '#0D9488', // 2 — teal/primary
-  '#2DD4BF', // 3 — teal-bright/primary-light
-  '#E879F9', // 4 — accent (gradient start)
-  '#F59E0B', // 5 — gold (gradient start)
+const ATTESTATION_COLORS: readonly string[] = [
+  '#6C7086', // 0 — gray/muted (no credentials)
+  '#60A5FA', // 1 — sky blue (basic verification)
+  '#3B82F6', // 2 — blue (confirmed)
+  '#818CF8', // 3 — indigo (validated)
+  '#A78BFA', // 4 — violet (gradient start — verified)
+  '#F59E0B', // 5 — gold (certified — prestige tier)
 ]
 
-const TIER_GRADIENTS: Record<number, string> = {
-  4: 'linear-gradient(135deg, #E879F9, #0D9488)',
+const COMMUNITY_COLORS: readonly string[] = [
+  '#6C7086', // 0 — gray/muted (unknown)
+  '#84CC16', // 1 — lime (emerging)
+  '#22C55E', // 2 — green (connected)
+  '#10B981', // 3 — emerald (established)
+  '#F472B6', // 4 — pink/rose (gradient start — trusted)
+  '#F59E0B', // 5 — gold (pillar — prestige tier)
+]
+
+const ATTESTATION_GRADIENTS: Record<number, string> = {
+  4: 'linear-gradient(135deg, #A78BFA, #6366F1)',
+  5: 'linear-gradient(135deg, #F59E0B, #EAB308)',
+}
+
+const COMMUNITY_GRADIENTS: Record<number, string> = {
+  4: 'linear-gradient(135deg, #F472B6, #EC4899)',
   5: 'linear-gradient(135deg, #F59E0B, #EAB308)',
 }
 
@@ -72,34 +88,48 @@ export type TrustAxis = 'attestation' | 'community'
 export function computeTier(score: number, axis: TrustAxis): TrustTier {
   const level = resolveTierLevel(score)
   const tiers = axis === 'attestation' ? ATTESTATION_TIERS : COMMUNITY_TIERS
+  const colors = axis === 'attestation' ? ATTESTATION_COLORS : COMMUNITY_COLORS
+  const gradients = axis === 'attestation' ? ATTESTATION_GRADIENTS : COMMUNITY_GRADIENTS
   const nextIdx = level + 1
   const nextThreshold = nextIdx < THRESHOLDS.length ? THRESHOLDS[nextIdx] : null
 
   return {
     level,
     label: tiers[level].label,
-    color: TIER_COLORS[level],
-    gradient: TIER_GRADIENTS[level] ?? null,
+    color: colors[level],
+    gradient: gradients[level] ?? null,
     nextThreshold,
   }
 }
 
-export function getTierColor(level: number): string {
-  return TIER_COLORS[Math.max(0, Math.min(5, level))] ?? TIER_COLORS[0]
+export function getTierColor(level: number, axis: TrustAxis = 'attestation'): string {
+  const colors = axis === 'attestation' ? ATTESTATION_COLORS : COMMUNITY_COLORS
+  return colors[Math.max(0, Math.min(5, level))] ?? colors[0]
 }
 
-export function getTierGradient(level: number): string | null {
-  return TIER_GRADIENTS[level] ?? null
+export function getTierGradient(level: number, axis: TrustAxis = 'attestation'): string | null {
+  const gradients = axis === 'attestation' ? ATTESTATION_GRADIENTS : COMMUNITY_GRADIENTS
+  return gradients[level] ?? null
 }
 
 /** Tailwind-friendly class names for tier text color */
-export function tierTextClass(level: number): string {
+export function tierTextClass(level: number, axis: TrustAxis = 'attestation'): string {
+  if (level >= 4) return '' // tiers 4-5 use gradient style, not class
+  if (level === 0) return 'text-text-muted'
+  if (axis === 'attestation') {
+    switch (level) {
+      case 1: return 'text-sky-400'
+      case 2: return 'text-blue-500'
+      case 3: return 'text-indigo-400'
+      default: return ''
+    }
+  }
+  // community
   switch (level) {
-    case 0: return 'text-text-muted'
-    case 1: return 'text-amber-400'
-    case 2: return 'text-primary'
-    case 3: return 'text-primary-light'
-    default: return '' // tiers 4-5 use gradient style, not class
+    case 1: return 'text-lime-500'
+    case 2: return 'text-green-500'
+    case 3: return 'text-emerald-500'
+    default: return ''
   }
 }
 
