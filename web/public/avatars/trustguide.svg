@@ -1,10 +1,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="dark-bg-gradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+    <radialGradient id="bg-tg" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#2D3748"/>
       <stop offset="100%" stop-color="#1A202C"/>
     </radialGradient>
-    <linearGradient id="shield-gradient" x1="256" y1="96" x2="256" y2="416" gradientUnits="userSpaceOnUse">
+    <linearGradient id="shield-grad" x1="256" y1="96" x2="256" y2="416" gradientUnits="userSpaceOnUse">
       <stop stop-color="#4A5568"/>
       <stop offset="1" stop-color="#2D3748"/>
     </linearGradient>
@@ -16,9 +16,9 @@
       </feMerge>
     </filter>
   </defs>
-  <circle cx="256" cy="256" r="256" fill="url(#dark-bg-gradient)"/>
-  <g>
-    <path d="M256 96L128 176V336C128 368.16 182.667 416 256 416C329.333 416 384 368.16 384 336V176L256 96Z" fill="url(#shield-gradient)"/>
+  <circle cx="256" cy="256" r="256" fill="url(#bg-tg)"/>
+  <g transform="translate(256,256) scale(1.3) translate(-256,-256)">
+    <path d="M256 96L128 176V336C128 368.16 182.667 416 256 416C329.333 416 384 368.16 384 336V176L256 96Z" fill="url(#shield-grad)"/>
     <path d="M256 96L128 176V336C128 368.16 182.667 416 256 416C329.333 416 384 368.16 384 336V176L256 96Z" stroke="#718096" stroke-width="4"/>
     <g opacity="0.3">
       <path d="M256 256L256 160" stroke="#059669" stroke-width="2"/>

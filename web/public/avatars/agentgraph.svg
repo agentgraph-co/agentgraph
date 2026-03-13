@@ -1,12 +1,12 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="agent-gradient" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse">
+    <linearGradient id="agent-gradient" x1="80" y1="80" x2="432" y2="432" gradientUnits="userSpaceOnUse">
       <stop stop-color="#5B21B6"/>
       <stop offset="1" stop-color="#06B6D4"/>
     </linearGradient>
   </defs>
   <circle cx="256" cy="256" r="256" fill="#111827"/>
-  <g stroke="url(#agent-gradient)" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="url(#agent-gradient)" stroke-linecap="round" stroke-linejoin="round" transform="translate(256,256) scale(1.35) translate(-256,-256)">
     <g stroke-width="4" opacity="0.8">
       <line x1="200" y1="216" x2="256" y2="280"/>
       <line x1="312" y1="216" x2="256" y2="280"/>

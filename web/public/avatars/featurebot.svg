@@ -1,54 +1,54 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="backgroundGradient-fb" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-      <stop offset="0%" stop-color="#2d3748" />
-      <stop offset="100%" stop-color="#1a202c" />
+    <radialGradient id="bg-fb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2d3748"/>
+      <stop offset="100%" stop-color="#1a202c"/>
     </radialGradient>
     <filter id="bulbGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="12" result="coloredBlur" />
+      <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
       <feMerge>
-        <feMergeNode in="coloredBlur" />
-        <feMergeNode in="SourceGraphic" />
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <radialGradient id="sparkGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-      <stop offset="0%" stop-color="#FEF9C3" />
+    <radialGradient id="sparkGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FEF9C3"/>
       <stop offset="70%" stop-color="#FBBF24" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <circle cx="256" cy="256" r="256" fill="url(#backgroundGradient-fb)" />
-  <g transform="translate(0, -20)">
-    <g opacity="0.4" stroke-width="1.5">
-      <path d="M256 90 L256 40" stroke="#FBBF24" />
-      <path d="M356 120 L386 90" stroke="#FBBF24" />
-      <path d="M156 120 L126 90" stroke="#FBBF24" />
-      <path d="M400 200 L440 180" stroke="#FBBF24" />
-      <path d="M112 200 L72 180" stroke="#FBBF24" />
+  <circle cx="256" cy="256" r="256" fill="url(#bg-fb)"/>
+  <g transform="translate(256,256) scale(1.3) translate(-256,-276)">
+    <g opacity="0.5" stroke-width="2">
+      <path d="M256 90 L256 40" stroke="#FBBF24"/>
+      <path d="M356 120 L390 86" stroke="#FBBF24"/>
+      <path d="M156 120 L122 86" stroke="#FBBF24"/>
+      <path d="M400 200 L444 178" stroke="#FBBF24"/>
+      <path d="M112 200 L68 178" stroke="#FBBF24"/>
     </g>
     <g filter="url(#bulbGlow)">
       <path d="M256 368.5C205.342 368.5 164.5 327.658 164.5 277C164.5 204.65 256 90 256 90C256 90 347.5 204.65 347.5 277C347.5 327.658 306.658 368.5 256 368.5Z" fill="#F59E0B" fill-opacity="0.1" stroke="#FBBF24" stroke-width="4"/>
-      <circle cx="256" cy="340" r="20" fill="url(#sparkGradient)" />
+      <circle cx="256" cy="340" r="20" fill="url(#sparkGrad)"/>
       <g stroke="#FBBF24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M256 340 V 220" />
-        <path d="M256 280 H 210" />
-        <path d="M256 250 H 290" />
-        <path d="M210 280 V 240 H 240" />
-        <path d="M290 250 V 290 H 270" />
-        <path d="M256 220 C 240 210, 220 215, 210 230" />
-        <path d="M256 220 C 270 210, 290 215, 300 230" />
-        <circle cx="256" cy="280" r="4" fill="#FEF9C3" stroke="none" />
-        <circle cx="210" cy="280" r="4" fill="#FEF9C3" stroke="none" />
-        <circle cx="256" cy="250" r="4" fill="#FEF9C3" stroke="none" />
-        <circle cx="290" cy="250" r="4" fill="#FEF9C3" stroke="none" />
-        <circle cx="210" cy="240" r="4" fill="#FEF9C3" stroke="none" />
-        <circle cx="270" cy="290" r="4" fill="#FEF9C3" stroke="none" />
+        <path d="M256 340 V 220"/>
+        <path d="M256 280 H 210"/>
+        <path d="M256 250 H 290"/>
+        <path d="M210 280 V 240 H 240"/>
+        <path d="M290 250 V 290 H 270"/>
+        <path d="M256 220 C 240 210, 220 215, 210 230"/>
+        <path d="M256 220 C 270 210, 290 215, 300 230"/>
+        <circle cx="256" cy="280" r="4" fill="#FEF9C3" stroke="none"/>
+        <circle cx="210" cy="280" r="4" fill="#FEF9C3" stroke="none"/>
+        <circle cx="256" cy="250" r="4" fill="#FEF9C3" stroke="none"/>
+        <circle cx="290" cy="250" r="4" fill="#FEF9C3" stroke="none"/>
+        <circle cx="210" cy="240" r="4" fill="#FEF9C3" stroke="none"/>
+        <circle cx="270" cy="290" r="4" fill="#FEF9C3" stroke="none"/>
       </g>
     </g>
     <g transform="translate(216, 368)">
-      <rect width="80" height="18" rx="4" fill="#4A5568" stroke="#718096" stroke-width="2" />
-      <rect y="18" width="80" height="8" fill="#2d3748" stroke="#4A5568" stroke-width="2" />
-      <path d="M10 5 H 70 M10 11 H 70" stroke="#718096" stroke-width="2.5" stroke-linecap="round" />
+      <rect width="80" height="18" rx="4" fill="#4A5568" stroke="#718096" stroke-width="2"/>
+      <rect y="18" width="80" height="8" fill="#2d3748" stroke="#4A5568" stroke-width="2"/>
+      <path d="M10 5 H 70 M10 11 H 70" stroke="#718096" stroke-width="2.5" stroke-linecap="round"/>
     </g>
   </g>
 </svg>

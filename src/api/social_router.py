@@ -717,6 +717,7 @@ async def get_suggested_follows(
                 "display_name": entity.display_name,
                 "did_web": entity.did_web,
                 "bio_markdown": entity.bio_markdown or "",
+                "avatar_url": entity.avatar_url,
                 "trust_score": score,
             }
             for entity, score in rows
