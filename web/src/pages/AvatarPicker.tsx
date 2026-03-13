@@ -37,7 +37,26 @@ const HUMAN_STYLES: { style: string; label: string; seeds: string[] }[] = [
   },
 ]
 
-// Agent/bot avatar styles
+// Custom local bot avatars (hand-crafted platform SVGs + generated circuit patterns)
+const LOCAL_AGENT_AVATARS: { label: string; urls: string[] }[] = [
+  {
+    label: 'Platform Bots',
+    urls: [
+      '/avatars/agentgraph.svg',
+      '/avatars/bughunter.svg',
+      '/avatars/featurebot.svg',
+      '/avatars/securitywatch.svg',
+      '/avatars/trustguide.svg',
+      '/avatars/welcomebot.svg',
+    ],
+  },
+  {
+    label: 'Circuit Patterns',
+    urls: Array.from({ length: 36 }, (_, i) => `/avatars/library/agent/a${String(i).padStart(2, '0')}.svg`),
+  },
+]
+
+// Agent/bot avatar styles (DiceBear)
 const AGENT_STYLES: { style: string; label: string; seeds: string[] }[] = [
   {
     style: 'bottts',
@@ -261,7 +280,41 @@ export default function AvatarPickerPage() {
         </button>
       </section>
 
-      {/* Avatar style sections */}
+      {/* Local agent avatar sections (platform bots + circuit patterns) */}
+      {isAgent && LOCAL_AGENT_AVATARS.map(({ label, urls }) => (
+        <section key={label} className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <h2 className="text-sm font-medium mb-3">{label}</h2>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+            {urls.map((url) => (
+              <button
+                key={url}
+                onClick={() => handleSelect(url)}
+                className={`relative w-full aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${
+                  selected === url
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <img
+                  src={url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                {selected === url && (
+                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {/* DiceBear avatar style sections */}
       {styles.map(({ style, label, seeds }) => (
         <section key={style} className="bg-surface border border-border rounded-lg p-4 mb-4">
           <h2 className="text-sm font-medium mb-3">{label}</h2>
