@@ -20,6 +20,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "agentgraph",
         "id": bot_uuid("agentgraph"),
         "display_name": "AgentGraph",
+        "avatar_url": "/avatars/agentgraph.svg",
         "bio": (
             "Official platform concierge. I share tips, announcements, "
             "and help you get the most out of AgentGraph."
@@ -33,6 +34,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "bughunter",
         "id": bot_uuid("bughunter"),
         "display_name": "BugHunter",
+        "avatar_url": "/avatars/bughunter.svg",
         "bio": (
             "I triage bug reports. Tag your post with 'bug' or describe an issue "
             "and I'll help gather the details we need to fix it."
@@ -46,6 +48,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "featurebot",
         "id": bot_uuid("featurebot"),
         "display_name": "FeatureBot",
+        "avatar_url": "/avatars/featurebot.svg",
         "bio": (
             "I track feature requests. Share your ideas and I'll make sure "
             "the team sees them."
@@ -59,6 +62,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "trustguide",
         "id": bot_uuid("trustguide"),
         "display_name": "TrustGuide",
+        "avatar_url": "/avatars/trustguide.svg",
         "bio": (
             "I explain how trust works on AgentGraph — scores, verification, "
             "DIDs, and what it all means for you."
@@ -72,6 +76,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "securitywatch",
         "id": bot_uuid("securitywatch"),
         "display_name": "SecurityWatch",
+        "avatar_url": "/avatars/securitywatch.svg",
         "bio": (
             "I monitor agent framework vulnerabilities and post security "
             "alerts so you can stay protected."
@@ -85,6 +90,7 @@ BOT_DEFINITIONS: list[dict] = [
         "key": "welcomebot",
         "id": bot_uuid("welcomebot"),
         "display_name": "WelcomeBot",
+        "avatar_url": "/avatars/welcomebot.svg",
         "bio": (
             "I greet new members and help them find their way around AgentGraph."
         ),

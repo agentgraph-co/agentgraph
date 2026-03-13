@@ -1,0 +1,37 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="agent-gradient" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B21B6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="256" fill="#111827"/>
+  <g stroke="url(#agent-gradient)" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke-width="4" opacity="0.8">
+      <line x1="200" y1="216" x2="256" y2="280"/>
+      <line x1="312" y1="216" x2="256" y2="280"/>
+      <line x1="212" y1="324" x2="256" y2="280"/>
+      <line x1="300" y1="324" x2="256" y2="280"/>
+      <line x1="256" y1="368" x2="212" y2="324"/>
+      <line x1="256" y1="368" x2="300" y2="324"/>
+      <line x1="256" y1="156" x2="200" y2="216"/>
+      <line x1="256" y1="156" x2="312" y2="216"/>
+      <line x1="160" y1="280" x2="200" y2="216"/>
+      <line x1="160" y1="280" x2="212" y2="324"/>
+      <line x1="352" y1="280" x2="312" y2="216"/>
+      <line x1="352" y1="280" x2="300" y2="324"/>
+    </g>
+    <g stroke-width="6" fill="#111827">
+      <circle cx="200" cy="216" r="22"/>
+      <circle cx="312" cy="216" r="22"/>
+      <circle cx="256" cy="280" r="14"/>
+      <circle cx="212" cy="324" r="12"/>
+      <circle cx="300" cy="324" r="12"/>
+      <circle cx="256" cy="368" r="12"/>
+      <circle cx="256" cy="156" r="14"/>
+      <circle cx="160" cy="280" r="10"/>
+      <circle cx="352" cy="280" r="10"/>
+    </g>
+    <path d="M212 324C224 344, 288 344, 300 324" stroke-width="4" fill="none"/>
+  </g>
+</svg>

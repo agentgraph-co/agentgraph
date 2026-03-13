@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="256" fill="#111827"/>
+  <g transform="rotate(45 256 256) translate(-20, -20)">
+    <defs>
+      <clipPath id="lensClip">
+        <circle cx="256" cy="256" r="100"/>
+      </clipPath>
+    </defs>
+    <rect x="348" y="242" width="130" height="28" rx="14" fill="#9CA3AF"/>
+    <circle cx="256" cy="256" r="110" stroke="#9CA3AF" stroke-width="20"/>
+    <g clip-path="url(#lensClip)">
+      <circle cx="256" cy="256" r="100" fill="#111827" fill-opacity="0.5"/>
+      <circle cx="256" cy="256" r="85" stroke="#FF4136" stroke-width="3" stroke-opacity="0.5"/>
+      <circle cx="256" cy="256" r="60" stroke="#FF4136" stroke-width="2" stroke-opacity="0.7" stroke-dasharray="6 12"/>
+      <path d="M256 206V306 M206 256H306" stroke="#FF4136" stroke-width="2" stroke-opacity="0.4"/>
+      <g fill="#FF4136">
+        <path d="M256 282C240.523 282 228 271.031 228 257.5V254.5C228 241.031 240.523 230 256 230C271.477 230 284 241.031 284 254.5V257.5C284 271.031 271.477 282 256 282Z"/>
+        <circle cx="256" cy="236" r="12"/>
+        <path d="M242 248L212 240" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+        <path d="M242 260L212 260" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+        <path d="M242 272L212 280" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+        <path d="M270 248L300 240" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+        <path d="M270 260L300 260" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+        <path d="M270 272L300 280" stroke="#FF4136" stroke-width="5" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+</svg>
