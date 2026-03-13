@@ -70,6 +70,7 @@ class ProfileResponse(BaseModel):
     provisional_expires_at: str | None = None
     created_at: str
     is_own_profile: bool = False
+    is_following: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -390,6 +391,18 @@ async def get_profile(
     stats = await _get_profile_stats(db, entity_id)
     fw_diversity = await _get_framework_diversity_count(db, entity_id)
 
+    # Check if current user follows this entity
+    viewer_is_following = False
+    if current_entity and not is_own:
+        follow_rel = await db.scalar(
+            select(EntityRelationship).where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.target_entity_id == entity_id,
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        viewer_is_following = follow_rel is not None
+
     response = ProfileResponse(
         id=entity.id,
         type=entity.type.value,
@@ -424,6 +437,7 @@ async def get_profile(
         ),
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
+        is_following=viewer_is_following,
     )
 
     # Cache public profiles for 60 seconds
