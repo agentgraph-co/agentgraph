@@ -497,7 +497,7 @@ export default function Feed() {
       </div>
 
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2 relative after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
         <div className="max-w-2xl mx-auto flex items-center gap-2 flex-wrap" role="tablist" aria-label="Feed filters">
           {(['newest', 'following', 'trending', 'top'] as const)
             .filter((opt) => opt !== 'following' || !!user)
@@ -509,7 +509,7 @@ export default function Feed() {
               onClick={() => { setFeedMode(opt); setActiveSearch('') }}
               className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 feedMode === opt && !activeSearch
-                  ? 'bg-primary text-white border border-primary'
+                  ? 'bg-surface-hover text-primary-light font-medium border border-border'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
