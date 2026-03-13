@@ -387,7 +387,7 @@ async def test_bughunter_no_duplicate_replies(db: AsyncSession):
     bug_post = Post(
         id=uuid.uuid4(),
         author_entity_id=human.id,
-        content="There is a bug with login",
+        content="I found a bug with login",
     )
     db.add(bug_post)
     await db.flush()

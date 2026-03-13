@@ -69,6 +69,7 @@ interface NotifPrefs {
   review_enabled: boolean
   moderation_enabled: boolean
   message_enabled: boolean
+  issue_resolution_enabled: boolean
 }
 
 const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
@@ -80,6 +81,7 @@ const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
   review_enabled: 'Reviews on your listings',
   moderation_enabled: 'Moderation actions',
   message_enabled: 'Direct messages',
+  issue_resolution_enabled: 'Bug/feature resolution updates',
 }
 
 function SellerAccountSection() {

@@ -1757,7 +1757,9 @@ export default function Admin() {
                     {issuesData.issues.map(issue => (
                       <tr key={issue.id} className="border-b border-border/50 last:border-0">
                         <td className="px-4 py-2.5 text-xs max-w-[200px] truncate" title={issue.title}>
-                          {issue.title.slice(0, 80)}{issue.title.length > 80 ? '...' : ''}
+                          <Link to={`/post/${issue.post_id}`} className="hover:text-primary transition-colors hover:underline">
+                            {issue.title.slice(0, 80)}{issue.title.length > 80 ? '...' : ''}
+                          </Link>
                         </td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${

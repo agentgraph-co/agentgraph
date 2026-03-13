@@ -409,6 +409,7 @@ async def get_feed(
     limit: int = Query(20, ge=1, le=100),
     sort: str = Query("newest", pattern="^(ranked|newest)$"),
     author_id: uuid.UUID | None = Query(None),
+    include_replies: bool = Query(False),
     current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -416,20 +417,27 @@ async def get_feed(
 
     sort=ranked uses trust-weighted ranking; sort=newest uses chronological.
     Optionally filter by author_id.
+    include_replies=true includes replies (useful for profile pages of bots
+    that only post replies).
     """
     trust_score_col = func.coalesce(TrustScore.score, literal(0.0))
 
     from sqlalchemy import or_
 
+    base_filters = [
+        Post.is_hidden.is_(False),
+        Entity.is_active.is_(True),
+    ]
+    # When viewing a specific author's profile with include_replies,
+    # show both top-level posts and replies
+    if not (author_id and include_replies):
+        base_filters.append(Post.parent_post_id.is_(None))
+
     query = (
         select(Post, Entity, TrustScore.score)
         .join(Entity, Post.author_entity_id == Entity.id)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
-        .where(
-            Post.parent_post_id.is_(None),
-            Post.is_hidden.is_(False),
-            Entity.is_active.is_(True),
-        )
+        .where(*base_filters)
     )
 
     # Privacy tier filtering: exclude posts from non-public entities

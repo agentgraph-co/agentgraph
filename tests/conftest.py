@@ -494,6 +494,11 @@ async def _clean_db_once():
             "ALTER TABLE notification_preferences "
             "ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE"
         ))
+        # Ensure issue_resolution_enabled column exists
+        await conn.execute(text(
+            "ALTER TABLE notification_preferences "
+            "ADD COLUMN IF NOT EXISTS issue_resolution_enabled BOOLEAN DEFAULT TRUE"
+        ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")
         )

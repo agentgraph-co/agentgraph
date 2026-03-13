@@ -216,7 +216,7 @@ export default function Profile() {
   const { data: postsData, fetchNextPage: fetchMorePosts, hasNextPage: hasMorePosts, isFetchingNextPage: loadingMorePosts } = useInfiniteQuery<{ posts: Post[]; has_more: boolean; next_cursor: string | null }>({
     queryKey: ['profile-posts', entityId],
     queryFn: async ({ pageParam }) => {
-      const params: Record<string, string> = { limit: '20', author_id: entityId!, sort: 'newest' }
+      const params: Record<string, string> = { limit: '20', author_id: entityId!, sort: 'newest', include_replies: 'true' }
       if (pageParam) params.cursor = pageParam as string
       const { data } = await api.get('/feed/posts', { params })
       return data

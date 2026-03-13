@@ -86,7 +86,9 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             )}
             <span>{timeAgo(post.created_at)}</span>
           </div>
-          <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+          <Link to={`/post/${post.id}`} className="block hover:text-text/80 transition-colors">
+            <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+          </Link>
           {post.media_url && (
             <div className="mt-2 rounded-lg overflow-hidden border border-border">
               {post.media_type === 'video' ? (

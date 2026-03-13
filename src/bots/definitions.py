@@ -267,8 +267,9 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
 REACTIVE_TRIGGERS: dict[str, dict] = {
     "bughunter": {
         "keywords": [
-            "bug", "broken", "error", "crash", "not working",
-            "glitch", "fails", "500", "404", "issue",
+            "found a bug", "bug report", "is broken", "getting an error",
+            "keeps crashing", "not working", "has a glitch", "fails to",
+            "500 error", "404 error", "report a bug", "bug fix needed",
         ],
         "response": (
             "Thanks for reporting this! To help us investigate:\n\n"

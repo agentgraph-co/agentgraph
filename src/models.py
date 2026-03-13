@@ -848,6 +848,7 @@ class NotificationPreference(Base):
     review_enabled = Column(Boolean, default=True)
     moderation_enabled = Column(Boolean, default=True)
     message_enabled = Column(Boolean, default=True)
+    issue_resolution_enabled = Column(Boolean, default=True)
     email_notifications_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )

@@ -37,6 +37,7 @@ _KIND_TO_PREF = {
     "review": "review_enabled",
     "moderation": "moderation_enabled",
     "message": "message_enabled",
+    "issue_resolution": "issue_resolution_enabled",
 }
 
 _KIND_TO_WEBHOOK_EVENT = {
@@ -151,7 +152,7 @@ async def create_notification(
         logger.warning("WebSocket delivery failed", exc_info=True)
 
     # Send email notification for social events (fire-and-forget)
-    if kind in ("reply", "follow", "mention", "vote"):
+    if kind in ("reply", "follow", "mention", "vote", "issue_resolution"):
         try:
             email_pref = pref if pref_field else None
             if not email_pref or getattr(email_pref, "email_notifications_enabled", True):
@@ -391,6 +392,7 @@ class NotificationPreferencesResponse(BaseModel):
     review_enabled: bool = True
     moderation_enabled: bool = True
     message_enabled: bool = True
+    issue_resolution_enabled: bool = True
     email_notifications_enabled: bool = True
 
 
@@ -403,6 +405,7 @@ class UpdatePreferencesRequest(BaseModel):
     review_enabled: bool | None = None
     moderation_enabled: bool | None = None
     message_enabled: bool | None = None
+    issue_resolution_enabled: bool | None = None
     email_notifications_enabled: bool | None = None
 
 
