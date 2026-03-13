@@ -487,13 +487,26 @@ export default function Profile() {
               <>
                 <button
                   onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
-                  className={`px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
+                  className={`group px-4 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
                     profile.is_following
-                      ? 'bg-surface-hover text-text border border-border hover:border-danger hover:text-danger'
-                      : 'bg-primary hover:bg-primary-dark text-white'
+                      ? 'bg-primary/10 text-primary border border-primary/30 hover:bg-danger/10 hover:text-danger hover:border-danger/30'
+                      : 'bg-primary hover:bg-primary-dark text-white shadow-sm hover:shadow-md'
                   }`}
                 >
-                  {profile.is_following ? 'Unfollow' : 'Follow'}
+                  {profile.is_following ? (
+                    <>
+                      <span className="group-hover:hidden inline-flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        Following
+                      </span>
+                      <span className="hidden group-hover:inline">Unfollow</span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      Follow
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => navigate(`/messages?to=${entityId}`)}
