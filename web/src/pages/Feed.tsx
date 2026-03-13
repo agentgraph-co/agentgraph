@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, memo, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -191,8 +191,22 @@ export default function Feed() {
   const [activeSearch, setActiveSearch] = useState('')
   const [mediaUrl, setMediaUrl] = useState('')
   const [showMediaInput, setShowMediaInput] = useState(false)
+  const [composerVisible, setComposerVisible] = useState(true)
+  const [stickyExpanded, setStickyExpanded] = useState(false)
+  const composerRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => { document.title = 'Feed - AgentGraph' }, [])
+
+  // Track when main composer scrolls out of view
+  useEffect(() => {
+    if (!composerRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setComposerVisible(entry.isIntersecting),
+      { threshold: 0 }
+    )
+    observer.observe(composerRef.current)
+    return () => observer.disconnect()
+  }, [user])
 
   const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
     queryKey: ['my-submolts-brief'],
@@ -423,71 +437,134 @@ export default function Feed() {
       {!user && <GuestPrompt variant="banner" />}
 
       {user && (
-        <form onSubmit={handleSubmit} className="mb-6">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
-                e.preventDefault()
-                createPost.mutate(content.trim())
-              }
-            }}
-            placeholder="What's happening?"
-            aria-label="New post content"
-            rows={3}
-            maxLength={10000}
-            className="w-full bg-surface border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
-          />
-          {showMediaInput && (
-            <input
-              type="url"
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-              placeholder="Paste image or video URL..."
-              aria-label="Media URL"
-              className="w-full bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
+        <>
+          <form ref={composerRef} onSubmit={handleSubmit} className="mb-4 bg-surface border border-border rounded-lg p-4">
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
+                  e.preventDefault()
+                  createPost.mutate(content.trim())
+                }
+              }}
+              placeholder="What's happening?"
+              aria-label="New post content"
+              rows={3}
+              maxLength={10000}
+              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
             />
-          )}
-          <div className="flex justify-between items-center mt-2">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowMediaInput(!showMediaInput)}
-                className={`text-xs transition-colors cursor-pointer ${
-                  showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
-                }`}
-                title="Attach media URL"
-              >
-                &#128247; Media
-              </button>
-              <span className="text-xs text-text-muted">{content.length}/10000</span>
-              {mySubmolts && mySubmolts.submolts.length > 0 && (
-                <select
-                  value={selectedSubmolt}
-                  onChange={(e) => setSelectedSubmolt(e.target.value)}
-                  aria-label="Post to community"
-                  className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted"
+            {showMediaInput && (
+              <input
+                type="url"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="Paste image or video URL..."
+                aria-label="Media URL"
+                className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
+              />
+            )}
+            <div className="flex justify-between items-center mt-2">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMediaInput(!showMediaInput)}
+                  className={`text-xs transition-colors cursor-pointer ${
+                    showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
+                  }`}
+                  title="Attach media URL"
                 >
-                  <option value="">Global feed</option>
-                  {mySubmolts.submolts.map((s) => (
-                    <option key={s.id} value={s.id}>m/{s.name}</option>
-                  ))}
-                </select>
-              )}
+                  &#128247; Media
+                </button>
+                <span className="text-xs text-text-muted">{content.length}/10000</span>
+                {mySubmolts && mySubmolts.submolts.length > 0 && (
+                  <select
+                    value={selectedSubmolt}
+                    onChange={(e) => setSelectedSubmolt(e.target.value)}
+                    aria-label="Post to community"
+                    className="bg-bg border border-border rounded-md px-2 py-1 text-xs text-text-muted"
+                  >
+                    <option value="">Global feed</option>
+                    {mySubmolts.submolts.map((s) => (
+                      <option key={s.id} value={s.id}>m/{s.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
+                <button
+                  type="submit"
+                  disabled={!content.trim() || createPost.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {createPost.isPending ? 'Posting...' : 'Post'}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
-              <button
-                type="submit"
-                disabled={!content.trim() || createPost.isPending}
-                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+          </form>
+          <div className="border-t border-border/50 mb-4" />
+        </>
+      )}
+
+      {/* Sticky collapsed composer — appears when main composer scrolls out of view */}
+      {user && !composerVisible && (
+        <div className="fixed top-14 left-0 right-0 z-40 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto max-w-2xl w-full mx-auto px-4">
+            {stickyExpanded ? (
+              <form
+                onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
+                className="bg-surface/95 border border-border rounded-b-lg p-3 shadow-lg animate-in slide-in-from-top-2 duration-200"
               >
-                {createPost.isPending ? 'Posting...' : 'Post'}
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
+                      e.preventDefault()
+                      createPost.mutate(content.trim())
+                      setStickyExpanded(false)
+                    }
+                  }}
+                  placeholder="What's happening?"
+                  aria-label="New post content (sticky)"
+                  rows={2}
+                  maxLength={10000}
+                  autoFocus
+                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-text-muted">{content.length}/10000</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStickyExpanded(false)}
+                      className="text-xs text-text-muted hover:text-text cursor-pointer"
+                    >
+                      Collapse
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!content.trim() || createPost.isPending}
+                      className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {createPost.isPending ? 'Posting...' : 'Post'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            ) : (
+              <button
+                onClick={() => setStickyExpanded(true)}
+                className="w-full bg-surface/90 border border-border rounded-b-lg px-4 py-2 text-sm text-text-muted hover:text-text hover:border-primary/40 transition-colors cursor-pointer shadow-md flex items-center gap-2"
+              >
+                <span className="text-base">&#9998;</span>
+                <span>What's happening?</span>
+                <span className="ml-auto text-xs text-text-muted">Click to post</span>
               </button>
-            </div>
+            )}
           </div>
-        </form>
+        </div>
       )}
 
       <div className="flex items-center gap-2 mb-3 flex-wrap" role="tablist" aria-label="Feed filters">
