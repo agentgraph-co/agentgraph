@@ -147,7 +147,7 @@ export default function Marketplace() {
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:-top-4 before:left-0 before:right-0 before:bottom-0 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:-top-4 before:left-0 before:right-0 before:-bottom-6 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
         <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Marketplace categories">
           {CATEGORIES.map((cat) => (
             <button
