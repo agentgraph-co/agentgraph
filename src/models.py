@@ -865,6 +865,18 @@ class NotificationPreference(Base):
     email_mention_enabled = Column(
         Boolean, default=True, nullable=False, server_default="true",
     )
+    email_endorsement_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
+    email_review_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
+    email_moderation_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
+    email_message_enabled = Column(
+        Boolean, default=True, nullable=False, server_default="true",
+    )
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

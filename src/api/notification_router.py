@@ -158,8 +158,12 @@ async def create_notification(
         "vote": ("email_vote_enabled", False),
         "reply": ("email_reply_enabled", True),
         "mention": ("email_mention_enabled", True),
+        "endorsement": ("email_endorsement_enabled", True),
+        "review": ("email_review_enabled", True),
+        "moderation": ("email_moderation_enabled", True),
+        "message": ("email_message_enabled", True),
     }
-    if kind in ("reply", "follow", "mention", "vote", "issue_resolution"):
+    if kind in ("reply", "follow", "mention", "vote", "endorsement", "review", "moderation", "message", "issue_resolution"):
         try:
             email_pref = pref if pref_field else None
             # Determine if email should be sent
@@ -183,8 +187,12 @@ async def create_notification(
                     from src.config import settings
                     from src.email import send_social_notification_email
 
-                    action_url = f"{settings.base_url}/feed"
-                    if reference_id:
+                    action_url = f"{settings.base_url}/notifications"
+                    if kind == "message":
+                        action_url = f"{settings.base_url}/messages"
+                    elif kind == "moderation":
+                        action_url = f"{settings.base_url}/settings"
+                    elif reference_id:
                         action_url = f"{settings.base_url}/post/{reference_id}"
 
                     asyncio.ensure_future(
@@ -413,6 +421,10 @@ class NotificationPreferencesResponse(BaseModel):
     email_vote_enabled: bool = False
     email_reply_enabled: bool = True
     email_mention_enabled: bool = True
+    email_endorsement_enabled: bool = True
+    email_review_enabled: bool = True
+    email_moderation_enabled: bool = True
+    email_message_enabled: bool = True
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -430,6 +442,10 @@ class UpdatePreferencesRequest(BaseModel):
     email_vote_enabled: bool | None = None
     email_reply_enabled: bool | None = None
     email_mention_enabled: bool | None = None
+    email_endorsement_enabled: bool | None = None
+    email_review_enabled: bool | None = None
+    email_moderation_enabled: bool | None = None
+    email_message_enabled: bool | None = None
 
 
 @router.get(
@@ -464,6 +480,10 @@ async def get_notification_preferences(
         email_vote_enabled=getattr(pref, "email_vote_enabled", False),
         email_reply_enabled=getattr(pref, "email_reply_enabled", True),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
+        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", True),
+        email_review_enabled=getattr(pref, "email_review_enabled", True),
+        email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
+        email_message_enabled=getattr(pref, "email_message_enabled", True),
     )
 
 
@@ -519,6 +539,10 @@ async def update_notification_preferences(
         email_vote_enabled=getattr(pref, "email_vote_enabled", False),
         email_reply_enabled=getattr(pref, "email_reply_enabled", True),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
+        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", True),
+        email_review_enabled=getattr(pref, "email_review_enabled", True),
+        email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
+        email_message_enabled=getattr(pref, "email_message_enabled", True),
     )
 
 
