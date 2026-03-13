@@ -395,12 +395,26 @@ async def get_profile(
     # Check if current user follows this entity
     viewer_is_following = False
     if current_entity and not is_own:
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
+        from sqlalchemy import text
+        raw_count = await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM entity_relationships "
+                "WHERE source_entity_id = :src AND target_entity_id = :tgt"
+            ),
+            {"src": current_entity.id, "tgt": entity_id},
+        )
         follow_rel = await db.scalar(
             select(EntityRelationship).where(
                 EntityRelationship.source_entity_id == current_entity.id,
                 EntityRelationship.target_entity_id == entity_id,
                 EntityRelationship.type == RelationshipType.FOLLOW,
             )
+        )
+        _log.warning(
+            "FOLLOW_CHECK src=%s tgt=%s raw_count=%s orm_result=%s",
+            current_entity.id, entity_id, raw_count, follow_rel,
         )
         viewer_is_following = follow_rel is not None
 
