@@ -73,12 +73,7 @@ interface NotifPrefs {
   message_enabled: boolean
   issue_resolution_enabled: boolean
   email_notifications_enabled: boolean
-  email_follow_enabled: boolean
-  email_vote_enabled: boolean
-  email_reply_enabled: boolean
   email_mention_enabled: boolean
-  email_endorsement_enabled: boolean
-  email_review_enabled: boolean
   email_moderation_enabled: boolean
   email_message_enabled: boolean
   email_issue_resolution_enabled: boolean
@@ -102,11 +97,6 @@ const EMAIL_LABELS: Record<string, string> = {
   email_moderation_enabled: 'Moderation actions',
   email_message_enabled: 'Direct messages',
   email_issue_resolution_enabled: 'Bug/feature resolution updates',
-  email_reply_enabled: 'Replies to your posts',
-  email_endorsement_enabled: 'Endorsements',
-  email_review_enabled: 'Reviews on your listings',
-  email_follow_enabled: 'New followers',
-  email_vote_enabled: 'Votes on your content',
 }
 
 function SellerAccountSection() {

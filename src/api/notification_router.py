@@ -156,12 +156,9 @@ async def create_notification(
     # Only DMs, moderation, mentions, and issue resolution send emails by default.
     # Replies, endorsements, reviews, follows, and votes do NOT send emails.
     _KIND_EMAIL_PREFS: dict[str, tuple[str, bool]] = {
-        "follow": ("email_follow_enabled", False),
-        "vote": ("email_vote_enabled", False),
-        "reply": ("email_reply_enabled", False),
+        # Replies, endorsements, reviews, follows, votes — email disabled until
+        # cheaper provider (SES) is available. See taskmaster task for re-enablement.
         "mention": ("email_mention_enabled", True),
-        "endorsement": ("email_endorsement_enabled", False),
-        "review": ("email_review_enabled", False),
         "moderation": ("email_moderation_enabled", True),
         "message": ("email_message_enabled", True),
         "issue_resolution": ("email_issue_resolution_enabled", True),
@@ -420,12 +417,7 @@ class NotificationPreferencesResponse(BaseModel):
     message_enabled: bool = True
     issue_resolution_enabled: bool = True
     email_notifications_enabled: bool = True
-    email_follow_enabled: bool = False
-    email_vote_enabled: bool = False
-    email_reply_enabled: bool = False
     email_mention_enabled: bool = True
-    email_endorsement_enabled: bool = False
-    email_review_enabled: bool = False
     email_moderation_enabled: bool = True
     email_message_enabled: bool = True
     email_issue_resolution_enabled: bool = True
@@ -442,12 +434,7 @@ class UpdatePreferencesRequest(BaseModel):
     message_enabled: bool | None = None
     issue_resolution_enabled: bool | None = None
     email_notifications_enabled: bool | None = None
-    email_follow_enabled: bool | None = None
-    email_vote_enabled: bool | None = None
-    email_reply_enabled: bool | None = None
     email_mention_enabled: bool | None = None
-    email_endorsement_enabled: bool | None = None
-    email_review_enabled: bool | None = None
     email_moderation_enabled: bool | None = None
     email_message_enabled: bool | None = None
     email_issue_resolution_enabled: bool | None = None
@@ -481,12 +468,7 @@ async def get_notification_preferences(
         message_enabled=getattr(pref, "message_enabled", True),
         issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
-        email_follow_enabled=getattr(pref, "email_follow_enabled", False),
-        email_vote_enabled=getattr(pref, "email_vote_enabled", False),
-        email_reply_enabled=getattr(pref, "email_reply_enabled", False),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
-        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", False),
-        email_review_enabled=getattr(pref, "email_review_enabled", False),
         email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
         email_message_enabled=getattr(pref, "email_message_enabled", True),
         email_issue_resolution_enabled=getattr(pref, "email_issue_resolution_enabled", True),
@@ -541,12 +523,7 @@ async def update_notification_preferences(
         message_enabled=getattr(pref, "message_enabled", True),
         issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
-        email_follow_enabled=getattr(pref, "email_follow_enabled", False),
-        email_vote_enabled=getattr(pref, "email_vote_enabled", False),
-        email_reply_enabled=getattr(pref, "email_reply_enabled", False),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
-        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", False),
-        email_review_enabled=getattr(pref, "email_review_enabled", False),
         email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
         email_message_enabled=getattr(pref, "email_message_enabled", True),
         email_issue_resolution_enabled=getattr(pref, "email_issue_resolution_enabled", True),
