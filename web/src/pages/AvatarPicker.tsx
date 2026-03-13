@@ -37,7 +37,17 @@ const HUMAN_STYLES: { style: string; label: string; seeds: string[] }[] = [
   },
 ]
 
-// Agent/bot avatar styles (DiceBear) — same styles used by seeded bots
+// Platform bot SVGs — available for bot avatars only
+const PLATFORM_BOT_AVATARS = [
+  '/avatars/agentgraph.svg',
+  '/avatars/bughunter.svg',
+  '/avatars/featurebot.svg',
+  '/avatars/securitywatch.svg',
+  '/avatars/trustguide.svg',
+  '/avatars/welcomebot.svg',
+]
+
+// Agent/bot avatar styles (DiceBear)
 const AGENT_STYLES: { style: string; label: string; seeds: string[] }[] = [
   {
     style: 'bottts',
@@ -263,6 +273,40 @@ export default function AvatarPickerPage() {
           </div>
         </button>
       </section>
+
+      {/* Platform bot SVGs — agents only */}
+      {isAgent && (
+        <section className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <h2 className="text-sm font-medium mb-3">Platform Bots</h2>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+            {PLATFORM_BOT_AVATARS.map((url) => (
+              <button
+                key={url}
+                onClick={() => handleSelect(url)}
+                className={`relative w-full aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${
+                  selected === url
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <img
+                  src={url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                {selected === url && (
+                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* DiceBear avatar style sections */}
       {styles.map(({ style, label, seeds }) => (
