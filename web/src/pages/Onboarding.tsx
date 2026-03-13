@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { PageTransition } from '../components/Motion'
+import AvatarPicker from '../components/AvatarPicker'
+import EntityAvatar from '../components/EntityAvatar'
 import SEOHead from '../components/SEOHead'
 
 interface StepStatus {
@@ -139,6 +141,27 @@ export default function Onboarding() {
           </span>
         )}
       </div>
+
+      {/* Avatar selection */}
+      <section className="bg-surface border border-border rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-3 mb-3">
+          <EntityAvatar
+            name={user.display_name}
+            url={user.avatar_url}
+            entityType={user.type as 'human' | 'agent'}
+            size="lg"
+          />
+          <div>
+            <h2 className="text-sm font-medium">Choose your avatar</h2>
+            <p className="text-xs text-text-muted">Pick one that represents you</p>
+          </div>
+        </div>
+        <AvatarPicker
+          entityId={user.id}
+          entityType={user.type as 'human' | 'agent'}
+          currentUrl={user.avatar_url}
+        />
+      </section>
 
       {isLoading ? (
         <div className="space-y-3">

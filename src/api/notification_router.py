@@ -153,17 +153,20 @@ async def create_notification(
 
     # Send email notification for social events (fire-and-forget)
     # Per-kind email toggles: field name + default value
+    # Only DMs, moderation, mentions, and issue resolution send emails by default.
+    # Replies, endorsements, reviews, follows, and votes do NOT send emails.
     _KIND_EMAIL_PREFS: dict[str, tuple[str, bool]] = {
         "follow": ("email_follow_enabled", False),
         "vote": ("email_vote_enabled", False),
-        "reply": ("email_reply_enabled", True),
+        "reply": ("email_reply_enabled", False),
         "mention": ("email_mention_enabled", True),
-        "endorsement": ("email_endorsement_enabled", True),
-        "review": ("email_review_enabled", True),
+        "endorsement": ("email_endorsement_enabled", False),
+        "review": ("email_review_enabled", False),
         "moderation": ("email_moderation_enabled", True),
         "message": ("email_message_enabled", True),
+        "issue_resolution": ("email_issue_resolution_enabled", True),
     }
-    if kind in ("reply", "follow", "mention", "vote", "endorsement", "review", "moderation", "message", "issue_resolution"):
+    if kind in _KIND_EMAIL_PREFS or kind == "issue_resolution":
         try:
             email_pref = pref if pref_field else None
             # Determine if email should be sent
@@ -419,12 +422,13 @@ class NotificationPreferencesResponse(BaseModel):
     email_notifications_enabled: bool = True
     email_follow_enabled: bool = False
     email_vote_enabled: bool = False
-    email_reply_enabled: bool = True
+    email_reply_enabled: bool = False
     email_mention_enabled: bool = True
-    email_endorsement_enabled: bool = True
-    email_review_enabled: bool = True
+    email_endorsement_enabled: bool = False
+    email_review_enabled: bool = False
     email_moderation_enabled: bool = True
     email_message_enabled: bool = True
+    email_issue_resolution_enabled: bool = True
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -446,6 +450,7 @@ class UpdatePreferencesRequest(BaseModel):
     email_review_enabled: bool | None = None
     email_moderation_enabled: bool | None = None
     email_message_enabled: bool | None = None
+    email_issue_resolution_enabled: bool | None = None
 
 
 @router.get(
@@ -478,12 +483,13 @@ async def get_notification_preferences(
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
         email_follow_enabled=getattr(pref, "email_follow_enabled", False),
         email_vote_enabled=getattr(pref, "email_vote_enabled", False),
-        email_reply_enabled=getattr(pref, "email_reply_enabled", True),
+        email_reply_enabled=getattr(pref, "email_reply_enabled", False),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
-        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", True),
-        email_review_enabled=getattr(pref, "email_review_enabled", True),
+        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", False),
+        email_review_enabled=getattr(pref, "email_review_enabled", False),
         email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
         email_message_enabled=getattr(pref, "email_message_enabled", True),
+        email_issue_resolution_enabled=getattr(pref, "email_issue_resolution_enabled", True),
     )
 
 
@@ -537,12 +543,13 @@ async def update_notification_preferences(
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
         email_follow_enabled=getattr(pref, "email_follow_enabled", False),
         email_vote_enabled=getattr(pref, "email_vote_enabled", False),
-        email_reply_enabled=getattr(pref, "email_reply_enabled", True),
+        email_reply_enabled=getattr(pref, "email_reply_enabled", False),
         email_mention_enabled=getattr(pref, "email_mention_enabled", True),
-        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", True),
-        email_review_enabled=getattr(pref, "email_review_enabled", True),
+        email_endorsement_enabled=getattr(pref, "email_endorsement_enabled", False),
+        email_review_enabled=getattr(pref, "email_review_enabled", False),
         email_moderation_enabled=getattr(pref, "email_moderation_enabled", True),
         email_message_enabled=getattr(pref, "email_message_enabled", True),
+        email_issue_resolution_enabled=getattr(pref, "email_issue_resolution_enabled", True),
     )
 
 
