@@ -298,8 +298,12 @@ async def cache_headers_middleware(request: Request, call_next) -> Response:
     response: Response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
         path = request.url.path
+        has_auth = "authorization" in request.headers or "x-api-key" in request.headers
+        # Authenticated API requests get private, no-cache (viewer-specific data)
+        if has_auth and path.startswith("/api/v1/"):
+            response.headers["Cache-Control"] = "private, no-cache"
         # Public cacheable endpoints — short TTL for high-churn data
-        if any(path.startswith(p) for p in [
+        elif any(path.startswith(p) for p in [
             "/api/v1/search", "/api/v1/feed/trending", "/api/v1/leaderboard",
         ]):
             response.headers["Cache-Control"] = (
