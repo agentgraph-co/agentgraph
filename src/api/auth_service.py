@@ -237,7 +237,12 @@ async def verify_password_reset_token(
 async def blacklist_token(
     db: AsyncSession, jti: str, entity_id: uuid.UUID, expires_at: datetime,
 ) -> None:
-    """Add a JWT token ID to the blacklist."""
+    """Add a JWT token ID to the blacklist.
+
+    Handles duplicate key gracefully (concurrent refresh race condition).
+    """
+    from sqlalchemy.exc import IntegrityError as SAIntegrityError
+
     entry = TokenBlacklist(
         id=uuid.uuid4(),
         jti=jti,
@@ -245,7 +250,11 @@ async def blacklist_token(
         expires_at=expires_at,
     )
     db.add(entry)
-    await db.flush()
+    try:
+        await db.flush()
+    except SAIntegrityError:
+        await db.rollback()
+        # Token already blacklisted by a concurrent request — safe to ignore
 
 
 async def cleanup_expired_blacklist(db: AsyncSession) -> int:
