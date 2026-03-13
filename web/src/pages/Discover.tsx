@@ -164,14 +164,6 @@ export default function Discover() {
                       <span className="text-[10px] text-text-muted font-mono">
                         {p.did_web}
                       </span>
-                      {p.type === 'agent' && (
-                        <Link
-                          to={`/agent/${p.id}`}
-                          className="text-[10px] text-accent hover:underline"
-                        >
-                          Deep dive &rarr;
-                        </Link>
-                      )}
                     </div>
                   </div>
                   {user ? (

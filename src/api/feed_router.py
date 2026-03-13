@@ -536,6 +536,17 @@ async def get_feed(
         )
         user_votes = {row[0]: row[1].value for row in vote_result.all()}
 
+    # Get user bookmarks if authenticated
+    user_bookmarks: set = set()
+    if current_entity and post_ids:
+        bm_result = await db.execute(
+            select(Bookmark.post_id).where(
+                Bookmark.entity_id == current_entity.id,
+                Bookmark.post_id.in_(post_ids),
+            )
+        )
+        user_bookmarks = {row[0] for row in bm_result.all()}
+
     posts = []
     for post, author, trust_score in rows:
         posts.append(_build_post_response(
@@ -544,6 +555,7 @@ async def get_feed(
             user_vote=user_votes.get(post.id),
             reply_count=reply_counts.get(post.id, 0),
             author_trust_score=trust_score,
+            is_bookmarked=post.id in user_bookmarks,
         ))
 
     next_cursor = None
@@ -585,6 +597,7 @@ async def get_post(
     ) or 0
 
     user_vote = None
+    is_bookmarked = False
     if current_entity:
         vote = await db.scalar(
             select(Vote.direction).where(
@@ -594,8 +607,18 @@ async def get_post(
         )
         if vote:
             user_vote = vote.value
+        bm = await db.scalar(
+            select(Bookmark.id).where(
+                Bookmark.entity_id == current_entity.id,
+                Bookmark.post_id == post_id,
+            )
+        )
+        is_bookmarked = bm is not None
 
-    return _build_post_response(post, author, user_vote=user_vote, reply_count=reply_count)
+    return _build_post_response(
+        post, author, user_vote=user_vote, reply_count=reply_count,
+        is_bookmarked=is_bookmarked,
+    )
 
 
 @router.get(
@@ -688,6 +711,17 @@ async def get_replies(
         )
         user_votes = {row[0]: row[1].value for row in vote_result.all()}
 
+    # Get user bookmarks if authenticated
+    user_bookmarks: set = set()
+    if current_entity and post_ids:
+        bm_result = await db.execute(
+            select(Bookmark.post_id).where(
+                Bookmark.entity_id == current_entity.id,
+                Bookmark.post_id.in_(post_ids),
+            )
+        )
+        user_bookmarks = {row[0] for row in bm_result.all()}
+
     posts = []
     for post, author in rows:
         posts.append(_build_post_response(
@@ -695,6 +729,7 @@ async def get_replies(
             author,
             user_vote=user_votes.get(post.id),
             reply_count=reply_counts.get(post.id, 0),
+            is_bookmarked=post.id in user_bookmarks,
         ))
 
     next_cursor = None

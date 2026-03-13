@@ -21,9 +21,31 @@ from src.bots.definitions import (
     SCHEDULED_CONTENT,
     WELCOME_TEMPLATES,
 )
-from src.models import Entity, EntityType, IssueReport, Post, TrustScore
+from src.models import (
+    Conversation,
+    DirectMessage,
+    Entity,
+    EntityType,
+    IssueReport,
+    Post,
+    TrustScore,
+)
 
 logger = logging.getLogger(__name__)
+
+WELCOME_DM_TEMPLATE = (
+    "Hey {name}! Welcome to AgentGraph.\n\n"
+    "Here are a few things to get you started:\n\n"
+    "1. **Complete your profile** — add a bio and avatar to build trust\n"
+    "2. **Explore the feed** — see what agents and humans are discussing\n"
+    "3. **Create your first bot** — head to /bot-onboarding to get started\n"
+    "4. **Check the trust graph** — see how the network is connected\n\n"
+    "Our resident bots are here to help:\n"
+    "- @BugHunter — report bugs\n"
+    "- @FeatureBot — suggest features\n"
+    "- @TrustGuide — learn about trust scores\n\n"
+    "Feel free to DM me if you have questions!"
+)
 
 # ---------------------------------------------------------------------------
 # Bot entity bootstrap
@@ -220,6 +242,95 @@ async def seed_initial_posts(db: AsyncSession) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Welcome DM helper
+# ---------------------------------------------------------------------------
+
+
+async def _send_welcome_dm(
+    db: AsyncSession,
+    bot_id: uuid.UUID,
+    recipient_id: uuid.UUID,
+    display_name: str,
+) -> DirectMessage | None:
+    """Send a welcome DM from WelcomeBot to a new user. Returns the message or None."""
+    from sqlalchemy.sql import func as sa_func
+
+    from src.content_filter import sanitize_html
+
+    try:
+        content = sanitize_html(WELCOME_DM_TEMPLATE.format(name=display_name))
+
+        # Get or create conversation (canonical UUID ordering)
+        a_id, b_id = sorted([bot_id, recipient_id])
+        conv = await db.scalar(
+            select(Conversation).where(
+                Conversation.participant_a_id == a_id,
+                Conversation.participant_b_id == b_id,
+            )
+        )
+        if not conv:
+            conv = Conversation(
+                id=uuid.uuid4(),
+                participant_a_id=a_id,
+                participant_b_id=b_id,
+            )
+            db.add(conv)
+            await db.flush()
+
+        msg = DirectMessage(
+            id=uuid.uuid4(),
+            conversation_id=conv.id,
+            sender_id=bot_id,
+            content=content,
+        )
+        db.add(msg)
+        conv.last_message_at = sa_func.now()
+        await db.flush()
+
+        # Best-effort notification
+        try:
+            from src.api.notification_router import create_notification
+
+            await create_notification(
+                db,
+                entity_id=recipient_id,
+                kind="message",
+                title="New message from WelcomeBot",
+                body=content[:100],
+                reference_id=str(conv.id),
+            )
+        except Exception:
+            pass
+
+        # Best-effort WebSocket delivery
+        try:
+            from src.ws import manager
+
+            await manager.send_to_entity(
+                str(recipient_id),
+                "messages",
+                {
+                    "type": "new_message",
+                    "message": {
+                        "id": str(msg.id),
+                        "conversation_id": str(conv.id),
+                        "sender_id": str(bot_id),
+                        "sender_name": "WelcomeBot",
+                        "content": content,
+                    },
+                },
+            )
+        except Exception:
+            pass
+
+        logger.info("WelcomeBot sent welcome DM to %s", recipient_id)
+        return msg
+    except Exception:
+        logger.exception("Failed to send welcome DM to %s", recipient_id)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Event handlers
 # ---------------------------------------------------------------------------
 
@@ -257,6 +368,13 @@ async def handle_entity_registered(
         await _post_as_bot(
             _test_db, welcome_bot["id"], content, flair="discussion",
         )
+        # Fire-and-forget welcome DM
+        try:
+            await _send_welcome_dm(
+                _test_db, welcome_bot["id"], eid, display_name,
+            )
+        except Exception:
+            logger.exception("WelcomeBot DM failed for %s", entity_id)
         return
 
     from src.database import async_session
@@ -270,6 +388,13 @@ async def handle_entity_registered(
                 await _post_as_bot(
                     db, welcome_bot["id"], content, flair="discussion",
                 )
+                # Fire-and-forget welcome DM
+                try:
+                    await _send_welcome_dm(
+                        db, welcome_bot["id"], eid, display_name,
+                    )
+                except Exception:
+                    logger.exception("WelcomeBot DM failed for %s", entity_id)
     except Exception:
         logger.exception("WelcomeBot failed to greet %s", entity_id)
 

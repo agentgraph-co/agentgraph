@@ -14,14 +14,14 @@ import EntityAvatar from '../components/EntityAvatar'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
 import GuestPrompt from '../components/GuestPrompt'
-import { ProfileSkeleton } from '../components/Skeleton'
+import { ProfileSkeleton, ConnectionSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { TrustExplainerTrigger } from '../components/TrustExplainer'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'listings' | 'badges' | 'attestations'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges'
 
 interface ActivityItem {
   type: string
@@ -80,6 +80,83 @@ interface ProfileListing {
   created_at: string
 }
 
+// ─── Ego-graph types for Connections tab ───
+
+interface EgoNode {
+  id: string
+  label: string
+  type: string
+  trust: number | null
+}
+
+interface EgoLink {
+  source: string
+  target: string
+  relationship_type: string
+}
+
+const REL_LABELS: Record<string, string> = {
+  follow: 'follows',
+  operator_agent: 'operates',
+  collaboration: 'collaborates with',
+  service: 'provides service to',
+}
+
+function ConnectionList({ entityId }: { entityId: string }) {
+  const { data, isLoading } = useQuery<{ nodes: EgoNode[]; links: EgoLink[] }>({
+    queryKey: ['ego-graph', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/graph/ego/${entityId}?depth=1`)
+      return data
+    },
+    staleTime: 5 * 60_000,
+  })
+
+  if (isLoading) return (
+    <div className="space-y-1">
+      {Array.from({ length: 4 }).map((_, i) => <ConnectionSkeleton key={i} />)}
+    </div>
+  )
+  if (!data || !data.nodes || data.nodes.length <= 1) return <div className="text-sm text-text-muted py-6 text-center">No connections yet</div>
+
+  const connections = data.nodes.filter(n => n.id !== entityId)
+  const linkMap = new Map<string, string>()
+  for (const link of data.links ?? []) {
+    const otherId = link.source === entityId ? link.target : link.source
+    linkMap.set(otherId, link.relationship_type)
+  }
+
+  return (
+    <div className="space-y-2">
+      {connections.slice(0, 20).map((node) => (
+        <Link
+          key={node.id}
+          to={`/profile/${node.id}`}
+          className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover/50 transition-colors group bg-surface border border-border"
+        >
+          <EntityAvatar name={node.label} entityType={node.type as 'human' | 'agent'} size="sm" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate group-hover:text-primary-light transition-colors">
+              {node.label}
+            </div>
+            <div className="text-[10px] text-text-muted">
+              {node.type} {linkMap.get(node.id) ? `· ${REL_LABELS[linkMap.get(node.id)!] ?? linkMap.get(node.id)}` : ''}
+            </div>
+          </div>
+          {node.trust != null && (
+            <span className="text-xs text-text-muted">{Math.round(node.trust * 100)}%</span>
+          )}
+        </Link>
+      ))}
+      {connections.length > 20 && (
+        <Link to="/graph" className="text-xs text-primary-light hover:underline block text-center pt-1">
+          View full graph ({connections.length} connections)
+        </Link>
+      )}
+    </div>
+  )
+}
+
 export default function Profile() {
   const { entityId } = useParams<{ entityId: string }>()
   const { user } = useAuth()
@@ -119,6 +196,17 @@ export default function Profile() {
   useEffect(() => {
     document.title = profile ? `${profile.display_name} - AgentGraph` : 'Profile - AgentGraph'
   }, [profile])
+
+  // Operator profile for agents
+  const { data: operatorProfile } = useQuery<{ display_name: string }>({
+    queryKey: ['operator-profile', profile?.operator_id],
+    queryFn: async () => {
+      const { data } = await api.get(`/profiles/${profile!.operator_id}`)
+      return data
+    },
+    enabled: !!profile?.operator_id,
+    staleTime: 5 * 60_000,
+  })
 
   const followMutation = useMutation({
     mutationFn: async () => {
@@ -345,16 +433,6 @@ export default function Profile() {
       return data
     },
     enabled: !!entityId && activeTab === 'reviews',
-    staleTime: 5 * 60_000,
-  })
-
-  const { data: attestationsData } = useQuery<{ attestations: Array<{ id: string; attester_entity_id: string; attester_display_name: string; attestation_type: string; context: string | null; weight: number; comment: string | null; created_at: string }>; total: number }>({
-    queryKey: ['entity-attestations', entityId],
-    queryFn: async () => {
-      const { data } = await api.get(`/entities/${entityId}/attestations`)
-      return data
-    },
-    enabled: !!entityId && activeTab === 'attestations',
     staleTime: 5 * 60_000,
   })
 
@@ -635,6 +713,16 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Operated by — agents only */}
+        {profile.type === 'agent' && profile.operator_id && (
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-xs text-text-muted">Operated by</span>
+            <Link to={`/profile/${profile.operator_id}`} className="text-sm text-primary-light hover:underline">
+              {operatorProfile?.display_name || 'Loading...'}
+            </Link>
+          </div>
+        )}
+
         {/* Bio */}
         <div className="mb-4">
           {editing ? (
@@ -746,7 +834,10 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-b border-border mt-4 overflow-x-auto" role="tablist" aria-label="Profile sections">
-        {(['posts', 'followers', 'following', 'reviews', 'listings', 'activity', 'badges', 'attestations'] as ProfileTab[]).map((tab) => (
+        {(profile.type === 'agent'
+          ? ['posts', 'followers', 'following', 'activity', 'reviews', 'connections', 'listings', 'badges'] as ProfileTab[]
+          : ['posts', 'followers', 'following', 'activity', 'reviews', 'listings', 'badges'] as ProfileTab[]
+        ).map((tab) => (
           <button
             key={tab}
             role="tab"
@@ -762,10 +853,10 @@ export default function Profile() {
             {tab === 'followers' && `Followers (${profile.follower_count})`}
             {tab === 'following' && `Following (${profile.following_count})`}
             {tab === 'reviews' && 'Reviews'}
+            {tab === 'connections' && 'Connections'}
             {tab === 'listings' && 'Listings'}
             {tab === 'activity' && 'Activity'}
             {tab === 'badges' && 'Badges'}
-            {tab === 'attestations' && 'Attestations'}
           </button>
         ))}
       </div>
@@ -1140,40 +1231,9 @@ export default function Profile() {
         </div>
       )}
 
-      {activeTab === 'attestations' && entityId && (
-        <div className="mt-3 space-y-3">
-          {attestationsData && attestationsData.attestations.length > 0 ? (
-            <>
-              {['competent', 'reliable', 'safe', 'responsive'].map((type) => {
-                const typeAttestations = attestationsData.attestations.filter((a) => a.attestation_type === type)
-                if (typeAttestations.length === 0) return null
-                return (
-                  <div key={type} className="bg-surface border border-border rounded-lg p-4">
-                    <h4 className="text-sm font-semibold capitalize mb-2">{type}</h4>
-                    <div className="space-y-2">
-                      {typeAttestations.map((att) => (
-                        <div key={att.id} className="flex items-start justify-between">
-                          <div>
-                            <Link to={`/profile/${att.attester_entity_id}`} className="text-sm font-medium hover:text-primary-light transition-colors">
-                              {att.attester_display_name}
-                            </Link>
-                            {att.context && <span className="ml-2 text-xs text-text-muted px-1.5 py-0.5 bg-surface-hover rounded">{att.context}</span>}
-                            {att.comment && <p className="text-xs text-text-muted mt-0.5">{att.comment}</p>}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-xs font-medium text-primary-light">{(att.weight * 100).toFixed(0)}%</span>
-                            <div className="text-[10px] text-text-muted">{timeAgo(att.created_at)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </>
-          ) : (
-            <p className="text-center text-text-muted text-sm py-6">No attestations yet</p>
-          )}
+      {activeTab === 'connections' && entityId && (
+        <div className="mt-3">
+          <ConnectionList entityId={entityId} />
         </div>
       )}
 

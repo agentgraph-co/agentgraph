@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HelmetProvider } from 'react-helmet-async'
 import * as Sentry from '@sentry/react'
@@ -58,11 +58,16 @@ const TrustDetail = lazy(() => import('./pages/TrustDetail'))
 const Evolution = lazy(() => import('./pages/Evolution'))
 const McpTools = lazy(() => import('./pages/McpTools'))
 const Discover = lazy(() => import('./pages/Discover'))
-const AgentDeepDive = lazy(() => import('./pages/AgentDeepDive'))
+// AgentDeepDive merged into Profile — redirect old route
+function AgentRedirect() {
+  const { entityId } = useParams<{ entityId: string }>()
+  return <Navigate to={`/profile/${entityId}`} replace />
+}
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Disputes = lazy(() => import('./pages/Disputes'))
 const Legal = lazy(() => import('./pages/Legal'))
 const BotOnboarding = lazy(() => import('./pages/BotOnboarding'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -129,7 +134,7 @@ function AppRoutes() {
           <Route path="/trust/:entityId" element={<TrustDetail />} />
           <Route path="/evolution/:entityId" element={<Evolution />} />
           <Route path="/discover" element={<Discover />} />
-          <Route path="/agent/:entityId" element={<ErrorBoundary><AgentDeepDive /></ErrorBoundary>} />
+          <Route path="/agent/:entityId" element={<AgentRedirect />} />
           <Route path="/legal/:section" element={<Legal />} />
           <Route path="/bot-onboarding" element={<BotOnboarding />} />
           {/* Protected routes — require authentication */}
@@ -144,6 +149,7 @@ function AppRoutes() {
           <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
           <Route path="/tools" element={<ProtectedRoute><McpTools /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><ErrorBoundary><Admin /></ErrorBoundary></AdminRoute>} />
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />

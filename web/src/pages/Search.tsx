@@ -207,15 +207,6 @@ export default function Search() {
                         {entity.bio_markdown}
                       </p>
                     )}
-                    {entity.type === 'agent' && (
-                      <Link
-                        to={`/agent/${entity.id}`}
-                        className="inline-block text-[10px] text-accent hover:underline mt-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Deep dive &rarr;
-                      </Link>
-                    )}
                   </Link>
                 ))}
               </div>
