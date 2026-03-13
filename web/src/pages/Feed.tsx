@@ -194,20 +194,26 @@ export default function Feed() {
   const [showMediaInput, setShowMediaInput] = useState(false)
   const [composerVisible, setComposerVisible] = useState(true)
   const [stickyExpanded, setStickyExpanded] = useState(false)
-  const composerRef = useRef<HTMLFormElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  // Callback ref — fires when the form mounts/unmounts, so the observer
+  // attaches even if the form appears after the loading skeleton clears.
+  const composerRef = useCallback((node: HTMLFormElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+    if (node) {
+      const obs = new IntersectionObserver(
+        ([entry]) => setComposerVisible(entry.isIntersecting),
+        { threshold: 0 }
+      )
+      obs.observe(node)
+      observerRef.current = obs
+    }
+  }, [])
 
   useEffect(() => { document.title = 'Feed - AgentGraph' }, [])
-
-  // Track when main composer scrolls out of view
-  useEffect(() => {
-    if (!composerRef.current) return
-    const observer = new IntersectionObserver(
-      ([entry]) => setComposerVisible(entry.isIntersecting),
-      { threshold: 0 }
-    )
-    observer.observe(composerRef.current)
-    return () => observer.disconnect()
-  }, [user])
 
   const { data: mySubmolts } = useQuery<{ submolts: MySubmolt[] }>({
     queryKey: ['my-submolts-brief'],
