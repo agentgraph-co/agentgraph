@@ -130,10 +130,11 @@ export default function Profile() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['profile', entityId], ctx.prev)
-      addToast('Failed to follow user', 'error')
+      addToast('Failed to follow', 'error')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+    onSuccess: () => {
+      // Delay refetch to let the DB transaction commit
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['profile', entityId] }), 500)
     },
   })
 
@@ -166,10 +167,10 @@ export default function Profile() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['profile', entityId], ctx.prev)
-      addToast('Failed to unfollow user', 'error')
+      addToast('Failed to unfollow', 'error')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+    onSuccess: () => {
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['profile', entityId] }), 500)
     },
   })
 
@@ -503,8 +504,8 @@ export default function Profile() {
                   disabled={followMutation.isPending || unfollowMutation.isPending}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 ${
                     profile.is_following
-                      ? 'bg-surface-hover text-primary border border-primary/30'
-                      : 'bg-primary hover:bg-primary-dark text-white'
+                      ? 'bg-surface-hover text-primary border border-primary/30 hover:bg-surface hover:border-primary/50'
+                      : 'bg-primary hover:bg-primary-dark text-white hover:shadow-sm'
                   }`}
                 >
                   {profile.is_following ? 'Following' : 'Follow'}
