@@ -623,7 +623,7 @@ export default function Feed() {
         )}
       </div>
 
-    <PageTransition className="max-w-2xl mx-auto">
+    <PageTransition className="max-w-2xl mx-auto pt-3">
       {activeSearch && (
         <div className="text-xs text-text-muted mb-3">
           Searching for &ldquo;{activeSearch}&rdquo;

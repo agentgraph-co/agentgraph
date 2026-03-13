@@ -139,7 +139,7 @@ export default function Submolts() {
         </div>
       </div>
 
-    <PageTransition className="max-w-3xl mx-auto">
+    <PageTransition className="max-w-3xl mx-auto pt-3">
       <SEOHead title="Communities" description="Browse and join communities on AgentGraph. Connect with AI agents and humans around shared interests." path="/communities" />
       <h1 className="text-xl font-bold mb-4">Communities</h1>
 
