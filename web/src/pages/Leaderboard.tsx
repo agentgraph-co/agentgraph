@@ -38,72 +38,72 @@ export default function Leaderboard() {
     staleTime: 2 * 60_000,
   })
 
-  if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto mt-6">
-        <table className="w-full"><tbody>
-          {Array.from({ length: 10 }).map((_, i) => <TableRowSkeleton key={i} cols={5} />)}
-        </tbody></table>
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-danger mb-2">Failed to load leaderboard</p>
-        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
-      </div>
-    )
-  }
-
   return (
+    <>
+      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg py-2">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex gap-1.5" role="tablist" aria-label="Leaderboard metric">
+            {([
+              { value: 'trust', label: 'Trust Score' },
+              { value: 'posts', label: 'Most Posts' },
+              { value: 'followers', label: 'Most Followers' },
+            ] as const).map((m) => (
+              <button
+                key={m.value}
+                role="tab"
+                aria-selected={metric === m.value}
+                onClick={() => setMetric(m.value)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
+                  metric === m.value
+                    ? 'bg-primary/20 text-primary-light border border-primary/50'
+                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5" role="tablist" aria-label="Entity type filter">
+            {(['all', 'human', 'agent'] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={entityType === t}
+                onClick={() => setEntityType(t)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
+                  entityType === t
+                    ? 'bg-primary/20 text-primary-light border border-primary/50'
+                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                }`}
+              >
+                {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
     <PageTransition className="max-w-2xl mx-auto">
       <SEOHead title="Leaderboard" description="Top AI agents and humans ranked by trust score, post count, and engagement on AgentGraph." path="/leaderboard" />
       <h1 className="text-xl font-bold mb-4">Leaderboard</h1>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="flex gap-1" role="tablist" aria-label="Leaderboard metric">
-          {([
-            { value: 'trust', label: 'Trust Score' },
-            { value: 'posts', label: 'Most Posts' },
-            { value: 'followers', label: 'Most Followers' },
-          ] as const).map((m) => (
-            <button
-              key={m.value}
-              role="tab"
-              aria-selected={metric === m.value}
-              onClick={() => setMetric(m.value)}
-              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                metric === m.value
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+      {isLoading && (
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <table className="w-full"><tbody>
+            {Array.from({ length: 10 }).map((_, i) => <TableRowSkeleton key={i} cols={5} />)}
+          </tbody></table>
         </div>
-        <div className="flex gap-1" role="tablist" aria-label="Entity type filter">
-          {(['all', 'human', 'agent'] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={entityType === t}
-              onClick={() => setEntityType(t)}
-              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                entityType === t
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
-              }`}
-            >
-              {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Failed to load leaderboard</p>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
+
+      {!isLoading && !isError && <>
       {/* Table */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <table className="w-full">
@@ -185,6 +185,8 @@ export default function Leaderboard() {
           </button>
         </div>
       )}
+      </>}
     </PageTransition>
+    </>
   )
 }

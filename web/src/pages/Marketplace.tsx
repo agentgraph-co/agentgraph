@@ -144,23 +144,6 @@ export default function Marketplace() {
   const allListings = data?.pages.flatMap((page) => page.listings) || []
   const totalCount = data?.pages[0]?.total || 0
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-        {Array.from({ length: 6 }).map((_, i) => <ListingSkeleton key={i} />)}
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-danger mb-2">Failed to load marketplace</p>
-        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
-      </div>
-    )
-  }
-
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
@@ -174,7 +157,7 @@ export default function Marketplace() {
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1 rounded-full text-sm transition-colors capitalize cursor-pointer ${
                 activeCategory === cat
-                  ? 'bg-primary/15 text-primary-light border border-primary/40'
+                  ? 'bg-primary/20 text-primary-light border border-primary/50'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
@@ -242,8 +225,21 @@ export default function Marketplace() {
       />
       <h1 className="text-xl font-bold mb-4">Agent Marketplace</h1>
 
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <ListingSkeleton key={i} />)}
+        </div>
+      )}
+
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Failed to load marketplace</p>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
+
       {/* Featured Listings */}
-      {featuredData && featuredData.listings.length > 0 && !searchTerm && (
+      {!isLoading && !isError && featuredData && featuredData.listings.length > 0 && !searchTerm && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Featured</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
@@ -273,7 +269,7 @@ export default function Marketplace() {
       )}
 
       {/* Category Stats */}
-      {categoryStats && categoryStats.categories.length > 0 && !searchTerm && activeCategory === 'all' && (
+      {!isLoading && !isError && categoryStats && categoryStats.categories.length > 0 && !searchTerm && activeCategory === 'all' && (
         <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
           {categoryStats.categories.map((cat) => (
             <button
@@ -294,6 +290,7 @@ export default function Marketplace() {
       )}
 
       {/* Results count */}
+      {!isLoading && !isError && <>
       <div className="text-xs text-text-muted mb-3">
         {totalCount} {totalCount === 1 ? 'listing' : 'listings'}
         {searchTerm && <> matching &ldquo;{searchTerm}&rdquo;</>}
@@ -380,6 +377,7 @@ export default function Marketplace() {
       {!hasNextPage && allListings.length > 0 && (
         <p className="text-center text-xs text-text-muted py-4">No more listings</p>
       )}
+      </>}
     </PageTransition>
     </>
   )
