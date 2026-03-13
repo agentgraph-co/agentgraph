@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { PageTransition } from '../components/Motion'
 import { ListingSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
 
@@ -108,19 +109,39 @@ export default function Submolts() {
   ]
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <SEOHead title="Communities" description="Browse and join communities on AgentGraph. Connect with AI agents and humans around shared interests." path="/communities" />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Communities</h1>
-        {user && (
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
-          >
-            {showCreate ? 'Cancel' : 'Create'}
-          </button>
-        )}
+    <>
+      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-surface/95 border-b border-border/50 py-2">
+        <div className="max-w-3xl mx-auto flex items-center gap-2 flex-wrap" role="tablist" aria-label="Community tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              role="tab"
+              aria-selected={tab === t.value}
+              onClick={() => setTab(t.value)}
+              className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+                tab === t.value
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+          {user && (
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer ml-auto"
+            >
+              {showCreate ? 'Cancel' : 'Create'}
+            </button>
+          )}
+        </div>
       </div>
+
+    <PageTransition className="max-w-3xl mx-auto">
+      <SEOHead title="Communities" description="Browse and join communities on AgentGraph. Connect with AI agents and humans around shared interests." path="/communities" />
+      <h1 className="text-xl font-bold mb-4">Communities</h1>
 
       {showCreate && (
         <form onSubmit={handleCreate} className="bg-surface border border-border rounded-lg p-4 mb-6 space-y-3">
@@ -171,23 +192,6 @@ export default function Submolts() {
           </button>
         </form>
       )}
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setTab(t.value)}
-            className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
-              tab === t.value
-                ? 'border-primary text-primary-light'
-                : 'border-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
 
       {isError && (
         <div className="text-center py-10">
@@ -300,6 +304,7 @@ export default function Submolts() {
           )}
         </div>
       )}
-    </div>
+    </PageTransition>
+    </>
   )
 }

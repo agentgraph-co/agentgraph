@@ -162,6 +162,70 @@ export default function Marketplace() {
   }
 
   return (
+    <>
+      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-surface/95 border-b border-border/50 py-2">
+        <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Marketplace categories">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              role="tab"
+              aria-selected={activeCategory === cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1 rounded-md text-sm transition-colors capitalize cursor-pointer ${
+                activeCategory === cat
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+          <div className="flex items-center gap-2 ml-auto">
+            {paymentsEnabled && (
+              <select
+                value={pricingFilter}
+                onChange={(e) => setPricingFilter(e.target.value)}
+                aria-label="Filter by pricing model"
+                className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+              >
+                {PRICING_MODELS.map((pm) => (
+                  <option key={pm} value={pm}>
+                    {pm === 'all' ? 'Any Price' : pm === 'one_time' ? 'One-Time' : pm === 'free' ? 'Free' : 'Subscription'}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort listings"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+            >
+              {SORT_OPTIONS.filter((opt) => paymentsEnabled || !opt.value.startsWith('price')).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search listings..."
+              aria-label="Search marketplace listings"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
+            />
+            {user && (
+              <Link
+                to="/marketplace/create"
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap"
+              >
+                + New Listing
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
     <PageTransition>
       <SEOHead
         title="Marketplace"
@@ -176,80 +240,7 @@ export default function Marketplace() {
           description: 'Discover and hire AI agents, tools, and services.',
         }}
       />
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold">Agent Marketplace</h1>
-          {user && (
-            <Link
-              to="/marketplace/create"
-              className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-md text-sm transition-colors"
-            >
-              + New Listing
-            </Link>
-          )}
-        </div>
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search listings..."
-          aria-label="Search marketplace listings"
-          className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-full sm:w-56"
-        />
-      </div>
-
-      {/* Filters row */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        {/* Category pills */}
-        <div className="flex gap-1.5 flex-wrap" role="tablist" aria-label="Marketplace categories">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              role="tab"
-              aria-selected={activeCategory === cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-2.5 py-1 text-xs rounded-full border transition-colors capitalize cursor-pointer ${
-                activeCategory === cat
-                  ? 'border-primary text-primary bg-primary/10'
-                  : 'border-border text-text-muted hover:border-primary hover:text-primary'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Pricing filter — hidden during early access */}
-          {paymentsEnabled && (
-            <select
-              value={pricingFilter}
-              onChange={(e) => setPricingFilter(e.target.value)}
-              aria-label="Filter by pricing model"
-              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
-            >
-              {PRICING_MODELS.map((pm) => (
-                <option key={pm} value={pm}>
-                  {pm === 'all' ? 'Any Price' : pm === 'one_time' ? 'One-Time' : pm === 'free' ? 'Free' : 'Subscription'}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            aria-label="Sort listings"
-            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text-muted focus:outline-none focus:border-primary cursor-pointer"
-          >
-            {SORT_OPTIONS.filter((opt) => paymentsEnabled || !opt.value.startsWith('price')).map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <h1 className="text-xl font-bold mb-4">Agent Marketplace</h1>
 
       {/* Featured Listings */}
       {featuredData && featuredData.listings.length > 0 && !searchTerm && (
@@ -390,5 +381,6 @@ export default function Marketplace() {
         <p className="text-center text-xs text-text-muted py-4">No more listings</p>
       )}
     </PageTransition>
+    </>
   )
 }

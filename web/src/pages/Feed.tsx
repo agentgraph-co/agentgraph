@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, memo, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -439,6 +438,101 @@ export default function Feed() {
   }
 
   return (
+    <>
+      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-surface/95 border-b border-border/50 py-2">
+        <div className="max-w-2xl mx-auto flex items-center gap-2 flex-wrap" role="tablist" aria-label="Feed filters">
+          {(['newest', 'following', 'trending', 'top'] as const)
+            .filter((opt) => opt !== 'following' || !!user)
+            .map((opt) => (
+            <button
+              key={opt}
+              role="tab"
+              aria-selected={feedMode === opt && !activeSearch}
+              onClick={() => { setFeedMode(opt); setActiveSearch('') }}
+              className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+                feedMode === opt && !activeSearch
+                  ? 'bg-primary/10 text-primary-light border border-primary/30'
+                  : 'text-text-muted hover:text-text border border-transparent'
+              }`}
+            >
+              {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
+            </button>
+          ))}
+          <div className="flex items-center gap-1 ml-auto">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
+              placeholder="Search posts..."
+              aria-label="Search posts"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
+            />
+            {activeSearch && (
+              <button
+                onClick={() => { setActiveSearch(''); setSearchQuery('') }}
+                className="text-xs text-text-muted hover:text-text cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {user && !composerVisible && (
+            <button
+              onClick={() => setStickyExpanded(!stickyExpanded)}
+              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
+            >
+              Post
+            </button>
+          )}
+        </div>
+        {/* Expandable sticky composer */}
+        {user && !composerVisible && stickyExpanded && (
+          <form
+            onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
+            className="max-w-2xl mx-auto mt-2 bg-surface border border-border rounded-lg p-3"
+          >
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
+                  e.preventDefault()
+                  createPost.mutate(content.trim())
+                  setStickyExpanded(false)
+                }
+              }}
+              placeholder="What's happening?"
+              aria-label="New post content (sticky)"
+              rows={2}
+              maxLength={10000}
+              autoFocus
+              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+            />
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs text-text-muted">{content.length}/10000</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStickyExpanded(false)}
+                  className="text-xs text-text-muted hover:text-text cursor-pointer"
+                >
+                  Collapse
+                </button>
+                <button
+                  type="submit"
+                  disabled={!content.trim() || createPost.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {createPost.isPending ? 'Posting...' : 'Post'}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </div>
+
     <PageTransition className="max-w-2xl mx-auto">
       <SEOHead title="Feed" description="Browse posts, discussions, and updates from AI agents and humans on AgentGraph." path="/feed" />
       {!user && <GuestPrompt variant="banner" />}
@@ -514,105 +608,6 @@ export default function Feed() {
         </>
       )}
 
-      {/* Sticky collapsed composer — portaled to body to escape framer-motion transform */}
-      {user && !composerVisible && createPortal(
-        <div className="fixed top-14 left-0 right-0 z-50 flex justify-center pointer-events-none">
-          <div className="pointer-events-auto max-w-2xl w-full mx-auto px-4">
-            {stickyExpanded ? (
-              <form
-                onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
-                className="bg-surface border border-border rounded-b-lg p-3 shadow-lg"
-              >
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
-                      e.preventDefault()
-                      createPost.mutate(content.trim())
-                      setStickyExpanded(false)
-                    }
-                  }}
-                  placeholder="What's happening?"
-                  aria-label="New post content (sticky)"
-                  rows={2}
-                  maxLength={10000}
-                  autoFocus
-                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
-                />
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs text-text-muted">{content.length}/10000</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setStickyExpanded(false)}
-                      className="text-xs text-text-muted hover:text-text cursor-pointer"
-                    >
-                      Collapse
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!content.trim() || createPost.isPending}
-                      className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      {createPost.isPending ? 'Posting...' : 'Post'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            ) : (
-              <button
-                onClick={() => setStickyExpanded(true)}
-                className="w-full bg-surface/90 border border-border rounded-b-lg px-4 py-2 text-sm text-text-muted hover:text-text hover:border-primary/40 transition-colors cursor-pointer shadow-md flex items-center gap-2"
-              >
-                <span className="text-base">&#9998;</span>
-                <span>What's happening?</span>
-                <span className="ml-auto text-xs text-text-muted">Click to post</span>
-              </button>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <div className="flex items-center gap-2 mb-3 flex-wrap" role="tablist" aria-label="Feed filters">
-        {(['newest', 'following', 'trending', 'top'] as const)
-          .filter((opt) => opt !== 'following' || !!user)
-          .map((opt) => (
-          <button
-            key={opt}
-            role="tab"
-            aria-selected={feedMode === opt && !activeSearch}
-            onClick={() => { setFeedMode(opt); setActiveSearch('') }}
-            className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
-              feedMode === opt && !activeSearch
-                ? 'bg-primary/10 text-primary-light border border-primary/30'
-                : 'text-text-muted hover:text-text border border-transparent'
-            }`}
-          >
-            {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
-          </button>
-        ))}
-        <div className="flex items-center gap-1 ml-auto">
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
-            placeholder="Search posts..."
-            aria-label="Search posts"
-            className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
-          />
-          {activeSearch && (
-            <button
-              onClick={() => { setActiveSearch(''); setSearchQuery('') }}
-              className="text-xs text-text-muted hover:text-text cursor-pointer"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </div>
       {activeSearch && (
         <div className="text-xs text-text-muted mb-3">
           Searching for &ldquo;{activeSearch}&rdquo;
@@ -718,5 +713,6 @@ export default function Feed() {
         />
       )}
     </PageTransition>
+    </>
   )
 }
