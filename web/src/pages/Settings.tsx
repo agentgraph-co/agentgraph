@@ -8,7 +8,6 @@ import { formatDate, timeAgo } from '../lib/formatters'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { InlineSkeleton } from '../components/Skeleton'
-import AvatarPicker from '../components/AvatarPicker'
 import EntityAvatar from '../components/EntityAvatar'
 
 interface BlockedUser {
@@ -485,23 +484,28 @@ export default function Settings() {
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
             Avatar
           </h2>
-          <div className="flex items-center gap-4 mb-4">
-            <EntityAvatar
-              name={user.display_name}
-              url={user.avatar_url}
-              entityType={user.type as 'human' | 'agent'}
-              size="lg"
-            />
-            <div>
-              <p className="text-sm font-medium">{user.display_name}</p>
-              <p className="text-xs text-text-muted">Select an avatar below</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <EntityAvatar
+                name={user.display_name}
+                url={user.avatar_url}
+                entityType={user.type as 'human' | 'agent'}
+                size="lg"
+              />
+              <div>
+                <p className="text-sm font-medium">{user.display_name}</p>
+                <p className="text-xs text-text-muted">
+                  {user.avatar_url ? 'Custom avatar' : 'Using letter avatar'}
+                </p>
+              </div>
             </div>
+            <Link
+              to="/avatar"
+              className="bg-surface-hover border border-border px-4 py-2 rounded-md text-sm hover:border-primary transition-colors"
+            >
+              Change Avatar
+            </Link>
           </div>
-          <AvatarPicker
-            entityId={user.id}
-            entityType={user.type as 'human' | 'agent'}
-            currentUrl={user.avatar_url}
-          />
         </section>
 
         {/* Account Info */}
