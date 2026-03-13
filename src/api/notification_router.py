@@ -152,10 +152,25 @@ async def create_notification(
         logger.warning("WebSocket delivery failed", exc_info=True)
 
     # Send email notification for social events (fire-and-forget)
-    if kind in ("reply", "mention", "issue_resolution"):
+    # Per-kind email toggles: field name + default value
+    _KIND_EMAIL_PREFS: dict[str, tuple[str, bool]] = {
+        "follow": ("email_follow_enabled", False),
+        "vote": ("email_vote_enabled", False),
+        "reply": ("email_reply_enabled", True),
+        "mention": ("email_mention_enabled", True),
+    }
+    if kind in ("reply", "follow", "mention", "vote", "issue_resolution"):
         try:
             email_pref = pref if pref_field else None
-            if not email_pref or getattr(email_pref, "email_notifications_enabled", True):
+            # Determine if email should be sent
+            should_email = True
+            if email_pref and not getattr(email_pref, "email_notifications_enabled", True):
+                should_email = False  # global email disabled
+            elif kind in _KIND_EMAIL_PREFS:
+                field, default = _KIND_EMAIL_PREFS[kind]
+                should_email = getattr(email_pref, field, default) if email_pref else default
+
+            if should_email:
                 entity = await db.get(Entity, entity_id)
                 if (
                     entity
@@ -394,6 +409,10 @@ class NotificationPreferencesResponse(BaseModel):
     message_enabled: bool = True
     issue_resolution_enabled: bool = True
     email_notifications_enabled: bool = True
+    email_follow_enabled: bool = False
+    email_vote_enabled: bool = False
+    email_reply_enabled: bool = True
+    email_mention_enabled: bool = True
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -407,6 +426,10 @@ class UpdatePreferencesRequest(BaseModel):
     message_enabled: bool | None = None
     issue_resolution_enabled: bool | None = None
     email_notifications_enabled: bool | None = None
+    email_follow_enabled: bool | None = None
+    email_vote_enabled: bool | None = None
+    email_reply_enabled: bool | None = None
+    email_mention_enabled: bool | None = None
 
 
 @router.get(
@@ -437,6 +460,10 @@ async def get_notification_preferences(
         message_enabled=getattr(pref, "message_enabled", True),
         issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
+        email_follow_enabled=getattr(pref, "email_follow_enabled", False),
+        email_vote_enabled=getattr(pref, "email_vote_enabled", False),
+        email_reply_enabled=getattr(pref, "email_reply_enabled", True),
+        email_mention_enabled=getattr(pref, "email_mention_enabled", True),
     )
 
 
@@ -488,6 +515,10 @@ async def update_notification_preferences(
         message_enabled=getattr(pref, "message_enabled", True),
         issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
+        email_follow_enabled=getattr(pref, "email_follow_enabled", False),
+        email_vote_enabled=getattr(pref, "email_vote_enabled", False),
+        email_reply_enabled=getattr(pref, "email_reply_enabled", True),
+        email_mention_enabled=getattr(pref, "email_mention_enabled", True),
     )
 
 

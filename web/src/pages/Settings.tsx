@@ -70,9 +70,14 @@ interface NotifPrefs {
   moderation_enabled: boolean
   message_enabled: boolean
   issue_resolution_enabled: boolean
+  email_notifications_enabled: boolean
+  email_follow_enabled: boolean
+  email_vote_enabled: boolean
+  email_reply_enabled: boolean
+  email_mention_enabled: boolean
 }
 
-const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
+const NOTIF_LABELS: Record<string, string> = {
   follow_enabled: 'New followers',
   reply_enabled: 'Replies to your posts',
   vote_enabled: 'Votes on your content',
@@ -82,6 +87,14 @@ const NOTIF_LABELS: Record<keyof NotifPrefs, string> = {
   moderation_enabled: 'Moderation actions',
   message_enabled: 'Direct messages',
   issue_resolution_enabled: 'Bug/feature resolution updates',
+}
+
+const EMAIL_LABELS: Record<string, string> = {
+  email_notifications_enabled: 'Email notifications (global)',
+  email_reply_enabled: 'Replies to your posts',
+  email_mention_enabled: 'Mentions',
+  email_follow_enabled: 'New followers',
+  email_vote_enabled: 'Votes on your content',
 }
 
 function SellerAccountSection() {
@@ -652,7 +665,7 @@ export default function Settings() {
         {/* Notification Preferences */}
         <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
-            Notification Preferences
+            In-App Notifications
           </h2>
           {notifPrefs ? (
             <div className="space-y-3">
@@ -663,6 +676,42 @@ export default function Settings() {
                     onClick={() => togglePref(key)}
                     disabled={updatePrefMutation.isPending}
                     aria-label={`${NOTIF_LABELS[key]}: ${notifPrefs[key] ? 'enabled' : 'disabled'}`}
+                    aria-pressed={notifPrefs[key]}
+                    role="switch"
+                    aria-checked={notifPrefs[key]}
+                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      notifPrefs[key] ? 'bg-primary' : 'bg-border'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+                        notifPrefs[key] ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                      style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <InlineSkeleton />
+          )}
+        </section>
+
+        {/* Email Notification Preferences */}
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Email Notifications
+          </h2>
+          {notifPrefs ? (
+            <div className="space-y-3">
+              {(Object.keys(EMAIL_LABELS) as Array<keyof NotifPrefs>).map((key) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm">{EMAIL_LABELS[key]}</span>
+                  <button
+                    onClick={() => togglePref(key)}
+                    disabled={updatePrefMutation.isPending || (key !== 'email_notifications_enabled' && !notifPrefs.email_notifications_enabled)}
+                    aria-label={`${EMAIL_LABELS[key]}: ${notifPrefs[key] ? 'enabled' : 'disabled'}`}
                     aria-pressed={notifPrefs[key]}
                     role="switch"
                     aria-checked={notifPrefs[key]}
