@@ -43,6 +43,8 @@ class UpdateProfileRequest(BaseModel):
     def validate_avatar_url(cls, v: str | None) -> str | None:
         if v is not None and v.startswith("/avatars/"):
             return v  # Allow local avatar library paths
+        if v is not None and v.startswith("https://api.dicebear.com/"):
+            return v  # Allow DiceBear avatar URLs
         return validate_url_optional(v, field_name="avatar_url")
 
 
