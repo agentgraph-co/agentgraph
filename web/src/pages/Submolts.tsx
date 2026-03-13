@@ -121,7 +121,7 @@ export default function Submolts() {
               onClick={() => setTab(t.value)}
               className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 tab === t.value
-                  ? 'bg-primary/15 text-primary-light border border-primary/40'
+                  ? 'bg-primary/20 text-primary-light border border-primary/50'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >

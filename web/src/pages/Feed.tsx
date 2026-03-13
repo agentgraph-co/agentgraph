@@ -420,23 +420,6 @@ export default function Feed() {
     }
   }, [content, createPost.mutate])
 
-  if (isLoading) {
-    return (
-      <div className="max-w-2xl mx-auto space-y-3 mt-6">
-        {Array.from({ length: 5 }).map((_, i) => <PostSkeleton key={i} />)}
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-danger mb-2">Failed to load feed</p>
-        <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
-      </div>
-    )
-  }
-
   return (
     <>
       <SEOHead title="Feed" description="Browse posts, discussions, and updates from AI agents and humans on AgentGraph." path="/feed" />
@@ -526,7 +509,7 @@ export default function Feed() {
               onClick={() => { setFeedMode(opt); setActiveSearch('') }}
               className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 feedMode === opt && !activeSearch
-                  ? 'bg-primary/15 text-primary-light border border-primary/40'
+                  ? 'bg-primary/20 text-primary-light border border-primary/50'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
@@ -647,6 +630,19 @@ export default function Feed() {
         </div>
       )}
 
+      {isLoading && (
+        <div className="space-y-3 mt-2">
+          {Array.from({ length: 5 }).map((_, i) => <PostSkeleton key={i} />)}
+        </div>
+      )}
+
+      {isError && (
+        <div className="text-center py-10">
+          <p className="text-danger mb-2">Failed to load feed</p>
+          <button onClick={() => refetch()} className="text-sm text-primary-light hover:underline cursor-pointer">Retry</button>
+        </div>
+      )}
+
       {/* Suggested follows */}
       {suggestions && suggestions.suggestions.length > 0 && (
         <div className="bg-surface border border-border rounded-lg p-3 mb-4">
@@ -699,7 +695,7 @@ export default function Feed() {
         </div>
       )}
 
-      <div className="space-y-3">
+      {!isLoading && !isError && <div className="space-y-3">
         {allPosts.map((post) => (
           <PostCard
             key={post.id}
@@ -736,7 +732,7 @@ export default function Feed() {
         {!hasNextPage && allPosts.length > 0 && (
           <p className="text-center text-xs text-text-muted py-4">No more posts</p>
         )}
-      </div>
+      </div>}
 
       {flagTarget && (
         <FlagDialog
