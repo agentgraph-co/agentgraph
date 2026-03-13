@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -38,12 +38,15 @@ export default function Messages() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { addToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
   const [showCompose, setShowCompose] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConvList, setShowConvList] = useState(true)
+  const [composeRecipient, setComposeRecipient] = useState<{ id: string; name: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const toHandledRef = useRef(false)
 
   useEffect(() => { document.title = 'Messages - AgentGraph' }, [])
 
@@ -56,6 +59,35 @@ export default function Messages() {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   })
+
+  // Handle ?to= param: open existing conversation or compose to that user
+  const toEntityId = searchParams.get('to')
+  useEffect(() => {
+    if (!toEntityId || toHandledRef.current) return
+    if (!conversationsQuery.data) return // wait for conversations to load
+
+    // Check if we already have a conversation with this user
+    const existing = conversationsQuery.data.conversations.find(
+      (c) => c.other_entity_id === toEntityId
+    )
+    if (existing) {
+      setSelectedConvId(existing.id)
+      setShowConvList(false)
+    } else {
+      // Open compose mode and fetch the recipient's profile
+      setShowCompose(true)
+      setShowConvList(false)
+      api.get(`/profiles/${toEntityId}`).then(({ data }) => {
+        setComposeRecipient({ id: toEntityId, name: data.display_name })
+      }).catch(() => {
+        // If profile fetch fails, still allow composing
+        setComposeRecipient({ id: toEntityId, name: 'Unknown User' })
+      })
+    }
+    toHandledRef.current = true
+    // Clear the to param from URL
+    setSearchParams({}, { replace: true })
+  }, [toEntityId, conversationsQuery.data, setSearchParams])
 
   const messagesQuery = useQuery<{ messages: Message[] }>({
     queryKey: ['messages', selectedConvId],
@@ -152,13 +184,8 @@ export default function Messages() {
     setShowCompose(true)
     setSelectedConvId(null)
     setSearchQuery('')
+    setComposeRecipient(null)
     setShowConvList(false)
-  }
-
-  const sendToUser = (recipientId: string) => {
-    if (messageText.trim()) {
-      sendMessage.mutate({ recipientId, content: messageText })
-    }
   }
 
   const handleSend = (e: FormEvent) => {
@@ -246,30 +273,47 @@ export default function Messages() {
             <div className="p-3 border-b border-border">
               <div className="flex items-center gap-2 mb-2">
                 <button
-                  onClick={() => { setShowCompose(false); setShowConvList(true) }}
+                  onClick={() => { setShowCompose(false); setComposeRecipient(null); setShowConvList(true) }}
                   className="md:hidden text-xs text-text-muted hover:text-text cursor-pointer"
                 >
                   &larr; Back
                 </button>
                 <span className="text-sm font-semibold">New Message</span>
               </div>
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for a user or agent..."
-                aria-label="Search for a user or agent"
-                autoFocus
-                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-              />
+              {composeRecipient ? (
+                <div className="flex items-center gap-2 bg-background border border-border rounded-md px-3 py-2">
+                  <span className="text-sm text-text-muted">To:</span>
+                  <span className="text-sm font-medium">{composeRecipient.name}</span>
+                  <button
+                    onClick={() => setComposeRecipient(null)}
+                    className="ml-auto text-xs text-text-muted hover:text-text cursor-pointer"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ) : (
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search for a user or agent..."
+                  aria-label="Search for a user or agent"
+                  autoFocus
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                />
+              )}
             </div>
-            {searchQuery.length >= 2 && searchResults?.entities && (
+            {!composeRecipient && searchQuery.length >= 2 && searchResults?.entities && (
               <div className="border-b border-border max-h-60 overflow-auto">
                 {searchResults.entities
                   .filter((e) => e.id !== user?.id)
                   .map((entity) => (
                     <div
                       key={entity.id}
-                      className="p-3 hover:bg-surface-hover transition-colors flex items-center justify-between"
+                      className="p-3 hover:bg-surface-hover transition-colors flex items-center justify-between cursor-pointer"
+                      onClick={() => {
+                        setComposeRecipient({ id: entity.id, name: entity.display_name })
+                        setSearchQuery('')
+                      }}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-sm font-medium truncate">{entity.display_name}</span>
@@ -279,13 +323,6 @@ export default function Messages() {
                           {entity.type}
                         </span>
                       </div>
-                      <button
-                        onClick={() => sendToUser(entity.id)}
-                        disabled={!messageText.trim() || sendMessage.isPending}
-                        className="text-xs bg-primary hover:bg-primary-dark text-white px-2.5 py-1 rounded transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-                      >
-                        Send
-                      </button>
                     </div>
                   ))}
                 {searchResults.entities.filter((e) => e.id !== user?.id).length === 0 && (
@@ -295,15 +332,32 @@ export default function Messages() {
             )}
             <div className="flex-1" />
             <div className="p-3 border-t border-border">
-              <textarea
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                placeholder="Write your message first, then pick a recipient above..."
-                aria-label="Compose new message"
-                rows={3}
-                maxLength={5000}
-                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
-              />
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                if (composeRecipient && messageText.trim()) {
+                  sendMessage.mutate({ recipientId: composeRecipient.id, content: messageText })
+                }
+              }} className="flex flex-col gap-2">
+                <textarea
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder={composeRecipient ? `Message ${composeRecipient.name}...` : 'Write your message first, then pick a recipient above...'}
+                  aria-label="Compose new message"
+                  autoFocus={!!composeRecipient}
+                  rows={3}
+                  maxLength={5000}
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+                />
+                {composeRecipient && (
+                  <button
+                    type="submit"
+                    disabled={!messageText.trim() || sendMessage.isPending}
+                    className="self-end bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {sendMessage.isPending ? 'Sending...' : 'Send'}
+                  </button>
+                )}
+              </form>
             </div>
           </>
         ) : selectedConv ? (

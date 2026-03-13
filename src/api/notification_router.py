@@ -435,6 +435,7 @@ async def get_notification_preferences(
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
         message_enabled=getattr(pref, "message_enabled", True),
+        issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
     )
 
@@ -485,6 +486,7 @@ async def update_notification_preferences(
         review_enabled=pref.review_enabled,
         moderation_enabled=pref.moderation_enabled,
         message_enabled=getattr(pref, "message_enabled", True),
+        issue_resolution_enabled=getattr(pref, "issue_resolution_enabled", True),
         email_notifications_enabled=getattr(pref, "email_notifications_enabled", True),
     )
 
