@@ -44,8 +44,8 @@ async def _create_human(db: AsyncSession, **kwargs) -> Entity:
 
 
 @pytest.mark.asyncio
-async def test_social_email_sent_on_reply_notification(db: AsyncSession):
-    """Reply notification triggers email for verified human."""
+async def test_social_email_sent_on_mention_notification(db: AsyncSession):
+    """Mention notification triggers email for verified human."""
     entity = await _create_human(db)
 
     with patch("src.email.send_social_notification_email", new_callable=AsyncMock) as mock_send:
@@ -55,9 +55,9 @@ async def test_social_email_sent_on_reply_notification(db: AsyncSession):
         notif = await create_notification(
             db,
             entity_id=entity.id,
-            kind="reply",
-            title="Someone replied to your post",
-            body="Check out the reply!",
+            kind="mention",
+            title="Someone mentioned you",
+            body="You were mentioned in a post!",
             reference_id=str(uuid.uuid4()),
         )
         assert notif is not None
@@ -69,7 +69,29 @@ async def test_social_email_sent_on_reply_notification(db: AsyncSession):
         mock_send.assert_called_once()
         call_kwargs = mock_send.call_args
         assert call_kwargs[1]["to"] == entity.email
-        assert "replied" in call_kwargs[1]["title"]
+
+
+@pytest.mark.asyncio
+async def test_social_email_not_sent_on_reply(db: AsyncSession):
+    """Reply notifications do NOT trigger email (disabled to save costs)."""
+    entity = await _create_human(db)
+
+    with patch("src.email.send_social_notification_email", new_callable=AsyncMock) as mock_send:
+        from src.api.notification_router import create_notification
+
+        await create_notification(
+            db,
+            entity_id=entity.id,
+            kind="reply",
+            title="Someone replied to your post",
+            body="Check out the reply!",
+            reference_id=str(uuid.uuid4()),
+        )
+
+        import asyncio
+        await asyncio.sleep(0.1)
+
+        mock_send.assert_not_called()
 
 
 @pytest.mark.asyncio
