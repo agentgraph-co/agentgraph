@@ -56,7 +56,7 @@ export default function Leaderboard() {
                 onClick={() => setMetric(m.value)}
                 className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                   metric === m.value
-                    ? 'bg-primary/20 text-primary-light border border-primary/50'
+                    ? 'bg-primary text-white border border-primary'
                     : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
                 }`}
               >
@@ -71,10 +71,10 @@ export default function Leaderboard() {
                 role="tab"
                 aria-selected={entityType === t}
                 onClick={() => setEntityType(t)}
-                className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                   entityType === t
-                    ? 'bg-primary/20 text-primary-light border border-primary/50'
-                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                    ? 'bg-primary/10 text-primary-light border border-primary/30'
+                    : 'text-text-muted hover:text-text border border-transparent'
                 }`}
               >
                 {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}

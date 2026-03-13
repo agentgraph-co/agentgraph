@@ -157,7 +157,7 @@ export default function Marketplace() {
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1 rounded-full text-sm transition-colors capitalize cursor-pointer ${
                 activeCategory === cat
-                  ? 'bg-primary/20 text-primary-light border border-primary/50'
+                  ? 'bg-primary text-white border border-primary'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
