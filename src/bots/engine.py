@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 import uuid
 
 from sqlalchemy import func, select
@@ -293,7 +294,9 @@ async def handle_post_created(
 
     for bot_key, trigger in REACTIVE_TRIGGERS.items():
         keywords = trigger["keywords"]
-        if not any(kw in content_lower for kw in keywords):
+        # Use word-boundary matching to avoid false positives
+        # e.g. "this is a great feature" should NOT match "feature request"
+        if not any(re.search(r"\b" + re.escape(kw) + r"\b", content_lower) for kw in keywords):
             continue
 
         bot_def = BOT_BY_KEY.get(bot_key)

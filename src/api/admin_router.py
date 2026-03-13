@@ -1748,7 +1748,7 @@ async def resolve_issue(
     await create_notification(
         db,
         entity_id=issue.reporter_entity_id,
-        kind="reply",
+        kind="issue_resolution",
         title=f"Your {issue.issue_type} report was {status_label[body.status]}",
         body=body.resolution_note or f"Your {issue.issue_type} report has been addressed.",
         reference_id=str(issue.post_id),
