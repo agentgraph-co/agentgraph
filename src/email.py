@@ -25,21 +25,40 @@ def _load_template(name: str, **kwargs: str) -> str:
     return content
 
 
-async def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send an email via SMTP. Returns True on success, False on failure.
-
-    If SMTP is not configured, logs the email content instead (dev mode).
-    """
-    if not settings.smtp_host:
-        logger.info(
-            "Email (dev mode, no SMTP configured):\n  To: %s\n  Subject: %s\n  Body: %s",
-            to, subject, html_body[:200],
-        )
-        return True
+async def _send_via_resend(to: str, subject: str, html_body: str) -> bool:
+    """Send email via Resend API."""
+    import httpx
 
     try:
-        import aiosmtplib
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": settings.from_email,
+                    "to": [to],
+                    "subject": subject,
+                    "html": html_body,
+                },
+            )
+            if resp.status_code in (200, 201):
+                logger.info("Email sent via Resend to %s: %s", to, subject)
+                return True
+            logger.error("Resend API error %s: %s", resp.status_code, resp.text)
+            return False
+    except Exception:
+        logger.exception("Failed to send email via Resend to %s", to)
+        return False
 
+
+async def _send_via_smtp(to: str, subject: str, html_body: str) -> bool:
+    """Send email via SMTP."""
+    import aiosmtplib
+
+    try:
         msg = MIMEMultipart("alternative")
         msg["From"] = settings.from_email
         msg["To"] = to
@@ -54,11 +73,29 @@ async def send_email(to: str, subject: str, html_body: str) -> bool:
             password=settings.smtp_password,
             start_tls=True,
         )
-        logger.info("Email sent to %s: %s", to, subject)
+        logger.info("Email sent via SMTP to %s: %s", to, subject)
         return True
     except Exception:
-        logger.exception("Failed to send email to %s", to)
+        logger.exception("Failed to send email via SMTP to %s", to)
         return False
+
+
+async def send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send an email via Resend (preferred), SMTP fallback, or dev-mode log.
+
+    Returns True on success, False on failure.
+    """
+    if settings.resend_api_key:
+        return await _send_via_resend(to, subject, html_body)
+
+    if settings.smtp_host:
+        return await _send_via_smtp(to, subject, html_body)
+
+    logger.info(
+        "Email (dev mode, no email provider configured):\n  To: %s\n  Subject: %s\n  Body: %s",
+        to, subject, html_body[:200],
+    )
+    return True
 
 
 async def send_verification_email(to: str, token: str) -> bool:

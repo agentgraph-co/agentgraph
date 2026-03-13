@@ -82,7 +82,8 @@ class Settings(BaseSettings):
     sso_saml_entity_id: str = "agentgraph-sp"
     sso_callback_base_url: str = "http://localhost:8000"
 
-    # Email (SMTP)
+    # Email — Resend (preferred) or SMTP fallback
+    resend_api_key: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None
