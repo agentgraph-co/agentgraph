@@ -344,8 +344,9 @@ async def get_profile(
 
     is_own = current_entity is not None and current_entity.id == entity_id
 
-    # Try cache for public, non-own profiles
-    if not is_own and entity.privacy_tier == PrivacyTier.PUBLIC:
+    # Try cache for public, non-own profiles (only for unauthenticated
+    # viewers — is_following is viewer-specific so we skip cache when logged in)
+    if not is_own and entity.privacy_tier == PrivacyTier.PUBLIC and current_entity is None:
         cached = await cache.get(f"profile:{entity_id}")
         if cached is not None:
             return ProfileResponse(**cached)
