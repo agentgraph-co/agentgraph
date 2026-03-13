@@ -162,6 +162,15 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         logger.debug("WebSocket disconnect for entity %s", entity_id)
         manager.disconnect(websocket, entity_id)
+    except RuntimeError as exc:
+        # "WebSocket is not connected" — normal client disconnect
+        if "not connected" in str(exc).lower():
+            logger.debug("WebSocket already disconnected for entity %s", entity_id)
+        else:
+            logger.exception(
+                "Unexpected WebSocket RuntimeError for entity %s", entity_id,
+            )
+        manager.disconnect(websocket, entity_id)
     except Exception:
         logger.exception(
             "Unexpected WebSocket error for entity %s", entity_id,
