@@ -509,7 +509,7 @@ export default function Feed() {
               onClick={() => { setFeedMode(opt); setActiveSearch('') }}
               className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                 feedMode === opt && !activeSearch
-                  ? 'bg-primary/20 text-primary-light border border-primary/50'
+                  ? 'bg-primary text-white border border-primary'
                   : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
               }`}
             >
