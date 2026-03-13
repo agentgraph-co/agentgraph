@@ -85,7 +85,7 @@ async def follow_entity(
         )
     )
     if existing:
-        raise HTTPException(status_code=409, detail="Already following")
+        return {"message": "Already following"}
 
     rel = EntityRelationship(
         id=uuid.uuid4(),

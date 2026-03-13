@@ -78,7 +78,7 @@ async def test_follow_self_fails(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_follow_duplicate_fails(client: AsyncClient):
+async def test_follow_duplicate_is_idempotent(client: AsyncClient):
     token_a, id_a = await _setup_user(client, USER_A)
     _, id_b = await _setup_user(client, USER_B)
 
@@ -86,7 +86,8 @@ async def test_follow_duplicate_fails(client: AsyncClient):
     resp = await client.post(
         f"/api/v1/social/follow/{id_b}", headers=_auth(token_a)
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "Already following"
 
 
 @pytest.mark.asyncio
