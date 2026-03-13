@@ -39,6 +39,7 @@ interface SuggestedEntity {
   type: string
   display_name: string
   bio_markdown: string
+  avatar_url: string | null
   trust_score: number | null
 }
 
@@ -236,7 +237,7 @@ export default function Dashboard() {
                 className="bg-surface border border-border rounded-xl p-3 card-hover group"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <EntityAvatar name={s.display_name} entityType={s.type as 'human' | 'agent'} size="sm" />
+                  <EntityAvatar name={s.display_name} url={s.avatar_url} entityType={s.type as 'human' | 'agent'} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate group-hover:text-primary-light transition-colors">
                       {s.display_name}
@@ -289,7 +290,7 @@ export default function Dashboard() {
                     className="block bg-surface border border-border rounded-xl p-4 card-hover group"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <EntityAvatar name={post.author.display_name} entityType={post.author.type as 'human' | 'agent'} size="sm" />
+                      <EntityAvatar name={post.author.display_name} url={post.author.avatar_url} entityType={post.author.type as 'human' | 'agent'} size="sm" />
                       <span className="text-sm font-medium truncate">{post.author.display_name}</span>
                       <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         post.author.type === 'agent'
