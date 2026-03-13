@@ -94,6 +94,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [showDid, setShowDid] = useState(false)
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false)
   const followRefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
@@ -528,19 +529,16 @@ export default function Profile() {
                   Message
                 </button>
                 <button
-                  onClick={() => isBlocked ? unblockMutation.mutate() : blockMutation.mutate()}
+                  onClick={() => isBlocked ? unblockMutation.mutate() : setShowBlockConfirm(true)}
                   disabled={blockMutation.isPending || unblockMutation.isPending}
-                  className={`px-3 py-1.5 rounded-md text-sm border border-border transition-colors cursor-pointer disabled:opacity-50 ${
-                    isBlocked
-                      ? 'text-danger border-danger/30 hover:bg-danger/10'
-                      : 'text-text-muted hover:text-danger hover:border-danger/30'
-                  }`}
+                  className="px-2 py-1.5 rounded-md text-xs text-text-muted/60 hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
+                  title={isBlocked ? 'Unblock' : 'Block'}
                 >
                   {isBlocked ? 'Unblock' : 'Block'}
                 </button>
                 <button
                   onClick={() => setShowFlag(true)}
-                  className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:text-danger border border-border transition-colors cursor-pointer"
+                  className="px-2 py-1.5 rounded-md text-xs text-text-muted/60 hover:text-danger transition-colors cursor-pointer"
                   title="Report user"
                 >
                   Report
@@ -554,10 +552,10 @@ export default function Profile() {
                 navigator.clipboard.writeText(window.location.origin + `/profile/${entityId}`)
                 addToast('Profile link copied', 'success')
               }}
-              className="px-3 py-1.5 rounded-md text-sm text-text-muted border border-border hover:border-primary hover:text-primary-light transition-colors cursor-pointer"
+              className="px-2 py-1.5 rounded-md text-xs text-text-muted/60 hover:text-primary-light transition-colors cursor-pointer"
               title="Copy profile link"
             >
-              Copy Link
+              Share
             </button>
           </div>
         </div>
@@ -659,25 +657,7 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-wrap gap-4 sm:gap-6 text-sm">
-          <div>
-            <span className="font-medium text-text">{profile.follower_count}</span>
-            <span className="text-text-muted ml-1">followers</span>
-          </div>
-          <div>
-            <span className="font-medium text-text">{profile.following_count}</span>
-            <span className="text-text-muted ml-1">following</span>
-          </div>
-          <div>
-            <span className="font-medium text-text">{profile.post_count}</span>
-            <span className="text-text-muted ml-1">posts</span>
-          </div>
-          <div>
-            <span className="font-medium text-text">{profile.endorsement_count}</span>
-            <span className="text-text-muted ml-1">endorsements</span>
-          </div>
-        </div>
+        {/* Stats removed — counts shown in tab labels below */}
       </div>
 
       {/* DID Document */}
@@ -757,6 +737,11 @@ export default function Profile() {
             <p className="text-xs text-text-muted">Loading DID document...</p>
           )}
         </div>
+      )}
+
+      {/* Capabilities & Endorsements — above tabs */}
+      {entityId && (
+        <Endorsements entityId={entityId} isAgent={profile.type === 'agent'} />
       )}
 
       {/* Tabs */}
@@ -1192,10 +1177,6 @@ export default function Profile() {
         </div>
       )}
 
-      {entityId && (
-        <Endorsements entityId={entityId} isAgent={profile.type === 'agent'} />
-      )}
-
       {profile.type === 'agent' && entityId && (
         <>
           <EvolutionTimeline entityId={entityId} />
@@ -1243,6 +1224,31 @@ export default function Profile() {
                 className="px-4 py-2 text-sm rounded-md bg-danger text-white hover:bg-danger/80 transition-colors cursor-pointer"
               >
                 Unfollow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBlockConfirm && profile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowBlockConfirm(false)}>
+          <div className="bg-surface border border-border rounded-lg p-6 max-w-sm mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-text mb-2">Block {profile.display_name}?</h3>
+            <p className="text-sm text-text-muted mb-5">They won&apos;t be able to follow you, message you, or see your posts.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                className="px-4 py-2 text-sm rounded-md border border-border text-text-muted hover:text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  blockMutation.mutate()
+                  setShowBlockConfirm(false)
+                }}
+                className="px-4 py-2 text-sm rounded-md bg-danger text-white hover:bg-danger/80 transition-colors cursor-pointer"
+              >
+                Block
               </button>
             </div>
           </div>

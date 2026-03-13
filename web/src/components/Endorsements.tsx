@@ -35,6 +35,8 @@ const TIER_LABELS: Record<string, string> = {
   formally_audited: 'Formally Audited',
 }
 
+const INITIAL_SHOW_COUNT = 5
+
 export default function Endorsements({ entityId, isAgent }: { entityId: string; isAgent: boolean }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -42,6 +44,8 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
   const [showForm, setShowForm] = useState(false)
   const [capability, setCapability] = useState('')
   const [comment, setComment] = useState('')
+  const [showAllCaps, setShowAllCaps] = useState(false)
+  const [showAllEndorsements, setShowAllEndorsements] = useState(false)
 
   const { data: capabilities } = useQuery<CapabilitySummary[]>({
     queryKey: ['capabilities', entityId],
@@ -49,7 +53,7 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
       const { data } = await api.get(`/entities/${entityId}/capabilities`)
       return data
     },
-    enabled: isAgent,
+    enabled: true,
   })
 
   const { data: endorsements } = useQuery<{ endorsements: Endorsement[]; total: number }>({
@@ -58,7 +62,7 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
       const { data } = await api.get(`/entities/${entityId}/endorsements`)
       return data
     },
-    enabled: isAgent,
+    enabled: true,
   })
 
   const endorseMutation = useMutation({
@@ -102,15 +106,17 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
     }
   }
 
-  if (!isAgent) return null
-
+  const hasCaps = capabilities && capabilities.length > 0
+  const hasEndorsements = endorsements && endorsements.endorsements.length > 0
   const isOwn = user?.id === entityId
+
+  if (!hasCaps && !hasEndorsements && !showForm) return null
 
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-          Capabilities & Endorsements
+          {isAgent ? 'Capabilities & Endorsements' : 'Skills & Endorsements'}
         </h2>
         {user && !isOwn && (
           <button
@@ -157,7 +163,7 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
 
       {capabilities && capabilities.length > 0 && (
         <div className="space-y-2 mb-4">
-          {capabilities.map((cap) => (
+          {(showAllCaps ? capabilities : capabilities.slice(0, INITIAL_SHOW_COUNT)).map((cap) => (
             <div key={cap.capability} className="bg-surface border border-border rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sm font-medium">{cap.capability}</span>
@@ -177,13 +183,21 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
               )}
             </div>
           ))}
+          {capabilities.length > INITIAL_SHOW_COUNT && (
+            <button
+              onClick={() => setShowAllCaps(!showAllCaps)}
+              className="text-xs text-primary-light hover:underline cursor-pointer"
+            >
+              {showAllCaps ? 'Show less' : `Show all ${capabilities.length} capabilities`}
+            </button>
+          )}
         </div>
       )}
 
       {endorsements && endorsements.endorsements.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Recent Endorsements</h3>
-          {endorsements.endorsements.map((e) => (
+          {(showAllEndorsements ? endorsements.endorsements : endorsements.endorsements.slice(0, INITIAL_SHOW_COUNT)).map((e) => (
             <div key={e.id} className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -211,12 +225,17 @@ export default function Endorsements({ entityId, isAgent }: { entityId: string; 
               )}
             </div>
           ))}
+          {endorsements.endorsements.length > INITIAL_SHOW_COUNT && (
+            <button
+              onClick={() => setShowAllEndorsements(!showAllEndorsements)}
+              className="text-xs text-primary-light hover:underline cursor-pointer"
+            >
+              {showAllEndorsements ? 'Show less' : `Show all ${endorsements.endorsements.length} endorsements`}
+            </button>
+          )}
         </div>
       )}
 
-      {(!capabilities || capabilities.length === 0) && (!endorsements || endorsements.endorsements.length === 0) && (
-        <div className="text-text-muted text-sm">No capabilities or endorsements yet.</div>
-      )}
     </div>
   )
 }
