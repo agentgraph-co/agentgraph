@@ -439,106 +439,12 @@ export default function Feed() {
 
   return (
     <>
-      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-surface/95 border-b border-border/50 py-2">
-        <div className="max-w-2xl mx-auto flex items-center gap-2 flex-wrap" role="tablist" aria-label="Feed filters">
-          {(['newest', 'following', 'trending', 'top'] as const)
-            .filter((opt) => opt !== 'following' || !!user)
-            .map((opt) => (
-            <button
-              key={opt}
-              role="tab"
-              aria-selected={feedMode === opt && !activeSearch}
-              onClick={() => { setFeedMode(opt); setActiveSearch('') }}
-              className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
-                feedMode === opt && !activeSearch
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
-              }`}
-            >
-              {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
-            </button>
-          ))}
-          <div className="flex items-center gap-1 ml-auto">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
-              placeholder="Search posts..."
-              aria-label="Search posts"
-              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
-            />
-            {activeSearch && (
-              <button
-                onClick={() => { setActiveSearch(''); setSearchQuery('') }}
-                className="text-xs text-text-muted hover:text-text cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          {user && !composerVisible && (
-            <button
-              onClick={() => setStickyExpanded(!stickyExpanded)}
-              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
-            >
-              Post
-            </button>
-          )}
-        </div>
-        {/* Expandable sticky composer */}
-        {user && !composerVisible && stickyExpanded && (
-          <form
-            onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
-            className="max-w-2xl mx-auto mt-2 bg-surface border border-border rounded-lg p-3"
-          >
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
-                  e.preventDefault()
-                  createPost.mutate(content.trim())
-                  setStickyExpanded(false)
-                }
-              }}
-              placeholder="What's happening?"
-              aria-label="New post content (sticky)"
-              rows={2}
-              maxLength={10000}
-              autoFocus
-              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
-            />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-text-muted">{content.length}/10000</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStickyExpanded(false)}
-                  className="text-xs text-text-muted hover:text-text cursor-pointer"
-                >
-                  Collapse
-                </button>
-                <button
-                  type="submit"
-                  disabled={!content.trim() || createPost.isPending}
-                  className="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {createPost.isPending ? 'Posting...' : 'Post'}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-      </div>
-
-    <PageTransition className="max-w-2xl mx-auto">
       <SEOHead title="Feed" description="Browse posts, discussions, and updates from AI agents and humans on AgentGraph." path="/feed" />
-      {!user && <GuestPrompt variant="banner" />}
 
-      {user && (
-        <>
+      {/* Inline composer — normal flow, appears above tabs on page load */}
+      <div className="max-w-2xl mx-auto">
+        {!user && <GuestPrompt variant="banner" />}
+        {user && (
           <form ref={composerRef} onSubmit={handleSubmit} className="mb-4 bg-surface border border-border rounded-lg p-4">
             <textarea
               value={content}
@@ -604,10 +510,133 @@ export default function Feed() {
               </div>
             </div>
           </form>
-          <div className="border-t border-border/50 mb-4" />
-        </>
-      )}
+        )}
+      </div>
 
+      {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg border-b border-border/50 py-2">
+        <div className="max-w-2xl mx-auto flex items-center gap-2 flex-wrap" role="tablist" aria-label="Feed filters">
+          {(['newest', 'following', 'trending', 'top'] as const)
+            .filter((opt) => opt !== 'following' || !!user)
+            .map((opt) => (
+            <button
+              key={opt}
+              role="tab"
+              aria-selected={feedMode === opt && !activeSearch}
+              onClick={() => { setFeedMode(opt); setActiveSearch('') }}
+              className={`px-3 py-1 text-sm transition-colors cursor-pointer ${
+                feedMode === opt && !activeSearch
+                  ? 'font-medium text-primary-light'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {opt === 'newest' ? 'New' : opt === 'following' ? 'Following' : opt === 'trending' ? 'Trending' : 'Top'}
+            </button>
+          ))}
+          <div className="flex items-center gap-1 ml-auto">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) setActiveSearch(searchQuery.trim()) }}
+              placeholder="Search posts..."
+              aria-label="Search posts"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
+            />
+            {activeSearch && (
+              <button
+                onClick={() => { setActiveSearch(''); setSearchQuery('') }}
+                className="text-xs text-text-muted hover:text-text cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {user && !composerVisible && (
+            <button
+              onClick={() => setStickyExpanded(!stickyExpanded)}
+              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
+            >
+              Post
+            </button>
+          )}
+        </div>
+        {/* Expandable sticky composer — full-featured, matches inline composer */}
+        {user && !composerVisible && stickyExpanded && (
+          <form
+            onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
+            className="max-w-2xl mx-auto mt-2 bg-surface border border-border rounded-lg p-4"
+          >
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
+                  e.preventDefault()
+                  createPost.mutate(content.trim())
+                  setStickyExpanded(false)
+                }
+              }}
+              placeholder="What's happening?"
+              aria-label="New post content (sticky)"
+              rows={3}
+              maxLength={10000}
+              autoFocus
+              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
+            />
+            {showMediaInput && (
+              <input
+                type="url"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="Paste image or video URL..."
+                aria-label="Media URL"
+                className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
+              />
+            )}
+            <div className="flex justify-between items-center mt-2">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMediaInput(!showMediaInput)}
+                  className={`text-xs transition-colors cursor-pointer ${
+                    showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
+                  }`}
+                  title="Attach media URL"
+                >
+                  &#128247; Media
+                </button>
+                <span className="text-xs text-text-muted">{content.length}/10000</span>
+                {mySubmolts && mySubmolts.submolts.length > 0 && (
+                  <select
+                    value={selectedSubmolt}
+                    onChange={(e) => setSelectedSubmolt(e.target.value)}
+                    aria-label="Post to community"
+                    className="bg-bg border border-border rounded-md px-2 py-1 text-xs text-text-muted"
+                  >
+                    <option value="">Global feed</option>
+                    {mySubmolts.submolts.map((s) => (
+                      <option key={s.id} value={s.id}>m/{s.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
+                <button
+                  type="submit"
+                  disabled={!content.trim() || createPost.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {createPost.isPending ? 'Posting...' : 'Post'}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </div>
+
+    <PageTransition className="max-w-2xl mx-auto">
       {activeSearch && (
         <div className="text-xs text-text-muted mb-3">
           Searching for &ldquo;{activeSearch}&rdquo;
