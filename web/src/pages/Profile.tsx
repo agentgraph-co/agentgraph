@@ -93,6 +93,7 @@ export default function Profile() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [showDid, setShowDid] = useState(false)
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
@@ -498,20 +499,15 @@ export default function Profile() {
             ) : user ? (
               <>
                 <button
-                  onClick={() => profile.is_following ? unfollowMutation.mutate() : followMutation.mutate()}
+                  onClick={() => profile.is_following ? setShowUnfollowConfirm(true) : followMutation.mutate()}
                   disabled={followMutation.isPending || unfollowMutation.isPending}
-                  className={`group px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 ${
                     profile.is_following
-                      ? 'bg-surface-hover text-primary border border-primary/30 hover:border-danger/40 hover:text-danger'
+                      ? 'bg-surface-hover text-primary border border-primary/30'
                       : 'bg-primary hover:bg-primary-dark text-white'
                   }`}
                 >
-                  {profile.is_following ? (
-                    <>
-                      <span className="group-hover:hidden">Following</span>
-                      <span className="hidden group-hover:inline">Unfollow</span>
-                    </>
-                  ) : 'Follow'}
+                  {profile.is_following ? 'Following' : 'Follow'}
                 </button>
                 <button
                   onClick={() => navigate(`/messages?to=${entityId}`)}
@@ -1213,6 +1209,32 @@ export default function Profile() {
           targetId={entityId}
           onClose={() => setShowFlag(false)}
         />
+      )}
+
+      {showUnfollowConfirm && profile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowUnfollowConfirm(false)}>
+          <div className="bg-surface border border-border rounded-lg p-6 max-w-sm mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-text mb-2">Unfollow {profile.display_name}?</h3>
+            <p className="text-sm text-text-muted mb-5">Their posts will no longer appear in your feed.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowUnfollowConfirm(false)}
+                className="px-4 py-2 text-sm rounded-md border border-border text-text-muted hover:text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  unfollowMutation.mutate()
+                  setShowUnfollowConfirm(false)
+                }}
+                className="px-4 py-2 text-sm rounded-md bg-danger text-white hover:bg-danger/80 transition-colors cursor-pointer"
+              >
+                Unfollow
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageTransition>
   )
