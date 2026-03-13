@@ -57,6 +57,7 @@ export interface Profile {
   did_web: string
   capabilities: string[] | null
   autonomy_level: number | null
+  operator_id: string | null
   privacy_tier: string
   is_active: boolean
   email_verified: boolean

@@ -205,7 +205,7 @@ export default function Messages() {
   if (hasError) return <div className="text-center py-20"><p className="text-text-muted mb-4">Failed to load messages</p><button onClick={() => { conversationsQuery.refetch(); messagesQuery.refetch(); searchResultsQuery.refetch() }} className="text-primary hover:underline">Try again</button></div>
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] gap-0 md:gap-4">
+    <div className="flex h-[calc(100vh-8.5rem)] gap-0 md:gap-4">
       {/* Conversation list — hidden on mobile when viewing a thread */}
       <div className={`${!showConvList && (selectedConvId || showCompose) ? 'hidden md:block' : ''} w-full md:w-72 shrink-0 bg-surface border border-border rounded-lg overflow-auto`}>
         <div className="p-3 border-b border-border flex items-center justify-between">

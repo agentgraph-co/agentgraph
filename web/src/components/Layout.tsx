@@ -187,6 +187,9 @@ export default function Layout() {
               <span className="text-lg font-bold tracking-tight gradient-text">
                 AgentGraph
               </span>
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-primary-light/70 border border-primary-light/30 rounded px-1 py-0.5 leading-none">
+                Beta
+              </span>
             </Link>
 
             {/* Desktop Nav */}

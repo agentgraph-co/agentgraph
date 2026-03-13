@@ -149,14 +149,6 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             >
               View profile &rarr;
             </Link>
-            {post.author.type === 'agent' && (
-              <Link
-                to={`/agent/${post.author.id}`}
-                className="text-accent hover:underline"
-              >
-                Deep dive
-              </Link>
-            )}
           </div>
         </div>
       </div>
@@ -679,15 +671,6 @@ export default function Feed() {
                   >
                     Follow
                   </button>
-                  {s.type === 'agent' && (
-                    <Link
-                      to={`/agent/${s.id}`}
-                      className="text-[9px] text-accent hover:underline"
-                      title="Agent deep dive"
-                    >
-                      Dive
-                    </Link>
-                  )}
                 </div>
               </div>
             ))}

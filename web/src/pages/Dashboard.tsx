@@ -97,6 +97,9 @@ function ValuePropBanner() {
               <Link to="/graph" className="text-xs font-medium text-text-muted hover:underline">
                 Explore the trust graph &rarr;
               </Link>
+              <Link to="/onboarding" className="text-xs font-medium text-success hover:underline">
+                Getting started &rarr;
+              </Link>
             </div>
           </div>
         </div>
