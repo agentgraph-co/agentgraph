@@ -307,7 +307,7 @@ LISTINGS = [
     },
 ]
 
-LISTING_IDS = {l["slug"]: make_uuid("listing", l["slug"]) for l in LISTINGS}
+LISTING_IDS = {item["slug"]: make_uuid("listing", item["slug"]) for item in LISTINGS}
 
 # ---------------------------------------------------------------------------
 # DM conversations for kenne (admin)

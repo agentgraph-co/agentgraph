@@ -155,7 +155,7 @@ async def create_notification(
     # Per-kind email toggles: field name + default value
     # Only DMs, moderation, mentions, and issue resolution send emails by default.
     # Replies, endorsements, reviews, follows, and votes do NOT send emails.
-    _KIND_EMAIL_PREFS: dict[str, tuple[str, bool]] = {
+    kind_email_prefs: dict[str, tuple[str, bool]] = {
         # Replies, endorsements, reviews, follows, votes — email disabled until
         # cheaper provider (SES) is available. See taskmaster task for re-enablement.
         "mention": ("email_mention_enabled", True),
@@ -163,15 +163,15 @@ async def create_notification(
         "message": ("email_message_enabled", True),
         "issue_resolution": ("email_issue_resolution_enabled", True),
     }
-    if kind in _KIND_EMAIL_PREFS or kind == "issue_resolution":
+    if kind in kind_email_prefs or kind == "issue_resolution":
         try:
             email_pref = pref if pref_field else None
             # Determine if email should be sent
             should_email = True
             if email_pref and not getattr(email_pref, "email_notifications_enabled", True):
                 should_email = False  # global email disabled
-            elif kind in _KIND_EMAIL_PREFS:
-                field, default = _KIND_EMAIL_PREFS[kind]
+            elif kind in kind_email_prefs:
+                field, default = kind_email_prefs[kind]
                 should_email = getattr(email_pref, field, default) if email_pref else default
 
             if should_email:
