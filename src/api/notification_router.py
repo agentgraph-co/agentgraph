@@ -152,7 +152,7 @@ async def create_notification(
         logger.warning("WebSocket delivery failed", exc_info=True)
 
     # Send email notification for social events (fire-and-forget)
-    if kind in ("reply", "follow", "mention", "vote", "issue_resolution"):
+    if kind in ("reply", "mention", "issue_resolution"):
         try:
             email_pref = pref if pref_field else None
             if not email_pref or getattr(email_pref, "email_notifications_enabled", True):
