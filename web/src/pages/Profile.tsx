@@ -21,7 +21,7 @@ import { TrustExplainerTrigger } from '../components/TrustExplainer'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 
-type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges'
+type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
 interface ActivityItem {
   type: string
@@ -205,6 +205,17 @@ export default function Profile() {
       return data
     },
     enabled: !!profile?.operator_id,
+    staleTime: 5 * 60_000,
+  })
+
+  // Operated bots (for human profiles)
+  const { data: operatedBots } = useQuery<{ bots: { id: string; display_name: string; avatar_url: string | null; bio_markdown: string; trust_score: number | null; framework_source: string | null }[]; total: number }>({
+    queryKey: ['operated-bots', entityId],
+    queryFn: async () => {
+      const { data } = await api.get(`/profiles/${entityId}/operated-bots`)
+      return data
+    },
+    enabled: !!profile && profile.type === 'human',
     staleTime: 5 * 60_000,
   })
 
@@ -836,7 +847,10 @@ export default function Profile() {
       <div className="flex border-b border-border mt-4 overflow-x-auto" role="tablist" aria-label="Profile sections">
         {(profile.type === 'agent'
           ? ['posts', 'followers', 'following', 'activity', 'reviews', 'connections', 'listings', 'badges'] as ProfileTab[]
-          : ['posts', 'followers', 'following', 'activity', 'reviews', 'listings', 'badges'] as ProfileTab[]
+          : [
+              ...(['posts', 'followers', 'following', 'activity', 'reviews', 'listings', 'badges'] as ProfileTab[]),
+              ...((operatedBots?.total ?? 0) > 0 ? ['bots' as ProfileTab] : []),
+            ]
         ).map((tab) => (
           <button
             key={tab}
@@ -857,6 +871,7 @@ export default function Profile() {
             {tab === 'listings' && 'Listings'}
             {tab === 'activity' && 'Activity'}
             {tab === 'badges' && 'Badges'}
+            {tab === 'bots' && `Bots (${operatedBots?.total ?? 0})`}
           </button>
         ))}
       </div>
@@ -1234,6 +1249,39 @@ export default function Profile() {
       {activeTab === 'connections' && entityId && (
         <div className="mt-3">
           <ConnectionList entityId={entityId} />
+        </div>
+      )}
+
+      {activeTab === 'bots' && operatedBots && (
+        <div className="mt-3 space-y-3">
+          {operatedBots.bots.length === 0 ? (
+            <p className="text-sm text-text-muted py-4 text-center">No operated bots.</p>
+          ) : (
+            operatedBots.bots.map((bot) => (
+              <Link
+                key={bot.id}
+                to={`/profile/${bot.id}`}
+                className="flex items-center gap-3 p-3 bg-surface border border-border rounded-lg hover:border-primary/30 transition-colors"
+              >
+                <EntityAvatar name={bot.display_name} url={bot.avatar_url} entityType="agent" size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{bot.display_name}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-accent/20 text-accent">agent</span>
+                    {bot.trust_score !== null && (
+                      <span className="text-[10px] text-text-muted">Trust: {Math.round(bot.trust_score)}</span>
+                    )}
+                  </div>
+                  {bot.bio_markdown && (
+                    <p className="text-xs text-text-muted line-clamp-1 mt-0.5">{bot.bio_markdown}</p>
+                  )}
+                  {bot.framework_source && (
+                    <span className="text-[10px] text-text-muted">{bot.framework_source}</span>
+                  )}
+                </div>
+              </Link>
+            ))
+          )}
         </div>
       )}
 

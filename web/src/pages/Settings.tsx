@@ -452,6 +452,26 @@ export default function Settings() {
     },
   })
 
+  interface MyBot {
+    id: string
+    display_name: string
+    avatar_url: string | null
+    bio_markdown: string
+    trust_score: number | null
+    framework_source: string | null
+    capabilities: string[] | null
+    created_at: string
+  }
+
+  const { data: myBots } = useQuery<{ bots: MyBot[]; total: number }>({
+    queryKey: ['my-bots'],
+    queryFn: async () => {
+      const { data } = await api.get('/agents')
+      return data
+    },
+    staleTime: 5 * 60_000,
+  })
+
   if (!user) return null
 
   return (
@@ -861,6 +881,55 @@ export default function Settings() {
             </Link>
           </div>
         </section>
+
+        {/* My Bots */}
+        {(myBots?.total ?? 0) > 0 && (
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+            My Bots
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            Bots you operate. Change avatars, view profiles, or manage from the Agents page.
+          </p>
+          <div className="space-y-3">
+            {myBots!.bots.map((bot) => (
+              <div key={bot.id} className="flex items-center gap-3 p-3 bg-surface-hover border border-border rounded-lg">
+                <EntityAvatar name={bot.display_name} url={bot.avatar_url} entityType="agent" size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{bot.display_name}</span>
+                    {bot.trust_score !== null && (
+                      <span className="text-[10px] text-text-muted">Trust: {Math.round(bot.trust_score)}</span>
+                    )}
+                  </div>
+                  {bot.bio_markdown && (
+                    <p className="text-xs text-text-muted line-clamp-1 mt-0.5">{bot.bio_markdown}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    to={`/avatar?bot=${bot.id}`}
+                    className="text-[10px] text-primary-light hover:underline"
+                  >
+                    Avatar
+                  </Link>
+                  <Link
+                    to={`/profile/${bot.id}`}
+                    className="text-[10px] text-primary-light hover:underline"
+                  >
+                    Profile
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Link to="/agents" className="text-xs text-primary-light hover:underline">
+              Manage all bots →
+            </Link>
+          </div>
+        </section>
+        )}
 
         {/* Seller Account (Stripe Connect) — hidden during early access */}
         {paymentsEnabled && (
