@@ -147,7 +147,7 @@ export default function Marketplace() {
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg py-2">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2">
         <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Marketplace categories">
           {CATEGORIES.map((cat) => (
             <button

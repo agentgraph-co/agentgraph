@@ -41,7 +41,7 @@ export default function Leaderboard() {
   return (
     <>
       {/* Sticky sub-header — outside PageTransition to avoid framer-motion transform */}
-      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg py-2">
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 backdrop-blur-sm py-2">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5" role="tablist" aria-label="Leaderboard metric">
             {([
@@ -73,7 +73,7 @@ export default function Leaderboard() {
                 onClick={() => setEntityType(t)}
                 className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                   entityType === t
-                    ? 'bg-primary/10 text-primary-light border border-primary/30'
+                    ? 'bg-surface-hover text-text font-medium border border-border'
                     : 'text-text-muted hover:text-text border border-transparent'
                 }`}
               >
