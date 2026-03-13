@@ -3050,6 +3050,17 @@
         "details": "The moderation policy prohibits CSAM but does not mention the legal obligation to report to NCMEC CyberTipline. AgentGraph is registered as an ESP with NCMEC. Add a paragraph:\n'AgentGraph is registered with the National Center for Missing & Exploited Children (NCMEC). Any CSAM discovered on the Platform is reported to the NCMEC CyberTipline as required by federal law (18 U.S.C. 2258A).'",
         "testStrategy": "Review Moderation Policy page.",
         "subtasks": []
+      },
+      {
+        "id": 100,
+        "title": "Re-enable email notifications for replies, endorsements, reviews, followers, votes",
+        "description": "Once a cheaper email provider like AWS SES is available, re-enable email notification options for: Replies to your posts, Endorsements, Reviews on your listings, New followers, Votes on your content. These were removed from the UI and backend email dispatch (notification_router.py _KIND_EMAIL_PREFS) to save on Resend email costs. The DB columns (email_reply_enabled, email_endorsement_enabled, email_review_enabled, email_follow_enabled, email_vote_enabled) still exist in the NotificationPreference model \u2014 just need to add them back to _KIND_EMAIL_PREFS, the API response/request schemas, and the Settings.tsx EMAIL_LABELS / NotifPrefs interface.",
+        "status": "deferred",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Files to update: src/api/notification_router.py (_KIND_EMAIL_PREFS, NotificationPreferencesResponse, UpdatePreferencesRequest, GET/PATCH return statements), web/src/pages/Settings.tsx (EMAIL_LABELS, NotifPrefs interface). DB columns already exist \u2014 no migration needed.",
+        "testStrategy": "Verify email sends for all 5 re-enabled types. Check Settings UI shows toggles. Run pytest for notification preference endpoints.",
+        "subtasks": []
       }
     ],
     "metadata": {
