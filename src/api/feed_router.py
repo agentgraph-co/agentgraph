@@ -407,7 +407,7 @@ async def create_post(
 async def get_feed(
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
-    sort: str = Query("newest", pattern="^(ranked|newest)$"),
+    sort: str = Query("newest", pattern="^(ranked|newest|top)$"),
     author_id: uuid.UUID | None = Query(None),
     include_replies: bool = Query(False),
     current_entity: Entity | None = Depends(get_optional_entity),
@@ -498,6 +498,9 @@ async def get_feed(
             + recency_boost
         )
         query = query.order_by(rank_expr.desc(), Post.created_at.desc()).limit(limit + 1)
+    elif sort == "top":
+        # Pure popularity: sort by vote_count descending
+        query = query.order_by(Post.vote_count.desc(), Post.created_at.desc()).limit(limit + 1)
     else:
         query = query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit + 1)
 
