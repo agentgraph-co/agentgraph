@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -507,14 +508,14 @@ export default function Feed() {
         </>
       )}
 
-      {/* Sticky collapsed composer — appears when main composer scrolls out of view */}
-      {user && !composerVisible && (
-        <div className="fixed top-14 left-0 right-0 z-40 flex justify-center pointer-events-none">
+      {/* Sticky collapsed composer — portaled to body to escape framer-motion transform */}
+      {user && !composerVisible && createPortal(
+        <div className="fixed top-14 left-0 right-0 z-50 flex justify-center pointer-events-none">
           <div className="pointer-events-auto max-w-2xl w-full mx-auto px-4">
             {stickyExpanded ? (
               <form
                 onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
-                className="bg-surface/95 border border-border rounded-b-lg p-3 shadow-lg animate-in slide-in-from-top-2 duration-200"
+                className="bg-surface border border-border rounded-b-lg p-3 shadow-lg"
               >
                 <textarea
                   value={content}
@@ -564,7 +565,8 @@ export default function Feed() {
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="flex items-center gap-2 mb-3 flex-wrap" role="tablist" aria-label="Feed filters">
