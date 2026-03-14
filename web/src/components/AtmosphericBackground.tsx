@@ -67,6 +67,7 @@ const exactRoutes: Record<string, Intensity> = {
   '/my-listings': 'subtle',
   '/tools': 'subtle',
   '/bot-onboarding': 'medium',
+  '/developers': 'medium',
   '/admin': 'none',
 }
 

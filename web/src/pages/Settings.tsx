@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -183,6 +183,144 @@ function SellerAccountSection() {
         </button>
       )}
     </div>
+  )
+}
+
+// ─── Linked Accounts Section ───
+
+interface LinkedAccountInfo {
+  id: string
+  provider: string
+  provider_username: string | null
+  verification_status: string
+  reputation_score: number
+  reputation_data: Record<string, unknown>
+  last_synced_at: string | null
+  created_at: string | null
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  github: 'GitHub',
+  npm: 'npm',
+  pypi: 'PyPI',
+  huggingface: 'HuggingFace',
+}
+
+function LinkedAccountsSection() {
+  const queryClient = useQueryClient()
+  const { addToast } = useToast()
+  const [searchParams] = useSearchParams()
+
+  const { data: accounts, isLoading } = useQuery<LinkedAccountInfo[]>({
+    queryKey: ['linked-accounts'],
+    queryFn: async () => {
+      const { data } = await api.get('/linked-accounts')
+      return data
+    },
+    staleTime: 30_000,
+  })
+
+  // Show success toast on return from OAuth
+  useEffect(() => {
+    if (searchParams.get('linked') === 'github' && searchParams.get('status') === 'success') {
+      addToast('GitHub account linked successfully!', 'success')
+      queryClient.invalidateQueries({ queryKey: ['linked-accounts'] })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const unlinkMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      await api.delete(`/linked-accounts/${provider}`)
+    },
+    onSuccess: () => {
+      addToast('Account unlinked', 'success')
+      queryClient.invalidateQueries({ queryKey: ['linked-accounts'] })
+    },
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      const { data } = await api.post(`/linked-accounts/${provider}/sync`)
+      return data
+    },
+    onSuccess: () => {
+      addToast('Reputation data synced', 'success')
+      queryClient.invalidateQueries({ queryKey: ['linked-accounts'] })
+    },
+  })
+
+  const githubLinked = accounts?.some(a => a.provider === 'github')
+
+  return (
+    <section className="bg-surface border border-border rounded-lg p-5">
+      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+        Linked Accounts
+      </h2>
+      <p className="text-xs text-text-muted mb-4">
+        Connect external accounts to boost your trust score with verified reputation data.
+      </p>
+
+      {isLoading ? (
+        <InlineSkeleton />
+      ) : (
+        <>
+          {accounts && accounts.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {accounts.map(acct => (
+                <div key={acct.id} className="flex items-center justify-between p-3 bg-bg rounded-lg border border-border">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-text">
+                      {PROVIDER_LABELS[acct.provider] || acct.provider}
+                    </span>
+                    {acct.provider_username && (
+                      <span className="text-xs text-text-muted">@{acct.provider_username}</span>
+                    )}
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      acct.verification_status.includes('verified')
+                        ? 'bg-success/20 text-success'
+                        : 'bg-warning/20 text-warning'
+                    }`}>
+                      {acct.verification_status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted">
+                      Rep: {(acct.reputation_score * 100).toFixed(0)}%
+                    </span>
+                    <button
+                      onClick={() => syncMutation.mutate(acct.provider)}
+                      disabled={syncMutation.isPending}
+                      className="text-xs text-primary-light hover:text-primary transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Sync
+                    </button>
+                    <button
+                      onClick={() => unlinkMutation.mutate(acct.provider)}
+                      disabled={unlinkMutation.isPending}
+                      className="text-xs text-danger hover:text-danger/80 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!githubLinked && (
+            <a
+              href="/api/v1/linked-accounts/github/connect"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-md text-sm text-text hover:border-primary/50 transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              Connect GitHub
+            </a>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -1090,6 +1228,9 @@ export default function Settings() {
             <p className="text-xs text-text-muted">Loading audit log...</p>
           )}
         </section>
+
+        {/* Linked Accounts */}
+        <LinkedAccountsSection />
 
         {/* Danger Zone */}
         <section className="bg-surface border border-danger/30 rounded-lg p-5">

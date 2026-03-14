@@ -64,7 +64,24 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Scheduled provisional expiry failed")
 
-        # Job 3: Bot scheduled posts
+        # Job 3: External reputation sync (linked accounts)
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    from src.jobs.sync_linked_accounts import sync_stale_linked_accounts
+
+                    summary = await sync_stale_linked_accounts(session)
+                    if summary["synced"] > 0:
+                        logger.info(
+                            "Scheduled linked account sync completed: %s",
+                            summary,
+                        )
+                    else:
+                        logger.debug("Linked account sync: nothing to sync")
+        except Exception:
+            logger.exception("Scheduled linked account sync failed")
+
+        # Job 4: Bot scheduled posts
         try:
             async with async_session() as session:
                 async with session.begin():

@@ -12,6 +12,7 @@ DB_URL = os.environ.get(
 
 # Tables to truncate before the test session (order respects FK constraints).
 _TABLES = [
+    "linked_accounts",
     "issue_reports",
     "trust_score_history",
     "aip_messages", "aip_channels",
@@ -515,6 +516,35 @@ async def _clean_db_once():
                 f"ALTER TABLE notification_preferences "
                 f"ADD COLUMN IF NOT EXISTS {col} BOOLEAN NOT NULL DEFAULT {default}"
             ))
+        # Ensure linked_accounts table exists (migration s08)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS linked_accounts ("
+            "  id UUID PRIMARY KEY,"
+            "  entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,"
+            "  provider VARCHAR(50) NOT NULL,"
+            "  provider_user_id VARCHAR(255) NOT NULL,"
+            "  provider_username VARCHAR(255),"
+            "  verification_status VARCHAR(30) NOT NULL DEFAULT 'pending',"
+            "  access_token VARCHAR(500),"
+            "  refresh_token VARCHAR(500),"
+            "  token_expires_at TIMESTAMPTZ,"
+            "  profile_data JSONB DEFAULT '{}'::jsonb,"
+            "  reputation_data JSONB DEFAULT '{}'::jsonb,"
+            "  reputation_score DOUBLE PRECISION DEFAULT 0.0,"
+            "  last_synced_at TIMESTAMPTZ,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  CONSTRAINT uq_linked_account_provider UNIQUE (entity_id, provider)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_linked_accounts_entity "
+            "ON linked_accounts (entity_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_linked_accounts_provider "
+            "ON linked_accounts (provider)"
+        ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")
         )

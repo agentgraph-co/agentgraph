@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
 import SEOHead from '../components/SEOHead'
 
@@ -124,8 +125,21 @@ export default function BotOnboarding() {
   const [claimError, setClaimError] = useState('')
   const [claimSuccess, setClaimSuccess] = useState<ClaimResponse | null>(null)
 
+  const [searchParams] = useSearchParams()
+
   useEffect(() => { document.title = 'Bot Onboarding - AgentGraph' }, [])
   useEffect(() => () => clearTimeout(copyTimer.current), [])
+
+  // Pre-select template from ?framework= URL param
+  useEffect(() => {
+    const fw = searchParams.get('framework')
+    if (fw && templates && !selectedTemplate) {
+      const match = templates.find(
+        t => t.suggested_framework === fw || t.key === fw
+      )
+      if (match) selectTemplate(match)
+    }
+  }, [searchParams, templates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll refs
   const formRef = useRef<HTMLDivElement>(null)

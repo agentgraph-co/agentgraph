@@ -2092,3 +2092,43 @@ class IssueReport(Base):
         Index("ix_issue_reports_reporter", "reporter_entity_id"),
         Index("ix_issue_reports_type_status", "issue_type", "status"),
     )
+
+
+class LinkedAccount(Base):
+    """External account linked to an entity for reputation aggregation."""
+
+    __tablename__ = "linked_accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider = Column(String(50), nullable=False)  # "github", "npm", "pypi", "huggingface"
+    provider_user_id = Column(String(255), nullable=False)
+    provider_username = Column(String(255), nullable=True)
+    verification_status = Column(
+        String(30), default="pending", nullable=False,
+    )  # "pending", "verified_oauth", "verified_challenge", "unverified_claim"
+    access_token = Column(String(500), nullable=True)  # encrypted
+    refresh_token = Column(String(500), nullable=True)  # encrypted
+    token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    profile_data = Column(JSONB, default=dict)  # raw API snapshot
+    reputation_data = Column(JSONB, default=dict)  # computed metrics
+    reputation_score = Column(Float, default=0.0)  # 0.0–1.0 normalized
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("entity_id", "provider", name="uq_linked_account_provider"),
+        Index("ix_linked_accounts_entity", "entity_id"),
+        Index("ix_linked_accounts_provider", "provider"),
+    )

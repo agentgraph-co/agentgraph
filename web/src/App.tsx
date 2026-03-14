@@ -67,6 +67,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Disputes = lazy(() => import('./pages/Disputes'))
 const Legal = lazy(() => import('./pages/Legal'))
 const BotOnboarding = lazy(() => import('./pages/BotOnboarding'))
+const Developers = lazy(() => import('./pages/Developers'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const AvatarPicker = lazy(() => import('./pages/AvatarPicker'))
 
@@ -138,6 +139,7 @@ function AppRoutes() {
           <Route path="/agent/:entityId" element={<AgentRedirect />} />
           <Route path="/legal/:section" element={<Legal />} />
           <Route path="/bot-onboarding" element={<BotOnboarding />} />
+          <Route path="/developers" element={<Developers />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />

@@ -37,6 +37,7 @@ from src.api.credentials_router import router as credentials_router
 from src.api.crewai_router import router as crewai_router
 from src.api.crosslink_router import router as crosslink_router
 from src.api.data_products_router import router as data_products_router
+from src.api.developer_hub_router import router as developer_hub_router
 from src.api.did_router import router as did_router
 from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
@@ -49,6 +50,7 @@ from src.api.graph_router import router as graph_router
 from src.api.insights_router import router as insights_router
 from src.api.interaction_router import router as interaction_router
 from src.api.langchain_router import router as langchain_router
+from src.api.linked_accounts_router import router as linked_accounts_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
@@ -461,6 +463,7 @@ app.include_router(compliance_router, prefix=settings.api_v1_prefix)
 app.include_router(credentials_router, prefix=settings.api_v1_prefix)
 app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
 app.include_router(data_products_router, prefix=settings.api_v1_prefix)
+app.include_router(developer_hub_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_embed_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_router, prefix=settings.api_v1_prefix)
@@ -479,6 +482,7 @@ app.include_router(interaction_router, prefix=settings.api_v1_prefix)
 app.include_router(crewai_router, prefix=settings.api_v1_prefix)
 app.include_router(autogen_router, prefix=settings.api_v1_prefix)
 app.include_router(langchain_router, prefix=settings.api_v1_prefix)
+app.include_router(linked_accounts_router, prefix=settings.api_v1_prefix)
 app.include_router(profile_router, prefix=settings.api_v1_prefix)
 app.include_router(ratelimit_router, prefix=settings.api_v1_prefix)
 app.include_router(search_router, prefix=settings.api_v1_prefix)

@@ -328,6 +328,7 @@ def _build_component_breakdowns(
         ACTIVITY_WEIGHT,
         AGE_WEIGHT,
         COMMUNITY_WEIGHT,
+        EXTERNAL_WEIGHT,
         REPUTATION_WEIGHT,
         VERIFICATION_WEIGHT,
     )
@@ -338,6 +339,7 @@ def _build_component_breakdowns(
         "activity": ACTIVITY_WEIGHT,
         "reputation": REPUTATION_WEIGHT,
         "community": COMMUNITY_WEIGHT,
+        "external_reputation": EXTERNAL_WEIGHT,
     }
 
     descriptions = {
@@ -346,6 +348,7 @@ def _build_component_breakdowns(
         "activity": "Recent activity (posts + votes in last 30 days, log-scaled)",
         "reputation": "Reviews and endorsements from the community",
         "community": "Trust attestations weighted by attester credibility",
+        "external_reputation": "Reputation from linked external accounts (GitHub, npm, etc.)",
     }
 
     breakdowns = []
@@ -441,8 +444,9 @@ async def get_methodology():
     """Public endpoint explaining how trust scores are computed."""
     return MethodologyResponse(
         formula=(
-            "score = 0.35 * verification + 0.10 * age "
-            "+ 0.20 * activity + 0.15 * reputation + 0.20 * community"
+            "score = 0.30 * verification + 0.08 * age "
+            "+ 0.18 * activity + 0.14 * reputation "
+            "+ 0.18 * community + 0.12 * external_reputation"
         ),
         components=COMPONENTS,
         dual_scores=DualScoreExplanation(
