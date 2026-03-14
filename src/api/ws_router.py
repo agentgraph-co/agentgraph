@@ -84,21 +84,29 @@ async def websocket_endpoint(
     Query parameters:
         channels: comma-separated channel names (feed, notifications, activity)
     """
-    try:
-        await websocket.accept()
-    except RuntimeError:
-        return
-
     entity_id: str | None = None
 
-    # Method 1: token in query param (backward compatible)
+    # Method 1: token in query param — authenticate BEFORE accept to avoid
+    # ASGI state errors from accepting then immediately closing.
     if token:
         entity_id = await _authenticate_ws(token)
         if entity_id is None:
-            await _safe_close(websocket, 4001, "Authentication failed")
+            try:
+                await websocket.close(code=4001, reason="Authentication failed")
+            except (RuntimeError, WebSocketDisconnect):
+                pass
+            return
+        try:
+            await websocket.accept()
+        except (RuntimeError, WebSocketDisconnect):
             return
     else:
-        # Method 2: wait for auth message as first message
+        # Method 2: must accept first, then wait for auth message
+        try:
+            await websocket.accept()
+        except (RuntimeError, WebSocketDisconnect):
+            return
+
         try:
             raw = await websocket.receive_text()
             msg = json.loads(raw)

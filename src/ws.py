@@ -216,6 +216,12 @@ class ConnectionManager:
         except asyncio.TimeoutError:
             logger.debug("WebSocket send timeout, disconnecting slow client")
             return False
+        except RuntimeError as e:
+            # Log ASGI state errors that were previously silent
+            err_str = str(e).lower()
+            if "websocket.accept" in err_str or "websocket.send" in err_str:
+                logger.debug("WebSocket ASGI state error (stale connection): %s", e)
+            return False
         except Exception:
             return False
 
