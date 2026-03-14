@@ -274,6 +274,7 @@ async def test_all_tables_exist(db: AsyncSession):
         "framework_security_scans",
         "interaction_events",
         "issue_reports",
+        "linked_accounts",
         "listing_reviews",
         "listings",
         "moderation_appeals",

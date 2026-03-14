@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
 
+    # GitHub OAuth
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

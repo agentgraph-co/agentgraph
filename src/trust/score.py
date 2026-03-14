@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models import (
     CapabilityEndorsement,
     Entity,
+    LinkedAccount,
     Post,
     Review,
     TrustAttestation,
@@ -18,12 +19,14 @@ from src.models import (
     Vote,
 )
 
-# Weights for trust score components (v2: 5 components)
-VERIFICATION_WEIGHT = 0.35
-AGE_WEIGHT = 0.10
-ACTIVITY_WEIGHT = 0.20
-REPUTATION_WEIGHT = 0.15
-COMMUNITY_WEIGHT = 0.20
+# Weights for trust score components (v3: 6 components)
+# External reputation is additive — 0.0 if no accounts linked
+VERIFICATION_WEIGHT = 0.30
+AGE_WEIGHT = 0.08
+ACTIVITY_WEIGHT = 0.18
+REPUTATION_WEIGHT = 0.14
+COMMUNITY_WEIGHT = 0.18
+EXTERNAL_WEIGHT = 0.12
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
@@ -228,6 +231,37 @@ async def _community_factor(
     return overall, contextual_scores
 
 
+async def _external_reputation_factor(
+    db: AsyncSession, entity_id: uuid.UUID
+) -> float:
+    """External reputation based on linked accounts.
+
+    Returns AVG(reputation_score * verification_weight) across linked accounts.
+    Returns 0.0 if no linked accounts (never penalizes).
+    """
+    from src.external_reputation import VERIFICATION_WEIGHTS
+
+    result = await db.execute(
+        select(LinkedAccount).where(
+            LinkedAccount.entity_id == entity_id,
+        )
+    )
+    accounts = result.scalars().all()
+
+    if not accounts:
+        return 0.0
+
+    total = 0.0
+    count = 0
+    for acct in accounts:
+        weight = VERIFICATION_WEIGHTS.get(acct.verification_status, 0.0)
+        if weight > 0 and acct.reputation_score is not None:
+            total += acct.reputation_score * weight
+            count += 1
+
+    return total / count if count > 0 else 0.0
+
+
 def _update_primary_context(
     entity: Entity,
     contextual_scores: dict[str, float],
@@ -370,6 +404,7 @@ async def compute_trust_score(
     activity = await _activity_factor(db, entity_id)
     reputation = await _reputation_factor(db, entity_id)
     community, contextual_scores = await _community_factor(db, entity_id)
+    external = await _external_reputation_factor(db, entity_id)
 
     score = (
         VERIFICATION_WEIGHT * verification
@@ -377,6 +412,7 @@ async def compute_trust_score(
         + ACTIVITY_WEIGHT * activity
         + REPUTATION_WEIGHT * reputation
         + COMMUNITY_WEIGHT * community
+        + EXTERNAL_WEIGHT * external
     )
 
     # Apply framework trust modifier (e.g. OpenClaw agents start at 0.8x)
@@ -390,6 +426,7 @@ async def compute_trust_score(
         "activity": round(activity, 4),
         "reputation": round(reputation, 4),
         "community": round(community, 4),
+        "external_reputation": round(external, 4),
     }
 
     # Compute primary_context from attestation frequency
@@ -601,6 +638,7 @@ async def batch_recompute(db: AsyncSession) -> int:
 
         # Community factor still needs per-entity query (attestation data is complex)
         community, contextual_scores = await _community_factor(db, eid)
+        external = await _external_reputation_factor(db, eid)
 
         score = (
             VERIFICATION_WEIGHT * verification
@@ -608,6 +646,7 @@ async def batch_recompute(db: AsyncSession) -> int:
             + ACTIVITY_WEIGHT * activity
             + REPUTATION_WEIGHT * reputation
             + COMMUNITY_WEIGHT * community
+            + EXTERNAL_WEIGHT * external
         )
 
         framework_modifier = getattr(entity, "framework_trust_modifier", None)
@@ -620,6 +659,7 @@ async def batch_recompute(db: AsyncSession) -> int:
             "activity": round(activity, 4),
             "reputation": round(reputation, 4),
             "community": round(community, 4),
+            "external_reputation": round(external, 4),
         }
 
         # Update primary_context from attestation frequency

@@ -153,6 +153,7 @@ def _build_component_details(components: dict | None) -> dict:
         ACTIVITY_WEIGHT,
         AGE_WEIGHT,
         COMMUNITY_WEIGHT,
+        EXTERNAL_WEIGHT,
         REPUTATION_WEIGHT,
         VERIFICATION_WEIGHT,
     )
@@ -163,6 +164,7 @@ def _build_component_details(components: dict | None) -> dict:
         "activity": ACTIVITY_WEIGHT,
         "reputation": REPUTATION_WEIGHT,
         "community": COMMUNITY_WEIGHT,
+        "external_reputation": EXTERNAL_WEIGHT,
     }
     component_details = {}
     for name, raw_value in (components or {}).items():
