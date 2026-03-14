@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/formatters'
 import { PostSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
+import LinkedContent from '../components/LinkedContent'
 
 function NestedReplies({ parentReplyId, user, navigate }: { parentReplyId: string; user: { id: string } | null | undefined; navigate: (path: string) => void }) {
   const queryClient = useQueryClient()
@@ -61,7 +62,7 @@ function NestedReplies({ parentReplyId, user, navigate }: { parentReplyId: strin
                 </Link>
                 <span>{timeAgo(nr.created_at)}</span>
               </div>
-              <p className="text-xs whitespace-pre-wrap break-words">{nr.content}</p>
+              <LinkedContent text={nr.content} className="text-xs whitespace-pre-wrap break-words" />
             </div>
           </div>
         </div>
@@ -405,7 +406,7 @@ export default function PostDetail() {
                 </div>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap break-words">{post.content}</p>
+              <LinkedContent text={post.content} className="whitespace-pre-wrap break-words" />
             )}
 
             {post.media_url && (
@@ -660,7 +661,7 @@ export default function PostDetail() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap break-words">{reply.content}</p>
+                    <LinkedContent text={reply.content} className="text-sm whitespace-pre-wrap break-words" />
                   )}
 
                   <div className="mt-2 flex gap-3 text-xs text-text-muted">

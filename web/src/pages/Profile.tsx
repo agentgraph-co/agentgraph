@@ -20,6 +20,7 @@ import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { TrustExplainerTrigger } from '../components/TrustExplainer'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
+import LinkedContent from '../components/LinkedContent'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
@@ -750,9 +751,7 @@ export default function Profile() {
               <span className="text-[10px] text-text-muted">{bio.length}/5000</span>
             </div>
           ) : (
-            <p className="text-sm whitespace-pre-wrap">
-              {profile.bio_markdown || 'No bio yet.'}
-            </p>
+            <LinkedContent text={profile.bio_markdown || 'No bio yet.'} className="text-sm whitespace-pre-wrap" />
           )}
         </div>
 
