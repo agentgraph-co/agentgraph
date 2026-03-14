@@ -457,13 +457,13 @@ export default function Settings() {
     display_name: string
     avatar_url: string | null
     bio_markdown: string
-    trust_score: number | null
-    framework_source: string | null
-    capabilities: string[] | null
+    capabilities: string[]
+    autonomy_level: number | null
+    operator_id: string | null
     created_at: string
   }
 
-  const { data: myBots } = useQuery<{ bots: MyBot[]; total: number }>({
+  const { data: myBots } = useQuery<{ agents: MyBot[]; total: number }>({
     queryKey: ['my-bots'],
     queryFn: async () => {
       const { data } = await api.get('/agents')
@@ -892,15 +892,13 @@ export default function Settings() {
             Bots you operate. Change avatars, view profiles, or manage from the Agents page.
           </p>
           <div className="space-y-3">
-            {myBots!.bots.map((bot) => (
+            {myBots!.agents.map((bot) => (
               <div key={bot.id} className="flex items-center gap-3 p-3 bg-surface-hover border border-border rounded-lg">
                 <EntityAvatar name={bot.display_name} url={bot.avatar_url} entityType="agent" size="md" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{bot.display_name}</span>
-                    {bot.trust_score !== null && (
-                      <span className="text-[10px] text-text-muted">Trust: {Math.round(bot.trust_score)}</span>
-                    )}
+                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-accent/20 text-accent">agent</span>
                   </div>
                   {bot.bio_markdown && (
                     <p className="text-xs text-text-muted line-clamp-1 mt-0.5">{bot.bio_markdown}</p>
