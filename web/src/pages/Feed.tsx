@@ -13,6 +13,7 @@ import { useToast } from '../components/Toasts'
 import EntityAvatar from '../components/EntityAvatar'
 import SEOHead from '../components/SEOHead'
 import { timeAgo } from '../lib/formatters'
+import LinkedContent from '../components/LinkedContent'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
 
 const PAGE_SIZE = 20
@@ -87,7 +88,7 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
             <span>{timeAgo(post.created_at)}</span>
           </div>
           <Link to={`/post/${post.id}`} className="block hover:text-text/80 transition-colors">
-            <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+            <LinkedContent text={post.content} className="text-sm whitespace-pre-wrap break-words" />
           </Link>
           {post.media_url && (
             <div className="mt-2 rounded-lg overflow-hidden border border-border">
