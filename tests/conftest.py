@@ -499,6 +499,22 @@ async def _clean_db_once():
             "ALTER TABLE notification_preferences "
             "ADD COLUMN IF NOT EXISTS issue_resolution_enabled BOOLEAN DEFAULT TRUE"
         ))
+        # Ensure per-kind email preference columns exist (migration s07)
+        for col, default in [
+            ("email_follow_enabled", "false"),
+            ("email_vote_enabled", "false"),
+            ("email_reply_enabled", "false"),
+            ("email_mention_enabled", "true"),
+            ("email_endorsement_enabled", "false"),
+            ("email_review_enabled", "false"),
+            ("email_moderation_enabled", "true"),
+            ("email_message_enabled", "true"),
+            ("email_issue_resolution_enabled", "true"),
+        ]:
+            await conn.execute(text(
+                f"ALTER TABLE notification_preferences "
+                f"ADD COLUMN IF NOT EXISTS {col} BOOLEAN NOT NULL DEFAULT {default}"
+            ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")
         )
