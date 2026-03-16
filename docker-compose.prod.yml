@@ -28,6 +28,7 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env.production
+      - .env.secrets
     expose:
       - "8000"
     command: >
