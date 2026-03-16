@@ -657,16 +657,26 @@ async def github_callback(
     db: AsyncSession = Depends(get_db),
     state: str | None = None,
 ):
-    """Handle GitHub OAuth2 callback — create or link account, return tokens."""
+    """Handle GitHub OAuth2 callback — login/register OR account linking.
+
+    Routing: if state starts with "login:", it's a login flow.
+    Otherwise it's an account-linking flow (from linked_accounts_router).
+    """
     if not settings.github_client_id:
         raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
+
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth state")
+
+    # Route to linked-accounts handler if this is a linking flow
+    if not state.startswith("login:"):
+        from src.api.linked_accounts_router import github_callback as link_cb
+
+        return await link_cb(request, code=code, state=state, db=db)
 
     import hashlib
     import hmac
     import time
-
-    if not state:
-        raise HTTPException(status_code=400, detail="Missing OAuth state")
 
     parts = state.rsplit(":", 3)
     if len(parts) != 4 or parts[0] != "login":
