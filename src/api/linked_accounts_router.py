@@ -57,7 +57,7 @@ async def github_connect(
     request: Request,
     entity=Depends(get_current_entity),
 ):
-    """Redirect to GitHub OAuth consent page."""
+    """Return GitHub OAuth consent URL (frontend navigates to it)."""
     if not settings.github_client_id:
         raise HTTPException(400, "GitHub OAuth not configured")
 
@@ -67,7 +67,7 @@ async def github_connect(
     redirect_uri = f"{base}/api/v1/linked-accounts/github/callback"
     state = _github_state(str(entity.id))
     url = get_github_auth_url(redirect_uri, state)
-    return RedirectResponse(url, status_code=302)
+    return {"url": url}
 
 
 @router.get("/github/callback")

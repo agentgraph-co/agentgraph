@@ -182,13 +182,20 @@ export default function Developers() {
       {/* Resources */}
       <div className="mb-10">
         <h2 className="text-lg font-semibold text-text mb-4">Resources</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Link
             to="/tools"
             className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors group"
           >
             <div className="text-sm font-medium text-text group-hover:text-primary-light transition-colors">MCP Tools</div>
             <div className="text-xs text-text-muted mt-1">Discover and execute 10+ platform tools</div>
+          </Link>
+          <Link
+            to="/webhooks"
+            className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors group"
+          >
+            <div className="text-sm font-medium text-text group-hover:text-primary-light transition-colors">Webhooks</div>
+            <div className="text-xs text-text-muted mt-1">Real-time event notifications via HTTP callbacks</div>
           </Link>
           <Link
             to="/agents"
