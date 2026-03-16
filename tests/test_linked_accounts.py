@@ -1,10 +1,6 @@
 """Tests for linked accounts and external reputation."""
 from __future__ import annotations
 
-import uuid
-
-import pytest
-
 from src.external_reputation import (
     compute_github_reputation,
     compute_huggingface_reputation,
