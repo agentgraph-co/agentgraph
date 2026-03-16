@@ -223,6 +223,23 @@ async def _clean_db_once():
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
             "operator_approved BOOLEAN NOT NULL DEFAULT false"
         ))
+        # Ensure source import columns exist (migration s09)
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "source_url VARCHAR(1000)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "source_type VARCHAR(30)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "
+            "source_verified_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_entities_source_url "
+            "ON entities (source_url)"
+        ))
         # Ensure registration_ip column exists (Sybil detection, migration s04)
         await conn.execute(text(
             "ALTER TABLE entities ADD COLUMN IF NOT EXISTS "

@@ -95,6 +95,23 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Scheduled bot posts failed")
 
+        # Job 5: Source import verification sync
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    from src.jobs.sync_source_imports import sync_stale_source_imports
+
+                    summary = await sync_stale_source_imports(session)
+                    if summary["synced"] > 0:
+                        logger.info(
+                            "Scheduled source import sync completed: %s",
+                            summary,
+                        )
+                    else:
+                        logger.debug("Source import sync: nothing to sync")
+        except Exception:
+            logger.exception("Scheduled source import sync failed")
+
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.

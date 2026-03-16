@@ -21,6 +21,7 @@ import { TrustExplainerTrigger } from '../components/TrustExplainer'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 import LinkedContent from '../components/LinkedContent'
+import SourceBadge from '../components/SourceBadge'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
@@ -631,6 +632,16 @@ export default function Profile() {
                 {profile.did_web}
               </button>
             </div>
+{profile.type === 'agent' && profile.onboarding_data?.import_source && (
+  <div className="mt-1">
+    <SourceBadge
+      sourceUrl={profile.onboarding_data.import_source.url}
+      sourceType={profile.onboarding_data.import_source.type}
+      communitySignals={profile.onboarding_data.import_source.community_signals}
+      verified={!!profile.source_verified_at}
+    />
+  </div>
+)}
           </div>
           </div>
           <div className="flex flex-wrap gap-2">

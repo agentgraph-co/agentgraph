@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.agent_service import register_agent_direct
 from src.api.bot_templates import BOT_TEMPLATES, TEMPLATES_BY_KEY
-from src.api.deps import get_current_entity
+from src.api.deps import get_current_entity, get_optional_entity
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import AgentResponse
 from src.content_filter import check_content, sanitize_html, sanitize_text
@@ -26,6 +26,7 @@ from src.models import (
     RelationshipType,
     TrustScore,
 )
+from src.source_import.resolver import resolve_source
 
 router = APIRouter(prefix="/bots", tags=["bots"])
 
@@ -99,6 +100,43 @@ class QuickTrustResult(BaseModel):
 class QuickTrustResponse(BaseModel):
     executed: list[QuickTrustResult]
     readiness_after: ReadinessReport
+
+
+class SourcePreviewRequest(BaseModel):
+    source_url: str = Field(..., max_length=1000)
+
+
+class CommunitySignals(BaseModel):
+    stars: int | None = None
+    forks: int | None = None
+    downloads_monthly: int | None = None
+    likes: int | None = None
+    versions: int | None = None
+
+
+class SourcePreviewResponse(BaseModel):
+    source_type: str
+    source_url: str
+    display_name: str
+    bio: str
+    capabilities: list[str]
+    detected_framework: str | None = None
+    autonomy_level: int | None = None
+    community_signals: CommunitySignals
+    readme_excerpt: str = ""
+    avatar_url: str | None = None
+    version: str | None = None
+
+
+class SourceImportRequest(BaseModel):
+    source_url: str = Field(..., max_length=1000)
+    display_name: str | None = Field(None, max_length=100)
+    capabilities: list[str] | None = None
+    autonomy_level: int | None = Field(None, ge=1, le=5)
+    bio_markdown: str | None = None
+    framework_source: str | None = None
+    operator_email: str | None = None
+    intro_post: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -267,11 +305,181 @@ async def list_templates(
     ]
 
 
+@router.post("/preview-source", response_model=SourcePreviewResponse)
+async def preview_source(
+    body: SourcePreviewRequest,
+    _rate: None = Depends(rate_limit_reads),
+) -> SourcePreviewResponse:
+    """Preview data from an external source URL. No side effects."""
+    try:
+        result = await resolve_source(body.source_url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return SourcePreviewResponse(
+        source_type=result.source_type,
+        source_url=result.source_url,
+        display_name=result.display_name,
+        bio=result.bio,
+        capabilities=result.capabilities,
+        detected_framework=result.detected_framework,
+        autonomy_level=result.autonomy_level,
+        community_signals=CommunitySignals(**{
+            k: v for k, v in result.community_signals.items()
+            if k in CommunitySignals.model_fields
+        }),
+        readme_excerpt=result.readme_excerpt,
+        avatar_url=result.avatar_url,
+        version=result.version,
+    )
+
+
+@router.post("/import-source", response_model=BootstrapResponse, status_code=201)
+async def import_from_source(
+    body: SourceImportRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_entity: Entity | None = Depends(get_optional_entity),
+    _rate: None = Depends(rate_limit_auth),
+) -> BootstrapResponse:
+    """Import a bot from an external source URL and create an entity."""
+    from datetime import timezone as tz
+
+    from src import cache
+
+    # Per-IP hourly limit
+    ip = request.client.host if request.client else "unknown"
+    bootstrap_key = f"bootstrap:ip:{ip}"
+    count = await cache.get(bootstrap_key)
+    count = int(count) if count is not None else 0
+    if count >= 5:
+        raise HTTPException(429, "Too many bot bootstraps from this IP. Try again in an hour.")
+    await cache.set(bootstrap_key, count + 1, ttl=3600)
+
+    # Fetch source data
+    try:
+        result = await resolve_source(body.source_url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    # Merge: user overrides > fetched data
+    display_name = body.display_name or result.display_name
+    if not display_name or not display_name.strip():
+        raise HTTPException(400, "Display name is required")
+    capabilities = body.capabilities if body.capabilities is not None else result.capabilities
+    autonomy_level = body.autonomy_level or result.autonomy_level
+    bio_markdown = body.bio_markdown or result.bio
+    framework_source = body.framework_source or result.detected_framework
+
+    # Content filtering
+    name_result = check_content(display_name)
+    if not name_result.is_clean:
+        raise HTTPException(400, f"Display name rejected: {', '.join(name_result.flags)}")
+    if bio_markdown:
+        bio_result = check_content(bio_markdown)
+        if not bio_result.is_clean:
+            raise HTTPException(400, f"Bio rejected: {', '.join(bio_result.flags)}")
+
+    display_name = sanitize_text(display_name)
+    bio_markdown = sanitize_html(bio_markdown or "")
+
+    # Resolve operator: logged-in user auto-owns, else check email
+    operator = None
+    if current_entity and current_entity.type == EntityType.HUMAN:
+        operator = current_entity
+    elif body.operator_email:
+        from sqlalchemy import select as sa_select
+        row = await db.execute(
+            sa_select(Entity).where(
+                Entity.email == body.operator_email,
+                Entity.type == EntityType.HUMAN,
+                Entity.is_active.is_(True),
+            )
+        )
+        operator = row.scalar_one_or_none()
+        if operator is None:
+            raise HTTPException(400, f"Operator email not found: {body.operator_email}")
+
+    # Daily limit check for operator
+    if operator:
+        from datetime import timezone
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        count_row = await db.execute(
+            select(func.count()).select_from(Entity).where(
+                Entity.operator_id == operator.id,
+                Entity.type == EntityType.AGENT,
+                Entity.created_at >= today_start,
+            )
+        )
+        daily_count = count_row.scalar() or 0
+        if daily_count >= 10:
+            raise HTTPException(429, "maximum 10 agents per day per operator")
+
+    # Register agent
+    agent, plaintext_key = await register_agent_direct(
+        db=db,
+        display_name=display_name,
+        capabilities=capabilities,
+        autonomy_level=autonomy_level,
+        bio_markdown=bio_markdown,
+        operator=operator,
+        framework_source=framework_source,
+        registration_ip=request.client.host if request.client else None,
+    )
+
+    # Set source import fields
+    agent.source_url = result.source_url
+    agent.source_type = result.source_type
+    agent.source_verified_at = datetime.now(tz.utc)
+
+    # Store full import data in onboarding_data
+    import_data = {
+        "url": result.source_url,
+        "type": result.source_type,
+        "fetched_at": datetime.now(tz.utc).isoformat(),
+        "raw_metadata": result.raw_metadata,
+        "community_signals": result.community_signals,
+        "detected_framework": result.detected_framework,
+        "extracted_capabilities": result.capabilities,
+        "readme_excerpt": result.readme_excerpt,
+    }
+    onboarding = agent.onboarding_data or {}
+    onboarding["import_source"] = import_data
+    agent.onboarding_data = onboarding
+
+    if result.avatar_url and not agent.avatar_url:
+        agent.avatar_url = result.avatar_url
+
+    await db.flush()
+
+    # Optional intro post
+    if body.intro_post:
+        post_result = check_content(body.intro_post)
+        if not post_result.is_clean:
+            raise HTTPException(400, f"Intro post rejected: {', '.join(post_result.flags)}")
+        intro_content = sanitize_html(body.intro_post)
+        post = Post(id=uuid.uuid4(), author_entity_id=agent.id, content=intro_content)
+        db.add(post)
+        await db.flush()
+
+    readiness = await _build_readiness(db, agent)
+
+    return BootstrapResponse(
+        agent=AgentResponse.model_validate(agent),
+        api_key=plaintext_key,
+        claim_token=agent.claim_token,
+        readiness=readiness,
+        next_steps=readiness.next_steps,
+        template_used=None,
+    )
+
+
 @router.post("/bootstrap", response_model=BootstrapResponse, status_code=201)
 async def bootstrap_bot(
     body: BootstrapRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    current_entity: Entity | None = Depends(get_optional_entity),
     _rate: None = Depends(rate_limit_auth),
 ) -> BootstrapResponse:
     """Single-call bot onboarding: register + optional intro post + readiness report."""
@@ -329,9 +537,12 @@ async def bootstrap_bot(
     display_name = sanitize_text(display_name)
     bio_markdown = sanitize_html(bio_markdown)
 
-    # Resolve operator if email provided
+    # Resolve operator: auto-own if authenticated human, else check email
     operator = None
-    if body.operator_email:
+    # Auto-own: if authenticated human and no operator_email, use current user
+    if current_entity and current_entity.type == EntityType.HUMAN and not body.operator_email:
+        operator = current_entity
+    elif body.operator_email:
         from sqlalchemy import select as sa_select
 
         row = await db.execute(
@@ -345,7 +556,8 @@ async def bootstrap_bot(
         if operator is None:
             raise HTTPException(400, f"Operator email not found: {body.operator_email}")
 
-        # Daily limit check for operator
+    # Daily limit check for operator
+    if operator:
         from datetime import timezone
 
         today_start = datetime.now(timezone.utc).replace(

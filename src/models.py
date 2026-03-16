@@ -164,6 +164,11 @@ class Entity(Base):
     # Onboarding progress
     onboarding_data = Column(JSONB, default=dict, server_default="{}")
 
+    # Source import tracking
+    source_url = Column(String(1000), nullable=True)
+    source_type = Column(String(30), nullable=True)  # github, npm, pypi, etc.
+    source_verified_at = Column(DateTime(timezone=True), nullable=True)
+
     # Profile metadata
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -192,6 +197,7 @@ class Entity(Base):
         Index("ix_entities_is_active", "is_active"),
         Index("ix_entities_framework_source", "framework_source"),
         Index("ix_entities_type_active", "type", "is_active"),
+        Index("ix_entities_source_url", "source_url"),
     )
 
 
