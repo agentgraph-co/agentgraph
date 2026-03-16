@@ -234,11 +234,12 @@ export default function BotOnboarding() {
   }, [searchParams, templates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll refs
+  const pathCardsRef = useRef<HTMLDivElement>(null)
   const activeSectionRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
-  const scrollToActiveSection = () => {
-    setTimeout(() => activeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+  const scrollToPathCards = () => {
+    setTimeout(() => pathCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
   }
 
   // ─── Path card click handlers ───
@@ -246,7 +247,7 @@ export default function BotOnboarding() {
   const selectPath = (section: ActiveSection) => {
     setActiveSection(section)
     setError('')
-    scrollToActiveSection()
+    scrollToPathCards()
   }
 
   const switchToImportWithHint = (hint: string) => {
@@ -254,7 +255,7 @@ export default function BotOnboarding() {
     setSourceUrl(hint)
     setSourcePreview(null)
     setError('')
-    scrollToActiveSection()
+    scrollToPathCards()
   }
 
   // ─── Template selection ───
@@ -644,6 +645,7 @@ export default function BotOnboarding() {
       )}
 
       {/* ─── 3. Three Paths ─── */}
+      <div ref={pathCardsRef} />
       {!bootstrapResult && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {/* Import Your Bot */}
@@ -723,7 +725,7 @@ export default function BotOnboarding() {
               <input
                 value={sourceUrl}
                 onChange={(e) => { setSourceUrl(e.target.value); setError('') }}
-                placeholder="https://github.com/owner/repo"
+                placeholder={sourceUrl.includes('moltbook') ? 'https://moltbook.ai/agents/your-bot-id' : sourceUrl.includes('openclaw') ? 'https://github.com/your-org/your-openclaw-skill' : 'https://github.com/owner/repo, npmjs.com/package/..., pypi.org/project/...'}
                 className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
               />
               <button
@@ -795,9 +797,15 @@ export default function BotOnboarding() {
           <section className="mb-10">
             <div className="bg-surface border border-border rounded-lg p-5">
               <h2 className="text-lg font-semibold mb-2">Claim a Provisional Agent</h2>
-              <p className="text-sm text-text-muted mb-4">
-                If you bootstrapped a bot without an operator, paste your claim token here to upgrade it to
-                a full agent with uncapped trust and elevated permissions.
+              <p className="text-sm text-text-muted mb-3">
+                If someone bootstrapped a bot without logging in (e.g. via the API), the response includes
+                a one-time claim token. Paste it here to link that provisional bot to your account,
+                uncap its trust score, and gain full control.
+              </p>
+              <p className="text-xs text-text-muted/60 mb-4">
+                Claim tokens are returned in the <code className="text-text-muted">claim_token</code> field
+                of the <code className="text-text-muted">POST /api/v1/bots/bootstrap</code> response
+                when no authenticated user is present.
               </p>
 
               {claimSuccess ? (
@@ -1113,7 +1121,8 @@ export default function BotOnboarding() {
         </section>
       )}
 
-      {/* ─── 6. Frameworks Grid ─── */}
+      {/* ─── 6. Frameworks Grid ─── (shown for import + bootstrap, not claim) */}
+      {activeSection !== 'claim' && (
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-text mb-4">Supported Frameworks</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1187,8 +1196,10 @@ export default function BotOnboarding() {
           })}
         </div>
       </section>
+      )}
 
-      {/* ─── 7. Migrate from Competitors ─── */}
+      {/* ─── 7. Migrate from Competitors ─── (only shown for import path) */}
+      {activeSection === 'import' && (
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-text mb-4">Migrate from Competitors</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1245,8 +1256,10 @@ export default function BotOnboarding() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ─── 8. Verification Guide ─── */}
+      {/* ─── 8. Verification Guide ─── (only shown for import path) */}
+      {activeSection === 'import' && (
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-text mb-4">Verification Guide</h2>
         <div className="bg-surface border border-border rounded-lg p-5">
@@ -1302,6 +1315,7 @@ export default function BotOnboarding() {
           </ol>
         </div>
       </section>
+      )}
 
       {/* ─── 9. Resources ─── */}
       <section className="mb-10">
@@ -1329,11 +1343,11 @@ export default function BotOnboarding() {
             <div className="text-xs text-text-muted mt-1">Manage your agent fleet, API keys, evolution</div>
           </Link>
           <Link
-            to="/developers"
+            to="/marketplace"
             className="bg-surface border border-border rounded-lg p-4 hover:border-primary/50 transition-colors group"
           >
-            <div className="text-sm font-medium text-text group-hover:text-primary-light transition-colors">API Docs</div>
-            <div className="text-xs text-text-muted mt-1">Full developer hub with framework guides</div>
+            <div className="text-sm font-medium text-text group-hover:text-primary-light transition-colors">Marketplace</div>
+            <div className="text-xs text-text-muted mt-1">List your bot as a service or find integrations</div>
           </Link>
         </div>
       </section>
