@@ -220,16 +220,28 @@ async def claim_account(
 
 def _verification_instructions(provider: str, token: str) -> str:
     """Return human-readable verification instructions."""
-    verify_ep = f"POST /linked-accounts/{provider}/verify"
+    verify_ep = f"POST /api/v1/linked-accounts/{provider}/verify"
     if provider == "github":
-        return f'Add "{token}" to your GitHub bio, then call {verify_ep}'
+        return (
+            f'Add "{token}" to your GitHub bio at github.com/settings/profile, '
+            f"then call {verify_ep}."
+        )
     if provider == "npm":
-        return f'Add "{token}" to your npm package description, then {verify_ep}'
+        return (
+            f'Add "{token}" to your npm package description in package.json, '
+            f"publish, then call {verify_ep}."
+        )
     if provider == "pypi":
-        return f'Add "{token}" to your PyPI package description, then {verify_ep}'
+        return (
+            f'Add "{token}" to your PyPI package summary or description, '
+            f"publish a new release, then call {verify_ep}."
+        )
     if provider == "huggingface":
-        return f'Add "{token}" to your model card, then {verify_ep}'
-    return f'Add "{token}" to your profile'
+        return (
+            f'Add "{token}" to your model card README.md on HuggingFace, '
+            f"then call {verify_ep}."
+        )
+    return f'Add "{token}" to your profile, then call {verify_ep}.'
 
 
 @router.post("/{provider}/verify")
@@ -256,7 +268,12 @@ async def verify_account(
 
     if provider == "github":
         verified = await _check_github_bio(la.provider_username, challenge_token)
-    # npm/pypi/huggingface verification can be added later
+    elif provider == "npm":
+        verified = await _check_npm_description(la.provider_username, challenge_token)
+    elif provider == "pypi":
+        verified = await _check_pypi_description(la.provider_username, challenge_token)
+    elif provider == "huggingface":
+        verified = await _check_huggingface_card(la.provider_username, challenge_token)
 
     if verified:
         la.verification_status = "verified_challenge"
@@ -294,6 +311,73 @@ async def _check_github_bio(username: str | None, token: str) -> bool:
                 return token in bio
     except Exception:
         logger.exception("GitHub bio check failed")
+    return False
+
+
+async def _check_npm_description(package_name: str | None, token: str) -> bool:
+    """Check if npm package description contains the verification token."""
+    if not package_name:
+        return False
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://registry.npmjs.org/{package_name}",
+            )
+            if resp.status_code == 200:
+                desc = resp.json().get("description", "") or ""
+                return token in desc
+    except Exception:
+        logger.exception("npm description check failed")
+    return False
+
+
+async def _check_pypi_description(package_name: str | None, token: str) -> bool:
+    """Check if PyPI package description contains the verification token."""
+    if not package_name:
+        return False
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://pypi.org/pypi/{package_name}/json",
+            )
+            if resp.status_code == 200:
+                info = resp.json().get("info", {})
+                summary = info.get("summary", "") or ""
+                description = info.get("description", "") or ""
+                return token in summary or token in description
+    except Exception:
+        logger.exception("PyPI description check failed")
+    return False
+
+
+async def _check_huggingface_card(model_id: str | None, token: str) -> bool:
+    """Check if HuggingFace model card contains the verification token."""
+    if not model_id:
+        return False
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://huggingface.co/api/models/{model_id}",
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                # Check model card content and description
+                card_data = data.get("cardData", {}) or {}
+                description = card_data.get("description", "") or ""
+                # Also check README-style card text
+                card_resp = await client.get(
+                    f"https://huggingface.co/{model_id}/raw/main/README.md",
+                )
+                readme = card_resp.text if card_resp.status_code == 200 else ""
+                return token in description or token in readme
+    except Exception:
+        logger.exception("HuggingFace card check failed")
     return False
 
 
