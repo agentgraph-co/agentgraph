@@ -3,6 +3,8 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
 import SEOHead from '../components/SEOHead'
+import { useAuth } from '../hooks/useAuth'
+import SourceBadge from '../components/SourceBadge'
 
 // ─── Types ───
 
@@ -73,6 +75,26 @@ interface ClaimResponse {
   message: string
 }
 
+interface SourcePreviewResponse {
+  source_type: string
+  source_url: string
+  display_name: string
+  bio: string
+  capabilities: string[]
+  detected_framework: string | null
+  autonomy_level: number | null
+  community_signals: {
+    stars?: number
+    forks?: number
+    downloads_monthly?: number
+    likes?: number
+    versions?: number
+  }
+  readme_excerpt: string
+  avatar_url: string | null
+  version: string | null
+}
+
 const AUTONOMY_LABELS: Record<number, string> = {
   1: 'Fully supervised',
   2: 'Mostly supervised',
@@ -92,6 +114,8 @@ const FRAMEWORK_COLORS: Record<string, string> = {
 // ─── Component ───
 
 export default function BotOnboarding() {
+  const { user } = useAuth()
+
   // Template gallery
   const { data: templates, isLoading: templatesLoading } = useQuery<BotTemplate[]>({
     queryKey: ['bot-templates'],
@@ -112,6 +136,11 @@ export default function BotOnboarding() {
   const [operatorEmail, setOperatorEmail] = useState('')
   const [introPost, setIntroPost] = useState('')
   const [error, setError] = useState('')
+
+  // Source import state
+  const [sourceUrl, setSourceUrl] = useState('')
+  const [sourcePreview, setSourcePreview] = useState<SourcePreviewResponse | null>(null)
+  const [showTemplates, setShowTemplates] = useState(false)
 
   // Result state
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapResponse | null>(null)
@@ -206,6 +235,54 @@ export default function BotOnboarding() {
     },
   })
 
+  // ─── Source preview mutation ───
+
+  const previewMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const { data } = await api.post('/bots/preview-source', { source_url: url })
+      return data as SourcePreviewResponse
+    },
+    onSuccess: (result) => {
+      setSourcePreview(result)
+      setName(result.display_name)
+      setBio(result.bio)
+      setCapabilities(result.capabilities)
+      if (result.autonomy_level) setAutonomyLevel(result.autonomy_level)
+      setError('')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(msg || 'Could not fetch from that URL. Try a different URL or create from scratch.')
+      setSourcePreview(null)
+    },
+  })
+
+  // ─── Source import mutation ───
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/bots/import-source', {
+        source_url: sourceUrl,
+        display_name: name.trim(),
+        capabilities: capabilities.length > 0 ? capabilities : undefined,
+        autonomy_level: autonomyLevel,
+        bio_markdown: bio || undefined,
+        operator_email: !user ? (operatorEmail || undefined) : undefined,
+        intro_post: introPost || undefined,
+      })
+      return data as BootstrapResponse
+    },
+    onSuccess: (result) => {
+      setBootstrapResult(result)
+      setError('')
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(msg || 'Failed to import bot')
+    },
+  })
+
   // ─── Quick trust mutation ───
 
   const quickTrustMutation = useMutation({
@@ -228,7 +305,10 @@ export default function BotOnboarding() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (name.trim()) {
+    if (!name.trim()) return
+    if (sourcePreview) {
+      importMutation.mutate()
+    } else {
       bootstrapMutation.mutate()
     }
   }
@@ -278,6 +358,9 @@ export default function BotOnboarding() {
     setIntroPost('')
     setError('')
     setBootstrapResult(null)
+    setSourceUrl('')
+    setSourcePreview(null)
+    setShowTemplates(false)
   }
 
   return (
@@ -345,71 +428,155 @@ export default function BotOnboarding() {
         </section>
       )}
 
-      {/* ─── Section 1: Template Gallery ─── */}
+      {/* ─── URL Import + Template Gallery + Form ─── */}
       {!bootstrapResult && (
         <>
-          <section className="mb-10">
-            <h2 className="text-lg font-semibold mb-4">Choose a Template</h2>
-            {templatesLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-lg p-4 animate-pulse">
-                    <div className="h-5 bg-surface-hover rounded w-2/3 mb-2" />
-                    <div className="h-3 bg-surface-hover rounded w-full mb-1" />
-                    <div className="h-3 bg-surface-hover rounded w-4/5 mb-3" />
-                    <div className="flex gap-1">
-                      <div className="h-5 bg-surface-hover rounded w-16" />
-                      <div className="h-5 bg-surface-hover rounded w-12" />
-                    </div>
+          {/* ─── URL Import (Primary) ─── */}
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold mb-2">Import from Source</h2>
+            <p className="text-sm text-text-muted mb-4">
+              Paste a GitHub repo, npm package, PyPI project, HuggingFace model, or MCP manifest URL.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={sourceUrl}
+                onChange={(e) => { setSourceUrl(e.target.value); setError('') }}
+                placeholder="https://github.com/owner/repo"
+                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
+              />
+              <button
+                onClick={() => sourceUrl.trim() && previewMutation.mutate(sourceUrl.trim())}
+                disabled={!sourceUrl.trim() || previewMutation.isPending}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                {previewMutation.isPending ? 'Fetching...' : 'Preview'}
+              </button>
+            </div>
+
+            {/* Preview Card */}
+            {sourcePreview && (
+              <div className="mt-4 bg-surface border border-border rounded-lg p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-lg">{sourcePreview.display_name}</h3>
+                    <SourceBadge
+                      sourceUrl={sourcePreview.source_url}
+                      sourceType={sourcePreview.source_type}
+                      communitySignals={sourcePreview.community_signals}
+                      verified
+                    />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {templates?.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => selectTemplate(t)}
-                    className={`text-left bg-surface border rounded-lg p-4 transition-all cursor-pointer hover:border-primary/50 ${
-                      selectedTemplate?.key === t.key
-                        ? 'border-primary ring-1 ring-primary/30'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h3 className="font-medium text-sm">{t.display_name}</h3>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        FRAMEWORK_COLORS[t.suggested_framework] || 'bg-surface-hover text-text-muted'
-                      }`}>
-                        {t.suggested_framework}
+                  {sourcePreview.detected_framework && (
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      FRAMEWORK_COLORS[sourcePreview.detected_framework] || 'bg-surface-hover text-text-muted'
+                    }`}>
+                      {sourcePreview.detected_framework}
+                    </span>
+                  )}
+                </div>
+                {sourcePreview.bio && (
+                  <p className="text-sm text-text-muted mb-3 line-clamp-3">{sourcePreview.bio}</p>
+                )}
+                {sourcePreview.capabilities.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {sourcePreview.capabilities.slice(0, 8).map((cap) => (
+                      <span key={cap} className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary-light rounded">
+                        {cap}
                       </span>
-                    </div>
-                    <p className="text-xs text-text-muted mb-3 line-clamp-2">{t.description}</p>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {t.default_capabilities.slice(0, 4).map((cap) => (
-                        <span key={cap} className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary-light rounded">
-                          {cap}
-                        </span>
-                      ))}
-                      {t.default_capabilities.length > 4 && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-surface-hover text-text-muted rounded">
-                          +{t.default_capabilities.length - 4}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-text-muted">
-                      Autonomy: {t.suggested_autonomy_level}/5
-                    </div>
-                  </button>
-                ))}
+                    ))}
+                    {sourcePreview.capabilities.length > 8 && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-surface-hover text-text-muted rounded">
+                        +{sourcePreview.capabilities.length - 8}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-success mt-2">Source data loaded — customize below and confirm.</p>
               </div>
             )}
+
+            {previewMutation.isError && !sourcePreview && (
+              <p className="mt-2 text-sm text-text-muted">
+                You can also <button type="button" onClick={() => setShowTemplates(true)} className="text-primary-light hover:text-primary cursor-pointer underline">start from a template</button> or <button type="button" onClick={() => { setShowTemplates(true); setSourceUrl('') }} className="text-primary-light hover:text-primary cursor-pointer underline">create from scratch</button>.
+              </p>
+            )}
           </section>
+
+          {/* ─── Templates (Secondary) ─── */}
+          {!sourcePreview && (
+            <section className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Or Choose a Template</h2>
+                {showTemplates && (
+                  <button
+                    onClick={() => setShowTemplates(false)}
+                    className="text-xs text-primary-light hover:text-primary cursor-pointer"
+                  >
+                    Hide templates
+                  </button>
+                )}
+              </div>
+              {templatesLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="bg-surface border border-border rounded-lg p-4 animate-pulse">
+                      <div className="h-5 bg-surface-hover rounded w-2/3 mb-2" />
+                      <div className="h-3 bg-surface-hover rounded w-full mb-1" />
+                      <div className="h-3 bg-surface-hover rounded w-4/5 mb-3" />
+                      <div className="flex gap-1">
+                        <div className="h-5 bg-surface-hover rounded w-16" />
+                        <div className="h-5 bg-surface-hover rounded w-12" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {templates?.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => selectTemplate(t)}
+                      className={`text-left bg-surface border rounded-lg p-4 transition-all cursor-pointer hover:border-primary/50 ${
+                        selectedTemplate?.key === t.key
+                          ? 'border-primary ring-1 ring-primary/30'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <h3 className="font-medium text-sm">{t.display_name}</h3>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          FRAMEWORK_COLORS[t.suggested_framework] || 'bg-surface-hover text-text-muted'
+                        }`}>
+                          {t.suggested_framework}
+                        </span>
+                      </div>
+                      <p className="text-xs text-text-muted mb-3 line-clamp-2">{t.description}</p>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {t.default_capabilities.slice(0, 4).map((cap) => (
+                          <span key={cap} className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary-light rounded">
+                            {cap}
+                          </span>
+                        ))}
+                        {t.default_capabilities.length > 4 && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-surface-hover text-text-muted rounded">
+                            +{t.default_capabilities.length - 4}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-text-muted">
+                        Autonomy: {t.suggested_autonomy_level}/5
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ─── Section 2: Bootstrap Form ─── */}
           <section ref={formRef}>
             <h2 className="text-lg font-semibold mb-4">
-              {selectedTemplate ? `Configure ${selectedTemplate.display_name}` : 'Bootstrap Your Bot'}
+              {sourcePreview ? `Configure ${sourcePreview.display_name}` : selectedTemplate ? `Configure ${selectedTemplate.display_name}` : 'Bootstrap Your Bot'}
             </h2>
             <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-lg p-5 space-y-4">
               {error && (
@@ -518,19 +685,25 @@ export default function BotOnboarding() {
               </div>
 
               {/* Operator Email */}
-              <div>
-                <label htmlFor="bot-operator-email" className="block text-sm text-text-muted mb-1">
-                  Operator Email <span className="text-text-muted/60">(optional)</span>
-                </label>
-                <input
-                  id="bot-operator-email"
-                  type="email"
-                  value={operatorEmail}
-                  onChange={(e) => setOperatorEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
-                />
-              </div>
+              {!user ? (
+                <div>
+                  <label htmlFor="bot-operator-email" className="block text-sm text-text-muted mb-1">
+                    Operator Email <span className="text-text-muted/60">(optional)</span>
+                  </label>
+                  <input
+                    id="bot-operator-email"
+                    type="email"
+                    value={operatorEmail}
+                    onChange={(e) => setOperatorEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              ) : (
+                <div className="text-sm text-text-muted">
+                  Registering as <span className="text-text font-medium">{user.display_name || user.email}</span>
+                </div>
+              )}
 
               {/* Intro Post */}
               <div>
@@ -550,10 +723,12 @@ export default function BotOnboarding() {
 
               <button
                 type="submit"
-                disabled={bootstrapMutation.isPending || !name.trim()}
+                disabled={(bootstrapMutation.isPending || importMutation.isPending) || !name.trim()}
                 className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {bootstrapMutation.isPending ? 'Bootstrapping...' : 'Bootstrap Bot'}
+                {(bootstrapMutation.isPending || importMutation.isPending)
+                  ? (sourcePreview ? 'Importing...' : 'Bootstrapping...')
+                  : (sourcePreview ? 'Import & Register' : 'Bootstrap Bot')}
               </button>
             </form>
           </section>

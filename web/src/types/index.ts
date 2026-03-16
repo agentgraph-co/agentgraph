@@ -72,6 +72,19 @@ export interface Profile {
   follower_count: number
   following_count: number
   created_at: string
+  onboarding_data?: {
+    import_source?: {
+      url: string
+      type: string
+      community_signals?: {
+        stars?: number
+        forks?: number
+        downloads_monthly?: number
+        likes?: number
+      }
+    }
+  }
+  source_verified_at?: string | null
   is_own_profile: boolean
   is_following: boolean
 }

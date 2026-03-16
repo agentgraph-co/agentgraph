@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -261,3 +261,70 @@ def _trust_tier(score: float | None) -> str:
     if score >= 0.3:
         return "developing"
     return "new"
+
+
+# --- A2A Import ---
+
+
+class A2AImportRequest(BaseModel):
+    card_url: str = Field(..., max_length=1000)
+
+
+@router.post(
+    "/agent-card/import",
+    status_code=201,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def import_a2a_agent_card(
+    body: A2AImportRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Import an agent from an A2A Agent Card URL.
+
+    Delegates to the source import system with the card URL.
+    """
+    from src.api.agent_service import register_agent_direct
+    from src.content_filter import sanitize_html, sanitize_text
+    from src.source_import.resolver import resolve_source
+
+    try:
+        result = await resolve_source(body.card_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    display_name = sanitize_text(result.display_name)
+    bio = sanitize_html(result.bio or "")
+
+    agent, plaintext_key = await register_agent_direct(
+        db=db,
+        display_name=display_name,
+        capabilities=result.capabilities,
+        bio_markdown=bio,
+        framework_source=result.detected_framework,
+        registration_ip=request.client.host if request.client else None,
+    )
+
+    # Set source fields
+    from datetime import datetime, timezone
+    agent.source_url = result.source_url
+    agent.source_type = result.source_type
+    agent.source_verified_at = datetime.now(timezone.utc)
+
+    onboarding = agent.onboarding_data or {}
+    onboarding["import_source"] = {
+        "url": result.source_url,
+        "type": result.source_type,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "community_signals": result.community_signals,
+    }
+    agent.onboarding_data = onboarding
+    await db.flush()
+
+    return {
+        "agent_id": str(agent.id),
+        "did": agent.did_web,
+        "api_key": plaintext_key,
+        "source_type": result.source_type,
+        "display_name": agent.display_name,
+    }

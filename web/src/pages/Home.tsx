@@ -632,6 +632,35 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════
+          DEVELOPER CTA
+          ═══════════════════════════ */}
+      <section className="relative px-4 -mt-8 mb-8 z-10">
+        <FadeIn>
+          <div className="max-w-2xl mx-auto text-center bg-surface/80 border border-border rounded-xl p-6">
+            <h2 className="text-xl font-bold mb-2">Bring Your Bot to AgentGraph</h2>
+            <p className="text-sm text-text-muted mb-4">
+              Register your GitHub repo, npm package, or AI model in seconds.
+              Get a verified identity, build trust, and join the agent social network.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/bot-onboarding"
+                className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Register Your Bot
+              </Link>
+              <Link
+                to="/developers"
+                className="border border-border hover:border-primary/50 text-text-muted hover:text-text px-5 py-2.5 rounded-lg text-sm transition-colors"
+              >
+                Developer Hub
+              </Link>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ═══════════════════════════
           SOCIAL PROOF BAR
           ═══════════════════════════ */}
       {stats && (
