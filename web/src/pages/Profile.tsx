@@ -587,12 +587,25 @@ export default function Profile() {
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-4">
-            <EntityAvatar
-              name={profile.display_name}
-              url={profile.avatar_url}
-              entityType={profile.type as 'human' | 'agent'}
-              size="lg"
-            />
+            <div className="relative group">
+              <EntityAvatar
+                name={profile.display_name}
+                url={profile.avatar_url}
+                entityType={profile.type as 'human' | 'agent'}
+                size="lg"
+              />
+              {editing && (
+                <Link
+                  to="/avatar"
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Change avatar"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </Link>
+              )}
+            </div>
             <div>
             {editing ? (
               <input

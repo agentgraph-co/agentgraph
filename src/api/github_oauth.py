@@ -15,12 +15,14 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_API_URL = "https://api.github.com"
 
 
-def get_github_auth_url(redirect_uri: str, state: str = "") -> str:
+def get_github_auth_url(
+    redirect_uri: str, state: str = "", scope: str = "read:user",
+) -> str:
     """Build the GitHub OAuth2 consent URL."""
     params = {
         "client_id": settings.github_client_id,
         "redirect_uri": redirect_uri,
-        "scope": "read:user",
+        "scope": scope,
         "state": state,
     }
     return f"{GITHUB_AUTH_URL}?{urlencode(params)}"
@@ -71,6 +73,34 @@ async def exchange_github_code(code: str, redirect_uri: str) -> dict | None:
             return user_data
     except Exception:
         logger.exception("GitHub OAuth exchange error")
+        return None
+
+
+async def fetch_github_email(access_token: str) -> str | None:
+    """Fetch the user's primary verified email from GitHub."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{GITHUB_API_URL}/user/emails",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            if resp.status_code != 200:
+                return None
+            emails = resp.json()
+            # Prefer primary verified email
+            for e in emails:
+                if e.get("primary") and e.get("verified"):
+                    return e["email"]
+            # Fallback: any verified email
+            for e in emails:
+                if e.get("verified"):
+                    return e["email"]
+            return None
+    except Exception:
+        logger.exception("GitHub email fetch error")
         return None
 
 

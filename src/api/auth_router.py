@@ -19,6 +19,11 @@ from src.api.auth_service import (
     verify_password_reset_token,
 )
 from src.api.deps import get_current_entity
+from src.api.github_oauth import (
+    exchange_github_code,
+    fetch_github_email,
+    get_github_auth_url,
+)
 from src.api.google_auth import exchange_google_code, get_google_auth_url
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
@@ -612,4 +617,169 @@ async def google_callback(
     )
     if platform == "ios":
         return RedirectResponse(url=f"com.agentgraph.ios://auth/callback#{fragment}")
+    return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")
+
+
+# ──────────────────────────── GitHub OAuth Login ────────────────────────────
+
+
+@router.get("/github", dependencies=[Depends(rate_limit_auth)])
+async def github_login(request: Request, platform: str | None = None):
+    """Redirect to GitHub OAuth2 consent screen for login/register."""
+    if not settings.github_client_id:
+        raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
+    redirect_uri = f"{settings.base_url}/api/v1/auth/github/callback"
+
+    import hashlib
+    import hmac
+    import time
+
+    ts = str(int(time.time()))
+    plat = platform or ""
+    state_data = f"login:{ts}:{plat}"
+    sig = hmac.new(
+        settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
+    ).hexdigest()[:16]
+    state = f"{state_data}:{sig}"
+
+    url = get_github_auth_url(
+        redirect_uri, state=state, scope="read:user user:email",
+    )
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=url)
+
+
+@router.get("/github/callback", dependencies=[Depends(rate_limit_auth)])
+async def github_callback(
+    code: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    state: str | None = None,
+):
+    """Handle GitHub OAuth2 callback — create or link account, return tokens."""
+    if not settings.github_client_id:
+        raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
+
+    import hashlib
+    import hmac
+    import time
+
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth state")
+
+    parts = state.rsplit(":", 3)
+    if len(parts) != 4 or parts[0] != "login":
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    _, ts_str, platform, sig = parts
+    state_data = f"login:{ts_str}:{platform}"
+    expected_sig = hmac.new(
+        settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
+    ).hexdigest()[:16]
+    if not hmac.compare_digest(sig, expected_sig):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
+
+    try:
+        ts = int(ts_str)
+        if abs(time.time() - ts) > 600:
+            raise HTTPException(status_code=400, detail="OAuth state expired")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    redirect_uri = f"{settings.base_url}/api/v1/auth/github/callback"
+    userinfo = await exchange_github_code(code, redirect_uri)
+    if userinfo is None:
+        raise HTTPException(status_code=400, detail="GitHub authentication failed")
+
+    access_token_gh = userinfo.pop("_access_token", None)
+    github_id = str(userinfo.get("id", ""))
+    github_login = userinfo.get("login", "")
+    github_name = userinfo.get("name") or github_login
+    github_avatar = userinfo.get("avatar_url")
+
+    # Get email — from profile or via email API
+    github_email = userinfo.get("email")
+    if not github_email and access_token_gh:
+        github_email = await fetch_github_email(access_token_gh)
+
+    if not github_email:
+        raise HTTPException(
+            status_code=400,
+            detail="No verified email found on your GitHub account",
+        )
+
+    # Look up by SSO provider ID first, then by email
+    from sqlalchemy import select
+
+    entity = await db.scalar(
+        select(Entity).where(
+            Entity.sso_provider_id == f"github:{github_id}",
+        )
+    )
+    if entity is None:
+        entity = await get_entity_by_email(db, github_email)
+
+    if entity is None:
+        # Auto-register
+        import uuid as _uuid
+
+        from src.models import EntityType
+
+        entity_id = _uuid.uuid4()
+        entity = Entity(
+            id=entity_id,
+            type=EntityType.HUMAN,
+            email=github_email,
+            password_hash=None,
+            display_name=github_name,
+            avatar_url=github_avatar,
+            email_verified=True,
+            did_web=f"did:web:agentgraph.co:users:{entity_id}",
+            sso_provider_id=f"github:{github_id}",
+            registration_ip=(
+                request.client.host if request.client else None
+            ),
+        )
+        db.add(entity)
+        await db.flush()
+
+        await log_action(
+            db,
+            action="auth.register.github",
+            entity_id=entity.id,
+            ip_address=request.client.host if request.client else None,
+        )
+    else:
+        # Existing account — backfill avatar and SSO link if missing
+        if not entity.avatar_url and github_avatar:
+            entity.avatar_url = github_avatar
+        if not entity.sso_provider_id:
+            entity.sso_provider_id = f"github:{github_id}"
+        await db.flush()
+
+    if not entity.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    await log_action(
+        db,
+        action="auth.login.github",
+        entity_id=entity.id,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    access_token = create_access_token(entity.id, entity.type.value)
+    refresh_token = create_refresh_token(entity.id)
+
+    from fastapi.responses import RedirectResponse
+
+    fragment = (
+        f"access_token={access_token}"
+        f"&refresh_token={refresh_token}"
+        f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
+    )
+    if platform == "ios":
+        return RedirectResponse(
+            url=f"com.agentgraph.ios://auth/callback#{fragment}",
+        )
     return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")
