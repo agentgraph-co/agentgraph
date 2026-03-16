@@ -63,10 +63,12 @@ async def github_connect(
 
     from src.api.github_oauth import get_github_auth_url
 
+    # Use the single registered callback URL (auth router) — the state
+    # param carries "link:" prefix so the callback routes back to us.
     base = settings.base_url.rstrip("/")
-    redirect_uri = f"{base}/api/v1/linked-accounts/github/callback"
+    redirect_uri = f"{base}/api/v1/auth/github/callback"
     state = _github_state(str(entity.id))
-    url = get_github_auth_url(redirect_uri, state)
+    url = get_github_auth_url(redirect_uri, state, scope="read:user")
     return {"url": url}
 
 
@@ -77,7 +79,7 @@ async def github_callback(
     state: str = "",
     db: AsyncSession = Depends(get_db),
 ):
-    """Handle GitHub OAuth callback."""
+    """Handle GitHub OAuth callback for account linking."""
     entity_id = _verify_github_state(state)
     if not entity_id:
         return RedirectResponse(
@@ -87,8 +89,9 @@ async def github_callback(
 
     from src.api.github_oauth import exchange_github_code
 
+    # Must match the redirect_uri used in the consent URL
     base = settings.base_url.rstrip("/")
-    redirect_uri = f"{base}/api/v1/linked-accounts/github/callback"
+    redirect_uri = f"{base}/api/v1/auth/github/callback"
     user_data = await exchange_github_code(code, redirect_uri)
 
     if not user_data:
