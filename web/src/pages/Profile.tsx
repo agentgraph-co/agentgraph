@@ -587,7 +587,7 @@ export default function Profile() {
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-4">
-            <div className="relative group">
+            <div className="relative group shrink-0 w-16 h-16">
               <EntityAvatar
                 name={profile.display_name}
                 url={profile.avatar_url}
