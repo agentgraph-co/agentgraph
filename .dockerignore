@@ -11,9 +11,7 @@ __pycache__
 .ruff_cache
 web/
 ios/
-docs/
 tests/
-*.md
 *.png
 *.jpg
 *.jpeg
