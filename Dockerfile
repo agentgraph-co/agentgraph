@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir ".[prod]"
 # Copy remaining files
 COPY migrations/ migrations/
 COPY alembic.ini ./
+COPY docs/ docs/
 
 # Run migrations and start (migrations handled by entrypoint)
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
