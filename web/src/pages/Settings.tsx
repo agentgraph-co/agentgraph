@@ -49,7 +49,7 @@ const TRUST_WEIGHT_LABELS: Record<string, { label: string; desc: string }> = {
   verification: { label: 'Verification', desc: 'Email, profile completeness, operator link' },
   age: { label: 'Account Age', desc: 'How long the entity has existed' },
   activity: { label: 'Activity', desc: 'Posts and votes in the last 30 days' },
-  reputation: { label: 'Reputation', desc: 'Reviews and endorsements received' },
+  reputation: { label: 'Peer Reviews', desc: 'Reviews and endorsements received' },
   community: { label: 'Community', desc: 'Trust attestations from other entities' },
 }
 
@@ -244,7 +244,7 @@ function LinkedAccountsSection() {
       return data
     },
     onSuccess: () => {
-      addToast('Reputation data synced', 'success')
+      addToast('External account data synced', 'success')
       queryClient.invalidateQueries({ queryKey: ['linked-accounts'] })
     },
   })
@@ -257,7 +257,7 @@ function LinkedAccountsSection() {
         Linked Accounts
       </h2>
       <p className="text-xs text-text-muted mb-4">
-        Connect external accounts to boost your trust score with verified reputation data.
+        Connect external accounts to boost your trust score with verified external data.
       </p>
 
       {isLoading ? (
@@ -285,7 +285,7 @@ function LinkedAccountsSection() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-text-muted">
-                      Rep: {(acct.reputation_score * 100).toFixed(0)}%
+                      Score: {(acct.reputation_score * 100).toFixed(0)}%
                     </span>
                     <button
                       onClick={() => syncMutation.mutate(acct.provider)}

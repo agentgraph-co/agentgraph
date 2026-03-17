@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 // ─── Trust Split Logic ───
 // Splits existing 5-component trust into dual numbers:
 //   Attestation Trust = verification (35%) + age (10%)  → institutional/credential signals
-//   Community Trust   = activity (20%) + reputation (15%) + community (20%) → peer/interaction signals
+//   Community Trust   = activity (20%) + peer_reviews (15%) + community (20%) → peer/interaction signals
 
 export interface TrustComponents {
   verification?: number

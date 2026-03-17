@@ -58,7 +58,7 @@ const COMPONENT_INFO: Record<string, { label: string; description: string }> = {
     description: 'Posts and votes in the last 30 days (log-scaled)',
   },
   reputation: {
-    label: 'Reputation',
+    label: 'Peer Reviews',
     description: 'Review ratings (60%) and endorsement count (40%)',
   },
   community: {
@@ -672,7 +672,7 @@ export default function TrustDetail() {
             <p>
               <strong className="text-primary-light">Community Trust</strong> — "What is it like to interact with this entity?" Based on{' '}
               <strong>Activity</strong> (20%) — recent posts and votes (log-scaled);{' '}
-              <strong>Reputation</strong> (15%) — review ratings and endorsements;{' '}
+              <strong>Peer Reviews</strong> (15%) — review ratings and endorsements;{' '}
               <strong>Community</strong> (20%) — trust attestations from other entities.
             </p>
             <p>

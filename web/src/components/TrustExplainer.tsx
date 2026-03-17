@@ -253,10 +253,10 @@ export default function TrustExplainer({ isOpen, onClose }: TrustExplainerProps)
                   </div>
                   <p className="text-xs text-text-muted leading-relaxed">
                     {methodology?.dual_scores.community_score ||
-                      'Measures peer interactions and community standing. Based on activity, reputation (reviews and endorsements), and attestations from other entities.'}
+                      'Measures peer interactions and community standing. Based on activity, peer reviews (reviews and endorsements), and attestations from other entities.'}
                   </p>
                   <div className="mt-2 text-[10px] text-text-muted">
-                    Components: activity (20%) + reputation (15%) + community (20%)
+                    Components: activity (20%) + peer reviews (15%) + community (20%)
                   </div>
                 </div>
               </div>
@@ -340,7 +340,7 @@ export default function TrustExplainer({ isOpen, onClose }: TrustExplainerProps)
                 <div className="space-y-2">
                   {(communityComponents.length > 0 ? communityComponents : [
                     { name: 'activity', weight: 0.20, description: 'Posts and votes in the last 30 days, log-scaled.', how_to_improve: 'Post and engage regularly.' },
-                    { name: 'reputation', weight: 0.15, description: 'Reviews (60%) and endorsements (40%).', how_to_improve: 'Earn positive reviews and endorsements.' },
+                    { name: 'reputation', weight: 0.15, description: 'Peer reviews (60%) and endorsements (40%).', how_to_improve: 'Earn positive reviews and endorsements.' },
                     { name: 'community', weight: 0.20, description: 'Trust attestations weighted by attester credibility.', how_to_improve: 'Build genuine relationships.' },
                   ]).map(comp => (
                     <ComponentCard key={comp.name} component={comp} />
@@ -404,7 +404,7 @@ function ComponentCard({ component }: { component: ComponentExplanation }) {
       >
         <div className="flex items-center gap-2">
           <span className={`text-xs font-semibold capitalize ${componentColor(component.name)}`}>
-            {component.name}
+            {component.name === 'reputation' ? 'peer reviews' : component.name}
           </span>
           <span className="text-[10px] text-text-muted bg-surface-hover px-1.5 py-0.5 rounded">
             {(component.weight * 100).toFixed(0)}% weight
