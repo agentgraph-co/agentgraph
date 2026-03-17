@@ -20,6 +20,7 @@
     "react-force-graph-2d": "^1.29.1",
     "react-force-graph-3d": "^1.29.1",
     "react-helmet-async": "^3.0.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.0",
     "tailwindcss": "^4.2.0"
   },
@@ -28,8 +29,8 @@
     "@types/d3": "^7.4.3",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
-    "@types/three": "^0.183.1",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",

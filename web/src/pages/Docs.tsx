@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import Markdown from 'react-markdown'
 import { PageTransition } from '../components/Motion'
 import SEOHead from '../components/SEOHead'
+import api from '../lib/api'
 
 const SECTIONS = [
   {
@@ -68,11 +71,83 @@ const SECTIONS = [
   },
 ]
 
-export default function Docs() {
+// --- Doc content viewer (when /docs/:section is active) ---
+
+function DocViewer({ slug }: { slug: string }) {
+  const { data, isLoading, error } = useQuery<{ slug: string; title: string; content: string }>({
+    queryKey: ['doc-content', slug],
+    queryFn: async () => (await api.get(`/docs/content/${slug}`)).data,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+
+  useEffect(() => {
+    if (data?.title) document.title = `${data.title} - AgentGraph Docs`
+  }, [data?.title])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-8 bg-surface-hover rounded w-2/3" />
+        <div className="h-4 bg-surface-hover rounded w-full" />
+        <div className="h-4 bg-surface-hover rounded w-5/6" />
+        <div className="h-4 bg-surface-hover rounded w-4/6" />
+        <div className="h-4 bg-surface-hover rounded w-full" />
+        <div className="h-4 bg-surface-hover rounded w-3/4" />
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-6 text-center">
+        <p className="text-text-muted mb-4">This documentation page is not available yet.</p>
+        <Link to="/docs" className="text-primary-light hover:underline text-sm">
+          Back to Documentation
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <SEOHead title={data.title} description={`${data.title} — AgentGraph documentation`} path={`/docs/${slug}`} />
+      <Link to="/docs" className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text mb-6 transition-colors">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        All Docs
+      </Link>
+      <article className="prose prose-invert prose-sm max-w-none
+        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-0
+        [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-text
+        [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-text
+        [&_p]:text-sm [&_p]:text-text-muted [&_p]:leading-relaxed [&_p]:mb-3
+        [&_ul]:text-sm [&_ul]:text-text-muted [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-6
+        [&_ol]:text-sm [&_ol]:text-text-muted [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-6
+        [&_li]:mb-1
+        [&_code]:text-xs [&_code]:bg-surface-hover [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-primary-light
+        [&_pre]:bg-surface [&_pre]:border [&_pre]:border-border [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:mb-4 [&_pre]:overflow-x-auto
+        [&_pre_code]:bg-transparent [&_pre_code]:p-0
+        [&_a]:text-primary-light [&_a]:hover:underline
+        [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-text-muted
+        [&_table]:text-sm [&_table]:w-full [&_table]:border-collapse
+        [&_th]:text-left [&_th]:p-2 [&_th]:border-b [&_th]:border-border [&_th]:font-medium
+        [&_td]:p-2 [&_td]:border-b [&_td]:border-border/50
+        [&_hr]:border-border [&_hr]:my-6
+        [&_strong]:text-text [&_strong]:font-semibold
+      ">
+        <Markdown>{data.content}</Markdown>
+      </article>
+    </>
+  )
+}
+
+// --- Hub view (when /docs has no section) ---
+
+function DocsHub() {
   useEffect(() => { document.title = 'Documentation - AgentGraph' }, [])
 
   return (
-    <PageTransition className="max-w-3xl mx-auto">
+    <>
       <SEOHead
         title="Documentation"
         description="AgentGraph developer documentation — SDKs, API reference, bot onboarding, trust framework, and protocol specifications."
@@ -166,6 +241,18 @@ export default function Docs() {
           Register Your Bot
         </Link>
       </div>
+    </>
+  )
+}
+
+// --- Main export: routes to hub or doc viewer ---
+
+export default function Docs() {
+  const { section } = useParams<{ section: string }>()
+
+  return (
+    <PageTransition className="max-w-3xl mx-auto">
+      {section ? <DocViewer slug={section} /> : <DocsHub />}
     </PageTransition>
   )
 }
