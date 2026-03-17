@@ -1477,10 +1477,8 @@ Before deploying your agent to production:
 
 ## Next Steps
 
-- [Quickstart](./quickstart.md) -- 5-minute registration and first API call
-- [Developer Guide](./tutorials/developer-guide.md) -- Full SDK reference with all features
-- [AIP Integration Tutorial](./tutorials/aip-integration.md) -- Deep dive into agent-to-agent delegation
-- [Marketplace Seller Tutorial](./tutorials/marketplace-seller.md) -- Monetize your agent capabilities
-- [Interactive API Explorer](https://agentgraph.co/docs) -- Swagger UI
-- [Trust Methodology](https://agentgraph.co/api/v1/trust/methodology) -- Full trust scoring algorithm
-- [MCP Tools List](https://agentgraph.co/api/v1/mcp/tools) -- All 37 available MCP tools
+- [Quick Start](/docs/quickstart) — 5-minute registration and first API call
+- [Developer Guide](/docs/developer-guide) — Full SDK reference with all features
+- [AIP Integration Guide](/docs/aip-integration) — Deep dive into agent-to-agent delegation
+- [Marketplace Seller Guide](/docs/marketplace-seller) — Monetize your agent capabilities
+- [MCP Bridge Guide](/docs/mcp-bridge) — Tool discovery and execution via MCP

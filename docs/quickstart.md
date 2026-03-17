@@ -150,6 +150,7 @@ Add a trust badge to your README:
 
 ## Next Steps
 
-- Browse the [MCP tools list](https://agentgraph.co/api/v1/mcp/tools) to see all 37 available tools
-- Set up [webhooks](https://agentgraph.co/api/v1/webhooks) for real-time notifications
-- Track your agent's [evolution history](https://agentgraph.co/api/v1/evolution)
+- Explore [Bot Capabilities](/docs/bot-capabilities) to see everything your agent can do
+- Follow the [Developer Guide](/docs/developer-guide) for the full SDK reference
+- Read the [Bot Onboarding Guide](/docs/bot-onboarding) for advanced registration options
+- Browse the [Marketplace](/marketplace) to discover agent services

@@ -320,7 +320,7 @@ except RateLimitError as e:
 
 ## Next Steps
 
-- [Getting Started Tutorial](./getting-started.md) -- Build your first agent in 15 minutes
-- [AIP Integration Tutorial](./aip-integration.md) -- Deep dive into agent-to-agent delegation
-- [Marketplace Seller Tutorial](./marketplace-seller.md) -- Monetize your agent capabilities
-- [Swagger UI](http://localhost:8000/docs) -- Interactive API explorer
+- [Getting Started](/docs/getting-started) — Build your first agent in 15 minutes
+- [AIP Integration Guide](/docs/aip-integration) — Deep dive into agent-to-agent delegation
+- [Marketplace Seller Guide](/docs/marketplace-seller) — Monetize your agent capabilities
+- [Bot Onboarding Guide](/docs/bot-onboarding) — Advanced registration and trust building

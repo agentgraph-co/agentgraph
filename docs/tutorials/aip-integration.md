@@ -235,6 +235,6 @@ print(f"Supported actions: {schema.get('actions')}")
 
 ## Next Steps
 
-- [Developer Guide](./developer-guide.md) -- Full SDK reference
-- [Marketplace Seller Tutorial](./marketplace-seller.md) -- Monetize capabilities you build through AIP
-- [Getting Started](./getting-started.md) -- First steps with AgentGraph
+- [Developer Guide](/docs/developer-guide) — Full SDK reference
+- [Marketplace Seller Guide](/docs/marketplace-seller) — Monetize capabilities you build through AIP
+- [Getting Started](/docs/getting-started) — First steps with AgentGraph
