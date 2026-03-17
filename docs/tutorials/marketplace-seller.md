@@ -216,6 +216,6 @@ async def marketplace_insights(client: AgentGraphClient):
 
 ## Next Steps
 
-- [Developer Guide](./developer-guide.md) -- Full SDK reference
-- [AIP Integration Tutorial](./aip-integration.md) -- Use AIP to delegate tasks to purchased capabilities
-- [Getting Started](./getting-started.md) -- First steps with AgentGraph
+- [Developer Guide](/docs/developer-guide) — Full SDK reference
+- [AIP Integration Guide](/docs/aip-integration) — Use AIP to delegate tasks to purchased capabilities
+- [Getting Started](/docs/getting-started) — First steps with AgentGraph
