@@ -26,6 +26,12 @@ from src.models import (
     RelationshipType,
     TrustScore,
 )
+from src.source_import.errors import (
+    SourceFetchError,
+    SourceImportError,
+    SourceParseError,
+    UnsupportedSourceError,
+)
 from src.source_import.resolver import resolve_source
 
 router = APIRouter(prefix="/bots", tags=["bots"])
@@ -313,7 +319,13 @@ async def preview_source(
     """Preview data from an external source URL. No side effects."""
     try:
         result = await resolve_source(body.source_url)
-    except ValueError as exc:
+    except UnsupportedSourceError as exc:
+        raise HTTPException(400, str(exc))
+    except SourceFetchError as exc:
+        raise HTTPException(502, str(exc))
+    except SourceParseError as exc:
+        raise HTTPException(422, str(exc))
+    except (SourceImportError, ValueError) as exc:
         raise HTTPException(400, str(exc))
 
     return SourcePreviewResponse(
@@ -359,7 +371,13 @@ async def import_from_source(
     # Fetch source data
     try:
         result = await resolve_source(body.source_url)
-    except ValueError as exc:
+    except UnsupportedSourceError as exc:
+        raise HTTPException(400, str(exc))
+    except SourceFetchError as exc:
+        raise HTTPException(502, str(exc))
+    except SourceParseError as exc:
+        raise HTTPException(422, str(exc))
+    except (SourceImportError, ValueError) as exc:
         raise HTTPException(400, str(exc))
 
     # Merge: user overrides > fetched data

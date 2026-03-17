@@ -183,3 +183,7 @@ async def get_optional_entity(
         return await get_current_entity(credentials, x_api_key, db)
     except HTTPException:
         return None
+
+
+# Alias with consistent naming (matches get_current_entity)
+get_optional_current_entity = get_optional_entity

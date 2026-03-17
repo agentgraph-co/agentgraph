@@ -11,6 +11,7 @@ from dataclasses import asdict
 from urllib.parse import urlparse
 
 from src import cache
+from src.source_import.errors import UnsupportedSourceError
 from src.source_import.types import SourceImportResult
 from src.ssrf import validate_url
 
@@ -96,7 +97,7 @@ async def _dispatch(url: str) -> SourceImportResult:
         from src.source_import.mcp_fetcher import fetch_mcp
         return await fetch_mcp(url)
 
-    raise ValueError(
+    raise UnsupportedSourceError(
         f"Unsupported source URL: {url}. "
         "Supported: GitHub, npm, PyPI, HuggingFace, MCP manifest (.json), "
         "A2A agent card, Moltbook."

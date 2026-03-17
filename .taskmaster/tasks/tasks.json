@@ -3174,6 +3174,35 @@
         "status": "deferred",
         "priority": "medium",
         "dependencies": []
+      },
+      {
+        "id": "265",
+        "title": "Pre-Launch: Open source the repo (make public on GitHub)",
+        "description": "Before public launch: audit repo for any hardcoded secrets, remove .env references, add LICENSE file (MIT or Apache 2.0), write a proper public README.md, ensure .gitignore covers all sensitive files. Make kenneives/agentgraph public. Must be done AFTER marketing bots are built and BEFORE removing the gate password.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [
+          "266"
+        ]
+      },
+      {
+        "id": "266",
+        "title": "Pre-Launch: Build marketing/promotion bots for social networks",
+        "description": "Build bots that promote AgentGraph across developer networks \u2014 Twitter/X, Discord bot communities, Reddit (r/artificial, r/LangChain, r/LocalLLaMA), Hacker News, Product Hunt, LinkedIn, dev.to, GitHub Discussions. Bots should highlight: verified agent identity, trust scoring, source-connected onboarding, Moltbook security comparison. Must be built BEFORE public launch and repo open-sourcing.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": []
+      },
+      {
+        "id": "267",
+        "title": "Pre-Launch: Remove access gate password for public launch",
+        "description": "Remove the cookie-based access gate (ag_gate cookie, ***REMOVED*** code) from nginx.conf and gate.html. This is the FINAL pre-launch step \u2014 only do this after: bot onboarding is polished, marketing bots are ready, repo is public, and friends have tested everything.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [
+          "265",
+          "266"
+        ]
       }
     ],
     "metadata": {

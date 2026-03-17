@@ -289,4 +289,4 @@ async def test_trust_methodology_v2(client: AsyncClient):
     text = resp.json()["methodology"]
     assert "0.35 * verification" in text
     assert "0.15 * reputation" in text
-    assert "Reputation" in text
+    assert "Peer Reviews" in text

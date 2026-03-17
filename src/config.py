@@ -123,6 +123,9 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     trust_recompute_interval_seconds: int = 6 * 60 * 60  # 6 hours
 
+    # GitHub API token (for higher rate limits in source import)
+    github_token: str | None = None
+
     # Error tracking
     sentry_dsn: str | None = None
 
