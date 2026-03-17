@@ -183,6 +183,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
         start_scheduler(settings.trust_recompute_interval_seconds)
 
+    # Pre-generate OpenAPI schema (avoids 3s+ generation on first request)
+    app.openapi()
+
     yield
 
     # Shutdown: stop scheduler if running
@@ -205,12 +208,81 @@ app = FastAPI(
         "**Authentication:** Bearer JWT token or X-API-Key header for agents."
     ),
     version=APP_VERSION,
-    docs_url="/api/v1/docs",
-    redoc_url="/api/v1/redoc",
+    docs_url=None,  # Custom endpoints below
+    redoc_url=None,
     openapi_url="/api/v1/openapi.json",
     openapi_tags=_TAG_METADATA,
     lifespan=lifespan,
+    swagger_ui_oauth2_redirect_url=None,
 )
+
+
+# --- Custom Swagger / ReDoc endpoints (pinned CDN, loading indicator) ---
+
+from fastapi.responses import HTMLResponse  # noqa: E402
+
+_CDN = "https://cdn.jsdelivr.net/npm"
+
+_SWAGGER_HTML = (
+    "<!DOCTYPE html><html><head>"
+    '<meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    "<title>AgentGraph API</title>"
+    f'<link rel="stylesheet" href="{_CDN}/swagger-ui-dist@5.18.2/swagger-ui.min.css">'
+    "<style>"
+    "body{margin:0;background:#1a1b23}"
+    ".loading{display:flex;align-items:center;justify-content:center;"
+    "height:100vh;color:#94a3b8;font-family:system-ui}"
+    ".loading span{animation:pulse 1.5s ease-in-out infinite}"
+    "@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}"
+    "</style></head><body>"
+    '<div id="swagger-ui">'
+    '<div class="loading"><span>Loading API docs\u2026</span></div></div>'
+    f'<script src="{_CDN}/swagger-ui-dist@5.18.2/swagger-ui-bundle.min.js">'
+    "</script><script>"
+    "SwaggerUIBundle({url:'/api/v1/openapi.json',"
+    "dom_id:'#swagger-ui',layout:'BaseLayout',"
+    "deepLinking:true,showExtensions:true,"
+    "showCommonExtensions:true,"
+    "presets:[SwaggerUIBundle.presets.apis,"
+    "SwaggerUIBundle.SwaggerUIStandalonePreset]})"
+    "</script></body></html>"
+)
+
+_REDOC_HTML = (
+    "<!DOCTYPE html><html><head>"
+    '<meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    "<title>AgentGraph API \u2014 ReDoc</title>"
+    "<style>"
+    "body{margin:0;background:#1a1b23}"
+    ".loading{display:flex;align-items:center;justify-content:center;"
+    "height:100vh;color:#94a3b8;font-family:system-ui}"
+    ".loading span{animation:pulse 1.5s ease-in-out infinite}"
+    "@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}"
+    "</style></head><body>"
+    '<div id="redoc">'
+    '<div class="loading"><span>Loading API docs\u2026</span></div></div>'
+    f'<script src="{_CDN}/redoc@2.1.5/bundles/redoc.standalone.min.js">'
+    "</script><script>"
+    "Redoc.init('/api/v1/openapi.json',{"
+    "theme:{colors:{primary:{main:'#2dd4bf'}},"
+    "typography:{fontFamily:'system-ui,sans-serif'},"
+    "rightPanel:{backgroundColor:'#1e1f29'}}"
+    "},document.getElementById('redoc'))"
+    "</script></body></html>"
+)
+
+
+@app.get("/api/v1/docs", include_in_schema=False)
+async def custom_swagger_ui() -> HTMLResponse:
+    return HTMLResponse(_SWAGGER_HTML)
+
+
+@app.get("/api/v1/redoc", include_in_schema=False)
+async def custom_redoc() -> HTMLResponse:
+    return HTMLResponse(_REDOC_HTML)
+
 
 # --- Startup safety checks ---
 if settings.jwt_secret == "CHANGE-ME-IN-PRODUCTION":
