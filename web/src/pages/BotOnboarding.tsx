@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type FormEvent, type KeyboardEvent } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import api from '../lib/api'
@@ -234,20 +234,32 @@ export default function BotOnboarding() {
   }, [searchParams, templates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll refs
-  const pathCardsRef = useRef<HTMLDivElement>(null)
+  const pathCardsSentinelRef = useRef<HTMLDivElement>(null)
   const activeSectionRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
-  const scrollToPathCards = () => {
-    setTimeout(() => pathCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-  }
+  // Sticky detection: observe sentinel going out of viewport
+  const [isSticky, setIsSticky] = useState(false)
+  const stickyObserver = useRef<IntersectionObserver | null>(null)
+
+  const setupStickyObserver = useCallback((node: HTMLDivElement | null) => {
+    if (stickyObserver.current) stickyObserver.current.disconnect()
+    if (!node) return
+    pathCardsSentinelRef.current = node
+    stickyObserver.current = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-56px 0px 0px 0px' } // 56px = header h-14
+    )
+    stickyObserver.current.observe(node)
+  }, [])
+
+  useEffect(() => () => stickyObserver.current?.disconnect(), [])
 
   // ─── Path card click handlers ───
 
   const selectPath = (section: ActiveSection) => {
     setActiveSection(section)
     setError('')
-    scrollToPathCards()
   }
 
   const switchToImportWithHint = (hint: string) => {
@@ -255,7 +267,6 @@ export default function BotOnboarding() {
     setSourceUrl(hint)
     setSourcePreview(null)
     setError('')
-    scrollToPathCards()
   }
 
   // ─── Template selection ───
@@ -645,69 +656,120 @@ export default function BotOnboarding() {
       )}
 
       {/* ─── 3. Three Paths ─── */}
-      <div ref={pathCardsRef} className="scroll-mt-20" />
+      {/* Sentinel: when this leaves viewport, the tab bar becomes sticky */}
+      <div ref={setupStickyObserver} />
       {!bootstrapResult && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {/* Import Your Bot */}
-          <button
-            onClick={() => selectPath('import')}
-            className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
-              activeSection === 'import'
-                ? 'border-primary ring-2 ring-primary/30'
-                : 'border-border hover:border-primary/40'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              <h3 className="font-semibold text-sm">Import Your Bot</h3>
+        <>
+          {/* Sticky tab bar (condensed, glass) — shown when scrolled past */}
+          {isSticky && (
+            <div className="sticky top-14 z-30 -mx-4 px-4 py-2 glass-strong shadow-lg shadow-black/10 mb-4 transition-all">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => selectPath('import')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                    activeSection === 'import'
+                      ? 'bg-primary/15 text-primary-light border border-primary/30'
+                      : 'text-text-muted hover:text-text border border-transparent'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Import
+                </button>
+                <button
+                  onClick={() => selectPath('claim')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                    activeSection === 'claim'
+                      ? 'bg-primary/15 text-primary-light border border-primary/30'
+                      : 'text-text-muted hover:text-text border border-transparent'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  Claim
+                </button>
+                <button
+                  onClick={() => selectPath('bootstrap')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                    activeSection === 'bootstrap'
+                      ? 'bg-primary/15 text-primary-light border border-primary/30'
+                      : 'text-text-muted hover:text-text border border-transparent'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  Build
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-text-muted">
-              Paste a URL from GitHub, npm, PyPI, HuggingFace, or an MCP manifest
-            </p>
-          </button>
+          )}
 
-          {/* Claim a Bot */}
-          <button
-            onClick={() => selectPath('claim')}
-            className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
-              activeSection === 'claim'
-                ? 'border-primary ring-2 ring-primary/30'
-                : 'border-border hover:border-primary/40'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              <h3 className="font-semibold text-sm">Claim a Bot</h3>
-            </div>
-            <p className="text-xs text-text-muted">
-              Already have a claim token? Link a provisional bot to your account
-            </p>
-          </button>
+          {/* Full path cards (visible when not scrolled past) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {/* Import Your Bot */}
+            <button
+              onClick={() => selectPath('import')}
+              className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
+                activeSection === 'import'
+                  ? 'border-primary ring-2 ring-primary/30'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <h3 className="font-semibold text-sm">Import Your Bot</h3>
+              </div>
+              <p className="text-xs text-text-muted">
+                Paste a URL from GitHub, npm, PyPI, HuggingFace, or an MCP manifest
+              </p>
+            </button>
 
-          {/* Build from Scratch */}
-          <button
-            onClick={() => selectPath('bootstrap')}
-            className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
-              activeSection === 'bootstrap'
-                ? 'border-primary ring-2 ring-primary/30'
-                : 'border-border hover:border-primary/40'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-              <h3 className="font-semibold text-sm">Build from Scratch</h3>
-            </div>
-            <p className="text-xs text-text-muted">
-              Start fresh with templates or a blank form
-            </p>
-          </button>
-        </div>
+            {/* Claim a Bot */}
+            <button
+              onClick={() => selectPath('claim')}
+              className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
+                activeSection === 'claim'
+                  ? 'border-primary ring-2 ring-primary/30'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                <h3 className="font-semibold text-sm">Claim a Bot</h3>
+              </div>
+              <p className="text-xs text-text-muted">
+                Already have a claim token? Link a provisional bot to your account
+              </p>
+            </button>
+
+            {/* Build from Scratch */}
+            <button
+              onClick={() => selectPath('bootstrap')}
+              className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
+                activeSection === 'bootstrap'
+                  ? 'border-primary ring-2 ring-primary/30'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                <h3 className="font-semibold text-sm">Build from Scratch</h3>
+              </div>
+              <p className="text-xs text-text-muted">
+                Start fresh with templates or a blank form
+              </p>
+            </button>
+          </div>
+        </>
       )}
 
       {/* ─── 4. Active Section ─── */}
