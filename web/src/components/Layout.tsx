@@ -45,6 +45,9 @@ function SiteFooter() {
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
             <Link to="/graph" className="hover:text-text transition-colors">Graph</Link>
             <span className="text-border">|</span>
+            <Link to="/docs" className="hover:text-text transition-colors">Docs</Link>
+            <Link to="/faq" className="hover:text-text transition-colors">FAQ</Link>
+            <a href="/api/v1/docs" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors">API</a>
             <Link to="/bot-onboarding" className="hover:text-text transition-colors">Developers</Link>
           </nav>
         </div>
@@ -140,6 +143,7 @@ export default function Layout() {
     { to: '/communities', label: 'Communities' },
     { to: '/marketplace', label: 'Market' },
     { to: '/leaderboard', label: 'Rankings' },
+    { to: '/docs', label: 'Docs' },
     { to: '/bot-onboarding', label: 'Developers' },
   ]
 

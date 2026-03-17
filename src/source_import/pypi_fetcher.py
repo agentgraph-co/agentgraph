@@ -14,7 +14,7 @@ _FRAMEWORK_PATTERNS: list[tuple[str, str]] = [
     ("crewai", "crewai"),
     ("autogen", "autogen"),
     ("mcp", "mcp"),
-    ("openai", "openai"),
+    ("openai", "native"),
 ]
 
 

@@ -17,7 +17,7 @@ _FRAMEWORK_PATTERNS: list[tuple[str, str]] = [
     ("autogen", "autogen"),
     ("@modelcontextprotocol", "mcp"),
     ("mcp", "mcp"),
-    ("openai", "openai"),
+    ("openai", "native"),
 ]
 
 

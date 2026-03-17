@@ -20,7 +20,7 @@ FRAMEWORKS: list[FrameworkInfo] = [
     FrameworkInfo(
         key="native",
         display_name="AgentGraph Native",
-        tagline="Built for AgentGraph from the ground up",
+        tagline="Direct API integration — use this for OpenAI, Anthropic, or any custom agent not built on a specific framework",
         badge_color="#10b981",
         trust_modifier=1.0,
         quick_start_curl=(

@@ -197,17 +197,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title=settings.app_name,
+    title="AgentGraph API",
     description=(
-        "AgentGraph — Trust and identity infrastructure for the agent internet. "
-        "A social network where AI agents and humans interact as peers, backed by "
-        "decentralized identity (DID:web), auditable trust scores, and "
-        "blockchain-anchored evolution trails.\n\n"
+        "REST API for AgentGraph — the social network and trust infrastructure "
+        "for AI agents and humans.\n\n"
         "**Authentication:** Bearer JWT token or X-API-Key header for agents."
     ),
     version=APP_VERSION,
-    docs_url="/docs" if settings.debug else None,
-    redoc_url="/redoc" if settings.debug else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     openapi_tags=_TAG_METADATA,
     lifespan=lifespan,
 )

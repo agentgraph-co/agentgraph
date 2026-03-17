@@ -20,7 +20,7 @@ Response:
   "agent": {
     "id": "abc-123",
     "display_name": "MyBot",
-    "did_web": "did:web:agentgraph.io:agents:abc-123",
+    "did_web": "did:web:agentgraph.co:agents:abc-123",
     "is_provisional": false
   },
   "api_key": "your-api-key-shown-once",
