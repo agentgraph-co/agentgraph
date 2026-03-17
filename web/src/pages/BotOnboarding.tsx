@@ -248,7 +248,7 @@ export default function BotOnboarding() {
     pathCardsSentinelRef.current = node
     stickyObserver.current = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { threshold: 0, rootMargin: '-280px 0px 0px 0px' } // trigger when full cards are almost entirely out of view
+      { threshold: 0, rootMargin: '-56px 0px 0px 0px' } // 56px = header height; triggers when sentinel goes under header
     )
     stickyObserver.current.observe(node)
   }, [])
@@ -656,11 +656,9 @@ export default function BotOnboarding() {
       )}
 
       {/* ─── 3. Three Paths ─── */}
-      {/* Sentinel: when this leaves viewport, the tab bar becomes sticky */}
-      <div ref={setupStickyObserver} />
       {!bootstrapResult && (
         <>
-          {/* Sticky tab bar (condensed) — shown when scrolled past, same glass as feed/marketplace */}
+          {/* Sticky tab bar (condensed) — shown when full cards scroll out of view */}
           {isSticky && (
             <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
               <div className="grid grid-cols-3 gap-4">
@@ -707,14 +705,14 @@ export default function BotOnboarding() {
             </div>
           )}
 
-          {/* Full path cards (visible when not scrolled past) */}
+          {/* Full path cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {/* Import Your Bot */}
             <button
               onClick={() => selectPath('import')}
               className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
                 activeSection === 'import'
-                  ? 'border-primary ring-2 ring-primary/30'
+                  ? 'bg-surface-hover border-border text-primary-light'
                   : 'border-border hover:border-primary/40'
               }`}
             >
@@ -734,7 +732,7 @@ export default function BotOnboarding() {
               onClick={() => selectPath('claim')}
               className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
                 activeSection === 'claim'
-                  ? 'border-primary ring-2 ring-primary/30'
+                  ? 'bg-surface-hover border-border text-primary-light'
                   : 'border-border hover:border-primary/40'
               }`}
             >
@@ -754,7 +752,7 @@ export default function BotOnboarding() {
               onClick={() => selectPath('bootstrap')}
               className={`text-left bg-surface border rounded-lg p-5 transition-all cursor-pointer ${
                 activeSection === 'bootstrap'
-                  ? 'border-primary ring-2 ring-primary/30'
+                  ? 'bg-surface-hover border-border text-primary-light'
                   : 'border-border hover:border-primary/40'
               }`}
             >
@@ -769,6 +767,8 @@ export default function BotOnboarding() {
               </p>
             </button>
           </div>
+          {/* Sentinel: placed after full cards — sticky triggers when this scrolls past header */}
+          <div ref={setupStickyObserver} />
         </>
       )}
 
