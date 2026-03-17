@@ -248,7 +248,7 @@ export default function BotOnboarding() {
     pathCardsSentinelRef.current = node
     stickyObserver.current = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { threshold: 0, rootMargin: '-200px 0px 0px 0px' } // trigger when full cards are almost out of view
+      { threshold: 0, rootMargin: '-280px 0px 0px 0px' } // trigger when full cards are almost entirely out of view
     )
     stickyObserver.current.observe(node)
   }, [])
@@ -666,42 +666,42 @@ export default function BotOnboarding() {
               <div className="grid grid-cols-3 gap-4">
                 <button
                   onClick={() => selectPath('import')}
-                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer border ${
                     activeSection === 'import'
-                      ? 'border-primary ring-2 ring-primary/30'
-                      : 'border-border hover:border-primary/40'
+                      ? 'bg-surface-hover text-primary-light font-medium border-border'
+                      : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/30'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span className="font-semibold text-sm">Import Your Bot</span>
+                  <span className="text-sm font-semibold">Import Your Bot</span>
                 </button>
                 <button
                   onClick={() => selectPath('claim')}
-                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer border ${
                     activeSection === 'claim'
-                      ? 'border-primary ring-2 ring-primary/30'
-                      : 'border-border hover:border-primary/40'
+                      ? 'bg-surface-hover text-primary-light font-medium border-border'
+                      : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/30'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
-                  <span className="font-semibold text-sm">Claim a Bot</span>
+                  <span className="text-sm font-semibold">Claim a Bot</span>
                 </button>
                 <button
                   onClick={() => selectPath('bootstrap')}
-                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer border ${
                     activeSection === 'bootstrap'
-                      ? 'border-primary ring-2 ring-primary/30'
-                      : 'border-border hover:border-primary/40'
+                      ? 'bg-surface-hover text-primary-light font-medium border-border'
+                      : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/30'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
-                  <span className="font-semibold text-sm">Build from Scratch</span>
+                  <span className="text-sm font-semibold">Build from Scratch</span>
                 </button>
               </div>
             </div>
