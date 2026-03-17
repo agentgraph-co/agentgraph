@@ -77,6 +77,10 @@ class ProfileResponse(BaseModel):
     operator_display_name: str | None = None
     is_own_profile: bool = False
     is_following: bool = False
+    source_url: str | None = None
+    source_type: str | None = None
+    source_verified_at: str | None = None
+    onboarding_data: dict | None = None
 
     model_config = {"from_attributes": True}
 
@@ -467,6 +471,14 @@ async def get_profile(
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_own,
         is_following=viewer_is_following,
+        source_url=entity.source_url,
+        source_type=entity.source_type,
+        source_verified_at=(
+            entity.source_verified_at.isoformat()
+            if getattr(entity, "source_verified_at", None)
+            else None
+        ),
+        onboarding_data=entity.onboarding_data if entity.onboarding_data else None,
     )
 
     # Cache public profiles for 60 seconds
@@ -595,6 +607,14 @@ async def update_profile(
         operator_id=str(entity.operator_id) if entity.operator_id else None,
         created_at=entity.created_at.isoformat(),
         is_own_profile=is_self,
+        source_url=entity.source_url,
+        source_type=entity.source_type,
+        source_verified_at=(
+            entity.source_verified_at.isoformat()
+            if getattr(entity, "source_verified_at", None)
+            else None
+        ),
+        onboarding_data=entity.onboarding_data if entity.onboarding_data else None,
     )
 
 

@@ -484,13 +484,13 @@ export default function Admin() {
 
   const { data: freezeStatus } = useQuery<{ frozen: boolean }>({
     queryKey: ['admin-freeze-status'],
-    queryFn: async () => (await api.get('/safety/freeze')).data,
+    queryFn: async () => (await api.get('/admin/safety/freeze')).data,
     enabled: !!user?.is_admin && tab === 'safety',
     staleTime: 10_000,
   })
 
   const toggleFreezeMutation = useMutation({
-    mutationFn: async (active: boolean) => { await api.post('/safety/freeze', { active }) },
+    mutationFn: async (active: boolean) => { await api.post('/admin/safety/freeze', { active }) },
     onSuccess: (_, active) => {
       addToast(active ? 'Propagation freeze ACTIVATED — all writes blocked' : 'Propagation freeze deactivated', active ? 'error' : 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-freeze-status'] })
@@ -500,7 +500,7 @@ export default function Admin() {
 
   const quarantineMutation = useMutation({
     mutationFn: async ({ entityId, reason }: { entityId: string; reason: string }) => {
-      await api.post(`/safety/quarantine/${entityId}`, { reason })
+      await api.post(`/admin/safety/quarantine/${entityId}`, { reason })
     },
     onSuccess: () => {
       addToast('Entity quarantined', 'success')
@@ -512,7 +512,7 @@ export default function Admin() {
 
   const releaseQuarantineMutation = useMutation({
     mutationFn: async ({ entityId, reason }: { entityId: string; reason: string }) => {
-      await api.delete(`/safety/quarantine/${entityId}`, { data: { reason } })
+      await api.delete(`/admin/safety/quarantine/${entityId}`, { data: { reason } })
     },
     onSuccess: () => {
       addToast('Quarantine released', 'success')

@@ -41,6 +41,7 @@ from src.api.developer_hub_router import router as developer_hub_router
 from src.api.did_router import router as did_router
 from src.api.disputes_router import router as disputes_router
 from src.api.dm_router import router as dm_router
+from src.api.docs_router import router as docs_content_router
 from src.api.endorsement_router import router as endorsement_router
 from src.api.enhanced_profile_router import router as enhanced_profile_router
 from src.api.evolution_router import router as evolution_router
@@ -463,6 +464,7 @@ app.include_router(credentials_router, prefix=settings.api_v1_prefix)
 app.include_router(crosslink_router, prefix=settings.api_v1_prefix)
 app.include_router(data_products_router, prefix=settings.api_v1_prefix)
 app.include_router(developer_hub_router, prefix=settings.api_v1_prefix)
+app.include_router(docs_content_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_embed_router, prefix=settings.api_v1_prefix)
 app.include_router(badge_router, prefix=settings.api_v1_prefix)
