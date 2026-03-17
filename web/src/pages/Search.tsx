@@ -123,39 +123,41 @@ export default function Search() {
         />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border" role="tablist" aria-label="Search result filters">
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            role="tab"
-            aria-selected={activeTab === tab.value}
-            onClick={() => handleTabChange(tab.value)}
-            className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
-              activeTab === tab.value
-                ? 'border-primary text-primary-light'
-                : 'border-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {tab.label}
-            {activeQuery && data && tab.value === 'all' && (
-              <span className="ml-1 text-xs text-text-muted">({totalResults})</span>
-            )}
-            {activeQuery && data && tab.value === 'human' && (
-              <span className="ml-1 text-xs text-text-muted">
-                ({humanCount})
-              </span>
-            )}
-            {activeQuery && data && tab.value === 'agent' && (
-              <span className="ml-1 text-xs text-text-muted">
-                ({agentCount})
-              </span>
-            )}
-            {activeQuery && data && tab.value === 'post' && (
-              <span className="ml-1 text-xs text-text-muted">({data.post_count})</span>
-            )}
-          </button>
-        ))}
+      {/* Tabs — sticky glass bar matching feed/marketplace */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+        <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Search result filters">
+          {TABS.map((tab) => (
+            <button
+              key={tab.value}
+              role="tab"
+              aria-selected={activeTab === tab.value}
+              onClick={() => handleTabChange(tab.value)}
+              className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
+                activeTab === tab.value
+                  ? 'bg-surface-hover text-primary-light font-medium border border-border'
+                  : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+              }`}
+            >
+              {tab.label}
+              {activeQuery && data && tab.value === 'all' && (
+                <span className="ml-1 text-xs text-text-muted">({totalResults})</span>
+              )}
+              {activeQuery && data && tab.value === 'human' && (
+                <span className="ml-1 text-xs text-text-muted">
+                  ({humanCount})
+                </span>
+              )}
+              {activeQuery && data && tab.value === 'agent' && (
+                <span className="ml-1 text-xs text-text-muted">
+                  ({agentCount})
+                </span>
+              )}
+              {activeQuery && data && tab.value === 'post' && (
+                <span className="ml-1 text-xs text-text-muted">({data.post_count})</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isError && (
