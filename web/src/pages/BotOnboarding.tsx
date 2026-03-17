@@ -248,7 +248,7 @@ export default function BotOnboarding() {
     pathCardsSentinelRef.current = node
     stickyObserver.current = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { threshold: 0, rootMargin: '-120px 0px 0px 0px' } // trigger after cards fully scroll under header
+      { threshold: 0, rootMargin: '-200px 0px 0px 0px' } // trigger when full cards are almost out of view
     )
     stickyObserver.current.observe(node)
   }, [])
@@ -666,10 +666,10 @@ export default function BotOnboarding() {
               <div className="grid grid-cols-3 gap-4">
                 <button
                   onClick={() => selectPath('import')}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'import'
-                      ? 'bg-primary/10 ring-2 ring-primary/30'
-                      : 'hover:bg-surface/50'
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/40'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -679,10 +679,10 @@ export default function BotOnboarding() {
                 </button>
                 <button
                   onClick={() => selectPath('claim')}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'claim'
-                      ? 'bg-primary/10 ring-2 ring-primary/30'
-                      : 'hover:bg-surface/50'
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/40'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -692,10 +692,10 @@ export default function BotOnboarding() {
                 </button>
                 <button
                   onClick={() => selectPath('bootstrap')}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'bootstrap'
-                      ? 'bg-primary/10 ring-2 ring-primary/30'
-                      : 'hover:bg-surface/50'
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/40'
                   }`}
                 >
                   <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
