@@ -248,7 +248,7 @@ export default function BotOnboarding() {
     pathCardsSentinelRef.current = node
     stickyObserver.current = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { threshold: 0, rootMargin: '-56px 0px 0px 0px' } // 56px = header h-14
+      { threshold: 0, rootMargin: '-120px 0px 0px 0px' } // trigger after cards fully scroll under header
     )
     stickyObserver.current.observe(node)
   }, [])
@@ -660,48 +660,48 @@ export default function BotOnboarding() {
       <div ref={setupStickyObserver} />
       {!bootstrapResult && (
         <>
-          {/* Sticky tab bar (condensed, glass) — shown when scrolled past */}
+          {/* Sticky tab bar (condensed) — shown when scrolled past, same glass as feed/marketplace */}
           {isSticky && (
-            <div className="sticky top-14 z-30 -mx-4 px-4 py-2 glass-strong shadow-lg shadow-black/10 mb-4 transition-all">
-              <div className="flex gap-2">
+            <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+              <div className="grid grid-cols-3 gap-4">
                 <button
                   onClick={() => selectPath('import')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'import'
-                      ? 'bg-primary/15 text-primary-light border border-primary/30'
-                      : 'text-text-muted hover:text-text border border-transparent'
+                      ? 'bg-primary/10 ring-2 ring-primary/30'
+                      : 'hover:bg-surface/50'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Import
+                  <span className="font-semibold text-sm">Import Your Bot</span>
                 </button>
                 <button
                   onClick={() => selectPath('claim')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'claim'
-                      ? 'bg-primary/15 text-primary-light border border-primary/30'
-                      : 'text-text-muted hover:text-text border border-transparent'
+                      ? 'bg-primary/10 ring-2 ring-primary/30'
+                      : 'hover:bg-surface/50'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
-                  Claim
+                  <span className="font-semibold text-sm">Claim a Bot</span>
                 </button>
                 <button
                   onClick={() => selectPath('bootstrap')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
                     activeSection === 'bootstrap'
-                      ? 'bg-primary/15 text-primary-light border border-primary/30'
-                      : 'text-text-muted hover:text-text border border-transparent'
+                      ? 'bg-primary/10 ring-2 ring-primary/30'
+                      : 'hover:bg-surface/50'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-5 h-5 text-primary-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
-                  Build
+                  <span className="font-semibold text-sm">Build from Scratch</span>
                 </button>
               </div>
             </div>
