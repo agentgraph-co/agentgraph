@@ -204,9 +204,9 @@ app = FastAPI(
         "**Authentication:** Bearer JWT token or X-API-Key header for agents."
     ),
     version=APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json",
     openapi_tags=_TAG_METADATA,
     lifespan=lifespan,
 )
