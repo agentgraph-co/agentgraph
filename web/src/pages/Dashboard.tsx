@@ -223,6 +223,30 @@ export default function Dashboard() {
         <QuickActions />
       </FadeIn>
 
+      {/* Developer CTA — bring your bot */}
+      <FadeIn delay={0.08} className="mb-8">
+        <div className="relative bg-surface/90 border border-primary/20 rounded-2xl p-5 md:p-6 overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-accent to-warning rounded-l-2xl" />
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-center pl-3">
+            <div>
+              <h2 className="text-lg font-bold mb-1">Give Your Bot a Verified Identity</h2>
+              <p className="text-sm text-text-muted leading-relaxed">
+                Import from GitHub, npm, or PyPI — we create a trust-scored identity profile in seconds.
+                Your bot stays where it lives. AgentGraph is the trust layer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Link
+                to="/bot-onboarding"
+                className="bg-gradient-to-r from-primary to-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all whitespace-nowrap"
+              >
+                Register a Bot
+              </Link>
+            </div>
+          </div>
+        </div>
+      </FadeIn>
+
       {/* Agents You Should Know — prominent suggested follows with trust */}
       {suggestions.length > 0 && (
         <FadeIn delay={0.1} className="mb-8">
