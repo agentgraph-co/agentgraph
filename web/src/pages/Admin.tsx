@@ -477,6 +477,51 @@ export default function Admin() {
     onError: () => { addToast('Failed to start scan', 'error') },
   })
 
+  // ─── Safety: Propagation Freeze + Quarantine ───
+
+  const [quarantineId, setQuarantineId] = useState('')
+  const [quarantineReason, setQuarantineReason] = useState('')
+
+  const { data: freezeStatus } = useQuery<{ frozen: boolean }>({
+    queryKey: ['admin-freeze-status'],
+    queryFn: async () => (await api.get('/safety/freeze')).data,
+    enabled: !!user?.is_admin && tab === 'safety',
+    staleTime: 10_000,
+  })
+
+  const toggleFreezeMutation = useMutation({
+    mutationFn: async (active: boolean) => { await api.post('/safety/freeze', { active }) },
+    onSuccess: (_, active) => {
+      addToast(active ? 'Propagation freeze ACTIVATED — all writes blocked' : 'Propagation freeze deactivated', active ? 'error' : 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-freeze-status'] })
+    },
+    onError: () => { addToast('Failed to toggle freeze', 'error') },
+  })
+
+  const quarantineMutation = useMutation({
+    mutationFn: async ({ entityId, reason }: { entityId: string; reason: string }) => {
+      await api.post(`/safety/quarantine/${entityId}`, { reason })
+    },
+    onSuccess: () => {
+      addToast('Entity quarantined', 'success')
+      setQuarantineId('')
+      setQuarantineReason('')
+    },
+    onError: () => { addToast('Failed to quarantine entity', 'error') },
+  })
+
+  const releaseQuarantineMutation = useMutation({
+    mutationFn: async ({ entityId, reason }: { entityId: string; reason: string }) => {
+      await api.delete(`/safety/quarantine/${entityId}`, { data: { reason } })
+    },
+    onSuccess: () => {
+      addToast('Quarantine released', 'success')
+      setQuarantineId('')
+      setQuarantineReason('')
+    },
+    onError: () => { addToast('Failed to release quarantine', 'error') },
+  })
+
   // ─── Infrastructure tab queries ───
 
   const { data: emailStats } = useQuery<{
@@ -1455,6 +1500,70 @@ export default function Admin() {
       {/* Safety */}
       {tab === 'safety' && (
         <div className="space-y-6">
+          {/* Emergency Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Propagation Freeze */}
+            <div className={`bg-surface border rounded-lg p-4 ${freezeStatus?.frozen ? 'border-danger/50' : 'border-border'}`}>
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Propagation Freeze</h2>
+              <p className="text-xs text-text-muted mb-3">
+                {freezeStatus?.frozen
+                  ? 'ACTIVE — All write operations are blocked platform-wide.'
+                  : 'Inactive — Platform operating normally. Activate to block all writes in an emergency.'}
+              </p>
+              <button
+                onClick={() => toggleFreezeMutation.mutate(!freezeStatus?.frozen)}
+                disabled={toggleFreezeMutation.isPending}
+                className={`text-xs px-4 py-2 rounded-md transition-colors cursor-pointer disabled:opacity-50 ${
+                  freezeStatus?.frozen
+                    ? 'bg-success/20 text-success hover:bg-success/30'
+                    : 'bg-danger/20 text-danger hover:bg-danger/30'
+                }`}
+              >
+                {toggleFreezeMutation.isPending ? 'Updating...' : freezeStatus?.frozen ? 'Deactivate Freeze' : 'Activate Freeze'}
+              </button>
+            </div>
+
+            {/* Entity Quarantine */}
+            <div className="bg-surface border border-border rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Entity Quarantine</h2>
+              <p className="text-xs text-text-muted mb-3">
+                Instantly freeze a specific entity — blocks all API calls for that account.
+              </p>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={quarantineId}
+                  onChange={(e) => setQuarantineId(e.target.value)}
+                  placeholder="Entity ID"
+                  className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary font-mono"
+                />
+              </div>
+              <input
+                type="text"
+                value={quarantineReason}
+                onChange={(e) => setQuarantineReason(e.target.value)}
+                placeholder="Reason"
+                className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary mb-2"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => quarantineMutation.mutate({ entityId: quarantineId, reason: quarantineReason })}
+                  disabled={!quarantineId || !quarantineReason || quarantineMutation.isPending}
+                  className="text-xs bg-danger/20 text-danger hover:bg-danger/30 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Quarantine
+                </button>
+                <button
+                  onClick={() => releaseQuarantineMutation.mutate({ entityId: quarantineId, reason: quarantineReason })}
+                  disabled={!quarantineId || !quarantineReason || releaseQuarantineMutation.isPending}
+                  className="text-xs bg-success/20 text-success hover:bg-success/30 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Release
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Population composition */}
           <div>
             <div className="flex items-center justify-between mb-3">

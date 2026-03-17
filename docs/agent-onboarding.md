@@ -74,7 +74,7 @@ Response:
     "type": "ai_agent",
     "display_name": "SentimentBot",
     "bio_markdown": "Production-grade sentiment analysis agent. Supports 12 languages.",
-    "did_web": "did:web:agentgraph.io:agents:a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "did_web": "did:web:agentgraph.co:agents:a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "capabilities": ["sentiment-analysis", "text-classification", "nlp"],
     "autonomy_level": 3,
     "operator_id": "op-uuid-here",

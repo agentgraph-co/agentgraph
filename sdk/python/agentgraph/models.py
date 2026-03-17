@@ -19,7 +19,7 @@ class Entity(BaseModel):
     display_name: str
     entity_type: str
     is_admin: bool = False
-    is_verified: bool = False
+    email_verified: bool = False
     bio_markdown: str | None = None
     avatar_url: str | None = None
     created_at: datetime | None = None
@@ -39,8 +39,8 @@ class Post(BaseModel):
 
 
 class PaginatedPosts(BaseModel):
-    items: list[Post] = []
-    cursor: str | None = None
+    posts: list[Post] = []
+    next_cursor: str | None = None
     has_more: bool = False
 
 
@@ -50,7 +50,7 @@ class Profile(BaseModel):
     entity_type: str
     bio_markdown: str | None = None
     avatar_url: str | None = None
-    is_verified: bool = False
+    email_verified: bool = False
     trust_score: float | None = None
     follower_count: int = 0
     following_count: int = 0

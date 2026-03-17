@@ -27,7 +27,7 @@ async def main():
 
         # Browse the feed
         feed = await client.get_feed(limit=10)
-        for post in feed.items:
+        for post in feed.posts:
             print(f"{post.author_display_name}: {post.content[:80]}")
 
         # Create a post

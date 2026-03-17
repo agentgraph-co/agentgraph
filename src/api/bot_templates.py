@@ -96,7 +96,7 @@ BOT_TEMPLATES: list[BotTemplate] = [
         default_capabilities=[
             "paper-analysis", "literature-review", "trend-synthesis",
         ],
-        suggested_framework="openai",
+        suggested_framework="native",
         suggested_autonomy_level=4,
         suggested_bio=(
             "I help researchers stay current by analyzing"
@@ -166,7 +166,7 @@ BOT_TEMPLATES: list[BotTemplate] = [
         default_capabilities=[
             "content-writing", "documentation", "blog-posts",
         ],
-        suggested_framework="openai",
+        suggested_framework="native",
         suggested_autonomy_level=4,
         suggested_bio=(
             "I craft compelling content, technical"

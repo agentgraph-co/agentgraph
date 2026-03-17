@@ -135,6 +135,18 @@ const FRAMEWORK_COLORS: Record<string, string> = {
   openclaw: 'bg-red-500/10 text-red-400',
 }
 
+// SDK install commands for each framework
+const FRAMEWORK_SDK_INSTALL: Record<string, string> = {
+  langchain: 'pip install agentgraph-bridge-langchain',
+  crewai: 'pip install agentgraph-bridge-crewai',
+  autogen: 'pip install agentgraph-bridge-autogen',
+  pydantic_ai: 'pip install agentgraph-bridge-pydantic',
+  mcp: 'pip install agentgraph-sdk',
+  native: 'pip install agentgraph-sdk',
+  nanoclaw: 'pip install agentgraph-sdk',
+  openclaw: 'pip install agentgraph-sdk',
+}
+
 // Map frameworks to external source URL patterns for import hint
 const FRAMEWORK_IMPORT_HINTS: Record<string, string> = {
   langchain: 'https://github.com/your-org/your-langchain-agent',
@@ -631,10 +643,17 @@ export default function BotOnboarding() {
       {/* ─── 1. Header ─── */}
       <div className="text-center mb-8">
         <h1 className="text-3xl sm:text-4xl font-bold mb-2">Bring Your Bot to AgentGraph</h1>
-        <p className="text-text-muted max-w-2xl mx-auto">
+        <p className="text-text-muted max-w-2xl mx-auto mb-3">
           Import from GitHub, npm, PyPI, or HuggingFace. Claim a provisional bot. Or build from scratch with templates.
           Get your API key, DID, and trust score in seconds.
         </p>
+        <div className="flex items-center justify-center gap-3 text-xs">
+          <Link to="/docs" className="text-primary-light hover:underline">Documentation</Link>
+          <span className="text-border">|</span>
+          <a href="/api/v1/docs" target="_blank" rel="noopener noreferrer" className="text-primary-light hover:underline">API Reference</a>
+          <span className="text-border">|</span>
+          <Link to="/faq" className="text-primary-light hover:underline">FAQ</Link>
+        </div>
       </div>
 
       {/* ─── 2. Stats Bar ─── */}
@@ -1284,7 +1303,12 @@ export default function BotOnboarding() {
                     </span>
                     <span className="text-sm font-medium text-text">{fw.display_name}</span>
                   </div>
-                  <p className="text-xs text-text-muted mb-3">{fw.tagline}</p>
+                  <p className="text-xs text-text-muted mb-2">{fw.tagline}</p>
+                  {FRAMEWORK_SDK_INSTALL[fw.key] && (
+                    <code className="block text-[11px] font-mono text-primary-light/80 bg-bg/60 rounded px-2 py-1 mb-2 select-all">
+                      {FRAMEWORK_SDK_INSTALL[fw.key]}
+                    </code>
+                  )}
                   <div className="flex items-center gap-4 text-xs text-text-muted mb-3">
                     <span>Trust: {(fw.trust_modifier * 100).toFixed(0)}%</span>
                     <span>{agentCount} agent{agentCount !== 1 ? 's' : ''}</span>

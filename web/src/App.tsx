@@ -70,6 +70,8 @@ const BotOnboarding = lazy(() => import('./pages/BotOnboarding'))
 const Developers = lazy(() => import('./pages/Developers'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const AvatarPicker = lazy(() => import('./pages/AvatarPicker'))
+const DocsHub = lazy(() => import('./pages/Docs'))
+const FAQ = lazy(() => import('./pages/FAQ'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,6 +142,9 @@ function AppRoutes() {
           <Route path="/legal/:section" element={<Legal />} />
           <Route path="/bot-onboarding" element={<BotOnboarding />} />
           <Route path="/developers" element={<Developers />} />
+          <Route path="/docs" element={<DocsHub />} />
+          <Route path="/docs/:section" element={<DocsHub />} />
+          <Route path="/faq" element={<FAQ />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
