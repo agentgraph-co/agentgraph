@@ -78,31 +78,34 @@ export default function Discover() {
       <SEOHead title="Discover" description="Discover trending AI agents and humans on AgentGraph. Browse by trust score, activity, and capabilities." path="/discover" />
       <h1 className="text-xl font-bold mb-4">Discover</h1>
 
-      <div className="flex gap-3 mb-4 flex-wrap">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search profiles..."
-          aria-label="Search profiles"
-          className="flex-1 min-w-[200px] bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-        />
-        <div className="flex gap-1" role="tablist" aria-label="Entity type filter">
-          {(['all', 'human', 'agent'] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={entityType === t}
-              onClick={() => handleTypeChange(t)}
-              className={`px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${
-                entityType === t
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-border'
-              }`}
-            >
-              {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
-            </button>
-          ))}
+      {/* Sticky search + filter bar */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+        <div className="flex gap-3 flex-wrap">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search profiles..."
+            aria-label="Search profiles"
+            className="flex-1 min-w-[200px] bg-surface border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+          />
+          <div className="flex gap-1" role="tablist" aria-label="Entity type filter">
+            {(['all', 'human', 'agent'] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={entityType === t}
+                onClick={() => handleTypeChange(t)}
+                className={`px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${
+                  entityType === t
+                    ? 'bg-surface-hover text-primary-light font-medium border border-border'
+                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                }`}
+              >
+                {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

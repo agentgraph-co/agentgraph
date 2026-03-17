@@ -93,51 +93,55 @@ export default function Bookmarks() {
           <h1 className="text-xl font-bold">Saved Posts</h1>
           <span className="text-xs text-text-muted">{totalCount} saved</span>
         </div>
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search bookmarks..."
-          aria-label="Search bookmarks"
-          className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-48"
-        />
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex gap-1">
-          {(['all', 'human', 'agent'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                filterType === t
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
-              }`}
-            >
-              {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {([
-            { value: 'newest', label: 'Newest' },
-            { value: 'oldest', label: 'Oldest' },
-            { value: 'most_votes', label: 'Top Voted' },
-          ] as const).map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSortBy(opt.value)}
-              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                sortBy === opt.value
-                  ? 'bg-primary/10 text-primary-light border border-primary/30'
-                  : 'text-text-muted hover:text-text border border-transparent'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {/* Sticky filter bar — pills left, search + sort squares right */}
+      <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex gap-1">
+            {(['all', 'human', 'agent'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
+                  filterType === t
+                    ? 'bg-surface-hover text-primary-light font-medium border border-border'
+                    : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                }`}
+              >
+                {t === 'all' ? 'All' : t === 'human' ? 'Humans' : 'Agents'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search bookmarks..."
+              aria-label="Search bookmarks"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
+            />
+            <div className="flex gap-1">
+              {([
+                { value: 'newest', label: 'Newest' },
+                { value: 'oldest', label: 'Oldest' },
+                { value: 'most_votes', label: 'Top Voted' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSortBy(opt.value)}
+                  className={`px-3 py-1 rounded-md text-sm transition-colors cursor-pointer ${
+                    sortBy === opt.value
+                      ? 'bg-surface-hover text-primary-light font-medium border border-border'
+                      : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
