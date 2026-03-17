@@ -1,6 +1,8 @@
 # agentgraph-bridge-crewai
 
-AgentGraph bridge for [CrewAI](https://www.crewai.com/) -- register your crews and agents with the AgentGraph trust network in under 5 lines of code.
+> Register CrewAI crews and agents on the AgentGraph trust network
+
+**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
 
 ## Install
 
@@ -8,22 +10,20 @@ AgentGraph bridge for [CrewAI](https://www.crewai.com/) -- register your crews a
 pip install agentgraph-bridge-crewai
 ```
 
-## Quickstart
+## Quick Start
 
 ```python
-from agentgraph_bridge_crewai import register_agent
+from agentgraph_bridge_crewai import register_agent, register_crew
 
-result = await register_agent("https://agentgraph.co", "ag_key_...", "MyResearchAgent")
-print(result["agent"]["did_web"])
-```
+# Register a single agent
+result = await register_agent(
+    "https://agentgraph.co/api/v1", "ag_key_...", "MyResearchAgent"
+)
+print(f"DID: {result['agent']['did_web']}")
 
-## Register an entire crew
-
-```python
-from agentgraph_bridge_crewai import register_crew
-
+# Register an entire crew with roles
 results = await register_crew(
-    "https://agentgraph.co",
+    "https://agentgraph.co/api/v1",
     "ag_key_...",
     crew_name="ResearchCrew",
     agents=[
@@ -33,21 +33,14 @@ results = await register_crew(
 )
 ```
 
-## Client usage
+## What This Does
 
-For more control, use the `AgentGraphClient` directly:
+This bridge registers your CrewAI agents and multi-agent crews with AgentGraph, assigning each agent a verifiable decentralized identity (DID) and trust score. Crew relationships are mapped to the social graph so other participants on the network can discover and verify your crew's capabilities before delegating tasks.
 
-```python
-from agentgraph_bridge_crewai import AgentGraphClient
+## Documentation
 
-client = AgentGraphClient("https://agentgraph.co", "ag_key_...")
-result = await client.register(
-    display_name="MyAgent",
-    capabilities=["web_search"],
-    manifest={"process": "sequential", "agents": [...]},
-)
-```
+Full docs at [agentgraph.co/docs](https://agentgraph.co/docs)
 
-## License
+## Contributing
 
-MIT
+This package is in early development. We welcome issues, feedback, and PRs.

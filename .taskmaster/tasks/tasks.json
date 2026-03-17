@@ -3061,6 +3061,61 @@
         "details": "Files to update: src/api/notification_router.py (_KIND_EMAIL_PREFS, NotificationPreferencesResponse, UpdatePreferencesRequest, GET/PATCH return statements), web/src/pages/Settings.tsx (EMAIL_LABELS, NotifPrefs interface). DB columns already exist \u2014 no migration needed.",
         "testStrategy": "Verify email sends for all 5 re-enabled types. Check Settings UI shows toggles. Run pytest for notification preference endpoints.",
         "subtasks": []
+      },
+      {
+        "id": "253",
+        "title": "Developer Docs: Add code copy buttons to markdown code blocks",
+        "description": "Add one-click copy-to-clipboard buttons on all <pre> code blocks in the docs viewer (Docs.tsx). Standard UX in modern developer docs (Stripe, Vercel, Tailwind). Custom react-markdown code component with relative container and copy button.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "details": "In web/src/pages/Docs.tsx, add a custom `code` component to the Markdown `components` prop. When inside a `pre` (block-level), render a wrapper div with position:relative and a small copy button top-right. On click, use navigator.clipboard.writeText(). Brief 'Copied!' feedback. Match existing code block theme.",
+        "testStrategy": "Visit /docs/developer-guide, verify copy buttons on code blocks, click copies to clipboard, 'Copied!' feedback shows.",
+        "subtasks": []
+      },
+      {
+        "id": "254",
+        "title": "Developer Docs: Add search within documentation",
+        "description": "Add a search box at the top of the docs hub (/docs) that filters pages by title and description. Client-side filtering of SECTIONS array is sufficient for now.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": [],
+        "details": "In DocsHub (web/src/pages/Docs.tsx), add search input below title. Filter SECTIONS items by query against label+desc (case-insensitive). Hide empty sections. Debounce 150ms. Clear button.",
+        "testStrategy": "Visit /docs, type in search, verify sections filter. Clear restores all.",
+        "subtasks": []
+      },
+      {
+        "id": "255",
+        "title": "SDK stub READMEs on GitHub for all 7 SDK packages",
+        "description": "Create stub README.md in GitHub repo for all 7 SDK directories so 'Preview' SDK links in docs hub don't 404. Each README: package purpose, install example, early development note, link to /docs.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "details": "Create: sdk/python, sdk/bridges/agentgraph-bridge-langchain, sdk/bridges/agentgraph-bridge-crewai, sdk/bridges/agentgraph-bridge-autogen, sdk/bridges/agentgraph-bridge-pydantic, sdk/mcp-server, sdk/github-action \u2014 each with README.md containing name, status badge, description, install, usage example, docs link, contribution welcome.",
+        "testStrategy": "Click each SDK link from /docs hub. GitHub renders README. No 404s.",
+        "subtasks": []
+      },
+      {
+        "id": "256",
+        "title": "Developer Docs: API version indicator",
+        "description": "Add 'API v1' badge to docs hub header and Swagger/ReDoc page titles. Prepares for future version selector when v2 ships.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": [],
+        "details": "Phase 1: Add 'API v1' badge to docs hub header and Swagger title. Phase 2 (when v2 ships): version dropdown switching between v1/v2 specs.",
+        "testStrategy": "Verify 'API v1' badge on docs hub and Swagger page.",
+        "subtasks": []
+      },
+      {
+        "id": "257",
+        "title": "Developer Docs: Interactive 'Try it' API calls from docs",
+        "description": "Add inline API testing from documentation pages. Options: (1) 'Try it' buttons linking to pre-filled Swagger deep links, (2) mini API console component, (3) full embedded interactive panel. Start with option 1.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": [],
+        "details": "Start simple: 'Try it' buttons next to code examples that open Swagger at the correct endpoint. Evaluate need for more based on developer feedback. If logged in, pre-fill with user's API key.",
+        "testStrategy": "Click 'Try it' in docs. Swagger opens at correct endpoint.",
+        "subtasks": []
       }
     ],
     "metadata": {

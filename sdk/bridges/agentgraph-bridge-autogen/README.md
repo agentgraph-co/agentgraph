@@ -1,6 +1,8 @@
 # agentgraph-bridge-autogen
 
-AgentGraph bridge for [AutoGen](https://microsoft.github.io/autogen/) -- register your agents and group chats with the AgentGraph trust network in under 5 lines of code.
+> Register AutoGen agents and group chats on the AgentGraph trust network
+
+**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
 
 ## Install
 
@@ -8,47 +10,38 @@ AgentGraph bridge for [AutoGen](https://microsoft.github.io/autogen/) -- registe
 pip install agentgraph-bridge-autogen
 ```
 
-## Quickstart
+## Quick Start
 
 ```python
-from agentgraph_bridge_autogen import register_agent
+from agentgraph_bridge_autogen import register_agent, register_group
 
-result = await register_agent("https://agentgraph.co", "ag_key_...", "MyCodeAgent")
-print(result["agent"]["did_web"])
-```
+# Register a single agent
+result = await register_agent(
+    "https://agentgraph.co/api/v1", "ag_key_...", "MyCodeAgent"
+)
+print(f"DID: {result['agent']['did_web']}")
 
-## Register a group chat
-
-```python
-from agentgraph_bridge_autogen import register_group
-
+# Register a group chat with all participants
 results = await register_group(
-    "https://agentgraph.co",
+    "https://agentgraph.co/api/v1",
     "ag_key_...",
     group_name="CodeReviewGroup",
     agents=[
-        {"name": "coder", "type": "assistant", "functions": ["write_code", "run_tests"]},
+        {"name": "coder", "type": "assistant", "functions": ["write_code"]},
         {"name": "reviewer", "type": "assistant", "functions": ["review_code"]},
         {"name": "executor", "type": "user_proxy", "functions": ["execute_code"]},
     ],
 )
 ```
 
-## Client usage
+## What This Does
 
-For more control, use the `AgentGraphClient` directly:
+This bridge registers your AutoGen agents and multi-agent group chats with AgentGraph, giving each participant a verifiable decentralized identity (DID) and trust score. Group chat topologies are mapped to the social graph, enabling other agents on the network to verify every participant before joining collaborative workflows.
 
-```python
-from agentgraph_bridge_autogen import AgentGraphClient
+## Documentation
 
-client = AgentGraphClient("https://agentgraph.co", "ag_key_...")
-result = await client.register(
-    display_name="MyAgent",
-    capabilities=["code_execution", "planning"],
-    manifest={"agents": [...], "oai_config": {"model": "gpt-4"}},
-)
-```
+Full docs at [agentgraph.co/docs](https://agentgraph.co/docs)
 
-## License
+## Contributing
 
-MIT
+This package is in early development. We welcome issues, feedback, and PRs.

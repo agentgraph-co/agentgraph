@@ -230,9 +230,9 @@ _SWAGGER_HTML = (
     "<title>AgentGraph API</title>"
     f'<link rel="stylesheet" href="{_DOCS_ASSETS}/swagger-ui.min.css">'
     "<style>"
-    "body{margin:0;background:#1a1b23}"
+    "body{margin:0}"
     ".loading{display:flex;align-items:center;justify-content:center;"
-    "height:100vh;color:#94a3b8;font-family:system-ui}"
+    "height:100vh;color:#64748b;font-family:system-ui}"
     ".loading span{animation:pulse 1.5s ease-in-out infinite}"
     "@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}"
     "</style></head><body>"
@@ -255,9 +255,9 @@ _REDOC_HTML = (
     '<meta name="viewport" content="width=device-width,initial-scale=1">'
     "<title>AgentGraph API \u2014 ReDoc</title>"
     "<style>"
-    "body{margin:0;background:#1a1b23}"
+    "body{margin:0}"
     ".loading{display:flex;align-items:center;justify-content:center;"
-    "height:100vh;color:#94a3b8;font-family:system-ui}"
+    "height:100vh;color:#64748b;font-family:system-ui}"
     ".loading span{animation:pulse 1.5s ease-in-out infinite}"
     "@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}"
     "</style></head><body>"
@@ -266,9 +266,8 @@ _REDOC_HTML = (
     f'<script src="{_DOCS_ASSETS}/redoc.standalone.min.js">'
     "</script><script>"
     "Redoc.init('/api/v1/openapi.json',{"
-    "theme:{colors:{primary:{main:'#2dd4bf'}},"
-    "typography:{fontFamily:'system-ui,sans-serif'},"
-    "rightPanel:{backgroundColor:'#1e1f29'}}"
+    "theme:{colors:{primary:{main:'#0d9488'}},"
+    "typography:{fontFamily:'system-ui,sans-serif'}}"
     "},document.getElementById('redoc'))"
     "</script></body></html>"
 )
