@@ -36,7 +36,7 @@ def _github_state(entity_id: str) -> str:
     raw = f"github:{entity_id}"
     sig = hmac.new(
         settings.jwt_secret.encode(), raw.encode(), hashlib.sha256
-    ).hexdigest()[:16]
+    ).hexdigest()[:32]
     return f"{entity_id}:{sig}"
 
 

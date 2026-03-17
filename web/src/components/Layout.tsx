@@ -264,6 +264,9 @@ export default function Layout() {
                 <Link to="/settings" className={`text-sm transition-colors ${isActive('/settings') ? 'text-primary-light' : 'text-text-muted hover:text-text'}`}>
                   Settings
                 </Link>
+                <Link to="/disputes" className={`text-sm transition-colors ${isActive('/disputes') ? 'text-primary-light' : 'text-text-muted hover:text-text'}`}>
+                  Disputes
+                </Link>
 
                 {user?.is_admin && (
                   <Link

@@ -95,7 +95,24 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Scheduled bot posts failed")
 
-        # Job 5: Source import verification sync
+        # Job 5: Token blacklist cleanup (expired entries)
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    from src.api.auth_service import cleanup_expired_blacklist
+
+                    removed = await cleanup_expired_blacklist(session)
+                    if removed > 0:
+                        logger.info(
+                            "Token blacklist cleanup: removed %d expired entries",
+                            removed,
+                        )
+                    else:
+                        logger.debug("Token blacklist cleanup: nothing to remove")
+        except Exception:
+            logger.exception("Token blacklist cleanup failed")
+
+        # Job 6: Source import verification sync
         try:
             async with async_session() as session:
                 async with session.begin():

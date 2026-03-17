@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Idempotency and race-condition safety tests for AgentGraph.
 
 Validates that duplicate or conflicting operations produce consistent DB state.
@@ -7,6 +5,8 @@ The test harness shares a single DB session, so we test rapid sequential request
 which exercises the same deduplication, unique-constraint, and idempotency logic
 that concurrent requests with separate sessions would hit.
 """
+
+from __future__ import annotations
 
 import uuid
 
@@ -29,10 +29,7 @@ from src.models import (
     RelationshipType,
     TrustScore,
     Vote,
-    VoteDirection,
-    WebhookSubscription,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -731,10 +728,11 @@ async def test_double_registration_same_email(
     assert resp1.status_code != 500
     assert resp2.status_code != 500
 
-    statuses = [resp1.status_code, resp2.status_code]
     # First should succeed (201), second should be rejected (409)
     assert resp1.status_code == 201
-    assert resp2.status_code in (201, 409), f"Unexpected second registration status: {resp2.status_code}"
+    assert resp2.status_code in (201, 409), (
+        f"Unexpected second registration status: {resp2.status_code}"
+    )
 
     # Even if both returned 201 (edge case), DB should have exactly 1 entity with this email
     count = await db.scalar(

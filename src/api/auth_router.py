@@ -127,7 +127,6 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     # Progressive delay after failed login attempts (per-IP + per-email)
-    import asyncio
 
     from src import cache
 
@@ -146,7 +145,13 @@ async def login(
     fail_count = max(fail_count_ip, fail_count_email)
     if fail_count >= 5:
         delay = min(2 ** (fail_count - 5), 16)  # 1s, 2s, 4s, 8s, 16s
-        await asyncio.sleep(delay)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many login attempts. Please try again later."},
+            headers={"Retry-After": str(int(delay))},
+        )
 
     entity = await authenticate_human(db, body.email, body.password)
     if entity is None:
@@ -494,7 +499,7 @@ async def google_login(request: Request, platform: str | None = None):
     state_data = f"{ts}:{plat}"
     sig = hmac.new(
         settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
-    ).hexdigest()[:16]
+    ).hexdigest()[:32]
     state = f"{state_data}:{sig}"
 
     url = get_google_auth_url(redirect_uri, state=state)
@@ -530,7 +535,7 @@ async def google_callback(
     state_data = f"{ts_str}:{platform}"
     expected_sig = hmac.new(
         settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
-    ).hexdigest()[:16]
+    ).hexdigest()[:32]
     if not hmac.compare_digest(sig, expected_sig):
         raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
 
@@ -639,7 +644,7 @@ async def github_login(request: Request, platform: str | None = None):
     state_data = f"login:{ts}:{plat}"
     sig = hmac.new(
         settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
-    ).hexdigest()[:16]
+    ).hexdigest()[:32]
     state = f"{state_data}:{sig}"
 
     url = get_github_auth_url(
@@ -686,7 +691,7 @@ async def github_callback(
     state_data = f"login:{ts_str}:{platform}"
     expected_sig = hmac.new(
         settings.jwt_secret.encode(), state_data.encode(), hashlib.sha256,
-    ).hexdigest()[:16]
+    ).hexdigest()[:32]
     if not hmac.compare_digest(sig, expected_sig):
         raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
 

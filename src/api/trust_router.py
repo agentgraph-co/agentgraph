@@ -123,7 +123,7 @@ METHODOLOGY_TEXT = """# Trust Score v2 Methodology
 - Log-scaled to prevent gaming: `min(log(count+1) / log(100), 1.0)`
 - Creating 100 posts has diminishing returns vs. 10 posts
 
-### Reputation (weight: 0.15)
+### Peer Reviews (weight: 0.15)
 - Reviews: average rating / 5.0 (capped at 1.0), weight 60%
 - Endorsements: log-scaled count log(n+1)/log(20) (capped at 1.0), weight 40%
 - Combined: `0.6 * review_score + 0.4 * endorsement_score`
@@ -965,7 +965,7 @@ IMPROVEMENT_TIPS = {
         ],
     },
     "reputation": {
-        "label": "Reputation",
+        "label": "Peer Reviews",
         "tips": [
             "Earn positive reviews from other users",
             "Get capability endorsements for your skills",

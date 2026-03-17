@@ -2912,7 +2912,7 @@
         "id": "240",
         "title": "Add Content-Security-Policy Header to nginx HTML Responses",
         "description": "CSP header is only set on API responses via the backend. HTML pages served by nginx lack CSP, reducing defense-in-depth against XSS.",
-        "status": "deferred",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Add a Content-Security-Policy header to the nginx config for the main server block (HTML responses). Suggested policy:\n\ndefault-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' wss://agentgraph.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n\nNote: May need 'unsafe-inline' for styles due to Tailwind. Test thoroughly \u2014 a too-strict CSP will break the app.",
@@ -3052,7 +3052,7 @@
         "subtasks": []
       },
       {
-        "id": 100,
+        "id": "100",
         "title": "Re-enable email notifications for replies, endorsements, reviews, followers, votes",
         "description": "Once a cheaper email provider like AWS SES is available, re-enable email notification options for: Replies to your posts, Endorsements, Reviews on your listings, New followers, Votes on your content. These were removed from the UI and backend email dispatch (notification_router.py _KIND_EMAIL_PREFS) to save on Resend email costs. The DB columns (email_reply_enabled, email_endorsement_enabled, email_review_enabled, email_follow_enabled, email_vote_enabled) still exist in the NotificationPreference model \u2014 just need to add them back to _KIND_EMAIL_PREFS, the API response/request schemas, and the Settings.tsx EMAIL_LABELS / NotifPrefs interface.",
         "status": "deferred",
@@ -3066,12 +3066,13 @@
         "id": "253",
         "title": "Developer Docs: Add code copy buttons to markdown code blocks",
         "description": "Add one-click copy-to-clipboard buttons on all <pre> code blocks in the docs viewer (Docs.tsx). Standard UX in modern developer docs (Stripe, Vercel, Tailwind). Custom react-markdown code component with relative container and copy button.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "In web/src/pages/Docs.tsx, add a custom `code` component to the Markdown `components` prop. When inside a `pre` (block-level), render a wrapper div with position:relative and a small copy button top-right. On click, use navigator.clipboard.writeText(). Brief 'Copied!' feedback. Match existing code block theme.",
         "testStrategy": "Visit /docs/developer-guide, verify copy buttons on code blocks, click copies to clipboard, 'Copied!' feedback shows.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-17T17:52:31.537Z"
       },
       {
         "id": "254",
@@ -3088,12 +3089,13 @@
         "id": "255",
         "title": "SDK stub READMEs on GitHub for all 7 SDK packages",
         "description": "Create stub README.md in GitHub repo for all 7 SDK directories so 'Preview' SDK links in docs hub don't 404. Each README: package purpose, install example, early development note, link to /docs.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "details": "Create: sdk/python, sdk/bridges/agentgraph-bridge-langchain, sdk/bridges/agentgraph-bridge-crewai, sdk/bridges/agentgraph-bridge-autogen, sdk/bridges/agentgraph-bridge-pydantic, sdk/mcp-server, sdk/github-action \u2014 each with README.md containing name, status badge, description, install, usage example, docs link, contribution welcome.",
         "testStrategy": "Click each SDK link from /docs hub. GitHub renders README. No 404s.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-17T17:52:31.605Z"
       },
       {
         "id": "256",
@@ -3116,13 +3118,69 @@
         "details": "Start simple: 'Try it' buttons next to code examples that open Swagger at the correct endpoint. Evaluate need for more based on developer feedback. If logged in, pre-fill with user's API key.",
         "testStrategy": "Click 'Try it' in docs. Swagger opens at correct endpoint.",
         "subtasks": []
+      },
+      {
+        "id": "258",
+        "title": "Security: OAuth token-in-fragment to auth code exchange",
+        "description": "Replace implicit OAuth flow (token in URL fragment) with authorization code exchange. Fragments leak via referrer headers and browser history. HIGH priority security fix.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": []
+      },
+      {
+        "id": "259",
+        "title": "Security: Remove CSP unsafe-inline for script-src",
+        "description": "Current CSP allows unsafe-inline for scripts. Implement nonce-based or hash-based CSP for inline scripts to prevent XSS. MEDIUM priority.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": []
+      },
+      {
+        "id": "260",
+        "title": "Security: Consolidate duplicate headers between nginx and middleware",
+        "description": "Security headers (X-Frame-Options, X-Content-Type-Options, etc.) are set in both nginx.conf and FastAPI middleware. Consolidate to nginx only for production, middleware only for dev. LOW priority.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": []
+      },
+      {
+        "id": "261",
+        "title": "DevOps: Add pip-audit and npm audit to CI pipeline",
+        "description": "Add dependency vulnerability scanning (pip-audit for Python, npm audit for JS) as a CI step. LOW priority but important for supply chain security.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": []
+      },
+      {
+        "id": "262",
+        "title": "Growth: Agent sandbox/playground for zero-friction onboarding",
+        "description": "Create an interactive sandbox where developers can test agent registration and API calls without signing up. Reduces friction compared to Moltbook while maintaining security. HIGH priority for adoption.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": []
+      },
+      {
+        "id": "263",
+        "title": "Feature: Token economy UI and dashboard",
+        "description": "Build UI for viewing and managing token balances, transaction history, and staking. Deferred until token economics are finalized. MEDIUM priority.",
+        "status": "deferred",
+        "priority": "medium",
+        "dependencies": []
+      },
+      {
+        "id": "264",
+        "title": "Feature: Organization management UI",
+        "description": "Multi-user organization accounts with role-based access. Allows teams to manage fleets of agents under one org. MEDIUM priority, deferred.",
+        "status": "deferred",
+        "priority": "medium",
+        "dependencies": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-11T21:22:54.390Z",
-      "taskCount": 233,
-      "completedCount": 194,
+      "lastModified": "2026-03-17T17:52:31.605Z",
+      "taskCount": 256,
+      "completedCount": 199,
       "tags": [
         "master"
       ]
