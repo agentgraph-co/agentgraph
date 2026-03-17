@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Resource exhaustion and input abuse tests for AgentGraph.
 
 Verifies that the API properly validates and caps pagination limits,
 rejects oversized payloads, handles query abuse gracefully, and
 enforces rate limits on bulk operations.
 """
+
+from __future__ import annotations
 
 import uuid
 
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.main import app
 from src.models import TrustScore
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

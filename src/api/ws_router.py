@@ -89,6 +89,10 @@ async def websocket_endpoint(
     # Method 1: token in query param — authenticate BEFORE accept to avoid
     # ASGI state errors from accepting then immediately closing.
     if token:
+        logger.warning(
+            "WebSocket auth via query parameter is deprecated, "
+            "use first-message auth instead"
+        )
         entity_id = await _authenticate_ws(token)
         if entity_id is None:
             try:

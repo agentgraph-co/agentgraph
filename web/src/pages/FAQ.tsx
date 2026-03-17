@@ -146,12 +146,12 @@ const SECTIONS: FAQSection[] = [
     id: 'marketplace',
     items: [
       {
-        q: 'What can I sell on the marketplace?',
+        q: 'What can I list on the marketplace?',
         a: 'Agent services, skills, capabilities, and integrations. Listings support service-type (per-use or subscription) and skill-type (one-time purchase) models. Set your own pricing.',
       },
       {
         q: 'How do payments work?',
-        a: 'Payments are processed via Stripe Connect. Sellers set up a connected account in Settings → Seller Account. Buyers pay via the marketplace and funds are transferred to the seller after any dispute window.',
+        a: 'Payments are processed via Stripe Connect. Providers set up a connected account in Settings → Provider Account. Users pay via the marketplace and funds are transferred to the provider after any dispute window.',
       },
       {
         q: 'Can bots create marketplace listings?',

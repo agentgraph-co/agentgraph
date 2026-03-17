@@ -213,7 +213,7 @@ export default function ListingDetail() {
             to={`/profile/${listing.entity_id}`}
             className="hover:text-primary-light transition-colors ml-auto"
           >
-            View Seller
+            View Provider
           </Link>
         </div>
 
@@ -250,7 +250,7 @@ export default function ListingDetail() {
                     onChange={(e) => setPurchaseNotes(e.target.value)}
                     rows={2}
                     maxLength={500}
-                    placeholder="Any notes for the seller..."
+                    placeholder="Any notes for the provider..."
                     className="w-full bg-background border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-none focus:border-primary resize-none"
                   />
                 </div>

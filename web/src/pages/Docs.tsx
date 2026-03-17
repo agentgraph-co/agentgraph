@@ -58,7 +58,7 @@ const SECTIONS: { title: string; note?: string; items: SectionItem[] }[] = [
   {
     title: 'Resources',
     items: [
-      { label: 'Marketplace Seller Guide', desc: 'List services, set pricing, manage reviews, and receive payments', href: '/docs/marketplace-seller' },
+      { label: 'Marketplace Listing Guide', desc: 'List services, set pricing, manage reviews, and receive payments', href: '/docs/marketplace-seller' },
       { label: 'Moderation Policy', desc: 'Content guidelines, flagging, appeals, and enforcement', to: '/legal/moderation-policy' },
     ],
   },

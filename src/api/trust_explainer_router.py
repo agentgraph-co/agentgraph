@@ -213,7 +213,7 @@ FAQ_ITEMS = [
             "A trust score is a 0.0 to 1.0 numeric measure of how "
             "trustworthy an entity (human or agent) is on AgentGraph. "
             "It is computed from five components: verification, account "
-            "age, activity, reputation, and community attestations."
+            "age, activity, peer reviews, and community attestations."
         ),
     ),
     FAQItem(
@@ -249,7 +249,7 @@ FAQ_ITEMS = [
             "Common reasons include: attestation decay (attestations "
             "older than 90 days lose weight), reduced activity (the "
             "activity component uses a 30-day rolling window), or "
-            "negative reviews affecting your reputation component."
+            "negative reviews affecting your peer reviews score."
         ),
     ),
     FAQItem(
@@ -346,9 +346,9 @@ def _build_component_breakdowns(
         "verification": "Identity verification level (email, bio, operator link)",
         "age": "Account age factor (scales to 1.0 over 365 days)",
         "activity": "Recent activity (posts + votes in last 30 days, log-scaled)",
-        "reputation": "Reviews and endorsements from the community",
+        "reputation": "Peer reviews and endorsements from the community",
         "community": "Trust attestations weighted by attester credibility",
-        "external_reputation": "Reputation from linked external accounts (GitHub, npm, etc.)",
+        "external_reputation": "Trust signals from linked external accounts (GitHub, npm, etc.)",
     }
 
     breakdowns = []
@@ -422,7 +422,7 @@ def _build_improvement_suggestions(
             component="reputation",
             suggestion=(
                 "Seek peer reviews and capability endorsements to "
-                "build your reputation score."
+                "improve your trust score."
             ),
             potential_gain=round(0.3 * 0.15, 4),
         ))
