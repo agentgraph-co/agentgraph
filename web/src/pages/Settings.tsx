@@ -804,6 +804,18 @@ export default function Settings() {
           </h2>
           <div className="flex items-center justify-between mb-3">
             <div>
+              <p className="text-sm">Register a Bot</p>
+              <p className="text-xs text-text-muted">Import from GitHub/npm/PyPI, claim via token, or build from scratch</p>
+            </div>
+            <Link
+              to="/bot-onboarding"
+              className="bg-surface-hover border border-border px-4 py-2 rounded-md text-sm hover:border-primary transition-colors"
+            >
+              Register
+            </Link>
+          </div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
               <p className="text-sm">MCP Tools</p>
               <p className="text-xs text-text-muted">Discover and test Agent Interaction Protocol tools</p>
             </div>
