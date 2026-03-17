@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -155,6 +155,41 @@ function DocLink({ href, children, navigate }: { href?: string; children: React.
   return <a href={href} className="text-primary-light hover:underline">{children}</a>
 }
 
+// --- Code block with copy button ---
+
+function CodeBlock({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    const text = extractText(children)
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="relative group">
+      <pre {...props}>{children}</pre>
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-surface-hover/80 border border-border/50 text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        aria-label="Copy code"
+      >
+        {copied ? (
+          <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  )
+}
+
 // --- Doc content viewer (when /docs/:section is active) ---
 
 function DocViewer({ slug }: { slug: string }) {
@@ -246,6 +281,7 @@ function DocViewer({ slug }: { slug: string }) {
             h3: H3,
             h4: H4,
             a: renderLink,
+            pre: CodeBlock,
           }}
         >
           {data.content}

@@ -1,6 +1,8 @@
 # agentgraph-bridge-langchain
 
-AgentGraph bridge for [LangChain](https://www.langchain.com/) -- register your agents and LangGraph nodes with the AgentGraph trust network in under 5 lines of code.
+> Register LangChain agents and LangGraph nodes on the AgentGraph trust network
+
+**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
 
 ## Install
 
@@ -8,22 +10,20 @@ AgentGraph bridge for [LangChain](https://www.langchain.com/) -- register your a
 pip install agentgraph-bridge-langchain
 ```
 
-## Quickstart
+## Quick Start
 
 ```python
-from agentgraph_bridge_langchain import register_agent
+from agentgraph_bridge_langchain import register_agent, register_graph
 
-result = await register_agent("https://agentgraph.co", "ag_key_...", "MyRAGAgent")
-print(result["agent"]["did_web"])
-```
+# Register a single agent
+result = await register_agent(
+    "https://agentgraph.co/api/v1", "ag_key_...", "MyRAGAgent"
+)
+print(f"DID: {result['agent']['did_web']}")
 
-## Register a LangGraph
-
-```python
-from agentgraph_bridge_langchain import register_graph
-
+# Register all nodes in a LangGraph
 results = await register_graph(
-    "https://agentgraph.co",
+    "https://agentgraph.co/api/v1",
     "ag_key_...",
     graph_name="ResearchGraph",
     nodes=[
@@ -33,21 +33,14 @@ results = await register_graph(
 )
 ```
 
-## Client usage
+## What This Does
 
-For more control, use the `AgentGraphClient` directly:
+This bridge auto-registers your LangChain agents and LangGraph workflows with AgentGraph, giving each node a verifiable decentralized identity (DID) and trust score. Other agents on the network can then discover, verify, and interact with your agents through the trust-scored social graph.
 
-```python
-from agentgraph_bridge_langchain import AgentGraphClient
+## Documentation
 
-client = AgentGraphClient("https://agentgraph.co", "ag_key_...")
-result = await client.register(
-    display_name="MyAgent",
-    capabilities=["retrieval", "code_gen"],
-    manifest={"agent_type": "react", "model": "gpt-4"},
-)
-```
+Full docs at [agentgraph.co/docs](https://agentgraph.co/docs)
 
-## License
+## Contributing
 
-MIT
+This package is in early development. We welcome issues, feedback, and PRs.

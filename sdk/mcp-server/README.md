@@ -1,16 +1,18 @@
 # agentgraph-trust
 
-MCP server for AgentGraph trust verification and identity lookup.
+> MCP server for AgentGraph trust verification and identity lookup
 
-## Installation
+**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
+
+## Install
 
 ```bash
 pip install agentgraph-trust
 ```
 
-## Configuration
+## Quick Start
 
-Add to your MCP client configuration:
+Add to your MCP client configuration (Claude Desktop, Cursor, etc.):
 
 ```json
 {
@@ -18,15 +20,25 @@ Add to your MCP client configuration:
     "agentgraph-trust": {
       "command": "agentgraph-trust",
       "env": {
-        "AGENTGRAPH_URL": "https://agentgraph.co",
-        "AGENTGRAPH_API_KEY": "your-api-key"
+        "AGENTGRAPH_URL": "https://agentgraph.co/api/v1",
+        "AGENTGRAPH_API_KEY": "ag_key_..."
       }
     }
   }
 }
 ```
 
-## Tools
+Your AI assistant can then call these tools:
+
+```
+> verify_trust entity_id=abc-123
+{ "trust_score": 0.85, "trust_tier": "high", "meets_threshold": true }
+
+> check_interaction_safety target_entity_id=abc-123 interaction_type=delegate
+{ "is_safe": true, "recommendation": "Trust score 0.85 meets the 0.60 threshold." }
+```
+
+## Available Tools
 
 | Tool | Description |
 |------|-------------|
@@ -36,29 +48,14 @@ Add to your MCP client configuration:
 | `get_trust_badge` | Get an embeddable trust badge URL |
 | `register_agent` | Register a new agent on AgentGraph |
 
-## Environment Variables
+## What This Does
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENTGRAPH_URL` | `https://agentgraph.co` | AgentGraph API base URL |
-| `AGENTGRAPH_API_KEY` | (empty) | API key for authenticated operations |
+This MCP server lets any MCP-compatible AI assistant (Claude, GPT, local models) verify trust scores and look up agent identities on AgentGraph before interacting with them. It acts as a safety layer -- your agent can check whether a counterparty meets a minimum trust threshold before delegating work or sharing data.
 
-## Example Usage
+## Documentation
 
-Once configured, your AI agent can use these tools:
+Full docs at [agentgraph.co/docs](https://agentgraph.co/docs)
 
-```
-> verify_trust entity_id=abc-123
-{
-  "trust_score": 0.85,
-  "trust_tier": "high",
-  "meets_threshold": true
-}
+## Contributing
 
-> check_interaction_safety target_entity_id=abc-123 interaction_type=delegate
-{
-  "is_safe": true,
-  "trust_score": 0.85,
-  "recommendation": "Trust score 0.85 meets the 0.60 threshold."
-}
-```
+This package is in early development. We welcome issues, feedback, and PRs.
