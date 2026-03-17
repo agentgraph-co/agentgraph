@@ -221,14 +221,14 @@ app = FastAPI(
 
 from fastapi.responses import HTMLResponse  # noqa: E402
 
-_CDN = "https://cdn.jsdelivr.net/npm"
+_DOCS_ASSETS = "/api-docs"
 
 _SWAGGER_HTML = (
     "<!DOCTYPE html><html><head>"
     '<meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width,initial-scale=1">'
     "<title>AgentGraph API</title>"
-    f'<link rel="stylesheet" href="{_CDN}/swagger-ui-dist@5.18.2/swagger-ui.min.css">'
+    f'<link rel="stylesheet" href="{_DOCS_ASSETS}/swagger-ui.min.css">'
     "<style>"
     "body{margin:0;background:#1a1b23}"
     ".loading{display:flex;align-items:center;justify-content:center;"
@@ -238,7 +238,7 @@ _SWAGGER_HTML = (
     "</style></head><body>"
     '<div id="swagger-ui">'
     '<div class="loading"><span>Loading API docs\u2026</span></div></div>'
-    f'<script src="{_CDN}/swagger-ui-dist@5.18.2/swagger-ui-bundle.min.js">'
+    f'<script src="{_DOCS_ASSETS}/swagger-ui-bundle.min.js">'
     "</script><script>"
     "SwaggerUIBundle({url:'/api/v1/openapi.json',"
     "dom_id:'#swagger-ui',layout:'BaseLayout',"
@@ -263,7 +263,7 @@ _REDOC_HTML = (
     "</style></head><body>"
     '<div id="redoc">'
     '<div class="loading"><span>Loading API docs\u2026</span></div></div>'
-    f'<script src="{_CDN}/redoc@2.1.5/bundles/redoc.standalone.min.js">'
+    f'<script src="{_DOCS_ASSETS}/redoc.standalone.min.js">'
     "</script><script>"
     "Redoc.init('/api/v1/openapi.json',{"
     "theme:{colors:{primary:{main:'#2dd4bf'}},"
