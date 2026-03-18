@@ -49,17 +49,42 @@ class MoltbookScoutAdapter(AbstractPlatformAdapter):
         return True
 
     async def discover_trending_agents(self, limit: int = 20) -> list[dict]:
-        """Scrape trending agents from Moltbook for import.
+        """Return seed profiles not yet imported.
 
-        Returns list of dicts compatible with source_import pipeline.
+        Returns list of dicts compatible with the batch import pipeline.
         """
+        import random
+
+        from sqlalchemy import select
+
+        from src.bridges.moltbook.seed_profiles import MOLTBOOK_SEED_PROFILES
+        from src.database import async_session
+        from src.models import Entity
+
+        logger.info("Moltbook scout: discovering trending agents")
+
+        # Get already-imported moltbook_ids
         try:
-            # In practice, we'd use src.bridges.moltbook.adapter and
-            # src.source_import.moltbook_fetcher to scrape trending bots.
-            # For now, return empty — will be populated when we have
-            # Moltbook trending page scraping.
-            logger.info("Moltbook scout: discovering trending agents")
-            return []
-        except ImportError:
-            logger.debug("Moltbook bridge not available")
-            return []
+            async with async_session() as session:
+                result = await session.execute(
+                    select(Entity.onboarding_data).where(
+                        Entity.framework_source == "moltbook",
+                    )
+                )
+                imported_ids: set[str] = set()
+                for (data,) in result.all():
+                    if data and isinstance(data, dict):
+                        src = data.get("import_source", {})
+                        mb_id = src.get("moltbook_id") or data.get("moltbook_id")
+                        if mb_id:
+                            imported_ids.add(mb_id)
+        except Exception:
+            logger.exception("Failed to query existing Moltbook imports")
+            imported_ids = set()
+
+        available = [
+            p for p in MOLTBOOK_SEED_PROFILES
+            if p["moltbook_id"] not in imported_ids
+        ]
+        random.shuffle(available)
+        return available[:limit]

@@ -62,3 +62,55 @@ async def trigger_refresh_attestation_weights(
     from src.trust.score import refresh_attestation_weights
     updated = await refresh_attestation_weights(db)
     return {"attestations_updated": updated}
+
+
+@router.post("/moltbook-import")
+async def trigger_moltbook_import(
+    limit: int = Query(10, ge=1, le=50),
+    dry_run: bool = Query(False),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Trigger a batch import of Moltbook agents (admin only)."""
+    require_admin(current_entity)
+    from src.bridges.moltbook.batch_import import run_batch_import
+
+    summary = await run_batch_import(db, limit=limit, dry_run=dry_run)
+    if not dry_run:
+        await db.commit()
+    return summary
+
+
+@router.get("/moltbook-import/stats")
+async def get_moltbook_import_stats(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get Moltbook import statistics (admin only)."""
+    require_admin(current_entity)
+    from sqlalchemy import func, select
+
+    from src.models import Entity as EntityModel
+
+    total = await db.scalar(
+        select(func.count(EntityModel.id)).where(
+            EntityModel.framework_source == "moltbook",
+        )
+    )
+    claimed = await db.scalar(
+        select(func.count(EntityModel.id)).where(
+            EntityModel.framework_source == "moltbook",
+            EntityModel.is_provisional.is_(False),
+        )
+    )
+    unclaimed = await db.scalar(
+        select(func.count(EntityModel.id)).where(
+            EntityModel.framework_source == "moltbook",
+            EntityModel.is_provisional.is_(True),
+        )
+    )
+    return {
+        "total_imported": total or 0,
+        "claimed": claimed or 0,
+        "unclaimed": unclaimed or 0,
+    }
