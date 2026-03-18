@@ -74,7 +74,38 @@ interface Appeal {
   resolved_at: string | null
 }
 
-type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'waitlist' | 'trust' | 'safety' | 'infra' | 'issues'
+type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'waitlist' | 'trust' | 'safety' | 'infra' | 'issues' | 'marketing'
+
+interface MarketingDashboard {
+  platform_stats: { platform: string; count: number; status: string }[]
+  topic_stats: { topic: string; count: number }[]
+  type_stats: { post_type: string; count: number }[]
+  engagement: { total_likes: number; total_comments: number; total_shares: number; total_impressions: number }
+  cost: { total_cost_usd: number; by_model: { model: string; cost: number; calls: number }[] }
+  recent_posts: { id: string; platform: string; content: string; status: string; topic: string; post_type: string; llm_model: string | null; llm_cost_usd: number; created_at: string; posted_at: string | null }[]
+  pending_drafts: number
+  campaigns: { id: string; name: string; status: string; topic: string }[]
+}
+
+interface MarketingDraft {
+  id: string
+  platform: string
+  content: string
+  topic: string | null
+  post_type: string
+  status: string
+  llm_model: string | null
+  created_at: string
+}
+
+interface MarketingHealth {
+  marketing_enabled: boolean
+  ollama_available: boolean
+  anthropic_configured: boolean
+  daily_spend_usd: number
+  monthly_spend_usd: number
+  adapters: Record<string, { configured: boolean; healthy: boolean }>
+}
 
 interface IssueItem {
   id: string
@@ -143,6 +174,8 @@ export default function Admin() {
   const [issueTypeFilter, setIssueTypeFilter] = useState<string>('')
   const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null)
   const [issueResolutionNote, setIssueResolutionNote] = useState('')
+  const [draftEditContent, setDraftEditContent] = useState('')
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
@@ -563,6 +596,53 @@ export default function Admin() {
     onError: () => { addToast('Failed to run expiry job', 'error') },
   })
 
+  // ─── Marketing tab queries ───
+
+  const { data: mktDashboard, isLoading: mktLoading } = useQuery<MarketingDashboard>({
+    queryKey: ['admin-marketing-dashboard'],
+    queryFn: async () => (await api.get('/admin/marketing/dashboard')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 2 * 60_000,
+  })
+
+  const { data: mktDrafts } = useQuery<MarketingDraft[]>({
+    queryKey: ['admin-marketing-drafts'],
+    queryFn: async () => (await api.get('/admin/marketing/drafts')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 30_000,
+  })
+
+  const { data: mktHealth } = useQuery<MarketingHealth>({
+    queryKey: ['admin-marketing-health'],
+    queryFn: async () => (await api.get('/admin/marketing/health')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 60_000,
+  })
+
+  const draftActionMutation = useMutation({
+    mutationFn: async ({ postId, action, content }: { postId: string; action: string; content?: string }) => {
+      return (await api.post(`/admin/marketing/drafts/${postId}`, { action, content })).data
+    },
+    onSuccess: (_data, vars) => {
+      addToast(`Draft ${vars.action === 'approve' ? 'approved' : vars.action === 'reject' ? 'rejected' : 'edited & approved'}`, 'success')
+      setEditingDraftId(null)
+      setDraftEditContent('')
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-drafts'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
+    },
+    onError: () => { addToast('Failed to update draft', 'error') },
+  })
+
+  const triggerMarketingMutation = useMutation({
+    mutationFn: async () => (await api.post('/admin/marketing/trigger')).data,
+    onSuccess: () => {
+      addToast('Marketing tick triggered', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-drafts'] })
+    },
+    onError: () => { addToast('Failed to trigger marketing tick', 'error') },
+  })
+
   // ─── Issues tab queries ───
 
   const { data: issuesData } = useQuery<{ issues: IssueItem[]; total: number }>({
@@ -611,6 +691,7 @@ export default function Admin() {
     { value: 'safety', label: 'Safety' },
     { value: 'infra', label: 'Infra' },
     { value: 'issues', label: 'Issues' },
+    { value: 'marketing', label: 'Marketing' },
   ]
 
   return (
@@ -1951,6 +2032,245 @@ export default function Admin() {
             </div>
           ) : (
             <div className="text-text-muted text-center py-10">No issues found</div>
+          )}
+        </div>
+      )}
+
+      {/* Marketing */}
+      {tab === 'marketing' && (
+        <div className="space-y-6">
+          {mktLoading ? (
+            <div className="py-10"><InlineSkeleton /></div>
+          ) : (
+            <>
+              {/* Health & Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => triggerMarketingMutation.mutate()}
+                  disabled={triggerMarketingMutation.isPending}
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {triggerMarketingMutation.isPending ? 'Running...' : 'Trigger Marketing Tick'}
+                </button>
+                {mktHealth && (
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className={`px-2 py-1 rounded ${mktHealth.marketing_enabled ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                      {mktHealth.marketing_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <span className={`px-2 py-1 rounded ${mktHealth.anthropic_configured ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                      {mktHealth.anthropic_configured ? 'Anthropic OK' : 'No Anthropic Key'}
+                    </span>
+                    <span className={`px-2 py-1 rounded ${mktHealth.ollama_available ? 'bg-success/10 text-success' : 'bg-surface-hover text-text-muted'}`}>
+                      {mktHealth.ollama_available ? 'Ollama OK' : 'Ollama Offline'}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-surface-hover text-text-muted">
+                      Today: ${mktHealth.daily_spend_usd.toFixed(4)}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-surface-hover text-text-muted">
+                      Month: ${mktHealth.monthly_spend_usd.toFixed(4)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats Cards */}
+              {mktDashboard && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard label="Total Posts" value={mktDashboard.recent_posts.length} sub="Last 7 days" />
+                  <StatCard label="Pending Drafts" value={mktDashboard.pending_drafts} sub={mktDashboard.pending_drafts > 0 ? 'Needs review' : 'All clear'} />
+                  <StatCard label="LLM Spend" value={`$${mktDashboard.cost.total_cost_usd.toFixed(4)}`} sub="This period" />
+                  <StatCard
+                    label="Engagement"
+                    value={(mktDashboard.engagement.total_likes + mktDashboard.engagement.total_comments + mktDashboard.engagement.total_shares).toLocaleString()}
+                    sub="Likes + comments + shares"
+                  />
+                </div>
+              )}
+
+              {/* Platform Adapters */}
+              {mktHealth && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Platform Adapters</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    {Object.entries(mktHealth.adapters).map(([name, info]) => (
+                      <div key={name} className="bg-surface border border-border rounded-lg p-3 text-center">
+                        <div className="text-xs font-medium capitalize">{name}</div>
+                        <div className="mt-1">
+                          {info.configured ? (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${info.healthy ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                              {info.healthy ? 'Healthy' : 'Unhealthy'}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-hover text-text-muted">Not configured</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Posts by Platform */}
+              {mktDashboard && mktDashboard.platform_stats.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Posts by Platform</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {mktDashboard.platform_stats.map((ps) => (
+                      <div key={`${ps.platform}-${ps.status}`} className="bg-surface border border-border rounded-lg p-3 flex items-center justify-between">
+                        <span className="text-xs capitalize">{ps.platform}</span>
+                        <span className="text-sm font-medium">{ps.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cost Breakdown */}
+              {mktDashboard && mktDashboard.cost.by_model.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">LLM Cost Breakdown</h2>
+                  <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+                    <table className="w-full min-w-[400px]">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Model</th>
+                          <th className="text-right text-xs text-text-muted px-4 py-2">Calls</th>
+                          <th className="text-right text-xs text-text-muted px-4 py-2">Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mktDashboard.cost.by_model.map((m) => (
+                          <tr key={m.model} className="border-b border-border/50">
+                            <td className="text-xs px-4 py-2">{m.model}</td>
+                            <td className="text-xs px-4 py-2 text-right">{m.calls}</td>
+                            <td className="text-xs px-4 py-2 text-right">${m.cost.toFixed(4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Drafts */}
+              {mktDrafts && mktDrafts.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
+                    Pending Drafts ({mktDrafts.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {mktDrafts.map((draft) => (
+                      <div key={draft.id} className="bg-surface border border-border rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{draft.platform}</span>
+                          <span className="text-xs text-text-muted">{draft.post_type}</span>
+                          {draft.topic && <span className="text-xs text-text-muted">| {draft.topic}</span>}
+                          {draft.llm_model && <span className="text-[10px] text-text-muted/60">{draft.llm_model}</span>}
+                        </div>
+                        {editingDraftId === draft.id ? (
+                          <textarea
+                            value={draftEditContent}
+                            onChange={e => setDraftEditContent(e.target.value)}
+                            className="w-full text-sm bg-surface-hover border border-border rounded p-2 mb-2 min-h-[80px]"
+                          />
+                        ) : (
+                          <p className="text-sm mb-3 whitespace-pre-wrap">{draft.content}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
+                            disabled={draftActionMutation.isPending}
+                            className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          {editingDraftId === draft.id ? (
+                            <button
+                              onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'edit_approve', content: draftEditContent })}
+                              disabled={draftActionMutation.isPending || !draftEditContent.trim()}
+                              className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                            >
+                              Save & Approve
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
+                              className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'reject', })}
+                            disabled={draftActionMutation.isPending}
+                            className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          {editingDraftId === draft.id && (
+                            <button
+                              onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}
+                              className="text-xs text-text-muted hover:text-text px-3 py-1.5 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Posts */}
+              {mktDashboard && mktDashboard.recent_posts.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Recent Posts</h2>
+                  <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Platform</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Content</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Type</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Status</th>
+                          <th className="text-right text-xs text-text-muted px-4 py-2">Cost</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mktDashboard.recent_posts.map((post) => (
+                          <tr key={post.id} className="border-b border-border/50">
+                            <td className="text-xs px-4 py-2 capitalize">{post.platform}</td>
+                            <td className="text-xs px-4 py-2 max-w-[200px] truncate">{post.content}</td>
+                            <td className="text-xs px-4 py-2">{post.post_type}</td>
+                            <td className="text-xs px-4 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                post.status === 'posted' ? 'bg-success/10 text-success' :
+                                post.status === 'failed' ? 'bg-danger/10 text-danger' :
+                                post.status === 'human_review' ? 'bg-warning/10 text-warning' :
+                                'bg-surface-hover text-text-muted'
+                              }`}>
+                                {post.status}
+                              </span>
+                            </td>
+                            <td className="text-xs px-4 py-2 text-right">${post.llm_cost_usd?.toFixed(4) ?? '0.00'}</td>
+                            <td className="text-xs px-4 py-2 text-text-muted">{timeAgo(post.posted_at || post.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {mktDashboard && mktDashboard.recent_posts.length === 0 && (!mktDrafts || mktDrafts.length === 0) && (
+                <div className="text-text-muted text-center py-10">
+                  No marketing activity yet. Configure platform API keys and trigger a marketing tick to get started.
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

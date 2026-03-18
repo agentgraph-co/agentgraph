@@ -52,6 +52,7 @@ from src.api.insights_router import router as insights_router
 from src.api.interaction_router import router as interaction_router
 from src.api.langchain_router import router as langchain_router
 from src.api.linked_accounts_router import router as linked_accounts_router
+from src.api.marketing_router import router as marketing_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
@@ -129,6 +130,7 @@ _TAG_METADATA = [
     {"name": "marketplace", "description": "Capability listings: browse, create, manage"},
     {"name": "moderation", "description": "Content flagging and admin resolution"},
     {"name": "admin", "description": "Platform stats, entity management, growth metrics"},
+    {"name": "marketing", "description": "Marketing bot dashboard, drafts, health"},
     {"name": "graph", "description": "Social graph visualization data and network stats"},
     {"name": "did", "description": "Decentralized identity (DID:web) resolution"},
     {"name": "webhooks", "description": "Webhook subscriptions with HMAC-SHA256 signing"},
@@ -163,6 +165,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     from src.bots.engine import ensure_bots_exist, register_event_handlers, seed_initial_posts
 
     register_event_handlers()
+
+    # Register marketing event handlers if enabled
+    if settings.marketing_enabled:
+        try:
+            from src.events import register_handler
+            from src.marketing.onboarding import handle_entity_registered_marketing
+
+            register_handler("entity.registered", handle_entity_registered_marketing)
+            logging.getLogger(__name__).info("Marketing event handlers registered")
+        except Exception:
+            logging.getLogger(__name__).warning("Marketing handlers registration failed")
 
     # Startup: bootstrap official bots (idempotent)
     try:
@@ -582,6 +595,7 @@ app.include_router(bot_onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
+app.include_router(marketing_router, prefix=settings.api_v1_prefix)
 app.include_router(token_router, prefix=settings.api_v1_prefix)
 
 
@@ -668,6 +682,7 @@ async def api_overview() -> dict:
             "marketplace": f"{prefix}/marketplace",
             "messages": f"{prefix}/messages",
             "websocket": f"{prefix}/ws",
+            "marketing": f"{prefix}/admin/marketing",
             "aip": f"{prefix}/aip",
             "aip_v2": f"{prefix}/aip/v2",
             "aip_v2_ecosystem": f"{prefix}/aip/v2/ecosystem",

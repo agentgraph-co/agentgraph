@@ -129,6 +129,23 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Scheduled source import sync failed")
 
+        # Job 7: Marketing bot orchestrator
+        try:
+            from src.config import settings as _settings
+
+            if _settings.marketing_enabled:
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.marketing.orchestrator import run_marketing_tick
+
+                        summary = await run_marketing_tick(session)
+                        if summary.get("status") != "disabled":
+                            logger.info(
+                                "Marketing tick completed: %s", summary,
+                            )
+        except Exception:
+            logger.exception("Marketing tick failed")
+
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.

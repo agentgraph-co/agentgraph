@@ -42,12 +42,13 @@ async def client(db):
 
 
 def test_bot_definitions_complete():
-    """All 6 bots are defined with required fields."""
-    assert len(BOT_DEFINITIONS) == 6
+    """All 7 bots are defined with required fields."""
+    assert len(BOT_DEFINITIONS) == 7
     keys = {b["key"] for b in BOT_DEFINITIONS}
     assert keys == {
         "agentgraph", "bughunter", "featurebot",
         "trustguide", "securitywatch", "welcomebot",
+        "marketingbot",
     }
     for bot in BOT_DEFINITIONS:
         assert bot["id"]
@@ -64,7 +65,7 @@ def test_deterministic_uuids():
 
 def test_bot_ids_set():
     """BOT_IDS set has all 6 bot IDs."""
-    assert len(BOT_IDS) == 6
+    assert len(BOT_IDS) == 7
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +77,8 @@ def test_bot_ids_set():
 async def test_ensure_bots_exist(db: AsyncSession):
     """Bootstrap creates all 6 bots."""
     result = await ensure_bots_exist(db)
-    assert len(result["created"]) == 6
-    assert result["total"] == 6
+    assert len(result["created"]) == 7
+    assert result["total"] == 7
 
     # Verify entities exist
     for bot_def in BOT_DEFINITIONS:
@@ -103,7 +104,7 @@ async def test_ensure_bots_exist(db: AsyncSession):
 async def test_ensure_bots_exist_idempotent(db: AsyncSession):
     """Running bootstrap twice doesn't duplicate bots."""
     result1 = await ensure_bots_exist(db)
-    assert len(result1["created"]) == 6
+    assert len(result1["created"]) == 7
 
     result2 = await ensure_bots_exist(db)
     assert len(result2["created"]) == 0

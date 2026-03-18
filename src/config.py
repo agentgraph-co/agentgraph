@@ -126,6 +126,9 @@ class Settings(BaseSettings):
     # GitHub API token (for higher rate limits in source import)
     github_token: str | None = None
 
+    # Marketing bot system
+    marketing_enabled: bool = False
+
     # Error tracking
     sentry_dsn: str | None = None
 
