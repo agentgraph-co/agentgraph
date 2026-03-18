@@ -20,6 +20,20 @@ def test_seed_profiles_valid():
 
 
 @pytest.mark.asyncio
+async def test_batch_import_dry_run_no_entities(db: AsyncSession):
+    """dry_run=True reports what would be imported but creates no entities."""
+    result = await run_batch_import(db, limit=5, dry_run=True)
+    assert result["imported"] >= 1
+    assert result["agents"][0]["id"].startswith("dry-run-")
+
+    # No entities should exist
+    entities = await db.execute(
+        select(Entity).where(Entity.framework_source == "moltbook")
+    )
+    assert len(entities.scalars().all()) == 0
+
+
+@pytest.mark.asyncio
 async def test_batch_import_creates_entities(db: AsyncSession):
     """Batch import creates provisional entities."""
     result = await run_batch_import(db, limit=5)

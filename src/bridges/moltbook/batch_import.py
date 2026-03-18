@@ -99,7 +99,20 @@ async def run_batch_import(
             summary["skipped_security"] += 1
             continue
 
-        # d. Import
+        # d. Import (skip actual persistence in dry_run mode)
+        if dry_run:
+            agent_summary = {
+                "id": f"dry-run-{mb_id}",
+                "display_name": display_name,
+                "moltbook_id": mb_id,
+                "security_scan": scan["risk_level"],
+            }
+            imported_agents.append(agent_summary)
+            summary["imported"] += 1
+            existing_moltbook_ids.add(mb_id)
+            existing_names.add(display_name.lower())
+            continue
+
         try:
             agent_result = await import_moltbook_bot(db, profile, operator_id=None)
             agent_id = uuid.UUID(agent_result["id"])
