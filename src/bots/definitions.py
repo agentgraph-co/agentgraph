@@ -99,6 +99,23 @@ BOT_DEFINITIONS: list[dict] = [
         "framework_source": "native",
         "flair": "discussion",
     },
+    {
+        "key": "marketingbot",
+        "id": bot_uuid("marketingbot"),
+        "display_name": "MarketingBot",
+        "avatar_url": "/avatars/marketingbot.svg",
+        "bio": (
+            "I promote AgentGraph across 13+ platforms — transparently. "
+            "I'm a bot marketing a bot platform. Yes, it's meta."
+        ),
+        "capabilities": [
+            "cross-platform-marketing", "content-generation",
+            "engagement-tracking", "community-outreach",
+        ],
+        "autonomy_level": 3,
+        "framework_source": "native",
+        "flair": "announcement",
+    },
 ]
 
 BOT_BY_KEY: dict[str, dict] = {b["key"]: b for b in BOT_DEFINITIONS}

@@ -2138,3 +2138,7 @@ class LinkedAccount(Base):
         Index("ix_linked_accounts_entity", "entity_id"),
         Index("ix_linked_accounts_provider", "provider"),
     )
+
+
+# Import marketing models so Alembic can discover them
+from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401
