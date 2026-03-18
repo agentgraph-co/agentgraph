@@ -81,10 +81,10 @@ interface MarketingDashboard {
   topic_stats: { topic: string; count: number }[]
   type_stats: { post_type: string; count: number }[]
   engagement: { total_likes: number; total_comments: number; total_shares: number; total_impressions: number }
-  cost: { total_cost_usd: number; by_model: { model: string; cost: number; calls: number }[] }
-  recent_posts: { id: string; platform: string; content: string; status: string; topic: string; post_type: string; llm_model: string | null; llm_cost_usd: number; created_at: string; posted_at: string | null }[]
+  cost: { breakdown: { model: string; calls: number; cost_usd: number; tokens_in: number; tokens_out: number }[]; daily_spend_usd: number; monthly_spend_usd: number }
+  recent_posts: { id: string; platform: string; content: string; topic: string | null; posted_at: string | null; metrics: Record<string, number> | null; llm_model: string | null; llm_cost_usd: number | null }[]
   pending_drafts: number
-  campaigns: { id: string; name: string; status: string; topic: string }[]
+  campaigns: { id: string; name: string; status: string; topic: string; platforms: string[] }[]
 }
 
 interface MarketingDraft {
@@ -2078,7 +2078,7 @@ export default function Admin() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <StatCard label="Total Posts" value={mktDashboard.recent_posts.length} sub="Last 7 days" />
                   <StatCard label="Pending Drafts" value={mktDashboard.pending_drafts} sub={mktDashboard.pending_drafts > 0 ? 'Needs review' : 'All clear'} />
-                  <StatCard label="LLM Spend" value={`$${mktDashboard.cost.total_cost_usd.toFixed(4)}`} sub="This period" />
+                  <StatCard label="LLM Spend (today)" value={`$${mktDashboard.cost.daily_spend_usd.toFixed(4)}`} sub={`Month: $${mktDashboard.cost.monthly_spend_usd.toFixed(4)}`} />
                   <StatCard
                     label="Engagement"
                     value={(mktDashboard.engagement.total_likes + mktDashboard.engagement.total_comments + mktDashboard.engagement.total_shares).toLocaleString()}
@@ -2126,7 +2126,7 @@ export default function Admin() {
               )}
 
               {/* Cost Breakdown */}
-              {mktDashboard && mktDashboard.cost.by_model.length > 0 && (
+              {mktDashboard && mktDashboard.cost.breakdown.length > 0 && (
                 <div>
                   <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">LLM Cost Breakdown</h2>
                   <div className="bg-surface border border-border rounded-lg overflow-x-auto">
@@ -2139,11 +2139,11 @@ export default function Admin() {
                         </tr>
                       </thead>
                       <tbody>
-                        {mktDashboard.cost.by_model.map((m) => (
+                        {mktDashboard.cost.breakdown.map((m) => (
                           <tr key={m.model} className="border-b border-border/50">
                             <td className="text-xs px-4 py-2">{m.model}</td>
                             <td className="text-xs px-4 py-2 text-right">{m.calls}</td>
-                            <td className="text-xs px-4 py-2 text-right">${m.cost.toFixed(4)}</td>
+                            <td className="text-xs px-4 py-2 text-right">${m.cost_usd.toFixed(4)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2232,8 +2232,8 @@ export default function Admin() {
                         <tr className="border-b border-border">
                           <th className="text-left text-xs text-text-muted px-4 py-2">Platform</th>
                           <th className="text-left text-xs text-text-muted px-4 py-2">Content</th>
-                          <th className="text-left text-xs text-text-muted px-4 py-2">Type</th>
-                          <th className="text-left text-xs text-text-muted px-4 py-2">Status</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Topic</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Model</th>
                           <th className="text-right text-xs text-text-muted px-4 py-2">Cost</th>
                           <th className="text-left text-xs text-text-muted px-4 py-2">When</th>
                         </tr>
@@ -2243,19 +2243,10 @@ export default function Admin() {
                           <tr key={post.id} className="border-b border-border/50">
                             <td className="text-xs px-4 py-2 capitalize">{post.platform}</td>
                             <td className="text-xs px-4 py-2 max-w-[200px] truncate">{post.content}</td>
-                            <td className="text-xs px-4 py-2">{post.post_type}</td>
-                            <td className="text-xs px-4 py-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                                post.status === 'posted' ? 'bg-success/10 text-success' :
-                                post.status === 'failed' ? 'bg-danger/10 text-danger' :
-                                post.status === 'human_review' ? 'bg-warning/10 text-warning' :
-                                'bg-surface-hover text-text-muted'
-                              }`}>
-                                {post.status}
-                              </span>
-                            </td>
-                            <td className="text-xs px-4 py-2 text-right">${post.llm_cost_usd?.toFixed(4) ?? '0.00'}</td>
-                            <td className="text-xs px-4 py-2 text-text-muted">{timeAgo(post.posted_at || post.created_at)}</td>
+                            <td className="text-xs px-4 py-2 capitalize">{post.topic ?? '—'}</td>
+                            <td className="text-xs px-4 py-2 text-text-muted">{post.llm_model ?? 'template'}</td>
+                            <td className="text-xs px-4 py-2 text-right">${(post.llm_cost_usd ?? 0).toFixed(4)}</td>
+                            <td className="text-xs px-4 py-2 text-text-muted">{post.posted_at ? timeAgo(post.posted_at) : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
