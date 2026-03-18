@@ -333,6 +333,65 @@ async def rescan_entity(
     return _scan_to_out(scan)
 
 
+# --- OpenClaw Skill Execution ---
+
+
+class OpenClawSkillRequest(BaseModel):
+    """Request to execute an OpenClaw skill."""
+
+    skill_name: str = Field(..., max_length=100)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenClawSkillResponse(BaseModel):
+    """Response from an OpenClaw skill execution."""
+
+    skill_name: str
+    result: dict[str, Any]
+
+
+@router.post(
+    "/openclaw/execute",
+    response_model=OpenClawSkillResponse,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def execute_openclaw_skill(
+    body: OpenClawSkillRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute an OpenClaw skill call against AgentGraph.
+
+    The authenticated entity is the caller — all operations are performed
+    as that entity with its trust level applied.
+    """
+    from src.bridges.openclaw.adapter import OpenClawError, translate_skill_call
+
+    try:
+        result = await translate_skill_call(
+            body.skill_name, body.arguments, current_entity, db,
+        )
+    except OpenClawError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": exc.code, "message": exc.message},
+        )
+
+    return OpenClawSkillResponse(skill_name=body.skill_name, result=result)
+
+
+@router.get(
+    "/openclaw/skills",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_openclaw_skills():
+    """List supported OpenClaw skill names."""
+    from src.bridges.openclaw.adapter import get_supported_skills
+
+    skills = get_supported_skills()
+    return {"skills": skills, "count": len(skills)}
+
+
 # --- LangChain Endpoints ---
 
 

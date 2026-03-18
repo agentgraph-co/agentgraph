@@ -146,6 +146,30 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing tick failed")
 
+        # Job 8: Moltbook auto-import flywheel
+        try:
+            from src.config import settings as _mkt_settings
+
+            if _mkt_settings.moltbook_auto_import_enabled:
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.bridges.moltbook.batch_import import run_batch_import
+
+                        summary = await run_batch_import(
+                            session,
+                            limit=_mkt_settings.moltbook_import_batch_size,
+                        )
+                        if summary.get("imported", 0) > 0:
+                            logger.info(
+                                "Moltbook auto-import: %s", summary,
+                            )
+                        else:
+                            logger.debug(
+                                "Moltbook auto-import: nothing new",
+                            )
+        except Exception:
+            logger.exception("Moltbook auto-import failed")
+
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.

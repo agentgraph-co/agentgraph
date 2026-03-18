@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     # Marketing bot system
     marketing_enabled: bool = False
 
+    # Moltbook auto-import
+    moltbook_auto_import_enabled: bool = False
+    moltbook_import_batch_size: int = 10
+
     # Error tracking
     sentry_dsn: str | None = None
 
