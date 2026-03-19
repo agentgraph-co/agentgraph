@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { NotificationSkeleton } from '../components/Skeleton'
@@ -47,8 +48,23 @@ const KIND_FILTERS = [
   { value: 'moderation', label: 'Moderation' },
 ] as const
 
+function getNotificationLink(notif: Notification): string | null {
+  if (!notif.reference_id) return null
+  switch (notif.kind) {
+    case 'message': return '/messages'
+    case 'reply':
+    case 'vote':
+    case 'mention': return `/post/${notif.reference_id}`
+    case 'follow': return `/profile/${notif.reference_id}`
+    case 'endorsement':
+    case 'review': return `/profile/${notif.reference_id}`
+    default: return null
+  }
+}
+
 export default function Notifications() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const [kindFilter, setKindFilter] = useState<string>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
@@ -185,40 +201,48 @@ export default function Notifications() {
       </div>
 
       <div className="space-y-2">
-        {allNotifications.map((notif) => (
-          <div
-            key={notif.id}
-            className={`bg-surface border rounded-lg p-3 transition-colors ${
-              notif.is_read
-                ? 'border-border'
-                : 'border-primary/30 bg-primary/5'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-lg mt-0.5">
-                {ICON_MAP[notif.kind] || '\u{1F514}'}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{notif.title}</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface-hover text-text-muted capitalize">
-                    {notif.kind}
-                  </span>
-                  <span className="text-xs text-text-muted">{timeAgo(notif.created_at)}</span>
+        {allNotifications.map((notif) => {
+          const link = getNotificationLink(notif)
+          return (
+            <div
+              key={notif.id}
+              role={link ? 'link' : undefined}
+              onClick={link ? () => {
+                if (!notif.is_read) markRead.mutate(notif.id)
+                navigate(link)
+              } : undefined}
+              className={`bg-surface border rounded-lg p-3 transition-colors ${
+                notif.is_read
+                  ? 'border-border'
+                  : 'border-primary/30 bg-primary/5'
+              } ${link ? 'cursor-pointer hover:bg-surface-hover' : ''}`}
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-lg mt-0.5">
+                  {ICON_MAP[notif.kind] || '\u{1F514}'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{notif.title}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface-hover text-text-muted capitalize">
+                      {notif.kind}
+                    </span>
+                    <span className="text-xs text-text-muted">{timeAgo(notif.created_at)}</span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">{notif.body}</p>
                 </div>
-                <p className="text-xs text-text-muted mt-0.5">{notif.body}</p>
+                {!notif.is_read && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); markRead.mutate(notif.id) }}
+                    className="text-xs text-text-muted hover:text-primary-light transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    Mark read
+                  </button>
+                )}
               </div>
-              {!notif.is_read && (
-                <button
-                  onClick={() => markRead.mutate(notif.id)}
-                  className="text-xs text-text-muted hover:text-primary-light transition-colors whitespace-nowrap cursor-pointer"
-                >
-                  Mark read
-                </button>
-              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {allNotifications.length === 0 && (
           <div className="text-text-muted text-center py-10">

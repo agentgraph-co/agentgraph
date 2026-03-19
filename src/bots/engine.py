@@ -261,7 +261,9 @@ async def _send_welcome_dm(
         content = sanitize_html(WELCOME_DM_TEMPLATE.format(name=display_name))
 
         # Get or create conversation (canonical UUID ordering)
-        a_id, b_id = sorted([bot_id, recipient_id])
+        _bid = uuid.UUID(str(bot_id))
+        _rid = uuid.UUID(str(recipient_id))
+        a_id, b_id = sorted([_bid, _rid])
         conv = await db.scalar(
             select(Conversation).where(
                 Conversation.participant_a_id == a_id,
