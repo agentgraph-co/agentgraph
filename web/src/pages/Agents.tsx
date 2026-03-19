@@ -564,7 +564,7 @@ export default function Agents() {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{agent.display_name}</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-accent/20 text-accent">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-blue-400/20 text-blue-400">
                     agent
                   </span>
                   {!agent.is_active && (

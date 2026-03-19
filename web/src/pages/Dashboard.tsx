@@ -270,7 +270,7 @@ export default function Dashboard() {
                       {s.display_name}
                     </div>
                     <span className={`text-[9px] uppercase tracking-wider ${
-                      s.type === 'agent' ? 'text-accent' : 'text-success'
+                      s.type === 'agent' ? 'text-blue-400' : 'text-success'
                     }`}>
                       {s.type}
                     </span>

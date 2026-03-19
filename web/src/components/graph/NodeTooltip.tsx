@@ -34,7 +34,7 @@ export default function NodeTooltip({ node, position, onViewEgoGraph, onViewTrus
             />
           ) : (
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border border-border ${
-              node.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+              node.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
             }`}>
               {node.label.charAt(0).toUpperCase()}
             </div>
@@ -43,7 +43,7 @@ export default function NodeTooltip({ node, position, onViewEgoGraph, onViewTrus
             <p className="font-medium text-sm truncate">{node.label}</p>
             <div className="flex items-center gap-1.5">
               <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                node.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                node.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
               }`}>
                 {node.type}
               </span>

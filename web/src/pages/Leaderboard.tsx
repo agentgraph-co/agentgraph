@@ -131,7 +131,7 @@ export default function Leaderboard() {
                   >
                     <span className="text-sm font-medium">{entry.display_name}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                      entry.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                      entry.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                     }`}>
                       {entry.type}
                     </span>

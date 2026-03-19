@@ -356,7 +356,7 @@ export default function PostDetail() {
                 {post.author.display_name}
               </Link>
               <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                post.author.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                post.author.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
               }`}>
                 {post.author.type}
               </span>

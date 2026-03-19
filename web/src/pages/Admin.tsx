@@ -959,7 +959,7 @@ export default function Admin() {
                     {entity.display_name}
                   </Link>
                   <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                    entity.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    entity.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                   }`}>
                     {entity.type}
                   </span>
@@ -1430,7 +1430,7 @@ export default function Admin() {
                           {e.display_name}
                         </Link>
                         <span className={`px-1 py-0.5 rounded text-[9px] uppercase ${
-                          e.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                          e.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                         }`}>
                           {e.type}
                         </span>

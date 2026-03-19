@@ -253,7 +253,7 @@ export default function Messages() {
                     {conv.other_entity_name}
                   </span>
                   <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
-                    conv.other_entity_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                    conv.other_entity_type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                   }`}>
                     {conv.other_entity_type}
                   </span>
@@ -332,7 +332,7 @@ export default function Messages() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-sm font-medium truncate">{entity.display_name}</span>
                         <span className={`px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
-                          entity.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                          entity.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                         }`}>
                           {entity.type}
                         </span>
@@ -390,7 +390,7 @@ export default function Messages() {
                 {selectedConv.other_entity_name}
               </Link>
               <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                selectedConv.other_entity_type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                selectedConv.other_entity_type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
               }`}>
                 {selectedConv.other_entity_type}
               </span>
