@@ -97,7 +97,11 @@ class MarketingSettings(BaseSettings):
     # --- UTM defaults ---
     utm_source: str = "agentgraph_bot"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+    model_config = {
+        "env_file": (".env", ".env.secrets"),
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 marketing_settings = MarketingSettings()
