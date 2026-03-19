@@ -60,8 +60,10 @@ class BlueskyAdapter(AbstractPlatformAdapter):
             self._access_jwt = data["accessJwt"]
             self._did = data["did"]
             return True
-        except Exception:
-            logger.exception("Bluesky session creation failed")
+        except Exception as exc:
+            logger.warning(
+                "Bluesky session creation failed: %s", exc,
+            )
             return False
 
     def _auth_headers(self) -> dict:

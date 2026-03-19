@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Set Up Private GitHub Repo with CI/CD",
         "description": "Initialize the AgentGraph private GitHub repository with CI/CD pipeline, branch protection, linting, and testing infrastructure.",
         "status": "done",
@@ -13,7 +13,7 @@
         "subtasks": []
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Design and Document Complete Data Model",
         "description": "Design the full PostgreSQL data model covering entities (humans, agents, operators), relationships (follows, trust, operator-agent links), content (posts, comments, votes), trust scores, and DIDs. Document access patterns and indexing strategy.",
         "status": "done",
@@ -25,7 +25,7 @@
         "subtasks": []
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Design AIP v1 Schema",
         "description": "Design the Agent Interaction Protocol v1 as JSON Schema over REST/WebSocket. Define DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
         "status": "done",
@@ -37,7 +37,7 @@
         "updatedAt": "2026-02-21T21:12:22.076Z"
       },
       {
-        "id": "4",
+        "id": 4,
         "title": "Design Trust Score v1 Algorithm",
         "description": "Design the Phase 1 trust scoring algorithm using verification level, account age, and activity metrics. Document formula, inputs, weights, and publish methodology openly.",
         "status": "done",
@@ -49,7 +49,7 @@
         "updatedAt": "2026-02-20T01:58:23.183Z"
       },
       {
-        "id": "5",
+        "id": 5,
         "title": "Design Security Architecture",
         "description": "Design the security architecture covering authentication, authorization, input validation, rate limiting, and bridge security model. OWASP top 10 compliance.",
         "status": "done",
@@ -61,7 +61,7 @@
         "updatedAt": "2026-02-20T01:58:23.187Z"
       },
       {
-        "id": "6",
+        "id": 6,
         "title": "Draft Terms of Service",
         "description": "Draft Terms of Service establishing operator liability for agent actions, acceptable use policy, moderation authority, content ownership, and dispute resolution.",
         "status": "done",
@@ -73,7 +73,7 @@
         "updatedAt": "2026-02-21T23:15:13.117Z"
       },
       {
-        "id": "7",
+        "id": 7,
         "title": "Draft Privacy Policy",
         "description": "Draft Privacy Policy covering data collection, usage, retention, deletion, third-party sharing, and GDPR-compatible rights. Reference Compliance review Section 5.",
         "status": "done",
@@ -85,7 +85,7 @@
         "updatedAt": "2026-02-21T23:18:24.064Z"
       },
       {
-        "id": "8",
+        "id": 8,
         "title": "Design MCP Bridge Interface Specification",
         "description": "Design the MCP bridge specification: how MCP-compatible agents connect to AgentGraph, authenticate, and interact via AIP. Define protocol translation layer, auth flow, and validation rules.",
         "status": "done",
@@ -100,7 +100,7 @@
         "updatedAt": "2026-02-21T21:12:26.038Z"
       },
       {
-        "id": "9",
+        "id": 9,
         "title": "Infrastructure Setup",
         "description": "Set up local development infrastructure with Homebrew PostgreSQL + Redis, FastAPI scaffold, Python venv, Makefile, and development workflow tooling on Mac Mini.",
         "status": "done",
@@ -113,7 +113,7 @@
         "subtasks": []
       },
       {
-        "id": "10",
+        "id": 10,
         "title": "Implement Data Model with Migrations",
         "description": "Implement the PostgreSQL data model using SQLAlchemy ORM and Alembic migrations. Create all core tables, indexes, and constraints defined in task 2.",
         "status": "done",
@@ -128,7 +128,7 @@
         "updatedAt": "2026-02-20T01:58:23.191Z"
       },
       {
-        "id": "11",
+        "id": 11,
         "title": "Implement Human Registration and Authentication",
         "description": "Implement human user registration with email verification, login with JWT tokens, and password management. Include rate limiting on auth endpoints.",
         "status": "done",
@@ -143,7 +143,7 @@
         "updatedAt": "2026-02-20T01:58:23.196Z"
       },
       {
-        "id": "12",
+        "id": 12,
         "title": "Implement Agent Registration and Operator Linking",
         "description": "Implement agent registration by operators, API key issuance, DID:web generation, operator-agent linking, and agent authentication via API keys.",
         "status": "done",
@@ -159,7 +159,7 @@
         "updatedAt": "2026-02-20T01:58:23.199Z"
       },
       {
-        "id": "13",
+        "id": 13,
         "title": "Implement Basic Profile Page",
         "description": "Implement profile pages for both humans and agents: identity display, markdown README, capabilities list, activity feed, trust score badge. React + Tailwind frontend.",
         "status": "done",
@@ -175,7 +175,7 @@
         "updatedAt": "2026-02-20T01:58:23.201Z"
       },
       {
-        "id": "14",
+        "id": 14,
         "title": "Implement Unified Feed",
         "description": "Implement the social feed with posts, comments (threaded), upvotes/downvotes, chronological ordering with trust-score boost, and WebSocket real-time updates.",
         "status": "done",
@@ -192,7 +192,7 @@
         "updatedAt": "2026-02-20T01:58:23.204Z"
       },
       {
-        "id": "15",
+        "id": 15,
         "title": "Implement MCP Bridge",
         "description": "Implement the MCP bridge: protocol translation between MCP and AIP, WebSocket connection management, authentication, validation, and rate limiting.",
         "status": "done",
@@ -210,7 +210,7 @@
         "updatedAt": "2026-02-20T01:58:26.579Z"
       },
       {
-        "id": "16",
+        "id": 16,
         "title": "Implement Trust Score v1",
         "description": "Implement the trust score v1 computation engine, display components, and contestation form. Based on verification level + account age + activity metrics.",
         "status": "done",
@@ -225,7 +225,7 @@
         "updatedAt": "2026-02-20T01:58:26.584Z"
       },
       {
-        "id": "17",
+        "id": 17,
         "title": "Implement Webhook and Event System",
         "description": "Implement the event system using Redis Streams for internal pub/sub and webhook delivery for external agent notifications. Events: mentions, replies, follows, trust changes.",
         "status": "done",
@@ -240,7 +240,7 @@
         "updatedAt": "2026-02-20T01:58:26.587Z"
       },
       {
-        "id": "18",
+        "id": 18,
         "title": "Implement Autonomy Level Self-Declaration",
         "description": "Implement autonomy level self-declaration for agents at registration, with badge display on profiles and feed. Levels 1-5 per PRD Section 11.",
         "status": "done",
@@ -255,7 +255,7 @@
         "updatedAt": "2026-02-20T01:58:26.589Z"
       },
       {
-        "id": "19",
+        "id": 19,
         "title": "Implement Basic Moderation System",
         "description": "Implement content moderation using Claude API for spam classification, community flagging system, and manual review queue for moderators.",
         "status": "done",
@@ -270,7 +270,7 @@
         "updatedAt": "2026-02-20T01:58:26.591Z"
       },
       {
-        "id": "20",
+        "id": 20,
         "title": "Build Python SDK and API Documentation",
         "description": "Build a Python SDK for agent developers to interact with AgentGraph, plus comprehensive API documentation (OpenAPI/Swagger + usage guides).",
         "status": "done",
@@ -288,7 +288,7 @@
         "updatedAt": "2026-02-21T21:12:26.043Z"
       },
       {
-        "id": "21",
+        "id": 21,
         "title": "Write Getting Started Tutorial",
         "description": "Write a 'Build your first AgentGraph agent in 15 minutes' tutorial covering registration, SDK setup, posting, and receiving webhooks.",
         "status": "done",
@@ -302,7 +302,7 @@
         "updatedAt": "2026-02-21T21:12:26.047Z"
       },
       {
-        "id": "22",
+        "id": 22,
         "title": "Deploy Seed Agents",
         "description": "Build and deploy 10-20 useful seed agents on the platform to bootstrap activity: code review, research summarizer, writing assistant, security scanner, and more.",
         "status": "done",
@@ -318,7 +318,7 @@
         "updatedAt": "2026-02-21T21:12:26.052Z"
       },
       {
-        "id": "23",
+        "id": 23,
         "title": "Launch and Begin Cold Start Outreach",
         "description": "Deploy to production VPS, launch publicly, and begin cold start outreach to MCP/OpenClaw developers, AI agent communities, and relevant forums.",
         "status": "done",
@@ -345,7 +345,7 @@
         "updatedAt": "2026-03-02T03:57:37.619Z"
       },
       {
-        "id": "24",
+        "id": 24,
         "title": "Resolve Q1: Define Exact Data Model",
         "description": "Open question Q1: What is the exact data model for entities, relationships, posts, trust scores? Design and validate all tables, relationships, access patterns, and indexing strategy.",
         "status": "done",
@@ -357,7 +357,7 @@
         "updatedAt": "2026-02-20T01:58:29.700Z"
       },
       {
-        "id": "25",
+        "id": 25,
         "title": "Resolve Q2: Define AIP v1 Schema",
         "description": "Open question Q2: What is the AIP v1 schema? Define JSON Schema for DISCOVER, DELEGATE, and EVOLVE message types with request/response formats.",
         "status": "done",
@@ -369,7 +369,7 @@
         "updatedAt": "2026-02-21T21:12:22.078Z"
       },
       {
-        "id": "26",
+        "id": 26,
         "title": "Resolve Q3: ToS Operator Liability Clauses",
         "description": "Open question Q3: What goes in the ToS regarding operator liability for agent actions? Define the legal framework for operator accountability.",
         "status": "done",
@@ -381,7 +381,7 @@
         "updatedAt": "2026-02-21T23:18:32.814Z"
       },
       {
-        "id": "27",
+        "id": 27,
         "title": "Resolve Q4: Privacy Policy Data Handling",
         "description": "Open question Q4: What goes in the Privacy Policy regarding data handling? Define data collection, usage, retention, and deletion policies.",
         "status": "done",
@@ -393,7 +393,7 @@
         "updatedAt": "2026-02-21T23:18:32.818Z"
       },
       {
-        "id": "28",
+        "id": 28,
         "title": "Resolve Q5: Trust Score v1 Formula",
         "description": "Open question Q5: How does trust score v1 actually work? Define the exact formula, inputs, weights, and documentation for transparent trust scoring.",
         "status": "done",
@@ -405,7 +405,7 @@
         "updatedAt": "2026-02-20T01:58:29.705Z"
       },
       {
-        "id": "29",
+        "id": 29,
         "title": "Resolve Q6: MCP Bridge Security Model",
         "description": "Open question Q6: What is the security model for the MCP bridge? Define the untrusted boundary treatment, validation, and rate limiting strategy.",
         "status": "done",
@@ -417,7 +417,7 @@
         "updatedAt": "2026-02-20T01:58:29.708Z"
       },
       {
-        "id": "30",
+        "id": 30,
         "title": "Resolve Q7: Moderation Rules and Thresholds",
         "description": "Open question Q7: What are the moderation rules and thresholds for spam detection? Define classification categories, confidence thresholds, and action triggers.",
         "status": "done",
@@ -429,7 +429,7 @@
         "updatedAt": "2026-02-20T01:58:29.712Z"
       },
       {
-        "id": "31",
+        "id": 31,
         "title": "Resolve Q8: Cold Start Agent Strategy",
         "description": "Open question Q8: How do we structure the cold start \u2014 which agents do we seed? Define the 10-20 seed agents, their capabilities, and content strategy.",
         "status": "done",
@@ -441,7 +441,7 @@
         "updatedAt": "2026-02-21T23:03:16.384Z"
       },
       {
-        "id": "32",
+        "id": 32,
         "title": "Resolve Q9: Frequency Throughput for Batched Anchoring",
         "description": "Open question Q9 (Phase 2): Can Frequency's throughput support our batched anchoring model? Test on Frequency testnet.",
         "status": "pending",
@@ -452,7 +452,7 @@
         "subtasks": []
       },
       {
-        "id": "33",
+        "id": 33,
         "title": "Resolve Q10: DSNP Primitives Sufficiency for AIP",
         "description": "Open question Q10 (Phase 2): Are DSNP primitives sufficient for AIP on-chain needs? Evaluate based on real AIP v1 usage.",
         "status": "deferred",
@@ -466,7 +466,7 @@
         "updatedAt": "2026-03-11T21:09:32.312Z"
       },
       {
-        "id": "34",
+        "id": 34,
         "title": "Resolve Q11: DID Registration Cost on Frequency",
         "description": "Open question Q11 (Phase 2): What is the DID registration cost on Frequency via capacity staking? Model against current token economics.",
         "status": "deferred",
@@ -478,7 +478,7 @@
         "updatedAt": "2026-03-11T21:09:32.321Z"
       },
       {
-        "id": "35",
+        "id": 35,
         "title": "Resolve Q12: Marketplace Payment Flow (Stripe Connect)",
         "description": "Open question Q12 (Phase 2): How should the marketplace payment flow be structured using Stripe Connect? Research platform marketplace model.",
         "status": "done",
@@ -490,7 +490,7 @@
         "updatedAt": "2026-02-22T01:19:21.426Z"
       },
       {
-        "id": "36",
+        "id": 36,
         "title": "Resolve Q13: EigenTrust Variant for Mixed Agent-Human Graph",
         "description": "Open question Q13 (Phase 2): What EigenTrust variant works for a mixed agent-human social graph? Research literature and prototype.",
         "status": "deferred",
@@ -502,7 +502,7 @@
         "updatedAt": "2026-03-11T21:09:32.329Z"
       },
       {
-        "id": "37",
+        "id": 37,
         "title": "Resolve Q14: License for Forked Agent Capabilities",
         "description": "Open question Q14 (Phase 2): What license applies to forked agent capabilities? Define default licensing framework.",
         "status": "deferred",
@@ -514,7 +514,7 @@
         "updatedAt": "2026-03-11T21:09:32.335Z"
       },
       {
-        "id": "38",
+        "id": 38,
         "title": "Resolve Q15: Money Transmitter Analysis",
         "description": "Open question Q15 (Phase 3+): Full money transmitter analysis across 49 US states + EU PSD2 + MiCA. Requires specialized counsel.",
         "status": "deferred",
@@ -526,7 +526,7 @@
         "updatedAt": "2026-03-11T21:09:32.367Z"
       },
       {
-        "id": "39",
+        "id": 39,
         "title": "Resolve Q16: Section 230 Implications",
         "description": "Open question Q16 (Phase 3+): Section 230 implications of trust-weighted content ranking. Academic until at scale.",
         "status": "deferred",
@@ -538,7 +538,7 @@
         "updatedAt": "2026-03-11T21:09:32.371Z"
       },
       {
-        "id": "40",
+        "id": 40,
         "title": "Resolve Q17: Level 4 Autonomous Agent Liability",
         "description": "Open question Q17 (Phase 3+): What happens when a Level 4 autonomous agent causes harm? Novel legal question requiring professional counsel.",
         "status": "deferred",
@@ -550,7 +550,7 @@
         "updatedAt": "2026-03-11T21:09:32.375Z"
       },
       {
-        "id": "41",
+        "id": 41,
         "title": "Resolve Q18: Anonymous-but-Accountable Revelation Process",
         "description": "Open question Q18 (Phase 3+): Legal structure for the Anonymous-but-Accountable privacy tier's revelation process.",
         "status": "deferred",
@@ -562,7 +562,7 @@
         "updatedAt": "2026-03-11T21:09:32.378Z"
       },
       {
-        "id": "42",
+        "id": 42,
         "title": "Resolve Q19: SOC 2 Certification",
         "description": "Open question Q19 (Phase 3+): SOC 2 certification for enterprise tier. Defer until enterprise customers are real.",
         "status": "deferred",
@@ -574,7 +574,7 @@
         "updatedAt": "2026-03-11T21:09:32.383Z"
       },
       {
-        "id": "43",
+        "id": 43,
         "title": "Resolve Q20: EU AI Act Risk Classification",
         "description": "Open question Q20 (Phase 3+): EU AI Act risk classification requirements. Monitor but don't build until enforcement affects our scale.",
         "status": "deferred",
@@ -586,7 +586,7 @@
         "updatedAt": "2026-03-11T21:09:32.387Z"
       },
       {
-        "id": "44",
+        "id": 44,
         "title": "Resolve Q21: AI Agent Operator Insurance",
         "description": "Open question Q21 (Phase 3+): Insurance products for AI agent operators (E&O, platform liability). Novel insurance territory.",
         "status": "deferred",
@@ -598,7 +598,7 @@
         "updatedAt": "2026-03-11T21:09:32.390Z"
       },
       {
-        "id": "45",
+        "id": 45,
         "title": "Resolve Q22: Token Economics Securities Implications",
         "description": "Open question Q22 (Post-PMF): Securities implications of token economics \u2014 Howey test, MiCA, Travel Rule analysis.",
         "status": "deferred",
@@ -610,7 +610,7 @@
         "updatedAt": "2026-03-11T21:09:32.394Z"
       },
       {
-        "id": "46",
+        "id": 46,
         "title": "Resolve Q23: Regulatory Sandbox Applications",
         "description": "Open question Q23 (Phase 3+): Regulatory sandbox applications for EU AI Act and US state fintech sandboxes.",
         "status": "deferred",
@@ -622,7 +622,7 @@
         "updatedAt": "2026-03-11T21:09:32.397Z"
       },
       {
-        "id": "47",
+        "id": 47,
         "title": "Resolve Q24: Export Control Screening",
         "description": "Open question Q24 (Phase 4): Export control screening for the evolution marketplace. Low probability but high severity.",
         "status": "deferred",
@@ -634,7 +634,7 @@
         "updatedAt": "2026-03-11T21:09:32.402Z"
       },
       {
-        "id": "48",
+        "id": 48,
         "title": "Resolve Q25: Behavioral Autonomy Verification Thresholds",
         "description": "Open question Q25 (Post-PMF): Accuracy thresholds for behavioral autonomy verification ML model. Research project requiring live platform data.",
         "status": "deferred",
@@ -646,7 +646,7 @@
         "updatedAt": "2026-03-11T21:09:32.405Z"
       },
       {
-        "id": "49",
+        "id": 49,
         "title": "PRD Section 18: Future Considerations Backlog",
         "description": "Track deferred PRD items from Section 18 (Future Considerations) that are not covered in any phase. Post-Phase 4 backlog to revisit after product-market fit.",
         "status": "done",
@@ -657,7 +657,7 @@
         "subtasks": []
       },
       {
-        "id": "50",
+        "id": 50,
         "title": "Dockerize for Production Deployment",
         "description": "Create Dockerfile, docker-compose.yml, and production deployment configuration. Containerize the FastAPI app, PostgreSQL, and Redis for VPS deployment.",
         "status": "done",
@@ -671,7 +671,7 @@
         "updatedAt": "2026-02-20T01:58:26.594Z"
       },
       {
-        "id": "51",
+        "id": 51,
         "title": "Unauthenticated Browsing: Backend Optional Auth",
         "description": "Add optional authentication to public-facing API endpoints so unauthenticated users can browse feeds, profiles, communities, and marketplace without signing up. Endpoints return full data for guests but omit user-specific fields (user_vote, is_bookmarked, is_following).",
         "status": "done",
@@ -686,7 +686,7 @@
         "updatedAt": "2026-02-20T03:02:58.535Z"
       },
       {
-        "id": "52",
+        "id": 52,
         "title": "Unauthenticated Browsing: Frontend Guest Mode",
         "description": "Update the React frontend to allow unauthenticated users to browse public content (feed, profiles, communities, marketplace, graph) with 'Sign up to interact' prompts replacing action buttons.",
         "status": "done",
@@ -700,7 +700,7 @@
         "updatedAt": "2026-02-20T03:03:01.862Z"
       },
       {
-        "id": "53",
+        "id": 53,
         "title": "Unauthenticated Browsing: Landing Page Integration",
         "description": "Update the landing page (Home.tsx) to showcase live platform content \u2014 trending posts, active communities, top agents \u2014 to give visitors a taste before signing up.",
         "status": "done",
@@ -715,7 +715,7 @@
         "updatedAt": "2026-02-21T19:55:17.199Z"
       },
       {
-        "id": "54",
+        "id": 54,
         "title": "Deploy to AWS",
         "description": "Deploy AgentGraph to AWS infrastructure. Migrate from the Hetzner VPS plan to AWS services (ECS/Fargate or EC2) with RDS PostgreSQL, ElastiCache Redis, and proper networking.",
         "status": "done",
@@ -729,7 +729,7 @@
         "updatedAt": "2026-02-27T21:05:31.498Z"
       },
       {
-        "id": "55",
+        "id": 55,
         "title": "Frontend Redesign Using Figma MCP",
         "description": "Redesign the AgentGraph frontend using the Figma MCP tools to pull design tokens, components, and layouts from Figma designs, then rebuild the React UI to match the professional design system.",
         "status": "done",
@@ -741,7 +741,7 @@
         "updatedAt": "2026-02-21T19:55:17.202Z"
       },
       {
-        "id": "56",
+        "id": 56,
         "title": "SEO and Open Graph Meta Tags for Public Pages",
         "description": "Add dynamic <meta> tags (Open Graph, Twitter Card) to all public pages so shared links render rich previews on social media. Include page-specific titles, descriptions, and images.",
         "status": "done",
@@ -755,7 +755,7 @@
         "updatedAt": "2026-02-21T19:55:17.204Z"
       },
       {
-        "id": "57",
+        "id": 57,
         "title": "Fix Logout to Stay on Current Page as Guest",
         "description": "Update logout behavior to keep users on the current page as a guest (if public) instead of always redirecting to /login. Only redirect to /login if on a protected route.",
         "status": "done",
@@ -769,7 +769,7 @@
         "updatedAt": "2026-02-21T21:12:26.054Z"
       },
       {
-        "id": "58",
+        "id": 58,
         "title": "Handle Registration Intent Redirect",
         "description": "Read the ?intent= query parameter on the Register page and redirect users back to their original page after successful registration, providing a seamless sign-up-to-action flow.",
         "status": "done",
@@ -783,7 +783,7 @@
         "updatedAt": "2026-02-21T21:12:26.058Z"
       },
       {
-        "id": "59",
+        "id": 59,
         "title": "Stricter Rate Limiting for Unauthenticated Requests",
         "description": "Implement tighter rate limits for unauthenticated API requests to protect public endpoints from abuse, while keeping authenticated limits unchanged.",
         "status": "done",
@@ -797,7 +797,7 @@
         "updatedAt": "2026-02-21T21:12:26.060Z"
       },
       {
-        "id": "60",
+        "id": 60,
         "title": "Guest-to-Register Conversion Analytics",
         "description": "Track guest browsing behavior and sign-up conversion funnel to measure which pages and CTAs drive registrations, enabling data-driven optimization of the guest experience.",
         "status": "done",
@@ -812,7 +812,7 @@
         "updatedAt": "2026-02-21T23:03:16.381Z"
       },
       {
-        "id": "61",
+        "id": 61,
         "title": "Generate App Icon with v0 MCP",
         "description": "Use the v0 MCP tool to generate a professional app icon for the AgentGraph iOS app. The icon should feature the trust-network graph motif (connected nodes with glowing edges) matching the project's design system: dark background (#1E1E2E), primary indigo (#6366F1), accent blue (#89B4FA), success green (#A6E3A1), warm orange (#F9E2AF). Current placeholder icon was rendered via Playwright HTML screenshot. Replace with a polished v0-generated design. Export at 1024x1024 and update the asset catalog at ios/AgentGraph/Resources/Assets.xcassets/AppIcon.appiconset/.",
         "status": "done",
@@ -824,7 +824,7 @@
         "updatedAt": "2026-02-21T21:12:26.063Z"
       },
       {
-        "id": "62",
+        "id": 62,
         "title": "iOS Feature Parity Audit & Gap Closure",
         "description": "Audit the iOS app against the web app to identify all missing features, then implement the critical gaps. The iOS app has core screens (login, register, feed, profile, graph, discovery, notifications, settings, compose) but is missing many web features including: marketplace, direct messages, bookmarks list, admin dashboard, password reset, email verification UI, leaderboard, submolts, MCP tools, webhooks, transaction history, and analytics tracking (trackEvent calls). Priority: add analytics tracking to existing iOS screens and build out the most impactful missing features.",
         "status": "done",
@@ -836,7 +836,7 @@
         "updatedAt": "2026-02-22T00:02:09.402Z"
       },
       {
-        "id": "63",
+        "id": 63,
         "title": "Trust Score v2 \u2014 Community Attestations & Contextual Trust",
         "description": "Enhance trust scoring with community attestations, contextual trust scores, and gaming prevention. Add TrustAttestation model, update algorithm to 5 components (community 20%), add per-context scores, attestation CRUD endpoints, and decay/cap mechanisms.",
         "status": "done",
@@ -848,7 +848,7 @@
         "updatedAt": "2026-02-22T01:17:16.039Z"
       },
       {
-        "id": "64",
+        "id": 64,
         "title": "Privacy Tier Enforcement on Feed, Posts, Evolution & Graph",
         "description": "Extend privacy tier enforcement beyond profiles/search to cover feed posts, replies, evolution records, trust scores, and graph data. PRIVATE-tier entities should be invisible to non-followers across all surfaces.",
         "status": "done",
@@ -860,7 +860,7 @@
         "updatedAt": "2026-02-22T01:17:16.044Z"
       },
       {
-        "id": "65",
+        "id": 65,
         "title": "Marketplace Payment Integration \u2014 Stripe Connect",
         "description": "Integrate Stripe Connect for marketplace payments. Sellers onboard via Stripe Connect, buyers pay via PaymentIntents, platform takes 10% fee. Handle webhooks for payment confirmation and refunds.",
         "status": "done",
@@ -872,7 +872,7 @@
         "updatedAt": "2026-02-22T01:17:16.048Z"
       },
       {
-        "id": "66",
+        "id": 66,
         "title": "Formal Attestation & Verification Badge Framework",
         "description": "Add structured verification badges (email_verified, identity_verified, capability_audited, agentgraph_verified) and formal audit records. Auto-issue system badges on verification events. Enforce endorsement tier requirements.",
         "status": "done",
@@ -886,7 +886,7 @@
         "updatedAt": "2026-02-22T01:17:16.052Z"
       },
       {
-        "id": "67",
+        "id": 67,
         "title": "OpenClaw Bridge \u2014 Second Framework Adapter with Security Scanning",
         "description": "Build OpenClaw framework bridge following MCP bridge pattern. Add security scanning for imported agents, malicious pattern detection, framework trust modifier, and vulnerability database checking.",
         "status": "done",
@@ -898,7 +898,7 @@
         "updatedAt": "2026-02-22T01:17:16.055Z"
       },
       {
-        "id": "68",
+        "id": 68,
         "title": "Enhanced Profiles \u2014 Reviews UI, Attestations, Fork Lineage Tree",
         "description": "Build rich profile views with reviews tab, attestation display, verification badges, and fork lineage visualization on both web and iOS.",
         "status": "done",
@@ -913,7 +913,7 @@
         "updatedAt": "2026-02-22T01:17:16.058Z"
       },
       {
-        "id": "69",
+        "id": 69,
         "title": "Scheduled Trust Recomputation & Attestation Decay",
         "description": "Add daily background job for batch trust recomputation with attestation decay, activity recency weighting, and admin stats endpoint.",
         "status": "done",
@@ -927,7 +927,7 @@
         "updatedAt": "2026-02-22T01:17:16.061Z"
       },
       {
-        "id": "70",
+        "id": 70,
         "title": "iOS Marketplace \u2014 Browse, Listing Detail, Purchase Flow",
         "description": "Build iOS marketplace with listing browsing, category filter, search, listing detail with reviews, and purchase flow (Stripe checkout via web view for paid, direct for free).",
         "status": "done",
@@ -941,7 +941,7 @@
         "updatedAt": "2026-02-22T01:17:16.065Z"
       },
       {
-        "id": "71",
+        "id": 71,
         "title": "iOS Trust Detail & Attestation Views",
         "description": "Build iOS trust detail screen showing full 5-component breakdown, contextual scores, attestation list, and trust contestation form. Accessible by tapping trust badge on any profile.",
         "status": "done",
@@ -955,7 +955,7 @@
         "updatedAt": "2026-02-22T01:17:16.068Z"
       },
       {
-        "id": "72",
+        "id": 72,
         "title": "PRD Reconciliation \u2014 Post-Implementation Audit of All Phases Against PRD & Persona Feedback",
         "description": "After ALL phases (1-4) are complete, go back to the original PRD, persona review feedback, and phase planning documents. Audit what was captured vs skipped across the entire project. Validate persona recommendations were addressed. Identify gaps, missed items, and new requirements that emerged during implementation.",
         "status": "done",
@@ -966,7 +966,7 @@
         "subtasks": []
       },
       {
-        "id": "73",
+        "id": 73,
         "title": "Populate Staging Environment with Comprehensive Test Data",
         "description": "Create a staging data seeding script that populates the staging database with realistic test data including marketplace listings, DMs/messages, graph relationships (follows, trust attestations, operator links), agents, trust scores, evolution records, and community activity. Run against the staging backend at http://***REMOVED***:8000.",
         "status": "done",
@@ -978,7 +978,7 @@
         "updatedAt": "2026-02-22T08:24:02.581Z"
       },
       {
-        "id": "74",
+        "id": 74,
         "title": "Reset and Seed Staging Data",
         "description": "Drop/recreate both agentgraph and agentgraph_staging databases, run all 31 migrations, seed with full Phase 1-4 data. Verify admin login (admin@agentgraph.co / Staging123!) works with admin access. Ensure both API server and frontend are running against seeded data.",
         "status": "done",
@@ -990,7 +990,7 @@
         "updatedAt": "2026-02-22T23:42:11.048626Z"
       },
       {
-        "id": "75",
+        "id": 75,
         "title": "Deep Dive Security & Performance Audit",
         "description": "Thorough security and performance review across all 4 phases. Audit authentication flows, authorization checks, input validation, SQL injection vectors, rate limiting effectiveness, CORS config, and OWASP Top 10 compliance. Profile slow queries, identify N+1 problems, and benchmark key endpoints under load.",
         "status": "done",
@@ -1002,7 +1002,7 @@
         "updatedAt": "2026-02-23T06:35:31.313Z"
       },
       {
-        "id": "76",
+        "id": 76,
         "title": "iOS App \u2014 SwiftUI Mobile Client",
         "description": "Build the AgentGraph iOS app using SwiftUI with Liquid Glass design language (iOS 26+). Implement core screens: Feed, Profile, Graph, and Discovery. Connect to the complete REST API and WebSocket infrastructure.",
         "status": "done",
@@ -1016,7 +1016,7 @@
         "updatedAt": "2026-02-23T06:58:09.549Z"
       },
       {
-        "id": "77",
+        "id": 77,
         "title": "Frontend Polish \u2014 Phase 4 React Web Features",
         "description": "Wire up Phase 4 backend features in the React web app. Add Disputes UI (open/resolve/escalate), AIP Dashboard (delegations, capability registry), Insights Charts (network growth, trust distribution, marketplace volume), and Enterprise org management views.",
         "status": "done",
@@ -1030,7 +1030,7 @@
         "updatedAt": "2026-02-22T23:42:11.048626Z"
       },
       {
-        "id": "78",
+        "id": 78,
         "title": "Production Prep \u2014 Docker Compose, CI/CD, Cloud Deploy",
         "description": "Containerize the application with Docker Compose (API + frontend + PostgreSQL + Redis). Set up GitHub Actions CI/CD pipeline for automated testing, building, and deployment. Deploy to AWS or similar cloud provider with proper networking, TLS, and monitoring.",
         "status": "done",
@@ -1044,7 +1044,7 @@
         "updatedAt": "2026-02-27T04:59:46.082Z"
       },
       {
-        "id": "79",
+        "id": 79,
         "title": "Load Testing \u2014 Stress Test API at Scale",
         "description": "Design and execute comprehensive load tests against the AgentGraph API. Identify breaking points, bottlenecks, and scalability limits. Test with realistic traffic patterns simulating target user counts (1K, 10K, 100K entities).",
         "status": "done",
@@ -1059,7 +1059,7 @@
         "updatedAt": "2026-02-22T23:42:11.048626Z"
       },
       {
-        "id": "80",
+        "id": 80,
         "title": "iOS Graph \u2014 Interactive Node Dragging & Advanced Interactions",
         "description": "Enhance the iOS SwiftUI Canvas force graph with interactive node manipulation: long-press and drag to reposition individual nodes, double-tap to center on a node, pinch-on-node to expand/collapse neighbors, and haptic feedback for interactions.",
         "status": "done",
@@ -1073,7 +1073,7 @@
         "updatedAt": "2026-02-23T00:30:00.000Z"
       },
       {
-        "id": "81",
+        "id": 81,
         "title": "Fix Light Mode Visual Issues \u2014 Hero Art, Animations, Background, Graph Legend, TrustDetail Colors",
         "description": "User-reported: hero face invisible, animations lost, background too white, Graph edge legend and TrustDetail hardcoded dark-mode colors. Comprehensive light mode polish pass.",
         "status": "done",
@@ -1084,7 +1084,7 @@
         "subtasks": []
       },
       {
-        "id": "82",
+        "id": 82,
         "title": "Security \u2014 Password Reset Must Invalidate Existing Sessions",
         "description": "reset_password in auth_router.py line 283 changes password but doesn't invalidate existing sessions via token:inv cache key. Compromised sessions survive password reset.",
         "status": "done",
@@ -1095,7 +1095,7 @@
         "subtasks": []
       },
       {
-        "id": "83",
+        "id": 83,
         "title": "Security \u2014 Fix Rate Limit X-Forwarded-For Bypass",
         "description": "rate_limit.py line 137 trusts X-Forwarded-For blindly. Attacker can spoof any IP to bypass rate limiting.",
         "status": "done",
@@ -1106,7 +1106,7 @@
         "subtasks": []
       },
       {
-        "id": "84",
+        "id": 84,
         "title": "Security \u2014 Gitignore Staging Secrets",
         "description": ".env.staging contains JWT_SECRET and is committed to git. Add to .gitignore or move secret to .env.secrets.",
         "status": "done",
@@ -1117,7 +1117,7 @@
         "subtasks": []
       },
       {
-        "id": "85",
+        "id": 85,
         "title": "Infrastructure \u2014 Add Global Exception Handlers",
         "description": "src/main.py has no exception_handler registrations. Unhandled exceptions return unstructured 500 with no request_id.",
         "status": "done",
@@ -1128,7 +1128,7 @@
         "subtasks": []
       },
       {
-        "id": "86",
+        "id": 86,
         "title": "Infrastructure \u2014 Docker Security: Non-Root User + Fix Pip Install",
         "description": "Dockerfile runs as root and uses editable pip install. Fix both.",
         "status": "done",
@@ -1139,7 +1139,7 @@
         "subtasks": []
       },
       {
-        "id": "87",
+        "id": 87,
         "title": "Infrastructure \u2014 Replace Redis KEYS with SCAN in Admin Router",
         "description": "admin_router.py line 525 uses r.keys('rl:*') which blocks Redis. Replace with SCAN iterator.",
         "status": "done",
@@ -1150,7 +1150,7 @@
         "subtasks": []
       },
       {
-        "id": "88",
+        "id": 88,
         "title": "Database \u2014 Add Missing ondelete to 11 ForeignKeys + Alembic Migration",
         "description": "11 FK columns lack ondelete behavior. Fix models.py and create migration to ALTER existing constraints.",
         "status": "done",
@@ -1161,7 +1161,7 @@
         "subtasks": []
       },
       {
-        "id": "89",
+        "id": 89,
         "title": "API \u2014 Fix N+1 Queries in org_router and export_router",
         "description": "org_router list_members does individual db.get per member. export_router DM export does separate query per conversation.",
         "status": "done",
@@ -1172,7 +1172,7 @@
         "subtasks": []
       },
       {
-        "id": "90",
+        "id": 90,
         "title": "API \u2014 Add Pagination to Unbounded List Endpoints",
         "description": "5+ endpoints return all results with no limit/offset. Add pagination parameters.",
         "status": "done",
@@ -1183,7 +1183,7 @@
         "subtasks": []
       },
       {
-        "id": "91",
+        "id": 91,
         "title": "Code Quality \u2014 Consolidate Bridge Scanners and Registries (~1700 LOC Duplication)",
         "description": "5 bridge security scanners and 5 registries are 90%+ identical. Extract shared base classes to eliminate ~1,700 lines of copy-paste.",
         "status": "done",
@@ -1194,7 +1194,7 @@
         "subtasks": []
       },
       {
-        "id": "92",
+        "id": 92,
         "title": "API \u2014 Stricter Rate Limits on Export, SSO, and Agent Registration",
         "description": "Export endpoint needs dedicated rate limit. SSO and agent registration use wrong tier.",
         "status": "done",
@@ -1206,7 +1206,7 @@
         "updatedAt": "2026-02-25T19:49:45.368Z"
       },
       {
-        "id": "93",
+        "id": 93,
         "title": "Database \u2014 Add Missing db.refresh() After Mutations",
         "description": "agent_router and profile_router return stale updated_at after setattr+flush without db.refresh.",
         "status": "done",
@@ -1218,7 +1218,7 @@
         "updatedAt": "2026-02-25T19:49:46.025Z"
       },
       {
-        "id": "94",
+        "id": 94,
         "title": "Frontend \u2014 Add Error Boundary Around ForceGraph and Per-Route Boundaries",
         "description": "ForceGraph can crash on WebGL context loss. Single app-wide ErrorBoundary means entire app crashes.",
         "status": "done",
@@ -1230,7 +1230,7 @@
         "updatedAt": "2026-02-25T19:49:46.716Z"
       },
       {
-        "id": "95",
+        "id": 95,
         "title": "Infrastructure \u2014 WebSocket Reliability: Reconnection, Backpressure, Error Handling",
         "description": "Three WebSocket reliability issues: no Redis subscriber reconnection, no slow-client backpressure, incomplete exception handling.",
         "status": "done",
@@ -1242,7 +1242,7 @@
         "updatedAt": "2026-02-25T19:49:47.318Z"
       },
       {
-        "id": "96",
+        "id": 96,
         "title": "Infrastructure \u2014 Health Endpoint Returns 503 When Degraded + Swagger Disable in Prod",
         "description": "Health returns 200 even when degraded (LB can't detect). Swagger UI always enabled.",
         "status": "done",
@@ -1254,7 +1254,7 @@
         "updatedAt": "2026-02-25T19:49:47.955Z"
       },
       {
-        "id": "97",
+        "id": 97,
         "title": "Code Quality \u2014 Extract Shared Admin Check, Password Validator, Standardize Imports",
         "description": "Admin check duplicated in 10+ routers. Password validation triplicated. log_action imported inconsistently.",
         "status": "done",
@@ -1266,7 +1266,7 @@
         "updatedAt": "2026-02-25T19:49:48.593Z"
       },
       {
-        "id": "98",
+        "id": 98,
         "title": "API \u2014 Fix Cluster Privacy Leak and Dispute Resolution Logic",
         "description": "Cluster endpoint exposes PRIVATE entities. Dispute resolution allows unilateral resolution by either party.",
         "status": "done",
@@ -1278,7 +1278,7 @@
         "updatedAt": "2026-02-25T19:49:49.330Z"
       },
       {
-        "id": "99",
+        "id": 99,
         "title": "Frontend \u2014 Accessibility: ARIA Labels, Tab Roles, Table Captions",
         "description": "Multiple interactive elements lack proper ARIA attributes for screen reader accessibility.",
         "status": "done",
@@ -1289,7 +1289,7 @@
         "subtasks": []
       },
       {
-        "id": "100",
+        "id": 100,
         "title": "Database \u2014 Add Missing Indexes and updated_at to Mutable Models",
         "description": "Missing indexes on queried FK columns. Mutable models lack updated_at timestamp.",
         "status": "done",
@@ -1300,7 +1300,7 @@
         "subtasks": []
       },
       {
-        "id": "101",
+        "id": 101,
         "title": "Frontend \u2014 Standardize Loading States to Skeleton Components",
         "description": "9 pages use plain 'Loading...' text instead of skeleton components.",
         "status": "done",
@@ -1311,7 +1311,7 @@
         "subtasks": []
       },
       {
-        "id": "102",
+        "id": 102,
         "title": "Frontend \u2014 Fix setTimeout Memory Leaks and ParticleField Re-render Bug",
         "description": "Multiple setTimeout calls without cleanup. ParticleField colors dependency causes infinite re-creation.",
         "status": "done",
@@ -1322,7 +1322,7 @@
         "subtasks": []
       },
       {
-        "id": "103",
+        "id": 103,
         "title": "Code Quality \u2014 Remove Dead Code, Extract Constants, Clean Up",
         "description": "Various dead code, magic numbers, and cleanup items across the codebase.",
         "status": "done",
@@ -1333,7 +1333,7 @@
         "subtasks": []
       },
       {
-        "id": "104",
+        "id": 104,
         "title": "UI Polish \u2014 Header Nav Highlight on Scroll + Footer Gradient Band",
         "description": "Two remaining UI issues from light mode fix: (1) header nav active indicator still occasionally re-animates on scroll \u2014 needs deeper fix (possibly extract NavLink to stable component outside Layout render), (2) bottom gradient band still slightly visible on long list pages in light mode \u2014 vignette needs further tuning or removal.",
         "status": "done",
@@ -1344,7 +1344,7 @@
         "subtasks": []
       },
       {
-        "id": "105",
+        "id": 105,
         "title": "Performance \u2014 Frontend Resource Consumption & Optimization",
         "description": "The site causes high CPU/GPU usage on MacBook Pro (fan spins up). Multiple optimization passes completed but still not at target. Needs Chrome DevTools profiling to identify remaining hotspots, then targeted fixes.",
         "status": "done",
@@ -1356,7 +1356,7 @@
         "updatedAt": "2026-03-02T03:56:37.687Z"
       },
       {
-        "id": "106",
+        "id": 106,
         "title": "DevOps \u2014 Document Environments, Seed Staging Data, Prevent Cross-Environment Issues",
         "description": "Document all environment URLs/ports/databases in CLAUDE.md and memory. Create comprehensive staging data seed script covering all use cases. Ensure dev/staging/test databases are never confused again.",
         "status": "done",
@@ -1368,7 +1368,7 @@
         "updatedAt": "2026-02-26T02:12:32.369Z"
       },
       {
-        "id": "108",
+        "id": 108,
         "title": "iOS Security \u2014 Add ATS Config and Production Environment with HTTPS/WSS",
         "description": "Add NSAppTransportSecurity to Info.plist allowing local network HTTP for dev. Add production environment to EnvironmentConfig with https:// and wss:// URLs. WebSocketService must use wss:// for non-dev environments.",
         "status": "done",
@@ -1379,7 +1379,7 @@
         "subtasks": []
       },
       {
-        "id": "109",
+        "id": 109,
         "title": "iOS Security \u2014 Server-Side Logout (Invalidate Refresh Token)",
         "description": "AuthViewModel.logout() clears local tokens but never calls POST /auth/logout to invalidate the refresh token on the server. Tokens remain valid until expiry.",
         "status": "done",
@@ -1390,7 +1390,7 @@
         "subtasks": []
       },
       {
-        "id": "110",
+        "id": 110,
         "title": "iOS Security \u2014 Password Change in Settings",
         "description": "No UI for changing password in-app. Backend has POST /account/change-password. Add ChangePasswordView accessible from SettingsView.",
         "status": "done",
@@ -1401,7 +1401,7 @@
         "subtasks": []
       },
       {
-        "id": "111",
+        "id": 111,
         "title": "iOS \u2014 WebSocket Reconnect Jitter + Retry with Backoff for HTTP",
         "description": "WebSocket reconnect uses exponential backoff but no jitter (thundering herd risk). HTTP requests have no retry logic for transient 5xx failures.",
         "status": "done",
@@ -1412,7 +1412,7 @@
         "subtasks": []
       },
       {
-        "id": "112",
+        "id": 112,
         "title": "iOS \u2014 Consistent Password Validation Across All Forms",
         "description": "ResetPasswordView only checks length >= 8 but not uppercase/lowercase/digit like RegisterView. Password requirements should be consistent.",
         "status": "done",
@@ -1423,7 +1423,7 @@
         "subtasks": []
       },
       {
-        "id": "113",
+        "id": 113,
         "title": "iOS Polish \u2014 Fix Tab Bar, Google Sign-In, and General Bugs",
         "description": "After updating the app icon on login screen and Graph tab, the iOS app has visual/functional regressions: tab bar is broken, Google Sign-In button not visible, general bugginess. Needs a thorough iOS debugging pass.",
         "status": "done",
@@ -1436,7 +1436,7 @@
         "updatedAt": "2026-02-27T10:16:19.739Z"
       },
       {
-        "id": "114",
+        "id": 114,
         "title": "Content Moderation Audit \u2014 Verify All Gates + Research External Services (CSAM, etc.)",
         "description": "Triple-confirm all moderation gates for humans and bots are solid. Research external content moderation services we need (CSAM detection, hate speech, copyright). Document everything needed for responsible content moderation at scale.",
         "status": "done",
@@ -1449,7 +1449,7 @@
         "updatedAt": "2026-02-27T21:05:30.697Z"
       },
       {
-        "id": "115",
+        "id": 115,
         "title": "Register with NCMEC CyberTipline",
         "description": "Register AgentGraph as an Electronic Service Provider with NCMEC CyberTipline (18 U.S.C. \u00a7 2258A). Required by federal law before hosting user-generated content. Free registration at https://report.cybertip.org/ispregister/",
         "status": "done",
@@ -1460,7 +1460,7 @@
         "subtasks": []
       },
       {
-        "id": "116",
+        "id": 116,
         "title": "Register DMCA Agent with US Copyright Office",
         "description": "Register dmca@agentgraph.io as the designated DMCA agent with the US Copyright Office. Required for DMCA safe harbor protection (17 U.S.C. \u00a7 512). Registration at https://www.copyright.gov/dmca-directory/",
         "status": "done",
@@ -1471,7 +1471,7 @@
         "subtasks": []
       },
       {
-        "id": "117",
+        "id": 117,
         "title": "Set Up Moderation Email Addresses",
         "description": "Create or configure email forwarding for legal@agentgraph.io, privacy@agentgraph.io, dmca@agentgraph.io, and safety@agentgraph.io. These are referenced in the legal pages and moderation playbook.",
         "status": "done",
@@ -1484,7 +1484,7 @@
         "subtasks": []
       },
       {
-        "id": "118",
+        "id": 118,
         "title": "Layer 1 Identity & Blockchain Integration \u2014 Human Passport, ERC-8004, Frequency",
         "description": "Implement the full decentralized identity and blockchain layer for AgentGraph. This covers Human Passport integration, ERC-8004 registry mapping, Frequency economics, freemium model, and scale architecture.",
         "status": "pending",
@@ -1495,7 +1495,7 @@
         "subtasks": []
       },
       {
-        "id": "119",
+        "id": 119,
         "title": "SSL/TLS \u2014 Let's Encrypt + nginx HTTPS",
         "description": "Set up certbot for Let's Encrypt SSL certificates, configure nginx for HTTPS termination, add HTTP\u2192HTTPS redirect, and set up auto-renewal cron job.",
         "status": "done",
@@ -1508,7 +1508,7 @@
         "subtasks": []
       },
       {
-        "id": "120",
+        "id": 120,
         "title": "Domain Setup \u2014 Point agentgraph.io DNS to EC2",
         "description": "Configure Cloudflare DNS A record for agentgraph.io pointing to Elastic IP ***REMOVED***. Set up nginx server_name. This is a MANUAL task the user must do in Cloudflare dashboard.",
         "status": "done",
@@ -1519,7 +1519,7 @@
         "subtasks": []
       },
       {
-        "id": "121",
+        "id": 121,
         "title": "Email SMTP Configuration",
         "description": "Configure SMTP credentials in production .env for email verification and password reset flows. The email service code is already built (src/email.py + src/templates/). Just needs SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL env vars set in production.",
         "status": "done",
@@ -1530,7 +1530,7 @@
         "subtasks": []
       },
       {
-        "id": "122",
+        "id": 122,
         "title": "CORS Lockdown for Production",
         "description": "Replace allow_methods=['*'] and allow_headers=['*'] in CORS middleware with explicit lists. Add production origin (https://agentgraph.io) to cors_origins. File: src/main.py.",
         "status": "done",
@@ -1542,7 +1542,7 @@
         "updatedAt": "2026-03-02T04:00:19.563Z"
       },
       {
-        "id": "123",
+        "id": 123,
         "title": "WebSocket Auth \u2014 Move Token from URL to First Message",
         "description": "Update frontend WebSocket hook (web/src/hooks/useWebSocket.tsx) to send JWT token as the first message after connection instead of in the URL query parameter. URL query params leak in server logs and referrer headers. Backend ws_router.py already supports both methods.",
         "status": "done",
@@ -1554,7 +1554,7 @@
         "updatedAt": "2026-03-02T04:00:19.997Z"
       },
       {
-        "id": "124",
+        "id": 124,
         "title": "Web Token Refresh \u2014 Auto-refresh on 401",
         "description": "Add HTTP interceptor in web/src/lib/api.ts that catches 401 responses, calls POST /auth/refresh with the refresh token, queues failed requests, and retries them with the new access token. Store refresh token alongside access token.",
         "status": "done",
@@ -1566,7 +1566,7 @@
         "updatedAt": "2026-03-02T04:00:20.890Z"
       },
       {
-        "id": "125",
+        "id": 125,
         "title": "Sentry DSN Configuration",
         "description": "Create Sentry account, create agentgraph project, get DSN, and add SENTRY_DSN env var to production .env. The Sentry SDK is already wired in src/main.py \u2014 just needs the DSN configured. MANUAL task.",
         "status": "done",
@@ -1577,7 +1577,7 @@
         "subtasks": []
       },
       {
-        "id": "126",
+        "id": 126,
         "title": "Daily Backup Cron Setup",
         "description": "Add crontab entry on MacBook for scripts/backup-prod.sh to run daily at 3 AM. MANUAL task \u2014 user must configure the cron job.",
         "status": "done",
@@ -1588,7 +1588,7 @@
         "subtasks": []
       },
       {
-        "id": "127",
+        "id": 127,
         "title": "Configure Production Access Gate",
         "description": "Deploy and configure the nginx cookie-based access gate for production. The gate code is already built (nginx/gate.html with djb2 hash). Just needs deploying with the chosen gate password. May already be done.",
         "status": "done",
@@ -1600,7 +1600,7 @@
         "updatedAt": "2026-03-02T04:00:30.695Z"
       },
       {
-        "id": "128",
+        "id": 128,
         "title": "[DEFERRED] Trust Framework PRD \u2014 Persona Review",
         "description": "Run the Trust Framework PRD through the full persona review process (CPO, CTO, Architect, Legal, Compliance, CEO). Generate structured assessments, cross-persona synthesis, and PRD revision recommendations. Store outputs in docs/reviews/.",
         "status": "done",
@@ -1611,7 +1611,7 @@
         "subtasks": []
       },
       {
-        "id": "129",
+        "id": 129,
         "title": "[DEFERRED] Build Content Aggregation Pipeline",
         "description": "Build automated pipeline to aggregate trending AI/agent content from GitHub trending, HuggingFace papers, ArXiv, Twitter/X, and Reddit. Auto-generate feed posts with attribution and trust scoring. Replaces manual seed scripts for cold-start content.",
         "status": "done",
@@ -1622,7 +1622,7 @@
         "subtasks": []
       },
       {
-        "id": "130",
+        "id": 130,
         "title": "[DEFERRED] Multi-Domain Trust Scoping",
         "description": "Extend trust scores to be domain-specific (e.g., 'code review': 85, 'customer support': 72, 'data analysis': 91). Requires schema changes to trust_scores table, new API endpoints, and frontend UI for viewing/filtering by domain.",
         "status": "done",
@@ -1633,7 +1633,7 @@
         "subtasks": []
       },
       {
-        "id": "131",
+        "id": 131,
         "title": "[DEFERRED] Social Graph Visualization Redesign",
         "description": "Redesign the interactive graph visualization with improved clustering, community detection visualization, trust-weighted edge rendering, and better performance at scale (1000+ nodes). Current implementation uses react-force-graph-2d.",
         "status": "deferred",
@@ -1644,7 +1644,7 @@
         "subtasks": []
       },
       {
-        "id": "132",
+        "id": 132,
         "title": "[DEFERRED] Sizzle Reel / Promo Video",
         "description": "Produce a short (60-90 second) promotional video showcasing AgentGraph's key features: trust scores, agent discovery, social feed, graph visualization, and marketplace. For use on landing page and social media.",
         "status": "deferred",
@@ -1655,7 +1655,7 @@
         "subtasks": []
       },
       {
-        "id": "133",
+        "id": 133,
         "title": "[DEFERRED] Video/Media Support in Feed Cards",
         "description": "Add support for video embeds, image galleries, and rich media attachments in feed posts. Requires media upload API, CDN integration (S3 + CloudFront), thumbnail generation, and frontend media player components.",
         "status": "done",
@@ -1666,7 +1666,7 @@
         "subtasks": []
       },
       {
-        "id": "134",
+        "id": 134,
         "title": "[DEFERRED] Trust-Gated Permissions and Cascading Trust",
         "description": "Implement permission gates based on trust scores (e.g., only agents with trust > 70 can post in certain submolts). Add cascading trust where an agent's trust propagates through its network connections with decay.",
         "status": "done",
@@ -1677,7 +1677,7 @@
         "subtasks": []
       },
       {
-        "id": "135",
+        "id": 135,
         "title": "[DEFERRED] Consumer-Controlled Trust Weighting UI",
         "description": "Build a UI that lets users customize how trust scores are weighted for their personal view. Users can prioritize different trust dimensions (attestation vs community vs activity) to personalize their feed and discovery rankings.",
         "status": "done",
@@ -1688,7 +1688,7 @@
         "subtasks": []
       },
       {
-        "id": "136",
+        "id": 136,
         "title": "[DEFERRED] Mobile Graph Optimization",
         "description": "Optimize the force-directed graph visualization for mobile devices (iOS and responsive web). Reduce node count, simplify rendering, add touch-friendly interactions, and ensure smooth 60fps on mobile hardware.",
         "status": "done",
@@ -1699,7 +1699,7 @@
         "subtasks": []
       },
       {
-        "id": "137",
+        "id": 137,
         "title": "Agent SDK \u2014 PyPI Publication + CLI Tool",
         "description": "Publish the existing SDK at sdk/python/ to PyPI as agentgraph-sdk. Add CLI tool entry point using click/typer for agent registration, posting, and trust querying from the command line.",
         "status": "done",
@@ -1710,7 +1710,7 @@
         "subtasks": []
       },
       {
-        "id": "138",
+        "id": 138,
         "title": "Onboarding Flow \u2014 Guided Paths for New Users",
         "description": "Build guided onboarding that differentiates human vs agent paths. Options: 'I want to discover agents', 'I want to improve my agent', 'I want to build an agent', 'I want to hire an agent'. Identified as #1 user feedback issue in CC Implementation Brief.",
         "status": "done",
@@ -1722,7 +1722,7 @@
         "updatedAt": "2026-03-08T16:54:08.185Z"
       },
       {
-        "id": "139",
+        "id": 139,
         "title": "Trust Explainer \u2014 Educational UX for Dual Scores",
         "description": "Add skippable explainer or contextual tooltips that teach new users what the two trust numbers mean within their first session. CC Implementation Brief Section 4.1.",
         "status": "done",
@@ -1733,7 +1733,7 @@
         "subtasks": []
       },
       {
-        "id": "140",
+        "id": 140,
         "title": "Subscription & Usage-Based Pricing Models",
         "description": "Implement recurring (subscription) and metered (usage-based) pricing for marketplace listings. Currently only free and one_time models are supported. Requires Stripe subscription/metering integration.",
         "status": "done",
@@ -1744,7 +1744,7 @@
         "subtasks": []
       },
       {
-        "id": "141",
+        "id": 141,
         "title": "Scheduled Trust Recomputation \u2014 Production Scheduler",
         "description": "Wire existing trust recomputation job (src/jobs/trust_recompute.py) and anomaly scan into a production scheduler (APScheduler, cron, or celery beat). Job code exists but is not scheduled in production.",
         "status": "done",
@@ -1755,7 +1755,7 @@
         "subtasks": []
       },
       {
-        "id": "142",
+        "id": 142,
         "title": "Formal Attestation & Verification Badge Framework",
         "description": "Complete the attestation framework: badge issuance flow, audit record creation, endorsement tier enforcement, badge expiry/renewal. Models exist (VerificationBadge, AuditRecord) and badges_router exists but full framework not wired end-to-end.",
         "status": "done",
@@ -1766,7 +1766,7 @@
         "subtasks": []
       },
       {
-        "id": "143",
+        "id": 143,
         "title": "Disputes UI \u2014 Web Frontend",
         "description": "Build web UI for marketplace dispute resolution. Backend exists (disputes_router.py, escrow.py) and SDK supports open_dispute()/get_disputes(). Needs: dispute filing form, dispute detail view, resolution flow, admin dispute panel.",
         "status": "done",
@@ -1777,7 +1777,7 @@
         "subtasks": []
       },
       {
-        "id": "144",
+        "id": 144,
         "title": "Trust-Scaled Rate Limiting",
         "description": "Implement dynamic rate limits based on entity trust score as defined in AIP v1 spec Section 8.2. Ranges: 0.0-0.3 = 1x base, 0.3-0.5 = 1.5x, 0.5-0.8 = 2x, 0.8-1.0 = 3x. Current rate limiter uses fixed limits.",
         "status": "done",
@@ -1788,7 +1788,7 @@
         "subtasks": []
       },
       {
-        "id": "145",
+        "id": 145,
         "title": "Agent Self-Improvement Flow",
         "description": "Surface 'Your agent could learn this' CTAs when viewing content. Agents arriving at the platform should be able to scan for capabilities, find missing skills, discover complementary agents. CC Implementation Brief Sections 2.2, 5.3, 8.",
         "status": "done",
@@ -1799,7 +1799,7 @@
         "subtasks": []
       },
       {
-        "id": "146",
+        "id": 146,
         "title": "Cross-Linking Between Related Content",
         "description": "Posts referencing a tool, library, or agent should deep-link to that entity's profile. Agent profiles should link to skills used, humans worked with, similar agents, and relevant trending tools. CC Implementation Brief Section 8.",
         "status": "done",
@@ -1810,7 +1810,7 @@
         "subtasks": []
       },
       {
-        "id": "147",
+        "id": 147,
         "title": "DSNP Adapter \u2014 Protocol Layer Integration",
         "description": "Implement DSNP (Decentralized Social Networking Protocol) adapter for the social layer (posts, profiles, reactions, graph). Zero DSNP code currently exists. Fundamental to the protocol architecture described in CLAUDE.md Layer 2.",
         "status": "pending",
@@ -1821,7 +1821,7 @@
         "subtasks": []
       },
       {
-        "id": "148",
+        "id": 148,
         "title": "AIP v2 \u2014 Agent-to-Agent Direct Communication",
         "description": "Design and implement AIP v2 protocol for direct agent-to-agent communication. AIP v1 covers platform-mediated interactions; v2 enables peer-to-peer agent messaging, negotiation, and task delegation without platform intermediation.",
         "status": "done",
@@ -1832,7 +1832,7 @@
         "subtasks": []
       },
       {
-        "id": "149",
+        "id": 149,
         "title": "Graph Database Migration (Neo4j or ArangoDB)",
         "description": "Migrate social graph and trust network from PostgreSQL to a dedicated graph database (Neo4j or ArangoDB). Required for handling millions of nodes with complex traversals. Current PostgreSQL implementation works for <10K nodes.",
         "status": "pending",
@@ -1843,7 +1843,7 @@
         "subtasks": []
       },
       {
-        "id": "150",
+        "id": 150,
         "title": "[DEFERRED] Android App (React Native)",
         "description": "Build Android client using React Native. Currently only iOS (SwiftUI) exists at ios/AgentGraph/. CLAUDE.md architecture specifies 'Mobile App \u2014 React Native (iOS + Android)'. Consider cross-platform rewrite or standalone Android app.",
         "status": "deferred",
@@ -1854,7 +1854,7 @@
         "subtasks": []
       },
       {
-        "id": "151",
+        "id": 151,
         "title": "Semantic Search Engine (Elasticsearch or Meilisearch)",
         "description": "Replace PostgreSQL ILIKE/ts_vector search with dedicated search engine. Add vector/semantic search for finding agents by capability description, not just keyword matching. Current search_router.py uses basic PostgreSQL full-text search.",
         "status": "done",
@@ -1865,7 +1865,7 @@
         "subtasks": []
       },
       {
-        "id": "152",
+        "id": 152,
         "title": "Enterprise Compliance Frameworks (SOC 2, GDPR, HIPAA)",
         "description": "Build formal compliance infrastructure: SOC 2 audit readiness checklist/dashboard, GDPR compliance tools (data subject access requests, right to erasure automation), HIPAA BAA workflow for healthcare agent deployments. SSO/org management code already exists.",
         "status": "done",
@@ -1876,7 +1876,7 @@
         "subtasks": []
       },
       {
-        "id": "153",
+        "id": 153,
         "title": "Anti-Weaponization Hardening",
         "description": "Implement comprehensive anti-weaponization architecture from Trust Framework PRD Section 5: contextual scoping defense, consumer-controlled weighting, decentralized attestation verification. Ties together deferred tasks #130, #134, #135 into a cohesive defense framework.",
         "status": "done",
@@ -1887,7 +1887,7 @@
         "subtasks": []
       },
       {
-        "id": "154",
+        "id": 154,
         "title": "Token Economics Design & Implementation",
         "description": "Design token model: staking mechanics, transaction settlement, incentive structures for attestation providers, trust score computation rewards. Requires chain selection (Frequency vs custom L2). CLAUDE.md Layer 1 and MVP Phase 4.",
         "status": "done",
@@ -1898,7 +1898,7 @@
         "subtasks": []
       },
       {
-        "id": "155",
+        "id": 155,
         "title": "Data Products \u2014 Monetized Analytics API",
         "description": "Package network insights (insights_router.py) as purchasable enterprise data feeds: trend reports, trust distribution analytics, capability demand signals, marketplace volume data. Phase 4 'data products' from CLAUDE.md.",
         "status": "done",
@@ -1909,7 +1909,7 @@
         "subtasks": []
       },
       {
-        "id": "156",
+        "id": 156,
         "title": "AIP v2 Protocol Ecosystem \u2014 Cross-Platform Tools",
         "description": "Build ecosystem tooling around AIP v2: protocol libraries for multiple languages (Python, TypeScript, Go), reference implementations, conformance test suite, developer documentation portal. CLAUDE.md Phase 4.",
         "status": "done",
@@ -1920,7 +1920,7 @@
         "subtasks": []
       },
       {
-        "id": "157",
+        "id": 157,
         "title": "Trust Portability \u2014 Verifiable Credentials Export",
         "description": "Enable entities to export trust profiles as W3C Verifiable Credentials that can be presented in other contexts. Goes beyond GDPR data export to protocol-level trust portability with cryptographic proofs. Trust Framework PRD Section 4.4.",
         "status": "done",
@@ -1931,7 +1931,7 @@
         "subtasks": []
       },
       {
-        "id": "158",
+        "id": 158,
         "title": "Decentralized Attestation Providers",
         "description": "Enable external attestation providers to issue claims on the network. Build provider onboarding, external claim schemas, provider discovery, and trust chain verification for third-party attestors. Trust Framework PRD Section 4.3, Phase 3-4.",
         "status": "done",
@@ -1942,7 +1942,7 @@
         "subtasks": []
       },
       {
-        "id": "159",
+        "id": 159,
         "title": "LangChain Bridge \u2014 Framework Adapter",
         "description": "Build LangChain framework adapter similar to existing MCP and OpenClaw bridges. Allow LangChain agents to register on AgentGraph, post interactions, and build trust scores. CLAUDE.md Layer 2 Bridge Protocols.",
         "status": "done",
@@ -1953,7 +1953,7 @@
         "subtasks": []
       },
       {
-        "id": "160",
+        "id": 160,
         "title": "Additional Framework Bridges (CrewAI, AutoGen, etc.)",
         "description": "Build adapters for major agent frameworks beyond MCP, OpenClaw, and LangChain: CrewAI, AutoGen, Semantic Kernel, Haystack, DSPy. Each bridge allows framework agents to interact with AgentGraph's identity and trust layer.",
         "status": "done",
@@ -1964,7 +1964,7 @@
         "subtasks": []
       },
       {
-        "id": "161",
+        "id": 161,
         "title": "Enhanced Profiles \u2014 Reviews Tab, Attestations Display",
         "description": "Add reviews tab to entity profiles showing received reviews with ratings. Add attestations tab showing verification badges, endorsements, and their expiry dates. Add fork lineage tree component. Phase 2 plan Task 68.",
         "status": "done",
@@ -1975,7 +1975,7 @@
         "subtasks": []
       },
       {
-        "id": "162",
+        "id": 162,
         "title": "iOS Marketplace \u2014 Browse, Listing Detail, Purchase Flow",
         "description": "Build iOS views for marketplace: browse listings with category filter, listing detail with reviews, Stripe checkout for purchases, purchase history. Phase 2 plan Task 70.",
         "status": "done",
@@ -1986,7 +1986,7 @@
         "subtasks": []
       },
       {
-        "id": "163",
+        "id": 163,
         "title": "iOS Trust Detail & Attestation Views",
         "description": "Build iOS views for full trust breakdown: attestation list, contextual trust scores by domain, trust history chart, endorsement display. Phase 2 plan Task 71.",
         "status": "done",
@@ -1997,7 +1997,7 @@
         "subtasks": []
       },
       {
-        "id": "164",
+        "id": 164,
         "title": "Autonomy Verification Accuracy Thresholds [consolidated]",
         "description": "Define and implement accuracy thresholds for verifying agent autonomy level claims. CLAUDE.md open question 4. How do we verify that an agent claiming Level 3 autonomy actually operates at that level?",
         "status": "done",
@@ -2008,7 +2008,7 @@
         "subtasks": []
       },
       {
-        "id": "165",
+        "id": 165,
         "title": "Agent Legal Liability Chain [consolidated]",
         "description": "Define the legal liability model for agent actions on the platform. When an agent causes harm, who is liable \u2014 the operator, the platform, the agent framework provider? CLAUDE.md open question 6.",
         "status": "done",
@@ -2019,7 +2019,7 @@
         "subtasks": []
       },
       {
-        "id": "166",
+        "id": 166,
         "title": "Content IP Rights for Forked Improvements [consolidated]",
         "description": "Define IP rights framework for when agents fork capabilities from other agents. Who owns the improvement? What license applies? CLAUDE.md open question 7.",
         "status": "done",
@@ -2030,7 +2030,7 @@
         "subtasks": []
       },
       {
-        "id": "167",
+        "id": 167,
         "title": "Bidirectional Attestation Ring Detection",
         "description": "Implement detection of mutual attestation rings and voting cartels \u2014 the simplest and most dangerous collusion pattern. When Agent A attests to Agent B AND B attests to A, flag both for review. Extend to clique detection (3+ entities all attesting to each other) and voting ring detection (coordinated upvote patterns).",
         "status": "done",
@@ -2042,7 +2042,7 @@
         "updatedAt": "2026-03-04T00:22:00.881Z"
       },
       {
-        "id": "168",
+        "id": 168,
         "title": "Wire Quarantine & Propagation Freeze Enforcement",
         "description": "The quarantine flag and propagation freeze infrastructure already exist in src/safety/ but are NOT enforced in API routes. Wire is_quarantined checks into post creation, voting, following. Wire propagation_freeze into feed operations. Wire check_min_trust_for_publish into post router.",
         "status": "done",
@@ -2054,7 +2054,7 @@
         "updatedAt": "2026-03-04T00:22:00.970Z"
       },
       {
-        "id": "169",
+        "id": 169,
         "title": "Unified Pairwise Interaction History",
         "description": "Create a first-class InteractionEvent table that unifies currently fragmented interaction data across 6+ tables. Add API endpoints for pairwise interaction timelines, partner summaries, and interaction stats. This is 'load-bearing infrastructure' per the paper \u2014 cooperative dynamics require observable pairwise history.",
         "status": "done",
@@ -2066,7 +2066,7 @@
         "updatedAt": "2026-03-04T00:22:00.985Z"
       },
       {
-        "id": "170",
+        "id": 170,
         "title": "Surface Agent Diversity in Discovery",
         "description": "Expose framework_source in search results and profiles. Add framework filter to search. Stop hiding agent diversity information. Add population framework distribution to admin stats. Paper \u00a73.1: agent heterogeneity is what forces cooperation \u2014 monocultures defect.",
         "status": "done",
@@ -2078,7 +2078,7 @@
         "updatedAt": "2026-03-04T00:22:00.997Z"
       },
       {
-        "id": "171",
+        "id": 171,
         "title": "Population Composition Monitoring",
         "description": "Monitor ecosystem population composition to detect Sybil attacks, framework monoculture, and operator flooding. Paper \u00a75 Q2: adversarial actors could flood the ecosystem with agents designed to exploit cooperative equilibria.",
         "status": "done",
@@ -2092,7 +2092,7 @@
         "updatedAt": "2026-03-04T00:22:01.004Z"
       },
       {
-        "id": "172",
+        "id": 172,
         "title": "Promote Contextual Trust Scores to First-Class",
         "description": "Currently contextual attestation scores are computed and stored but NOT used in overall trust calculation. Promote them: weight contextual attestations higher, support context-aware trust queries, show contextual scores in marketplace listings.",
         "status": "done",
@@ -2104,7 +2104,7 @@
         "updatedAt": "2026-03-04T00:22:01.013Z"
       },
       {
-        "id": "173",
+        "id": 173,
         "title": "Recurring Delegations & Service Contracts",
         "description": "Add recurring delegation support and service contracts to move beyond one-shot transactions. Paper \u00a73.3: cooperation requires repeated interaction (T=100 rounds). One-shot transactions won't produce cooperative dynamics.",
         "status": "done",
@@ -2118,7 +2118,7 @@
         "updatedAt": "2026-03-04T00:22:01.021Z"
       },
       {
-        "id": "174",
+        "id": 174,
         "title": "Temporal Behavioral Baselines (Data Infrastructure)",
         "description": "Lay the DATA infrastructure for future shaping dynamics detection. Capture weekly behavioral baselines per entity. Do NOT build detection algorithms \u2014 just collect data. Paper \u00a73.4 support, but \u00a74 warns against premature detection.",
         "status": "done",
@@ -2132,7 +2132,7 @@
         "updatedAt": "2026-03-04T00:22:01.030Z"
       },
       {
-        "id": "175",
+        "id": 175,
         "title": "[DEFERRED] Shaping Dynamics Detection Algorithms",
         "description": "Build temporal correlation analysis between agent pairs, adaptation rate metrics, and causal linking of evolution records to interactions. DEFERRED: Paper \u00a74 explicitly warns against building automated cooperation detection in natural language settings without validated methods.",
         "status": "deferred",
@@ -2145,7 +2145,7 @@
         "subtasks": []
       },
       {
-        "id": "176",
+        "id": 176,
         "title": "[DEFERRED] N-Agent Cooperation Dynamics Tooling",
         "description": "Build framework for reasoning about cooperation in groups of 3+ agents. DEFERRED: Paper \u00a75 Q4 acknowledges this is an unsolved research question \u2014 cooperation proven for pairs only.",
         "status": "deferred",
@@ -2159,7 +2159,7 @@
         "subtasks": []
       },
       {
-        "id": "177",
+        "id": 177,
         "title": "[DEFERRED] Nuanced Divergence Classification",
         "description": "Distinguish healthy adaptation (extortion \u2192 cooperation) from harmful gaming in anomaly detection. DEFERRED: Cannot classify divergence without validated detection methods.",
         "status": "deferred",
@@ -2172,7 +2172,7 @@
         "subtasks": []
       },
       {
-        "id": "178",
+        "id": 178,
         "title": "[DEFERRED] Full DID Portability / Cross-Platform Trust Export",
         "description": "Enable agents to export trust history and use DIDs that work cross-platform. DEFERRED: Touches entire identity layer, needs its own architecture review.",
         "status": "deferred",
@@ -2183,7 +2183,7 @@
         "subtasks": []
       },
       {
-        "id": "179",
+        "id": 179,
         "title": "[DEFERRED] Consumer-Controlled Trust Weighting (Frontend UX)",
         "description": "Design and build frontend UI for users to customize how they weight trust signals. DEFERRED: Backend API is straightforward, but UX needs proper design pass. Most users won't understand raw weight sliders.",
         "status": "done",
@@ -2196,7 +2196,7 @@
         "subtasks": []
       },
       {
-        "id": "180",
+        "id": 180,
         "title": "Agent Discovery Endpoint \u2014 Filter by Framework & Capability",
         "description": "Add GET /api/v1/agents endpoint with query params: framework, capability, is_active, sort_by (trust_score, created_at). Bots need to find each other by framework and capability to form interaction networks.",
         "status": "done",
@@ -2206,7 +2206,7 @@
         "subtasks": []
       },
       {
-        "id": "181",
+        "id": 181,
         "title": "Agent Health & Heartbeat Endpoint",
         "description": "Add POST /api/v1/agents/{id}/heartbeat for agents to report liveness, and GET /api/v1/agents/{id}/status for anyone to check if an agent is alive. Track last_seen_at on entity.",
         "status": "done",
@@ -2218,7 +2218,7 @@
         "subtasks": []
       },
       {
-        "id": "182",
+        "id": 182,
         "title": "Agent Rate Limit Tiers \u2014 Higher Throughput for Registered Agents",
         "description": "Implement tiered rate limiting: anonymous < human < verified_agent < trusted_agent. Agents are the product \u2014 they need higher throughput than human defaults.",
         "status": "done",
@@ -2228,7 +2228,7 @@
         "subtasks": []
       },
       {
-        "id": "183",
+        "id": 183,
         "title": "Agent Onboarding Quickstart Docs \u2014 OpenClaw, CrewAI, LangChain",
         "description": "Write framework-specific quickstart guides: 'Get your bot on AgentGraph in 5 minutes' for OpenClaw, CrewAI, and LangChain. Include curl examples, SDK usage, and bridge import flow.",
         "status": "done",
@@ -2243,7 +2243,7 @@
         "updatedAt": "2026-03-08T16:54:08.209Z"
       },
       {
-        "id": "184",
+        "id": 184,
         "title": "Operator Approval Flow \u2014 Prevent Agent Spoofing",
         "description": "When an agent claims an operator_email at registration, send approval request to that human. Agent is created but operator_id remains null until human confirms. Prevents anyone from spoofing operator relationships.",
         "status": "done",
@@ -2253,7 +2253,7 @@
         "subtasks": []
       },
       {
-        "id": "185",
+        "id": 185,
         "title": "Agent API Key Recovery via Operator",
         "description": "Allow an agent's operator to regenerate API keys for their agents. Prevents permanent lockout if agent loses its key.",
         "status": "done",
@@ -2265,7 +2265,7 @@
         "subtasks": []
       },
       {
-        "id": "186",
+        "id": 186,
         "title": "Badge Inheritance \u2014 Operator Verification Propagates to Agents",
         "description": "When an operator has verification badges, their agents automatically inherit partial trust. Verified operator's agents get a 'operator_verified' badge and trust score boost.",
         "status": "done",
@@ -2277,7 +2277,7 @@
         "subtasks": []
       },
       {
-        "id": "187",
+        "id": 187,
         "title": "Auto-List Agent Capabilities in Marketplace on Bridge Import",
         "description": "When an agent is imported via framework bridge, automatically create a marketplace listing from its capabilities/skills. Removes manual listing friction.",
         "status": "done",
@@ -2287,7 +2287,7 @@
         "subtasks": []
       },
       {
-        "id": "188",
+        "id": 188,
         "title": "A2A Protocol Support \u2014 Agent-to-Agent Direct Communication",
         "description": "Implement Google's Agent-to-Agent (A2A) protocol for direct agent messaging. Goes beyond feed posts to structured task delegation and capability negotiation between agents.",
         "status": "done",
@@ -2300,7 +2300,7 @@
         "subtasks": []
       },
       {
-        "id": "189",
+        "id": 189,
         "title": "Framework-Specific Trust Modifiers \u2014 Security Posture Scoring",
         "description": "Assign different baseline trust modifiers per framework based on security posture. NanoClaw (containerized) gets higher baseline than raw OpenClaw (known vulns). Incentivizes secure frameworks.",
         "status": "done",
@@ -2310,7 +2310,7 @@
         "subtasks": []
       },
       {
-        "id": "190",
+        "id": 190,
         "title": "Agent Fleet Management \u2014 Operator Dashboard for Multiple Agents",
         "description": "Operator-facing endpoints and UI components for managing a fleet of agents: bulk status, aggregate metrics, batch operations, fleet-wide configuration.",
         "status": "done",
@@ -2324,7 +2324,7 @@
         "subtasks": []
       },
       {
-        "id": "191",
+        "id": 191,
         "title": "Webhook Event Delivery Worker \u2014 Actually Send Webhook Callbacks",
         "description": "Implement background worker that listens to Redis event bus (agentgraph:events) and delivers webhook POST requests to subscribed callback URLs. Includes retry logic, failure tracking, and auto-disable after 5 consecutive failures.",
         "status": "done",
@@ -2334,7 +2334,7 @@
         "subtasks": []
       },
       {
-        "id": "192",
+        "id": 192,
         "title": "SDK \u2014 Add register_agent() and Agent-Specific Onboarding Methods",
         "description": "Add register_agent(), heartbeat(), and discover_agents() methods to the Python SDK so bots can onboard with a single function call instead of raw HTTP.",
         "status": "done",
@@ -2347,7 +2347,7 @@
         "subtasks": []
       },
       {
-        "id": "193",
+        "id": 193,
         "title": "Add AIP Delegation MCP Tools \u2014 delegate_task, accept_delegation, list_delegations",
         "description": "Add MCP tools for AIP delegation so agents using MCP (Claude, OpenClaw) can delegate tasks to other agents without using REST directly.",
         "status": "done",
@@ -2357,7 +2357,7 @@
         "subtasks": []
       },
       {
-        "id": "194",
+        "id": 194,
         "title": "Auto-Hide Posts on Toxicity Block \u2014 Wire Perspective API to Post Visibility",
         "description": "When Perspective API returns should_block=true, automatically set post.is_hidden=true instead of just flagging. Currently flagged posts remain visible until admin reviews.",
         "status": "done",
@@ -2367,7 +2367,7 @@
         "subtasks": []
       },
       {
-        "id": "195",
+        "id": 195,
         "title": "Provisional Registration Flow \u2014 PROVISIONAL/FULL DID State Machine",
         "description": "Add registration_state (PROVISIONAL/FULL) to Entity model. Provisional agents: trust capped at 0.3, 10 social/100 API per hour, reduced feed visibility, no marketplace, no attestations, 'Unclaimed' badge. Operator claim flow with claim token. 30-day expiration (keep history, mark expired). Alembic migration for new columns. Backfill existing agents as FULL.",
         "status": "done",
@@ -2379,7 +2379,7 @@
         "owner": "cc"
       },
       {
-        "id": "196",
+        "id": 196,
         "title": "AIP-A2A Reconciliation \u2014 Refactor AIP as Trust Layer on A2A",
         "description": "Refactor AIP to operate on top of A2A rather than competing. Keep: AIP/TRUST (challenge, verify, attest), AIP/EVOLVE (evolution events), trust metadata on discovery. Deprecate (keep functional, mark deprecated): AIP delegation state machine, negotiation. Don't remove yet \u2014 gradual deprecation. Update aip-v1-spec.md.",
         "status": "done",
@@ -2391,7 +2391,7 @@
         "owner": "cc"
       },
       {
-        "id": "197",
+        "id": 197,
         "title": "A2A Trust Middleware \u2014 Intercept A2A Interactions for Trust Verification",
         "description": "Build src/bridges/a2a_middleware.py that intercepts A2A task delegations to: (1) look up trust scores for both parties, (2) enforce minimum trust thresholds, (3) enrich A2A Agent Cards with trust data, (4) log audit events, (5) allow/deny delegation based on trust. This is the core of 'AIP on A2A'.",
         "status": "done",
@@ -2405,7 +2405,7 @@
         "owner": "cc"
       },
       {
-        "id": "198",
+        "id": 198,
         "title": "OpenClaw Bridge \u2014 Package as Installable Skill with Self-Registration",
         "description": "Package the OpenClaw bridge adapter as an installable OpenClaw skill that enables autonomous self-registration: (1) generate provisional DID, (2) import capability manifest, (3) run security scan (malicious skills, injection, token exposure), (4) register in provisional state, (5) provide operator claim URL/token.",
         "status": "done",
@@ -2419,7 +2419,7 @@
         "owner": "cc"
       },
       {
-        "id": "199",
+        "id": 199,
         "title": "Validate CrewAI Bridge \u2014 Crew-Level Batch Registration",
         "description": "Validate that the CrewAI bridge supports crew-level registration: one operator registers a crew, all member agents get DIDs linked to the operator. Handle crew lifecycle (agents joining/leaving).",
         "status": "done",
@@ -2433,7 +2433,7 @@
         "owner": "cc"
       },
       {
-        "id": "200",
+        "id": 200,
         "title": "Validate LangChain Bridge \u2014 LangGraph State Graph Capability Declaration",
         "description": "Validate that the LangChain bridge handles LangGraph's state graph structure for capability declaration. Agent's graph topology should map to capabilities.",
         "status": "done",
@@ -2445,7 +2445,7 @@
         "owner": "cc"
       },
       {
-        "id": "201",
+        "id": 201,
         "title": "Validate AutoGen Bridge \u2014 Audit Trail Compliance Export",
         "description": "Validate that the AutoGen bridge provides interaction audit trail data in a format suitable for enterprise compliance exports.",
         "status": "done",
@@ -2457,7 +2457,7 @@
         "owner": "cc"
       },
       {
-        "id": "202",
+        "id": 202,
         "title": "Validate Bridge Security Scanning for All Tier 1 Frameworks",
         "description": "Ensure bridge-level security scanning is implemented for all Tier 1 frameworks: known-malicious skills/plugins, prompt injection patterns, API token exposure, CVE checks. Document coverage per framework.",
         "status": "done",
@@ -2469,7 +2469,7 @@
         "owner": "cc"
       },
       {
-        "id": "203",
+        "id": 203,
         "title": "Reconcile Rate Limiting \u2014 Hybrid Type + Trust Score Tiers",
         "description": "Reconcile our deployed type-based rate limits (anonymous/human/agent/trusted_agent) with v2's trust-score-based tiers. Implement hybrid: type determines base tier, trust score multiplies within tier. Provisional agents get lowest tier regardless of type. Config-driven thresholds.",
         "status": "done",
@@ -2483,7 +2483,7 @@
         "owner": "cc"
       },
       {
-        "id": "204",
+        "id": 204,
         "title": "Build Pydantic AI Bridge Adapter",
         "description": "Build a Pydantic AI bridge adapter. Given native A2A support: (1) map Pydantic AI agent metadata to AgentGraph profiles, (2) enrich A2A Agent Cards with trust data, (3) provide @agentgraph.register decorator, (4) integrate with Logfire for observability. Target: pip install agentgraph-bridge-pydantic.",
         "status": "done",
@@ -2497,7 +2497,7 @@
         "owner": "cc"
       },
       {
-        "id": "205",
+        "id": 205,
         "title": "Build agentgraph-trust MCP Server \u2014 Publish to MCP Registry",
         "description": "Build and publish a standalone agentgraph-trust MCP server that any MCP-capable agent can use to: query trust scores, self-register, verify agents before interacting, flag suspicious behavior, look up capabilities/profiles. This is both product feature and distribution channel.",
         "status": "done",
@@ -2509,7 +2509,7 @@
         "owner": "cc"
       },
       {
-        "id": "206",
+        "id": 206,
         "title": "A2A Agent Card Enrichment Service",
         "description": "Build a service/endpoint that enriches A2A Agent Cards with AgentGraph trust data: trust score, verification status (provisional/full), framework trust modifier, interaction history summary, endorsements. Plugs into A2A discovery flow.",
         "status": "done",
@@ -2523,7 +2523,7 @@
         "owner": "cc"
       },
       {
-        "id": "207",
+        "id": 207,
         "title": "Package Bridge Adapters as Published PyPI/npm Packages",
         "description": "Package each bridge adapter as an installable package with <5 lines to register. PyPI: agentgraph-bridge-crewai, agentgraph-bridge-langchain, agentgraph-bridge-pydantic, agentgraph-bridge-autogen. npm: @agentgraph/bridge-openclaw. Each with setup.py, README, minimal API.",
         "status": "done",
@@ -2540,7 +2540,7 @@
         "owner": "cc"
       },
       {
-        "id": "208",
+        "id": 208,
         "title": "Trust Badge Embeddable \u2014 SVG/PNG Badge for READMEs",
         "description": "Build an embeddable trust badge (SVG) that operators add to README/website: [![AgentGraph Trust](https://agentgraph.co/badge/{agent-did})](https://agentgraph.co/agent/{agent-did}). Shows current trust score, links to profile. Every badge is organic awareness.",
         "status": "done",
@@ -2552,7 +2552,7 @@
         "owner": "cc"
       },
       {
-        "id": "209",
+        "id": 209,
         "title": "Spec Google ADK Integration as A2A Trust Enrichment Layer",
         "description": "Spec (don't build yet) the Google ADK integration as A2A trust enrichment. Since ADK has native A2A support, the bridge should be minimal \u2014 primarily metadata mapping and trust injection. Defer building until Tier 1 is validated.",
         "status": "pending",
@@ -2566,7 +2566,7 @@
         "owner": "cc"
       },
       {
-        "id": "210",
+        "id": 210,
         "title": "Build Moltbook Migration Tool",
         "description": "Build migration tool: (1) export bot profile from Moltbook API (if available), (2) map capabilities, (3) create AgentGraph DID + profile, (4) generate 'Migrated from Moltbook' social proof.",
         "status": "done",
@@ -2580,7 +2580,7 @@
         "owner": "cc"
       },
       {
-        "id": "211",
+        "id": 211,
         "title": "GitHub Action for CI/CD Agent Registration",
         "description": "Build a GitHub Action (agentgraph/register-action@v1) that auto-registers an agent with AgentGraph on deploy. Takes framework, manifest path, operator email.",
         "status": "done",
@@ -2594,7 +2594,7 @@
         "owner": "cc"
       },
       {
-        "id": "212",
+        "id": 212,
         "title": "Instrument Trust Scores at Interaction Time for Correlation Analysis",
         "description": "Log trust scores of both parties at time of every interaction (delegation, follow, endorsement) for later correlation analysis. Validates Assumption 2: trust scores influence interaction decisions.",
         "status": "done",
@@ -2606,7 +2606,7 @@
         "owner": "cc"
       },
       {
-        "id": "213",
+        "id": 213,
         "title": "Add Framework-Pair Tracking to Interaction Analytics",
         "description": "Track framework_source of both parties in every interaction to measure cross-framework activity. Validates Assumption 3: cross-framework discovery is valued.",
         "status": "done",
@@ -2618,7 +2618,7 @@
         "owner": "cc"
       },
       {
-        "id": "214",
+        "id": 214,
         "title": "Instrument Social Feature Usage Tracking",
         "description": "Track which social features each registered agent uses (posting, following, endorsing, marketplace) vs API-only interactions. Validates Assumption 4: social interaction patterns exist.",
         "status": "done",
@@ -2630,7 +2630,7 @@
         "owner": "cc"
       },
       {
-        "id": "215",
+        "id": 215,
         "title": "[KENNE] Join Top 5 Framework Discord/Slack Communities",
         "description": "Join and become active in CrewAI, LangChain, Pydantic AI, AutoGen, and OpenClaw Discord/Slack communities. Build presence by sharing agent trust/security insights \u2014 no product pitches. Become a known voice before promoting AgentGraph.",
         "status": "pending",
@@ -2642,7 +2642,7 @@
         "owner": "kenne"
       },
       {
-        "id": "216",
+        "id": 216,
         "title": "[KENNE] Write 2-3 Blog Posts / Twitter Threads on Agent Security",
         "description": "Write thought leadership content on agent security and trust using Moltbook/OpenClaw data as examples. Genuinely useful content, not promotional. Position as authority on agent trust infrastructure.",
         "status": "pending",
@@ -2654,7 +2654,7 @@
         "owner": "kenne"
       },
       {
-        "id": "217",
+        "id": 217,
         "title": "[KENNE] Create 'State of Agent Security' Report",
         "description": "Create a downloadable report using publicly available data: Moltbook breach details, OpenClaw Cisco audit findings, framework vulnerability data. Positions AgentGraph as the authority on agent security. PDF/blog format.",
         "status": "pending",
@@ -2666,7 +2666,7 @@
         "owner": "kenne"
       },
       {
-        "id": "218",
+        "id": 218,
         "title": "[KENNE] Draft Enterprise Tier Feature Set and Pricing",
         "description": "Draft the enterprise tier offering even if not built yet: SLAs, custom trust scoring, compliance exports, dedicated support, organization-level management. Price points: $29/mo indie, $99/mo startup, $499+/mo enterprise. Captures inbound interest early.",
         "status": "pending",
@@ -2678,7 +2678,7 @@
         "owner": "kenne"
       },
       {
-        "id": "219",
+        "id": 219,
         "title": "[KENNE] Explore Partnership Conversations \u2014 Google Cloud, Anthropic, Linux Foundation A2A",
         "description": "Initiate partnership exploration: (1) Google Cloud \u2014 ADK/A2A alignment, AgentGraph as trust layer, (2) Anthropic \u2014 MCP alignment, (3) Linux Foundation A2A project \u2014 contributing member for protocol governance and credibility.",
         "status": "pending",
@@ -2690,7 +2690,7 @@
         "owner": "kenne"
       },
       {
-        "id": "220",
+        "id": 220,
         "title": "[KENNE] Define and Deploy First 3 Bots on Moltbook",
         "description": "Define 3 genuinely useful bots that also have AgentGraph DIDs. Deploy on Moltbook. They include AgentGraph trust score in profiles, verify identity before engaging, publicly decline interactions with unverified bots. Ideas: code review bot, security scanning bot, research assistant.",
         "status": "pending",
@@ -2705,7 +2705,7 @@
         "owner": "kenne"
       },
       {
-        "id": "221",
+        "id": 221,
         "title": "[KENNE] Design and Run Assumption Validation Survey \u2014 50 Operators",
         "description": "Recruit 50 OpenClaw/CrewAI operators in beta. Survey at 30 and 60 days. Key questions: Does verifiable identity matter? Do trust scores influence decisions? Do they want cross-framework discovery? Success: >60% say identity influenced joining, >40% cite as primary reason.",
         "status": "pending",
@@ -2719,7 +2719,7 @@
         "owner": "kenne"
       },
       {
-        "id": "223",
+        "id": 223,
         "title": "[DEFERRED] Replace TestFlight PLACEHOLDER link with real URL",
         "description": "Update the TestFlight link on the Home page and Register page once the iOS app is ready for beta testing.",
         "details": "Search for PLACEHOLDER in web/src/ and replace with the real TestFlight join URL. Affected files: web/src/pages/Home.tsx, web/src/pages/Register.tsx, web/src/components/Layout.tsx.",
@@ -2729,7 +2729,7 @@
         "subtasks": []
       },
       {
-        "id": "224",
+        "id": 224,
         "title": "[DEFERRED] Move DMCA designated agent to a registered agent service",
         "description": "Replace personal home address in DMCA registration (DMCA-1070517) with a registered agent service (e.g. CSC, Northwest Registered Agent, ~$50-100/yr) to remove personal address from public Copyright Office directory.",
         "details": "Current DMCA registration uses personal address. Update at https://www.copyright.gov/dmca-directory/ once a registered agent service is set up.",
@@ -2739,7 +2739,7 @@
         "subtasks": []
       },
       {
-        "id": "225",
+        "id": 225,
         "title": "P2: Progressive Login Delay After Failed Attempts",
         "description": "Add Redis-based progressive delay after failed login attempts. Currently rate-limited at 5/min but no lockout. Implement: 1) Track failed login count per email in Redis with TTL, 2) After 5 failures, add 1s delay doubling each time (1s, 2s, 4s, 8s...), 3) After 10 failures, lock for 15min, 4) Log excessive failures to audit log. Already rate-limited at 5/min so this is P2.",
         "status": "done",
@@ -2751,7 +2751,7 @@
         "updatedAt": "2026-03-11T21:09:14.404Z"
       },
       {
-        "id": "226",
+        "id": 226,
         "title": "P2: Bot Bootstrap Abuse Monitoring",
         "description": "Bot bootstrap endpoint is intentionally unauthenticated for easy onboarding, but needs abuse monitoring. Add: 1) Rate limit per IP (5 bootstraps/hour), 2) Redis-backed counter for total daily bootstraps (alert if >100/day), 3) Log all bootstraps to audit log with IP. The endpoint already captures registration_ip for Sybil detection.",
         "status": "done",
@@ -2763,7 +2763,7 @@
         "updatedAt": "2026-03-11T21:09:14.490Z"
       },
       {
-        "id": "227",
+        "id": 227,
         "title": "SEO: Create og:image Social Share Card (1200x630)",
         "description": "Create a 1200x630 PNG social share image for og:image and twitter:image. Should feature the AgentGraph brand (hero face + logo + tagline). Place at web/public/og-image.png. The index.html already references this path. Without this, every shared link shows no thumbnail on Slack, Twitter, iMessage, etc.",
         "status": "done",
@@ -2775,7 +2775,7 @@
         "updatedAt": "2026-03-11T21:22:54.390Z"
       },
       {
-        "id": "228",
+        "id": 228,
         "title": "SEO: Per-Page Dynamic Meta Tags with react-helmet-async",
         "description": "Install react-helmet-async and add per-page dynamic meta tags (title, description, og:title, og:description, og:url, canonical). Currently only document.title changes per page \u2014 crawlers and social previews always see the static index.html tags. Priority pages: Home, Feed, Profile (dynamic name), PostDetail (dynamic author), ListingDetail (dynamic title), Marketplace, Bot Onboarding.",
         "status": "done",
@@ -2787,7 +2787,7 @@
         "updatedAt": "2026-03-11T21:09:14.501Z"
       },
       {
-        "id": "229",
+        "id": 229,
         "title": "SEO: Structured Data (JSON-LD) for Key Pages",
         "description": "Add JSON-LD structured data to key pages: Organization schema on Home, WebSite schema with SearchAction on Search, SoftwareApplication on marketplace listings, Person/ProfilePage on user profiles. This enables Google rich results and improves discoverability.",
         "status": "done",
@@ -2799,7 +2799,7 @@
         "updatedAt": "2026-03-11T21:09:14.517Z"
       },
       {
-        "id": "230",
+        "id": 230,
         "title": "CSAM: Suppress Notification to Flagged Entity on Illegal Reports",
         "description": "CRITICAL LEGAL FIX: The moderation system currently emails the flagged entity when ANY flag is submitted (moderation_router.py). For CSAM/illegal reports, this constitutes illegal tip-off under 18 U.S.C. 2258B. Fix: skip entity notification email when ModerationReason is ILLEGAL. Also add a dedicated CSAM reason to ModerationReason enum to enable separate workflow.",
         "status": "done",
@@ -2810,7 +2810,7 @@
         "subtasks": []
       },
       {
-        "id": "231",
+        "id": 231,
         "title": "CSAM: Add csam Reason to ModerationReason Enum + Dedicated Queue",
         "description": "Add CSAM as a distinct ModerationReason value (separate from generic illegal). Enable: separate admin queue filtering, automatic notification suppression, evidence preservation trigger, future CyberTip automation. Update moderation_router to handle csam flags with highest priority sorting.",
         "status": "done",
@@ -2821,7 +2821,7 @@
         "subtasks": []
       },
       {
-        "id": "232",
+        "id": 232,
         "title": "[DEFERRED] CSAM: PhotoDNA / Hash-Based Media Scanning",
         "description": "Implement hash-based CSAM detection on media URLs before they are displayed. Options: Microsoft PhotoDNA Cloud Service, or restrict media to allowlisted CDNs only. Current media support is URL-reference only (no uploads), which reduces liability but does not eliminate it. Depends on media feature maturity.",
         "status": "deferred",
@@ -2832,7 +2832,7 @@
         "subtasks": []
       },
       {
-        "id": "233",
+        "id": 233,
         "title": "[DEFERRED] CSAM: Automated NCMEC CyberTip Submission Pipeline",
         "description": "Build automated CyberTip submission via NCMEC API when CSAM is confirmed by admin. Preserve evidence bundle (URL, timestamp, user IP, account info, content hash). Required by 18 U.S.C. 2258A. Fines up to K per violation for failure to report. Currently a manual process.",
         "status": "deferred",
@@ -2843,7 +2843,7 @@
         "subtasks": []
       },
       {
-        "id": "234",
+        "id": 234,
         "title": "Accessibility: Add htmlFor/id Label Associations to All Forms",
         "description": "Fix ~24 form inputs across 6 pages missing proper label associations. Pages: Settings.tsx (5 inputs), BotOnboarding.tsx (6), ForgotPassword.tsx (1), ResetPassword.tsx (2), CreateListing.tsx (6), Webhooks.tsx (2). Login and Register are already correct. Add id to inputs and htmlFor to labels, or aria-label where no visible label exists.",
         "status": "done",
@@ -2854,7 +2854,7 @@
         "subtasks": []
       },
       {
-        "id": "235",
+        "id": 235,
         "title": "[KENNE] SEO: Google Search Console Setup + Domain Verification",
         "description": "Register agentgraph.co with Google Search Console. Verify domain ownership via DNS TXT record. Submit sitemap.xml. Monitor indexing. This is a manual step the user must perform.",
         "status": "pending",
@@ -2865,7 +2865,7 @@
         "subtasks": []
       },
       {
-        "id": "236",
+        "id": 236,
         "title": "Add SEOHead to 6 Remaining Public Pages",
         "description": "Six public pages are missing the SEOHead component, meaning they lack proper <title>, meta description, and Open Graph tags for social sharing and search engine indexing.",
         "status": "done",
@@ -2876,7 +2876,7 @@
         "subtasks": []
       },
       {
-        "id": "237",
+        "id": 237,
         "title": "Fix TrustTierBadge Component-Created-During-Render Anti-Pattern",
         "description": "TrustTierBadge.tsx line 49 creates a component during render, which causes React to remount the component on every render instead of updating it. Minor performance issue.",
         "status": "done",
@@ -2887,7 +2887,7 @@
         "subtasks": []
       },
       {
-        "id": "238",
+        "id": 238,
         "title": "Clean Up Unused npm Dependencies",
         "description": "The `geist` npm package is unused and can be removed. `@types/d3` and `@types/three` are in `dependencies` instead of `devDependencies`.",
         "status": "done",
@@ -2898,7 +2898,7 @@
         "subtasks": []
       },
       {
-        "id": "239",
+        "id": 239,
         "title": "[PRE-PUBLIC] BFG Scrub Admin Credentials from Git History",
         "description": "Before making the repo public, use BFG Repo Cleaner to remove admin passwords and sensitive credentials that exist in git history (CLAUDE.md, iOS UITests, taskmaster tasks).",
         "status": "deferred",
@@ -2909,7 +2909,7 @@
         "subtasks": []
       },
       {
-        "id": "240",
+        "id": 240,
         "title": "Add Content-Security-Policy Header to nginx HTML Responses",
         "description": "CSP header is only set on API responses via the backend. HTML pages served by nginx lack CSP, reducing defense-in-depth against XSS.",
         "status": "done",
@@ -2920,7 +2920,7 @@
         "subtasks": []
       },
       {
-        "id": "241",
+        "id": 241,
         "title": "Optimize hero-art.png to WebP Format",
         "description": "hero-art.png is 987KB. Converting to WebP could reduce it to ~200-300KB with no visible quality loss, improving page load time.",
         "status": "deferred",
@@ -2931,7 +2931,7 @@
         "subtasks": []
       },
       {
-        "id": "242",
+        "id": 242,
         "title": "Legal P1: Cookie & Tracking Technology Disclosure",
         "description": "Add a Cookies and Tracking Technologies section to the Privacy Policy disclosing: JWT auth tokens, ag_gate access cookie, analytics event tracking, Google OAuth cookies.",
         "status": "pending",
@@ -2942,7 +2942,7 @@
         "subtasks": []
       },
       {
-        "id": "243",
+        "id": 243,
         "title": "Legal P1: CCPA-Specific Privacy Rights",
         "description": "Add California Privacy Rights section to Privacy Policy with CCPA-required disclosures: right to know, right to delete, right to opt-out of sale, non-discrimination, categories of PI collected.",
         "status": "pending",
@@ -2953,7 +2953,7 @@
         "subtasks": []
       },
       {
-        "id": "244",
+        "id": 244,
         "title": "Legal P1: GDPR-Specific Privacy Disclosures",
         "description": "Add European Users / International Users section to Privacy Policy with GDPR-required elements: legal basis for processing, international data transfers, right to lodge complaint with supervisory authority.",
         "status": "pending",
@@ -2964,7 +2964,7 @@
         "subtasks": []
       },
       {
-        "id": "245",
+        "id": 245,
         "title": "Legal P1: Account Termination Terms",
         "description": "Add Termination section to Terms of Service covering: what happens to user data on termination, data export rights, notice period, effect on marketplace transactions, user self-deletion.",
         "status": "pending",
@@ -2975,7 +2975,7 @@
         "subtasks": []
       },
       {
-        "id": "246",
+        "id": 246,
         "title": "Legal P1: Platform Intellectual Property Clause",
         "description": "Add Platform Ownership section to Terms stating AgentGraph owns its code, design, logos, trademarks, and documentation. No right to use branding without consent.",
         "status": "pending",
@@ -2986,7 +2986,7 @@
         "subtasks": []
       },
       {
-        "id": "247",
+        "id": 247,
         "title": "Legal P2: API Terms of Service",
         "description": "Add API Usage section to Terms or create separate API Terms covering: rate limits, fair use, right to revoke access, no SLA guarantee, redistribution restrictions, SDK terms.",
         "status": "deferred",
@@ -2997,7 +2997,7 @@
         "subtasks": []
       },
       {
-        "id": "248",
+        "id": 248,
         "title": "Legal P2: AI-Generated Content Disclosure Policy",
         "description": "Add AI-Generated Content section to Terms requiring labeling of AI-generated content, establishing operator liability for AI output, and clarifying AgentGraph's non-liability for AI-generated misinformation.",
         "status": "deferred",
@@ -3008,7 +3008,7 @@
         "subtasks": []
       },
       {
-        "id": "249",
+        "id": 249,
         "title": "Legal P2: Marketplace Terms",
         "description": "Add Marketplace section to Terms governing: liability for transactions, AgentGraph as venue (not party), dispute resolution for transactions, payment terms, listing accuracy requirements.",
         "status": "deferred",
@@ -3019,7 +3019,7 @@
         "subtasks": []
       },
       {
-        "id": "250",
+        "id": 250,
         "title": "Legal P2: DMCA Registration Number + Address + Counter-Notification Timeline",
         "description": "Add DMCA registration number (DMCA-1070517) to the DMCA page. Add physical mailing address or Copyright Office directory link. Add 10-14 business day counter-notification restoration timeline.",
         "status": "pending",
@@ -3030,7 +3030,7 @@
         "subtasks": []
       },
       {
-        "id": "251",
+        "id": 251,
         "title": "Legal P3: Sub-Processor Disclosure in Privacy Policy",
         "description": "Add a list of third-party service providers / sub-processors to the Privacy Policy: AWS (hosting), Google (OAuth), SES/ImprovMX (email), Sentry (error tracking).",
         "status": "deferred",
@@ -3041,7 +3041,7 @@
         "subtasks": []
       },
       {
-        "id": "252",
+        "id": 252,
         "title": "Legal P3: NCMEC/CSAM Reporting Disclosure in Moderation Policy",
         "description": "Add disclosure to Moderation Policy that AgentGraph is registered as an ESP with NCMEC and reports CSAM to the CyberTipline as required by 18 U.S.C. 2258A.",
         "status": "deferred",
@@ -3052,7 +3052,7 @@
         "subtasks": []
       },
       {
-        "id": "100",
+        "id": 100,
         "title": "Re-enable email notifications for replies, endorsements, reviews, followers, votes",
         "description": "Once a cheaper email provider like AWS SES is available, re-enable email notification options for: Replies to your posts, Endorsements, Reviews on your listings, New followers, Votes on your content. These were removed from the UI and backend email dispatch (notification_router.py _KIND_EMAIL_PREFS) to save on Resend email costs. The DB columns (email_reply_enabled, email_endorsement_enabled, email_review_enabled, email_follow_enabled, email_vote_enabled) still exist in the NotificationPreference model \u2014 just need to add them back to _KIND_EMAIL_PREFS, the API response/request schemas, and the Settings.tsx EMAIL_LABELS / NotifPrefs interface.",
         "status": "deferred",
@@ -3063,7 +3063,7 @@
         "subtasks": []
       },
       {
-        "id": "253",
+        "id": 253,
         "title": "Developer Docs: Add code copy buttons to markdown code blocks",
         "description": "Add one-click copy-to-clipboard buttons on all <pre> code blocks in the docs viewer (Docs.tsx). Standard UX in modern developer docs (Stripe, Vercel, Tailwind). Custom react-markdown code component with relative container and copy button.",
         "status": "done",
@@ -3075,7 +3075,7 @@
         "updatedAt": "2026-03-17T17:52:31.537Z"
       },
       {
-        "id": "254",
+        "id": 254,
         "title": "Developer Docs: Add search within documentation",
         "description": "Add a search box at the top of the docs hub (/docs) that filters pages by title and description. Client-side filtering of SECTIONS array is sufficient for now.",
         "status": "pending",
@@ -3086,7 +3086,7 @@
         "subtasks": []
       },
       {
-        "id": "255",
+        "id": 255,
         "title": "SDK stub READMEs on GitHub for all 7 SDK packages",
         "description": "Create stub README.md in GitHub repo for all 7 SDK directories so 'Preview' SDK links in docs hub don't 404. Each README: package purpose, install example, early development note, link to /docs.",
         "status": "done",
@@ -3098,7 +3098,7 @@
         "updatedAt": "2026-03-17T17:52:31.605Z"
       },
       {
-        "id": "256",
+        "id": 256,
         "title": "Developer Docs: API version indicator",
         "description": "Add 'API v1' badge to docs hub header and Swagger/ReDoc page titles. Prepares for future version selector when v2 ships.",
         "status": "pending",
@@ -3109,7 +3109,7 @@
         "subtasks": []
       },
       {
-        "id": "257",
+        "id": 257,
         "title": "Developer Docs: Interactive 'Try it' API calls from docs",
         "description": "Add inline API testing from documentation pages. Options: (1) 'Try it' buttons linking to pre-filled Swagger deep links, (2) mini API console component, (3) full embedded interactive panel. Start with option 1.",
         "status": "pending",
@@ -3120,7 +3120,7 @@
         "subtasks": []
       },
       {
-        "id": "258",
+        "id": 258,
         "title": "Security: OAuth token-in-fragment to auth code exchange",
         "description": "Replace implicit OAuth flow (token in URL fragment) with authorization code exchange. Fragments leak via referrer headers and browser history. HIGH priority security fix.",
         "status": "pending",
@@ -3128,7 +3128,7 @@
         "dependencies": []
       },
       {
-        "id": "259",
+        "id": 259,
         "title": "Security: Remove CSP unsafe-inline for script-src",
         "description": "Current CSP allows unsafe-inline for scripts. Implement nonce-based or hash-based CSP for inline scripts to prevent XSS. MEDIUM priority.",
         "status": "pending",
@@ -3136,7 +3136,7 @@
         "dependencies": []
       },
       {
-        "id": "260",
+        "id": 260,
         "title": "Security: Consolidate duplicate headers between nginx and middleware",
         "description": "Security headers (X-Frame-Options, X-Content-Type-Options, etc.) are set in both nginx.conf and FastAPI middleware. Consolidate to nginx only for production, middleware only for dev. LOW priority.",
         "status": "pending",
@@ -3144,7 +3144,7 @@
         "dependencies": []
       },
       {
-        "id": "261",
+        "id": 261,
         "title": "DevOps: Add pip-audit and npm audit to CI pipeline",
         "description": "Add dependency vulnerability scanning (pip-audit for Python, npm audit for JS) as a CI step. LOW priority but important for supply chain security.",
         "status": "pending",
@@ -3152,7 +3152,7 @@
         "dependencies": []
       },
       {
-        "id": "262",
+        "id": 262,
         "title": "Growth: Agent sandbox/playground for zero-friction onboarding",
         "description": "Create an interactive sandbox where developers can test agent registration and API calls without signing up. Reduces friction compared to Moltbook while maintaining security. HIGH priority for adoption.",
         "status": "pending",
@@ -3160,7 +3160,7 @@
         "dependencies": []
       },
       {
-        "id": "263",
+        "id": 263,
         "title": "Feature: Token economy UI and dashboard",
         "description": "Build UI for viewing and managing token balances, transaction history, and staking. Deferred until token economics are finalized. MEDIUM priority.",
         "status": "deferred",
@@ -3168,7 +3168,7 @@
         "dependencies": []
       },
       {
-        "id": "264",
+        "id": 264,
         "title": "Feature: Organization management UI",
         "description": "Multi-user organization accounts with role-based access. Allows teams to manage fleets of agents under one org. MEDIUM priority, deferred.",
         "status": "deferred",
@@ -3176,7 +3176,7 @@
         "dependencies": []
       },
       {
-        "id": "265",
+        "id": 265,
         "title": "Pre-Launch: Open source the repo (make public on GitHub)",
         "description": "Before public launch: audit repo for any hardcoded secrets, remove .env references, add LICENSE file (MIT or Apache 2.0), write a proper public README.md, ensure .gitignore covers all sensitive files. Make kenneives/agentgraph public. Must be done AFTER marketing bots are built and BEFORE removing the gate password.",
         "status": "pending",
@@ -3186,15 +3186,82 @@
         ]
       },
       {
-        "id": "266",
+        "id": 266,
         "title": "Pre-Launch: Build marketing/promotion bots for social networks",
         "description": "Build bots that promote AgentGraph across developer networks \u2014 Twitter/X, Discord bot communities, Reddit (r/artificial, r/LangChain, r/LocalLLaMA), Hacker News, Product Hunt, LinkedIn, dev.to, GitHub Discussions. Bots should highlight: verified agent identity, trust scoring, source-connected onboarding, Moltbook security comparison. Must be built BEFORE public launch and repo open-sourcing.",
         "status": "pending",
         "priority": "high",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Wire static card images into Bluesky adapter",
+            "description": "Upload card PNG as blob via com.atproto.repo.uploadBlob, attach as embed.images in post record. Map post topic to card file.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Wire static card images into Twitter adapter",
+            "description": "Upload card image via Twitter media upload endpoint, attach media_id to tweet. Same topic-to-card mapping.",
+            "status": "pending",
+            "dependencies": [
+              1
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Add card selection logic to content engine",
+            "description": "In generate_proactive(), resolve card image path from src/marketing/assets/card-{topic}.png. Pass image_path through GeneratedContent to adapters.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 4,
+            "title": "Image optimization pipeline per platform",
+            "description": "Resize cards per platform: Twitter 1200x675, Bluesky 1200x630, LinkedIn 1200x627, Dev.to 1000x420. Pillow, cache resized.",
+            "status": "pending",
+            "dependencies": [
+              3
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Dynamic OG image endpoint (/og?topic=X)",
+            "description": "Server-side endpoint rendering branded cards on-the-fly. Platforms auto-pull for rich link previews. Pillow or SVG-to-PNG.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 6,
+            "title": "Figma MCP template-based card generation",
+            "description": "Create Figma template with swappable text/color layers. Use Figma MCP to generate card variants per post for more variety.",
+            "status": "pending",
+            "dependencies": [
+              5
+            ]
+          },
+          {
+            "id": 7,
+            "title": "AI image generation for blog hero images",
+            "description": "Integrate DALL-E or Flux for unique hero images on Dev.to/Hashnode blog posts. Brand style prompt engineering. ~$0.04/image.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 8,
+            "title": "End-to-end test: post with image on Bluesky",
+            "description": "Generate proactive post with topic card attached, post to Bluesky, verify image displays correctly and dashboard link works.",
+            "status": "pending",
+            "dependencies": [
+              1,
+              3
+            ]
+          }
+        ]
       },
       {
-        "id": "267",
+        "id": 267,
         "title": "Pre-Launch: Remove access gate password for public launch",
         "description": "Remove the cookie-based access gate (ag_gate cookie, ***REMOVED*** code) from nginx.conf and gate.html. This is the FINAL pre-launch step \u2014 only do this after: bot onboarding is polished, marketing bots are ready, repo is public, and friends have tested everything.",
         "status": "pending",
@@ -3212,7 +3279,9 @@
       "completedCount": 199,
       "tags": [
         "master"
-      ]
+      ],
+      "created": "2026-03-19T16:59:51.438Z",
+      "description": "Tasks for master context"
     }
   }
 }
