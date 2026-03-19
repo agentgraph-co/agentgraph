@@ -1,0 +1,99 @@
+[     123ms] [WARNING] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. @ http://***REMOVED***:5174/node_modules/.vite/deps/framer-motion.js?v=211d6f5c:195
+[    2139ms] [ERROR] %o
+
+%s
+
+%s
+ TypeError: crypto.randomUUID is not a function
+    at getSessionId (http://***REMOVED***:5174/src/lib/analytics.ts:6:17)
+    at trackEvent (http://***REMOVED***:5174/src/lib/analytics.ts:14:17)
+    at http://***REMOVED***:5174/src/pages/Register.tsx:23:5
+    at Object.react_stack_bottom_frame (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18567:20)
+    at runWithFiberInDEV (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:997:72)
+    at commitHookEffectListMount (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9411:163)
+    at commitHookPassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9465:60)
+    at commitPassiveMountOnFiber (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11040:29)
+    at recursivelyTraversePassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11010:13)
+    at commitPassiveMountOnFiber (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11201:13) The above error occurred in the <Register> component. React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:7000
+[    2140ms] [ERROR] ErrorBoundary caught: TypeError: crypto.randomUUID is not a function
+    at getSessionId (http://***REMOVED***:5174/src/lib/analytics.ts:6:17)
+    at trackEvent (http://***REMOVED***:5174/src/lib/analytics.ts:14:17)
+    at http://***REMOVED***:5174/src/pages/Register.tsx:23:5
+    at Object.react_stack_bottom_frame (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18567:20)
+    at runWithFiberInDEV (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:997:72)
+    at commitHookEffectListMount (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9411:163)
+    at commitHookPassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9465:60)
+    at commitPassiveMountOnFiber (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11040:29)
+    at recursivelyTraversePassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11010:13)
+    at commitPassiveMountOnFiber (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11201:13) 
+    at Register (http://***REMOVED***:5174/src/pages/Register.tsx:10:29)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Outlet (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7056:26)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at AtmosphericBackground (http://***REMOVED***:5174/src/components/AtmosphericBackground.tsx:394:41)
+    at div (<anonymous>)
+    at Layout (http://***REMOVED***:5174/src/components/Layout.tsx:465:28)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Routes (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7124:3)
+    at Suspense (<anonymous>)
+    at AppRoutes (<anonymous>)
+    at ErrorBoundary (http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:6:5)
+    at ToastProvider (http://***REMOVED***:5174/src/components/Toasts.tsx:7:33)
+    at AuthProvider (http://***REMOVED***:5174/src/hooks/useAuth.tsx:6:32)
+    at Router (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7065:13)
+    at BrowserRouter (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:10250:3)
+    at QueryClientProvider (http://***REMOVED***:5174/node_modules/.vite/deps/@tanstack_react-query.js?v=211d6f5c:3103:3)
+    at ThemeProvider (http://***REMOVED***:5174/src/hooks/useTheme.tsx:9:33)
+    at _HelmetProvider (http://***REMOVED***:5174/node_modules/.vite/deps/react-helmet-async.js?v=211d6f5c:627:5)
+    at App (<anonymous>) @ http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:12
+[    2141ms] [ERROR] %o
+
+%s
+
+%s
+ TypeError: crypto.randomUUID is not a function
+    at getSessionId (http://***REMOVED***:5174/src/lib/analytics.ts:6:17)
+    at trackEvent (http://***REMOVED***:5174/src/lib/analytics.ts:14:17)
+    at http://***REMOVED***:5174/src/pages/Register.tsx:23:5
+    at Object.react_stack_bottom_frame (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18567:20)
+    at runWithFiberInDEV (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:997:72)
+    at commitHookEffectListMount (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9411:163)
+    at commitHookPassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9465:60)
+    at reconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11273:13)
+    at recursivelyTraverseReconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11240:11)
+    at reconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11317:13) The above error occurred in the <Register> component. React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:7000
+[    2141ms] [ERROR] ErrorBoundary caught: TypeError: crypto.randomUUID is not a function
+    at getSessionId (http://***REMOVED***:5174/src/lib/analytics.ts:6:17)
+    at trackEvent (http://***REMOVED***:5174/src/lib/analytics.ts:14:17)
+    at http://***REMOVED***:5174/src/pages/Register.tsx:23:5
+    at Object.react_stack_bottom_frame (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18567:20)
+    at runWithFiberInDEV (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:997:72)
+    at commitHookEffectListMount (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9411:163)
+    at commitHookPassiveMountEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:9465:60)
+    at reconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11273:13)
+    at recursivelyTraverseReconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11240:11)
+    at reconnectPassiveEffects (http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:11317:13) 
+    at Register (http://***REMOVED***:5174/src/pages/Register.tsx:10:29)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Outlet (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7056:26)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at AtmosphericBackground (http://***REMOVED***:5174/src/components/AtmosphericBackground.tsx:394:41)
+    at div (<anonymous>)
+    at Layout (http://***REMOVED***:5174/src/components/Layout.tsx:465:28)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Routes (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7124:3)
+    at Suspense (<anonymous>)
+    at AppRoutes (<anonymous>)
+    at ErrorBoundary (http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:6:5)
+    at ToastProvider (http://***REMOVED***:5174/src/components/Toasts.tsx:7:33)
+    at AuthProvider (http://***REMOVED***:5174/src/hooks/useAuth.tsx:6:32)
+    at Router (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7065:13)
+    at BrowserRouter (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:10250:3)
+    at QueryClientProvider (http://***REMOVED***:5174/node_modules/.vite/deps/@tanstack_react-query.js?v=211d6f5c:3103:3)
+    at ThemeProvider (http://***REMOVED***:5174/src/hooks/useTheme.tsx:9:33)
+    at _HelmetProvider (http://***REMOVED***:5174/node_modules/.vite/deps/react-helmet-async.js?v=211d6f5c:627:5)
+    at App (<anonymous>) @ http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:12

@@ -1,0 +1,5 @@
+[      31ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[     463ms] [ERROR] Failed to load resource: the server responded with a status of 422 (Unprocessable Entity) @ http://***REMOVED***:5174/api/v1/profiles/me:0
+[     464ms] [ERROR] Failed to load resource: the server responded with a status of 422 (Unprocessable Entity) @ http://***REMOVED***:5174/api/v1/feed/posts?limit=20&author_id=me&sort=newest&include_replies=true:0
+[    1479ms] [ERROR] Failed to load resource: the server responded with a status of 422 (Unprocessable Entity) @ http://***REMOVED***:5174/api/v1/profiles/me:0
+[    1479ms] [ERROR] Failed to load resource: the server responded with a status of 422 (Unprocessable Entity) @ http://***REMOVED***:5174/api/v1/feed/posts?limit=20&author_id=me&sort=newest&include_replies=true:0

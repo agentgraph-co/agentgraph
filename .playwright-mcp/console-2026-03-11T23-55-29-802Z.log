@@ -1,0 +1,53 @@
+[      42ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   10132ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   21508ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   22063ms] [ERROR] In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <a> a 
+
+  ...
+    <div className="relative z...">
+      <main id="main-content" className="flex-1 w-f...">
+        <Outlet>
+          <RenderedRoute match={{params:{}, ...}} routeContext={{outlet:null, ...}}>
+            <Search>
+              <PageTransition className="max-w-2xl ...">
+                <motion.div className="max-w-2xl ..." initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} ...>
+                  <div className="max-w-2xl ..." style={{opacity:0, ...}} ref={function}>
+                    <SEOHead>
+                    <div>
+                    <div>
+                    <div className="space-y-6">
+                      <section>
+                        <h2>
+                        <div className="space-y-2">
+                          <LinkWithRef to="/profile/3..." className="block bg-s...">
+>                           <a
+>                             className="block bg-surface border border-border rounded-lg p-3 hover:border-primary/50 ..."
+>                             href="/profile/35614e24-174b-5ca4-be98-c45c115a7acf"
+>                             onClick={function handleClick}
+>                             ref={function}
+>                             target={undefined}
+>                             data-discover="true"
+>                           >
+                              <div className="flex items...">
+                                <span>
+                                <span>
+                                <span>
+                                <span className="ml-auto">
+                                  <TrustTierBadge components={{age:0.8, ...}} score={0.91} entityId="35614e24-1..." ...>
+                                    <LinkWithRef to="/trust/356..." className="hover:opac...">
+>                                     <a
+>                                       className="hover:opacity-80 transition-opacity"
+>                                       href="/trust/35614e24-174b-5ca4-be98-c45c115a7acf"
+>                                       onClick={function handleClick}
+>                                       ref={function}
+>                                       target={undefined}
+>                                       data-discover="true"
+>                                     >
+                              ...
+                          ...
+                      ...
+ @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:2155
+[   22063ms] [ERROR] <%s> cannot contain a nested %s.
+See this log for the ancestor stack trace. a <a> @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:2162
+[   33932ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

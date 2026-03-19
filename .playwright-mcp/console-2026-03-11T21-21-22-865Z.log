@@ -1,0 +1,1 @@
+[    3627ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/login:0

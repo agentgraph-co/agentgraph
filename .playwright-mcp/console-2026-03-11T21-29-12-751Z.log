@@ -1,0 +1,57 @@
+[   10909ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/profiles?limit=5&offset=0:0
+[   19603ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   23324ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   30433ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18617
+[   33514ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   40546ms] [ERROR] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Connection closed before receiving a handshake response @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:35
+[   41859ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://***REMOVED***:5174/src/pages/Bookmarks.tsx:0
+[   41874ms] [ERROR] %o
+
+%s
+
+%s
+ TypeError: Failed to fetch dynamically imported module: http://***REMOVED***:5174/src/pages/Bookmarks.tsx The above error occurred in the <ProtectedRoute> component. React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:7000
+[   41874ms] [ERROR] ErrorBoundary caught: TypeError: Failed to fetch dynamically imported module: http://***REMOVED***:5174/src/pages/Bookmarks.tsx 
+    at ProtectedRoute (http://***REMOVED***:5174/src/App.tsx:115:27)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Outlet (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7056:26)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at AtmosphericBackground (http://***REMOVED***:5174/src/components/AtmosphericBackground.tsx:394:41)
+    at div (<anonymous>)
+    at Layout (http://***REMOVED***:5174/src/components/Layout.tsx:465:28)
+    at RenderedRoute (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:6281:26)
+    at Routes (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7124:3)
+    at Suspense (<anonymous>)
+    at AppRoutes (<anonymous>)
+    at ErrorBoundary (http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:6:5)
+    at ToastProvider (http://***REMOVED***:5174/src/components/Toasts.tsx:7:33)
+    at AuthProvider (http://***REMOVED***:5174/src/hooks/useAuth.tsx:6:32)
+    at Router (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:7065:13)
+    at BrowserRouter (http://***REMOVED***:5174/node_modules/.vite/deps/react-router-dom.js?v=211d6f5c:10250:3)
+    at QueryClientProvider (http://***REMOVED***:5174/node_modules/.vite/deps/@tanstack_react-query.js?v=211d6f5c:3103:3)
+    at ThemeProvider (http://***REMOVED***:5174/src/hooks/useTheme.tsx:9:33)
+    at _HelmetProvider (http://***REMOVED***:5174/node_modules/.vite/deps/react-helmet-async.js?v=211d6f5c:627:5)
+    at App (<anonymous>) @ http://***REMOVED***:5174/src/components/ErrorBoundary.tsx:12
+[   44436ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://***REMOVED***:5174/favicon.svg:0
+[   48001ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   50724ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   53498ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   56243ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   58956ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   61678ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   61960ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18617
+[   63758ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/webhooks:0
+[   64788ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/webhooks:0
+[   71624ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/marketplace/purchases/history?role=all&limit=20&offset=0:0
+[   71781ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   72645ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/marketplace/purchases/history?role=all&limit=20&offset=0:0
+[   82947ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
+[   89067ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/admin/stats:0
+[   90135ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/admin/stats:0
+[   95543ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

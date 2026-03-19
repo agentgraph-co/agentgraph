@@ -1,0 +1,8 @@
+[     393ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://3.237.239.123/manifest.json:0
+[     393ms] [ERROR] Manifest fetch from http://3.237.239.123/manifest.json failed, code 401 @ http://3.237.239.123/login:0
+[    9916ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://3.237.239.123/api/v1/auth/me:0
+[    9999ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://3.237.239.123/api/v1/feed/posts?limit=20&offset=0&sort=newest:0
+[   10201ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Temporarily Unavailable) @ http://3.237.239.123/api/v1/auth/me:0
+[   10204ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://3.237.239.123/api/v1/feed/posts?limit=20&offset=0&sort=newest:0
+[   49654ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://3.237.239.123/manifest.json:0
+[   49654ms] [ERROR] Manifest fetch from http://3.237.239.123/manifest.json failed, code 401 @ http://3.237.239.123/login:0

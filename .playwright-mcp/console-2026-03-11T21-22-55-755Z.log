@@ -1,0 +1,6 @@
+[   14087ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   14202ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
+[   14210ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
+[   14211ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ http://***REMOVED***:5174/api/v1/auth/refresh:0
+[   28708ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   35540ms] [WARNING] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. @ http://***REMOVED***:5174/node_modules/.vite/deps/framer-motion.js?v=211d6f5c:195
