@@ -146,7 +146,41 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing tick failed")
 
-        # Job 8: Moltbook auto-import flywheel
+        # Job 8: Weekly marketing digest email (Sunday midnight UTC)
+        try:
+            from datetime import datetime, timezone
+
+            now_utc = datetime.now(timezone.utc)
+            if now_utc.weekday() == 6:  # Sunday
+                from src.config import settings as _digest_settings
+
+                if _digest_settings.marketing_enabled:
+                    # Only send once per Sunday (check Redis flag)
+                    _digest_sent = False
+                    try:
+                        from src.redis_client import get_redis as _get_redis
+
+                        _r = _get_redis()
+                        _digest_key = f"ag:mktg:digest_sent:{now_utc.strftime('%Y-%m-%d')}"
+                        _digest_sent = bool(await _r.get(_digest_key))
+                        if not _digest_sent:
+                            await _r.set(_digest_key, "1", ex=86400 * 2)
+                    except Exception:
+                        pass
+
+                    if not _digest_sent:
+                        async with async_session() as session:
+                            from src.marketing.digest import send_weekly_digest_email
+
+                            sent = await send_weekly_digest_email(session)
+                            if sent:
+                                logger.info("Weekly marketing digest email sent")
+                            else:
+                                logger.warning("Weekly marketing digest email failed")
+        except Exception:
+            logger.exception("Weekly digest email job failed")
+
+        # Job 9: Moltbook auto-import flywheel
         try:
             from src.config import settings as _mkt_settings
 

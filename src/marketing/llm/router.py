@@ -2,12 +2,13 @@
 
 Hierarchy:
 - Templates (Jinja2) — $0, used for stats/recurring formats
-- Ollama (Qwen 3.5 9B) — $0, used for engagement replies
-- Haiku — ~$0.002/post, used for social posts
-- Sonnet — ~$0.50/post, used for blog posts and important drafts
-- Opus — ~$1.50/post, used for high-stakes content (HN, launches)
+- Haiku — ~$0.002/post, used for high-volume boosts and low-priority content
+- Sonnet — ~$0.02/post, used for replies and engagement
+- Opus — ~$0.10/post, used for proactive social posts (first impressions matter)
+- Ollama (Qwen 3.5 9B) — $0, local fallback when budget is exceeded
 
-When daily budget is exceeded, falls back to templates-only mode.
+When daily budget is exceeded, falls back to Ollama, then templates.
+When budget hits 80%, notifies admin to request a budget increase.
 """
 from __future__ import annotations
 
@@ -28,32 +29,35 @@ class ContentTier(str, Enum):
     """Content importance tier — determines which model to use."""
 
     TEMPLATE = "template"          # Zero cost, Jinja2
-    LOCAL = "local"                # Ollama (replies, simple engagement)
-    STANDARD = "standard"          # Haiku (social posts)
-    PREMIUM = "premium"            # Sonnet (blog posts, key threads)
+    VOLUME = "volume"              # Haiku (high-volume boosts, low-priority)
+    STANDARD = "standard"          # Sonnet (replies, engagement, blogs)
+    PREMIUM = "premium"            # Opus (proactive social posts, first impressions)
     HIGH_STAKES = "high_stakes"    # Opus (HN drafts, launch copy, critical)
 
 
 # Map content types to default tiers
 CONTENT_TYPE_TIERS: dict[str, ContentTier] = {
-    # Social posts
-    "twitter_post": ContentTier.STANDARD,
-    "reddit_post": ContentTier.STANDARD,
-    "bluesky_post": ContentTier.STANDARD,
-    "linkedin_post": ContentTier.STANDARD,
-    "telegram_post": ContentTier.STANDARD,
-    "discord_post": ContentTier.STANDARD,
-    # Replies / engagement
-    "reply": ContentTier.LOCAL,
-    "engagement_reply": ContentTier.LOCAL,
-    "onboarding_dm": ContentTier.LOCAL,
-    # Blog / long-form
-    "devto_article": ContentTier.PREMIUM,
-    "hashnode_article": ContentTier.PREMIUM,
-    # High-stakes
+    # Proactive social posts — Opus (first impressions matter)
+    "twitter_post": ContentTier.PREMIUM,
+    "reddit_post": ContentTier.PREMIUM,
+    "bluesky_post": ContentTier.PREMIUM,
+    "linkedin_post": ContentTier.PREMIUM,
+    "telegram_post": ContentTier.PREMIUM,
+    "discord_post": ContentTier.PREMIUM,
+    # Replies / engagement — Sonnet
+    "reply": ContentTier.STANDARD,
+    "engagement_reply": ContentTier.STANDARD,
+    "onboarding_dm": ContentTier.STANDARD,
+    # Blog / long-form — Sonnet
+    "devto_article": ContentTier.STANDARD,
+    "hashnode_article": ContentTier.STANDARD,
+    # High-stakes — Opus
     "hackernews_draft": ContentTier.HIGH_STAKES,
     "producthunt_draft": ContentTier.HIGH_STAKES,
     "launch_announcement": ContentTier.HIGH_STAKES,
+    # High-volume / boosts — Haiku
+    "boost_reply": ContentTier.VOLUME,
+    "thread_continuation": ContentTier.VOLUME,
     # Data-driven (templates)
     "stats_post": ContentTier.TEMPLATE,
     "weekly_digest": ContentTier.TEMPLATE,
@@ -74,6 +78,8 @@ async def generate(
 
     Checks budget before using paid models.  Falls back gracefully:
     Opus → Sonnet → Haiku → Ollama → error.
+
+    When budget reaches 80%, nudges admin via notification.
     """
     tier = tier_override or CONTENT_TYPE_TIERS.get(content_type, ContentTier.STANDARD)
 
@@ -88,9 +94,8 @@ async def generate(
     over_daily = await is_over_daily_budget()
     over_monthly = await is_over_monthly_budget()
 
-    if tier == ContentTier.LOCAL or (over_daily and tier == ContentTier.STANDARD):
-        return await _generate_local(prompt, system=system, max_tokens=max_tokens,
-                                     temperature=temperature)
+    # Nudge admin when budget is getting close (80%)
+    await _check_budget_nudge()
 
     if over_daily or over_monthly:
         logger.warning(
@@ -101,10 +106,9 @@ async def generate(
                                        temperature=temperature)
         if not result.error:
             return result
-        # If local also fails, return budget error
         return LLMResponse(
             text="", model="budget_exceeded", tokens_in=0, tokens_out=0,
-            error="Daily LLM budget exceeded and local model unavailable",
+            error="LLM budget exceeded and local model unavailable",
         )
 
     # Route to the right Anthropic model
@@ -139,11 +143,12 @@ async def _generate_anthropic(
     from src.marketing.llm.anthropic_client import generate as anthropic_generate
 
     model_map = {
-        ContentTier.STANDARD: marketing_settings.anthropic_haiku_model,
-        ContentTier.PREMIUM: marketing_settings.anthropic_sonnet_model,
+        ContentTier.VOLUME: marketing_settings.anthropic_haiku_model,
+        ContentTier.STANDARD: marketing_settings.anthropic_sonnet_model,
+        ContentTier.PREMIUM: marketing_settings.anthropic_opus_model,
         ContentTier.HIGH_STAKES: marketing_settings.anthropic_opus_model,
     }
-    model = model_map.get(tier, marketing_settings.anthropic_haiku_model)
+    model = model_map.get(tier, marketing_settings.anthropic_sonnet_model)
 
     result = await anthropic_generate(
         prompt, model=model, system=system, max_tokens=max_tokens,
@@ -158,3 +163,117 @@ async def _generate_anthropic(
         )
 
     return result
+
+
+# --- Budget nudge ---
+# Redis key to prevent spamming notifications
+_BUDGET_NUDGE_KEY = "ag:mktg:budget_nudge_sent:{date}"
+
+
+async def _check_budget_nudge() -> None:
+    """Send admin a notification when budget reaches 80%.
+
+    Only sends once per day. Checks daily budget first, then monthly.
+    """
+    from src.marketing.config import marketing_settings
+    from src.marketing.llm.cost_tracker import get_daily_spend as _get_daily
+    from src.marketing.llm.cost_tracker import get_monthly_spend as _get_monthly
+
+    daily_spend = await _get_daily()
+    monthly_spend = await _get_monthly()
+    daily_cap = marketing_settings.marketing_llm_daily_budget
+    monthly_cap = marketing_settings.marketing_llm_monthly_budget
+
+    daily_pct = daily_spend / daily_cap if daily_cap > 0 else 0
+    monthly_pct = monthly_spend / monthly_cap if monthly_cap > 0 else 0
+
+    if daily_pct < 0.8 and monthly_pct < 0.8:
+        return
+
+    # Check if we already nudged today
+    from datetime import date as _date
+
+    today = _date.today().isoformat()
+    nudge_key = _BUDGET_NUDGE_KEY.format(date=today)
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        already_sent = await r.get(nudge_key)
+        if already_sent:
+            return
+        await r.set(nudge_key, "1", ex=86400)
+    except Exception:
+        pass  # Proceed without dedup if Redis is down
+
+    # Build the nudge message with engagement context
+    if daily_pct >= 0.8:
+        title = "MarketingBot needs more daily budget"
+        body = (
+            f"Daily spend: ${daily_spend:.2f} / ${daily_cap:.2f} "
+            f"({daily_pct:.0%}). "
+            f"Monthly: ${monthly_spend:.2f} / ${monthly_cap:.2f}. "
+            f"I'm running low and will fall back to lower-quality "
+            f"local models or templates for the rest of the day. "
+            f"If engagement is looking good, consider bumping "
+            f"MARKETING_LLM_DAILY_BUDGET."
+        )
+    else:
+        title = "MarketingBot needs more monthly budget"
+        body = (
+            f"Monthly spend: ${monthly_spend:.2f} / ${monthly_cap:.2f} "
+            f"({monthly_pct:.0%}). "
+            f"Daily: ${daily_spend:.2f} / ${daily_cap:.2f}. "
+            f"I'll start downgrading post quality soon. "
+            f"Check the dashboard for engagement metrics — if "
+            f"the ROI looks good, consider increasing "
+            f"MARKETING_LLM_MONTHLY_BUDGET."
+        )
+
+    # Send notification to admin + email
+    try:
+        await _send_budget_nudge(title, body)
+    except Exception:
+        logger.exception("Failed to send budget nudge notification")
+
+
+async def _send_budget_nudge(title: str, body: str) -> None:
+    """Create an in-app notification and send an email to admin."""
+    from sqlalchemy import select
+
+    from src.database import async_session
+    from src.email import send_email
+    from src.models import Entity, Notification
+
+    async with async_session() as db:
+        # Find admin entity
+        result = await db.execute(
+            select(Entity).where(
+                Entity.email == "***REMOVED***",
+                Entity.is_active.is_(True),
+            ).limit(1),
+        )
+        admin = result.scalar_one_or_none()
+        if not admin:
+            return
+
+        # In-app notification
+        notif = Notification(
+            entity_id=admin.id,
+            kind="budget_alert",
+            title=title,
+            body=body,
+        )
+        db.add(notif)
+        await db.commit()
+
+        # Email
+        html = (
+            f"<div style='font-family:sans-serif;padding:20px;'>"
+            f"<h2 style='color:#6366f1;'>{title}</h2>"
+            f"<p>{body}</p>"
+            f"<p><a href='https://agentgraph.co/admin'>View Marketing Dashboard</a></p>"
+            f"</div>"
+        )
+        await send_email(admin.email, title, html)
+        logger.info("Budget nudge sent to admin: %s", title)

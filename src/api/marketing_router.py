@@ -46,7 +46,13 @@ class DraftActionRequest(BaseModel):
 
 
 class WeeklyDigestResponse(BaseModel):
-    digest: str
+    week_start: str
+    week_end: str
+    platforms: list[dict]
+    total_posts: int
+    cost_breakdown: list[dict]
+    total_cost_usd: float
+    top_posts: list[dict]
 
 
 # --- Endpoints ---
@@ -142,12 +148,30 @@ async def get_weekly_digest(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ) -> WeeklyDigestResponse:
-    """Generate current weekly marketing digest."""
+    """Get current weekly marketing digest data."""
     require_admin(current_entity)
     from src.marketing.digest import generate_weekly_digest
 
-    digest = await generate_weekly_digest(db)
-    return WeeklyDigestResponse(digest=digest)
+    data = await generate_weekly_digest(db)
+    return WeeklyDigestResponse(**data)
+
+
+@router.post("/digest/send")
+async def send_digest_email(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Manually send the weekly digest email to admin."""
+    require_admin(current_entity)
+    from src.marketing.digest import send_weekly_digest_email
+
+    sent = await send_weekly_digest_email(db)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send digest email",
+        )
+    return {"status": "sent", "to": current_entity.email}
 
 
 @router.post("/trigger", response_model=None)
