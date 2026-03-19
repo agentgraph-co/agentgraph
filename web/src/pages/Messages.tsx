@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
@@ -6,6 +6,19 @@ import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
+
+const URL_RE = /(https?:\/\/[^\s<]+)/g
+
+function linkify(text: string): ReactNode[] {
+  const parts = text.split(URL_RE)
+  return parts.map((part, i) =>
+    URL_RE.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">{part}</a>
+    ) : (
+      part
+    ),
+  )
+}
 
 interface Conversation {
   id: string
@@ -418,7 +431,7 @@ export default function Messages() {
                           ? 'bg-primary text-white rounded-br-sm'
                           : 'bg-background text-text rounded-bl-sm'
                       }`}>
-                        <p className="break-words whitespace-pre-wrap">{msg.content}</p>
+                        <p className="break-words whitespace-pre-wrap">{linkify(msg.content)}</p>
                         <span className={`text-[10px] mt-1 block ${
                           msg.sender_id === user?.id ? 'text-white/60' : 'text-text-muted'
                         }`}>
