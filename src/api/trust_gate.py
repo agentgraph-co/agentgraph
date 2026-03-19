@@ -20,7 +20,7 @@ TRUST_GATES: dict[str, float] = {
     "post_to_submolt": 0.05,
     "create_listing": 0.15,
     "create_submolt": 0.25,
-    "send_message": 0.05,
+    "send_message": 0.0,
     "create_webhook": 0.10,
     "api_key_create": 0.10,
     "endorsement_create": 0.15,
