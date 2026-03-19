@@ -1,0 +1,2 @@
+[  125681ms] [ERROR] WebSocket connection to 'wss://agentgraph.co/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Error during WebSocket handshake: Unexpected response code: 502 @ https://agentgraph.co/assets/index-BSZMqa1U.js:32
+[  128672ms] [ERROR] WebSocket connection to 'wss://agentgraph.co/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Error during WebSocket handshake: Unexpected response code: 502 @ https://agentgraph.co/assets/index-BSZMqa1U.js:32

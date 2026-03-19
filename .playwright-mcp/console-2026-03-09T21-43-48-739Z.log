@@ -1,0 +1,2 @@
+[     142ms] [ERROR] Manifest: Line: 1, column: 1, Syntax error. @ https://agentgraph.co/manifest.json:0
+[     529ms] [WARNING] THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ https://agentgraph.co/assets/index-Ch4mOaIl.js:25

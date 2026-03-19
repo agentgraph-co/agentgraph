@@ -1,0 +1,16 @@
+[   18929ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   22085ms] [WARNING] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. @ http://***REMOVED***:5174/node_modules/.vite/deps/framer-motion.js?v=211d6f5c:195
+[   22113ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/trending?hours=24&limit=3:0
+[   22670ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   23130ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/trending?hours=24&limit=3:0
+[   43692ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   43810ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   52536ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   65516ms] [WARNING] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. @ http://***REMOVED***:5174/node_modules/.vite/deps/framer-motion.js?v=211d6f5c:195
+[   65547ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/trending?hours=24&limit=3:0
+[   66565ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/trending?hours=24&limit=3:0
+[   68080ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[   73722ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/posts?limit=2:0
+[   91434ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://***REMOVED***:5174/api/v1/leaderboard?limit=5:0
+[   91441ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://***REMOVED***:5174/api/v1/discover?limit=5:0
+[   91446ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://***REMOVED***:5174/api/v1/home/stats:0

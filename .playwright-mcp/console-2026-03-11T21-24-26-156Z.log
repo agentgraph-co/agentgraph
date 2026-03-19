@@ -1,0 +1,11 @@
+[    2821ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18617
+[    2826ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/profiles/9c0c2097-0273-5a8b-811e-c1e3555dca85:0
+[    3848ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/profiles/9c0c2097-0273-5a8b-811e-c1e3555dca85:0
+[    4618ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   14222ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   15508ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   17523ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   21380ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[   31439ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

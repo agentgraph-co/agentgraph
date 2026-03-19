@@ -1,0 +1,2 @@
+[   17764ms] [WARNING] WebSocket connection to 'ws://localhost:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://localhost:5174/src/hooks/useWebSocket.tsx?t=1772142705134:39
+[   28876ms] [WARNING] WebSocket connection to 'ws://localhost:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://localhost:5174/src/hooks/useWebSocket.tsx?t=1772142705134:39

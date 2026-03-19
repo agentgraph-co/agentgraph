@@ -107,6 +107,34 @@ interface MarketingHealth {
   adapters: Record<string, { configured: boolean; healthy: boolean }>
 }
 
+interface CampaignProposal {
+  id: string
+  name: string
+  topic: string
+  platforms: string[]
+  status: string
+  start_date: string | null
+  created_at: string
+}
+
+interface CampaignDetail {
+  id: string
+  name: string
+  status: string
+  platforms: string[]
+  schedule_config: {
+    strategy_summary?: string
+    posts?: { platform: string; topic: string; angle: string; content_brief?: string; day?: string; value_type?: string; why?: string }[]
+    news_hooks?: { title: string; angle?: string }[]
+    avoid_this_week?: string[]
+    budget_estimate_usd?: number
+  }
+  start_date: string | null
+  end_date: string | null
+  created_at: string
+  posts: { id: string; platform: string; topic: string; status: string; content: string; posted_at: string | null }[]
+}
+
 interface IssueItem {
   id: string
   post_id: string
@@ -176,6 +204,10 @@ export default function Admin() {
   const [issueResolutionNote, setIssueResolutionNote] = useState('')
   const [draftEditContent, setDraftEditContent] = useState('')
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null)
+  const [campaignDeselected, setCampaignDeselected] = useState<Set<number>>(new Set())
+  const [rejectFeedback, setRejectFeedback] = useState('')
+  const [rejectingCampaignId, setRejectingCampaignId] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
@@ -641,6 +673,57 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-marketing-drafts'] })
     },
     onError: () => { addToast('Failed to trigger marketing tick', 'error') },
+  })
+
+  const { data: proposedCampaigns, refetch: refetchCampaigns } = useQuery<CampaignProposal[]>({
+    queryKey: ['admin-campaigns-proposed'],
+    queryFn: async () => (await api.get('/admin/marketing/campaigns/proposed')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 30_000,
+  })
+
+  const { data: expandedCampaign } = useQuery<CampaignDetail>({
+    queryKey: ['admin-campaign-detail', expandedCampaignId],
+    queryFn: async () => (await api.get(`/admin/marketing/campaigns/${expandedCampaignId}`)).data,
+    enabled: !!expandedCampaignId,
+    staleTime: 30_000,
+  })
+
+  const generateCampaignMutation = useMutation({
+    mutationFn: async () => (await api.post('/admin/marketing/campaigns/generate')).data,
+    onSuccess: () => {
+      addToast('Campaign plan generated', 'success')
+      refetchCampaigns()
+    },
+    onError: () => { addToast('Failed to generate campaign plan', 'error') },
+  })
+
+  const approveCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, approvedIndices }: { campaignId: string; approvedIndices?: number[] }) => {
+      return (await api.post(`/admin/marketing/campaigns/${campaignId}/approve`, approvedIndices ? { approved_post_indices: approvedIndices } : {})).data
+    },
+    onSuccess: () => {
+      addToast('Campaign approved', 'success')
+      setExpandedCampaignId(null)
+      setCampaignDeselected(new Set())
+      refetchCampaigns()
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
+    },
+    onError: () => { addToast('Failed to approve campaign', 'error') },
+  })
+
+  const rejectCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, feedback }: { campaignId: string; feedback: string }) => {
+      return (await api.post(`/admin/marketing/campaigns/${campaignId}/reject`, { feedback })).data
+    },
+    onSuccess: () => {
+      addToast('Campaign rejected', 'success')
+      setExpandedCampaignId(null)
+      setRejectingCampaignId(null)
+      setRejectFeedback('')
+      refetchCampaigns()
+    },
+    onError: () => { addToast('Failed to reject campaign', 'error') },
   })
 
   // ─── Issues tab queries ───
@@ -2069,6 +2152,177 @@ export default function Admin() {
                     <span className="px-2 py-1 rounded bg-surface-hover text-text-muted">
                       Month: ${mktHealth.monthly_spend_usd.toFixed(4)}
                     </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Campaign Planner */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Campaign Planner</h2>
+                  <button
+                    onClick={() => generateCampaignMutation.mutate()}
+                    disabled={generateCampaignMutation.isPending}
+                    className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                  >
+                    {generateCampaignMutation.isPending ? 'Generating...' : 'Generate Weekly Plan'}
+                  </button>
+                </div>
+
+                {proposedCampaigns && proposedCampaigns.length > 0 ? (
+                  <div className="space-y-3">
+                    {proposedCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="bg-surface border border-border rounded-lg overflow-hidden">
+                        {/* Campaign header */}
+                        <button
+                          onClick={() => {
+                            if (expandedCampaignId === campaign.id) {
+                              setExpandedCampaignId(null)
+                            } else {
+                              setExpandedCampaignId(campaign.id)
+                              setCampaignDeselected(new Set())
+                              setRejectingCampaignId(null)
+                            }
+                          }}
+                          className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-hover/50 transition-colors cursor-pointer"
+                        >
+                          <div>
+                            <div className="text-sm font-medium">{campaign.name}</div>
+                            <div className="text-xs text-text-muted mt-0.5">
+                              {campaign.platforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}
+                              {campaign.start_date && <span className="ml-2">| Starts {campaign.start_date}</span>}
+                            </div>
+                          </div>
+                          <span className="text-xs px-2 py-1 rounded bg-warning/10 text-warning">Proposed</span>
+                        </button>
+
+                        {/* Expanded campaign detail */}
+                        {expandedCampaignId === campaign.id && expandedCampaign && (
+                          <div className="border-t border-border p-4 space-y-4">
+                            {/* Strategy summary */}
+                            {expandedCampaign.schedule_config?.strategy_summary && (
+                              <div className="text-sm text-text-muted bg-surface-hover/50 rounded-lg p-3">
+                                {expandedCampaign.schedule_config.strategy_summary}
+                              </div>
+                            )}
+
+                            {/* News hooks */}
+                            {expandedCampaign.schedule_config?.news_hooks && expandedCampaign.schedule_config.news_hooks.length > 0 && (
+                              <div>
+                                <div className="text-xs font-semibold text-text-muted mb-2">News Hooks</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {expandedCampaign.schedule_config.news_hooks.map((h, i) => (
+                                    <span key={i} className="text-[10px] px-2 py-1 rounded bg-primary/10 text-primary">{h.title}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Planned posts with checkboxes */}
+                            {expandedCampaign.schedule_config?.posts && (
+                              <div>
+                                <div className="text-xs font-semibold text-text-muted mb-2">
+                                  Planned Posts ({expandedCampaign.schedule_config.posts.length - campaignDeselected.size} of {expandedCampaign.schedule_config.posts.length} selected)
+                                </div>
+                                <div className="space-y-2">
+                                  {expandedCampaign.schedule_config.posts.map((post, idx) => (
+                                    <label key={idx} className={`flex gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${campaignDeselected.has(idx) ? 'border-border/50 opacity-50' : 'border-border bg-surface-hover/30'}`}>
+                                      <input
+                                        type="checkbox"
+                                        checked={!campaignDeselected.has(idx)}
+                                        onChange={() => {
+                                          const next = new Set(campaignDeselected)
+                                          if (next.has(idx)) next.delete(idx)
+                                          else next.add(idx)
+                                          setCampaignDeselected(next)
+                                        }}
+                                        className="mt-0.5 accent-primary"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-1.5 py-0.5 rounded">{post.platform}</span>
+                                          {post.day && <span className="text-[10px] text-text-muted capitalize">{post.day}</span>}
+                                          {post.value_type && <span className="text-[10px] text-text-muted/60">{post.value_type.replace('_', ' ')}</span>}
+                                        </div>
+                                        <div className="text-sm mt-1">{post.topic}</div>
+                                        <div className="text-xs text-text-muted mt-0.5">{post.angle}</div>
+                                        {post.why && <div className="text-[10px] text-text-muted/60 mt-1 italic">{post.why}</div>}
+                                      </div>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Budget + avoid */}
+                            <div className="flex flex-wrap gap-4 text-xs text-text-muted">
+                              {expandedCampaign.schedule_config?.budget_estimate_usd != null && (
+                                <span>Est. budget: ${expandedCampaign.schedule_config.budget_estimate_usd.toFixed(2)}</span>
+                              )}
+                              {expandedCampaign.schedule_config?.avoid_this_week && expandedCampaign.schedule_config.avoid_this_week.length > 0 && (
+                                <span>Avoiding: {expandedCampaign.schedule_config.avoid_this_week.length} topics</span>
+                              )}
+                            </div>
+
+                            {/* Reject feedback */}
+                            {rejectingCampaignId === campaign.id && (
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={rejectFeedback}
+                                  onChange={e => setRejectFeedback(e.target.value)}
+                                  placeholder="Feedback for regeneration..."
+                                  className="flex-1 text-sm bg-surface-hover border border-border rounded px-3 py-1.5"
+                                />
+                                <button
+                                  onClick={() => rejectCampaignMutation.mutate({ campaignId: campaign.id, feedback: rejectFeedback })}
+                                  disabled={!rejectFeedback.trim() || rejectCampaignMutation.isPending}
+                                  className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                                >
+                                  Confirm Reject
+                                </button>
+                                <button
+                                  onClick={() => { setRejectingCampaignId(null); setRejectFeedback('') }}
+                                  className="text-xs text-text-muted hover:text-text px-2 py-1.5 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Approve / Reject buttons */}
+                            {rejectingCampaignId !== campaign.id && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    const totalPosts = expandedCampaign.schedule_config?.posts?.length ?? 0
+                                    const approvedIndices = Array.from({ length: totalPosts }, (_, i) => i).filter(i => !campaignDeselected.has(i))
+                                    approveCampaignMutation.mutate({
+                                      campaignId: campaign.id,
+                                      approvedIndices: campaignDeselected.size > 0 ? approvedIndices : undefined,
+                                    })
+                                  }}
+                                  disabled={approveCampaignMutation.isPending}
+                                  className="text-xs bg-success/10 text-success hover:bg-success/20 px-4 py-2 rounded cursor-pointer disabled:opacity-50"
+                                >
+                                  {approveCampaignMutation.isPending ? 'Approving...' : `Approve${campaignDeselected.size > 0 ? ` (${(expandedCampaign.schedule_config?.posts?.length ?? 0) - campaignDeselected.size} posts)` : ' All'}`}
+                                </button>
+                                <button
+                                  onClick={() => setRejectingCampaignId(campaign.id)}
+                                  className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-4 py-2 rounded cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
+                    No proposed campaigns. Generate a weekly plan to get started.
                   </div>
                 )}
               </div>

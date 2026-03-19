@@ -1,0 +1,5 @@
+[  144145ms] [ERROR] WebSocket connection to 'wss://agentgraph.co/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Error during WebSocket handshake: Unexpected response code: 502 @ https://agentgraph.co/assets/index-gqrWF1L7.js:32
+[  147038ms] [ERROR] WebSocket connection to 'wss://agentgraph.co/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Error during WebSocket handshake: Unexpected response code: 502 @ https://agentgraph.co/assets/index-gqrWF1L7.js:32
+[  150916ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ https://agentgraph.co/api/v1/notifications/unread-count:0
+[  151985ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ https://agentgraph.co/api/v1/notifications/unread-count:0
+[  152686ms] [ERROR] WebSocket connection to 'wss://agentgraph.co/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: Error during WebSocket handshake: Unexpected response code: 502 @ https://agentgraph.co/assets/index-gqrWF1L7.js:32

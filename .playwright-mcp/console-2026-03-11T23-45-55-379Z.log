@@ -1,0 +1,4 @@
+[     375ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://***REMOVED***:5174/node_modules/.vite/deps/react-dom_client.js?v=211d6f5c:18617
+[   10186ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

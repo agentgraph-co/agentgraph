@@ -1,0 +1,4 @@
+[      31ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[    5120ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
+[    5764ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ http://***REMOVED***:5174/api/v1/auth/login:0
+[    8430ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ http://***REMOVED***:5174/api/v1/auth/login:0
