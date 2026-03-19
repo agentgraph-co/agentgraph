@@ -129,8 +129,9 @@ export default function Messages() {
         setSearchQuery('')
       }
     },
-    onError: () => {
-      addToast('Failed to send message', 'error')
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      addToast(detail || 'Failed to send message', 'error')
     },
   })
 
