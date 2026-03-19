@@ -6,7 +6,6 @@ and reacts to events like new registrations and tagged posts.
 from __future__ import annotations
 
 import logging
-import random
 import re
 import uuid
 
@@ -19,7 +18,6 @@ from src.bots.definitions import (
     BOT_IDS,
     REACTIVE_TRIGGERS,
     SCHEDULED_CONTENT,
-    WELCOME_TEMPLATES,
 )
 from src.models import (
     Conversation,
@@ -364,17 +362,10 @@ async def handle_entity_registered(
     if not welcome_bot:
         return
 
-    template = random.choice(WELCOME_TEMPLATES)
-    content = template.format(name=display_name)
-
     if _test_db is not None:
         bot = await _test_db.get(Entity, welcome_bot["id"])
         if not bot or not bot.is_active:
             return
-        await _post_as_bot(
-            _test_db, welcome_bot["id"], content, flair="discussion",
-        )
-        # Fire-and-forget welcome DM
         try:
             await _send_welcome_dm(
                 _test_db, welcome_bot["id"], eid, display_name,
@@ -391,10 +382,6 @@ async def handle_entity_registered(
                 bot = await db.get(Entity, welcome_bot["id"])
                 if not bot or not bot.is_active:
                     return
-                await _post_as_bot(
-                    db, welcome_bot["id"], content, flair="discussion",
-                )
-                # Fire-and-forget welcome DM
                 try:
                     await _send_welcome_dm(
                         db, welcome_bot["id"], eid, display_name,
