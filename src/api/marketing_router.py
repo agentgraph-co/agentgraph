@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_db, require_admin
-from src.models import Entity
+from src.models import AnalyticsEvent, Entity
 
 router = APIRouter(prefix="/admin/marketing", tags=["admin"])
 
@@ -53,6 +54,21 @@ class WeeklyDigestResponse(BaseModel):
     cost_breakdown: list[dict]
     total_cost_usd: float
     top_posts: list[dict]
+
+
+class PlatformConversion(BaseModel):
+    platform: str
+    clicks: int
+    signups: int
+    cost_usd: float
+    cost_per_signup: float | None
+
+
+class ConversionResponse(BaseModel):
+    platforms: list[PlatformConversion]
+    total_clicks: int
+    total_signups: int
+    total_cost_usd: float
 
 
 # --- Endpoints ---
@@ -243,3 +259,127 @@ async def marketing_health(
         }
 
     return health
+
+
+@router.get(
+    "/conversions",
+    response_model=ConversionResponse,
+)
+async def get_marketing_conversions(
+    days: int = Query(30, ge=1, le=365),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> ConversionResponse:
+    """UTM attribution: clicks and signups per marketing platform."""
+    require_admin(current_entity)
+
+    from datetime import datetime, timedelta, timezone
+
+    from src.marketing.models import MarketingPost
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # 1. Clicks: analytics events where referrer has utm_source
+    click_q = (
+        select(
+            func.substring(
+                AnalyticsEvent.referrer,
+                r"utm_source=([^&]+)",
+            ).label("src"),
+            func.count().label("cnt"),
+        )
+        .where(
+            AnalyticsEvent.created_at >= cutoff,
+            AnalyticsEvent.referrer.ilike(
+                "%utm_source=agentgraph_bot%"
+            ),
+        )
+        .group_by("src")
+    )
+    click_rows = (await db.execute(click_q)).all()
+    clicks_by_src: dict[str, int] = {}
+    for row in click_rows:
+        src = row[0] or "unknown"
+        # utm_source format: agentgraph_bot_<platform>
+        platform = src.replace("agentgraph_bot_", "")
+        clicks_by_src[platform] = (
+            clicks_by_src.get(platform, 0) + row[1]
+        )
+
+    # 2. Signups: register_complete events with utm referrer
+    signup_q = (
+        select(
+            func.substring(
+                AnalyticsEvent.referrer,
+                r"utm_source=([^&]+)",
+            ).label("src"),
+            func.count().label("cnt"),
+        )
+        .where(
+            AnalyticsEvent.created_at >= cutoff,
+            AnalyticsEvent.event_type == "register_complete",
+            AnalyticsEvent.referrer.ilike(
+                "%utm_source=agentgraph_bot%"
+            ),
+        )
+        .group_by("src")
+    )
+    signup_rows = (await db.execute(signup_q)).all()
+    signups_by_src: dict[str, int] = {}
+    for row in signup_rows:
+        src = row[0] or "unknown"
+        platform = src.replace("agentgraph_bot_", "")
+        signups_by_src[platform] = (
+            signups_by_src.get(platform, 0) + row[1]
+        )
+
+    # 3. Cost per platform from marketing_posts
+    cost_q = (
+        select(
+            MarketingPost.platform,
+            func.coalesce(
+                func.sum(MarketingPost.llm_cost_usd), 0.0,
+            ).label("total_cost"),
+        )
+        .where(MarketingPost.created_at >= cutoff)
+        .group_by(MarketingPost.platform)
+    )
+    cost_rows = (await db.execute(cost_q)).all()
+    cost_by_platform: dict[str, float] = {
+        row[0]: float(row[1]) for row in cost_rows
+    }
+
+    # Merge all platforms
+    all_platforms = sorted(
+        set(clicks_by_src)
+        | set(signups_by_src)
+        | set(cost_by_platform)
+    )
+
+    platforms: list[PlatformConversion] = []
+    total_clicks = 0
+    total_signups = 0
+    total_cost = 0.0
+
+    for p in all_platforms:
+        c = clicks_by_src.get(p, 0)
+        s = signups_by_src.get(p, 0)
+        cost = round(cost_by_platform.get(p, 0.0), 4)
+        cps = round(cost / s, 4) if s > 0 else None
+        platforms.append(PlatformConversion(
+            platform=p,
+            clicks=c,
+            signups=s,
+            cost_usd=cost,
+            cost_per_signup=cps,
+        ))
+        total_clicks += c
+        total_signups += s
+        total_cost += cost
+
+    return ConversionResponse(
+        platforms=platforms,
+        total_clicks=total_clicks,
+        total_signups=total_signups,
+        total_cost_usd=round(total_cost, 4),
+    )

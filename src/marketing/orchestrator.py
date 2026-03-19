@@ -96,22 +96,127 @@ async def _save_post(
     return post
 
 
+async def _post_planned_campaign_posts(
+    db: AsyncSession,
+) -> dict:
+    """Post planned posts from approved campaigns for today."""
+    from src.marketing.campaign_planner import (
+        get_planned_posts_for_today,
+    )
+
+    adapters = _get_adapters()
+    results: dict = {
+        "posted": [], "skipped": [], "errors": [],
+    }
+    planned = await get_planned_posts_for_today(db)
+
+    for post in planned:
+        adapter = adapters.get(post.platform)
+        if not adapter or not await adapter.is_configured():
+            results["skipped"].append({
+                "id": str(post.id),
+                "platform": post.platform,
+                "reason": "not_configured",
+            })
+            continue
+
+        if post.platform in HUMAN_APPROVAL_PLATFORMS:
+            await enqueue_draft(
+                db,
+                platform=post.platform,
+                content=post.content,
+                topic=post.topic,
+                llm_model=None,
+                llm_tokens_in=0,
+                llm_tokens_out=0,
+                llm_cost_usd=0.0,
+                utm_params=None,
+            )
+            post.status = "human_review"
+            results["skipped"].append({
+                "id": str(post.id),
+                "platform": post.platform,
+                "reason": "human_review",
+            })
+            continue
+
+        try:
+            result = await adapter.post(post.content)
+            if result.success:
+                post.status = "posted"
+                post.external_id = result.external_id
+                post.posted_at = datetime.now(timezone.utc)
+                await record_post(post.platform)
+                if post.topic:
+                    await record_topic(
+                        post.platform, post.topic,
+                    )
+                results["posted"].append({
+                    "id": str(post.id),
+                    "platform": post.platform,
+                    "topic": post.topic,
+                    "external_id": result.external_id,
+                })
+            else:
+                post.status = "failed"
+                post.error_message = result.error
+                results["errors"].append({
+                    "id": str(post.id),
+                    "error": result.error,
+                })
+        except Exception as exc:
+            logger.exception(
+                "Campaign post %s failed", post.id,
+            )
+            post.status = "failed"
+            post.error_message = str(exc)
+            results["errors"].append({
+                "id": str(post.id),
+                "error": str(exc),
+            })
+
+    await db.flush()
+    return results
+
+
 async def run_proactive_cycle(db: AsyncSession) -> dict:
     """Run one proactive posting cycle across all platforms.
 
     For each platform:
+    0. Check for planned campaign posts first
     1. Check if it's time to post (respecting cadence)
     2. Pick a topic (respecting cooldowns)
     3. Generate content
     4. Post (or enqueue for human review)
     5. Record in DB
     """
+    campaign_results = await _post_planned_campaign_posts(db)
+    campaign_platforms = {
+        p["platform"]
+        for p in campaign_results["posted"]
+    }
+
     adapters = _get_adapters()
     intervals = await get_platform_intervals()
 
-    results: dict = {"posted": [], "skipped": [], "errors": [], "drafts": []}
+    results: dict = {
+        "posted": list(campaign_results["posted"]),
+        "skipped": list(campaign_results["skipped"]),
+        "errors": list(campaign_results["errors"]),
+        "drafts": [],
+        "campaign_posts": len(campaign_results["posted"]),
+    }
 
     for platform_name, adapter in adapters.items():
+        # Skip platforms that already got a campaign post
+        if platform_name in campaign_platforms:
+            results["skipped"].append(
+                {
+                    "platform": platform_name,
+                    "reason": "campaign_post_sent",
+                },
+            )
+            continue
         try:
             # Check if adapter is configured
             if not await adapter.is_configured():
@@ -272,6 +377,16 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
     # 2. Run proactive cycle
     proactive_results = await run_proactive_cycle(db)
     results["proactive"] = proactive_results
+
+    # 3. Run reactive monitoring cycle
+    try:
+        from src.marketing.monitor import run_monitoring_cycle
+
+        monitor_results = await run_monitoring_cycle(db)
+        results["monitoring"] = monitor_results
+    except Exception:
+        logger.exception("Monitoring cycle failed")
+        results["monitoring"] = {"error": "cycle_failed"}
 
     logger.info("Marketing tick complete: %s", results)
     return results
