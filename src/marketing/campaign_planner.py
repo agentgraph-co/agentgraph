@@ -93,6 +93,46 @@ async def _last_week_performance(
     return summary
 
 
+def _parse_json_response(raw: str) -> dict | None:
+    """Extract and parse JSON from an LLM response.
+
+    Handles markdown code fences, preamble text, and minor
+    truncation at the end.
+    """
+    import re
+
+    text = raw.strip()
+
+    # Try to extract JSON from code fences first
+    fence_match = re.search(
+        r"```(?:json)?\s*\n(.*?)```",
+        text,
+        re.DOTALL,
+    )
+    if fence_match:
+        text = fence_match.group(1).strip()
+    else:
+        # Try to find the outermost { ... }
+        start = text.find("{")
+        if start >= 0:
+            text = text[start:]
+
+    # Try parsing as-is
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # If truncated, try closing open braces/brackets
+    for suffix in ["}", "]}", "\"]}", "\"]}"]:
+        try:
+            return json.loads(text + suffix)
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
 async def _configured_platforms() -> list[str]:
     """Return names of platforms whose adapters are configured."""
     from src.marketing.orchestrator import _get_adapters
@@ -145,7 +185,7 @@ async def generate_weekly_plan(
         prompt=user_prompt,
         model=marketing_settings.anthropic_opus_model,
         system=_SYSTEM_PROMPT,
-        max_tokens=2048,
+        max_tokens=4096,
         temperature=0.6,
     )
 
@@ -153,22 +193,12 @@ async def generate_weekly_plan(
         logger.error("Opus campaign plan failed: %s", resp.error)
         return {"error": resp.error}
 
-    # Parse JSON from response
-    text = resp.text.strip()
-    # Strip markdown code fences if present
-    if text.startswith("```"):
-        first_nl = text.index("\n")
-        text = text[first_nl + 1:]
-    if text.endswith("```"):
-        text = text[:-3].rstrip()
-
-    try:
-        plan = json.loads(text)
-    except json.JSONDecodeError:
+    plan = _parse_json_response(resp.text)
+    if plan is None:
         logger.error(
-            "Failed to parse Opus plan JSON: %s", text[:500],
+            "Failed to parse Opus plan JSON: %s", resp.text[:500],
         )
-        return {"error": "json_parse_failure", "raw": text[:1000]}
+        return {"error": "json_parse_failure", "raw": resp.text[:1000]}
 
     plan["week_of"] = week_label
 
