@@ -289,6 +289,17 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
                 results["skipped"].append(
                     {"platform": platform_name, "reason": "rate_limited"},
                 )
+                # Increment rate-limit counter for watchdog
+                try:
+                    from src.redis_client import get_redis
+
+                    _r = get_redis()
+                    await _r.incr("ag:mktg:rate_limit_count")
+                    await _r.expire(
+                        "ag:mktg:rate_limit_count", 86400,
+                    )
+                except Exception:
+                    pass
             else:
                 await _save_post(
                     db, content, status="failed", error=result.error,
