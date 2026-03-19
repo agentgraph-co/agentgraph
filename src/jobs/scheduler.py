@@ -204,6 +204,26 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing metrics refresh failed")
 
+        # Job 11: Marketing watchdog checks (auth, zero-post, staleness)
+        try:
+            from src.config import settings as _watchdog_settings
+
+            if _watchdog_settings.marketing_enabled:
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.marketing.alerts import (
+                            run_watchdog_checks,
+                        )
+
+                        wd_results = await run_watchdog_checks(
+                            session,
+                        )
+                        logger.debug(
+                            "Marketing watchdog: %s", wd_results,
+                        )
+        except Exception:
+            logger.exception("Marketing watchdog checks failed")
+
         # Job 9: Moltbook auto-import flywheel
         try:
             from src.config import settings as _mkt_settings

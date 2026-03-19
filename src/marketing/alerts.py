@@ -1,9 +1,12 @@
 """Marketing failure alerting — emails admin when things break.
 
-Three alerting modes:
-1. Immediate: called after each marketing tick if failures occurred
-2. Periodic: scheduled check for accumulated failures (every tick)
-3. Digest: failure summary included in weekly digest email
+Alert types:
+1. Tick failures: called after each marketing tick if failures occurred
+2. Auth health: daily sweep of platform adapter credentials
+3. Silent zero-post: alert if 24h pass with no posts
+4. News signal staleness: alert if digest_history.json is stale
+5. Rate limit accumulation: alert if platforms keep rate-limiting
+6. Digest: failure summary included in weekly digest email
 """
 from __future__ import annotations
 
@@ -17,9 +20,14 @@ from src.marketing.models import MarketingPost
 
 logger = logging.getLogger(__name__)
 
-# Suppress duplicate alerts via Redis (one alert per 6 hours)
+# Suppress duplicate alerts via Redis
 _ALERT_COOLDOWN_KEY = "ag:mktg:failure_alert_sent"
 _ALERT_COOLDOWN_SECONDS = 6 * 60 * 60  # 6 hours
+_AUTH_HEALTH_KEY = "ag:mktg:auth_health_alert"
+_ZERO_POST_KEY = "ag:mktg:zero_post_alert"
+_NEWS_STALE_KEY = "ag:mktg:news_stale_alert"
+_RATE_LIMIT_KEY = "ag:mktg:rate_limit_alert"
+_DAILY_COOLDOWN = 24 * 60 * 60  # 1 day
 
 
 async def check_and_alert_failures(
@@ -269,3 +277,335 @@ async def _send_failure_alert(
     logger.warning(
         "Marketing failure alert sent: %d failures", count,
     )
+
+
+# -------------------------------------------------------------------
+# Watchdog alerts — run once per scheduler tick
+# -------------------------------------------------------------------
+
+
+async def _redis_cooldown_check(key: str, ttl: int) -> bool:
+    """Return True if alert was already sent (on cooldown)."""
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        if await r.get(key):
+            return True
+        await r.set(key, "1", ex=ttl)
+        return False
+    except Exception:
+        return False
+
+
+async def _notify_admin(
+    db: AsyncSession,
+    kind: str,
+    title: str,
+    body: str,
+    html: str | None = None,
+) -> None:
+    """Send in-app notification + email to admin."""
+    from src.email import send_email
+    from src.models import Entity, Notification
+
+    result = await db.execute(
+        select(Entity).where(
+            Entity.email == "***REMOVED***",
+            Entity.is_active.is_(True),
+        ).limit(1),
+    )
+    admin = result.scalar_one_or_none()
+    if not admin:
+        return
+
+    notif = Notification(
+        entity_id=admin.id,
+        kind=kind,
+        title=title,
+        body=body,
+    )
+    db.add(notif)
+
+    email_html = html or (
+        "<div style='font-family:sans-serif;padding:20px;"
+        "background:#0f172a;color:#e2e8f0;'>"
+        f"<h2 style='color:#f59e0b;'>{title}</h2>"
+        f"<p>{body}</p>"
+        "<p><a href='https://agentgraph.co/admin' "
+        "style='color:#6366f1;'>View Dashboard</a></p>"
+        "</div>"
+    )
+    await send_email(admin.email, title, email_html)
+    logger.warning("Watchdog alert sent: %s", title)
+
+
+async def check_auth_health(db: AsyncSession) -> None:
+    """Alert #1: Check all configured adapters for auth failures.
+
+    Runs daily.  If any adapter that *should* be configured fails
+    its health check, email admin immediately.
+    """
+    if await _redis_cooldown_check(
+        _AUTH_HEALTH_KEY, _DAILY_COOLDOWN,
+    ):
+        return
+
+    from src.marketing.orchestrator import _get_adapters
+
+    adapters = _get_adapters()
+    unhealthy: list[str] = []
+
+    for name, adapter in adapters.items():
+        try:
+            if await adapter.is_configured():
+                if not await adapter.health_check():
+                    unhealthy.append(name)
+        except Exception:
+            unhealthy.append(name)
+
+    if not unhealthy:
+        # Reset cooldown so tomorrow checks again
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            await r.delete(_AUTH_HEALTH_KEY)
+        except Exception:
+            pass
+        return
+
+    platforms = ", ".join(unhealthy)
+    await _notify_admin(
+        db,
+        kind="marketing_auth_failure",
+        title=(
+            f"MarketingBot: {len(unhealthy)} platform"
+            f"{'s' if len(unhealthy) != 1 else ''}"
+            " failing auth"
+        ),
+        body=(
+            f"Platforms with auth/health failures: {platforms}. "
+            f"Check API keys and credentials."
+        ),
+    )
+
+
+async def check_zero_post_day(db: AsyncSession) -> None:
+    """Alert #2: Alert if no posts were made in the last 24 hours.
+
+    Catches silent failures where the scheduler isn't running or
+    all platforms are stuck on cooldown.
+    """
+    if await _redis_cooldown_check(
+        _ZERO_POST_KEY, _DAILY_COOLDOWN,
+    ):
+        return
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    result = await db.execute(
+        select(func.count(MarketingPost.id)).where(
+            MarketingPost.status == "posted",
+            MarketingPost.posted_at >= cutoff,
+        ),
+    )
+    count = result.scalar() or 0
+
+    if count > 0:
+        # Posts exist — reset cooldown for tomorrow
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            await r.delete(_ZERO_POST_KEY)
+        except Exception:
+            pass
+        return
+
+    await _notify_admin(
+        db,
+        kind="marketing_zero_posts",
+        title="MarketingBot: No posts in 24 hours",
+        body=(
+            "The marketing bot hasn't posted anything in the "
+            "last 24 hours. This could mean the scheduler isn't "
+            "running, all platforms are on cooldown, or adapters "
+            "are misconfigured."
+        ),
+    )
+
+
+async def check_campaign_proposal_delivery(
+    db: AsyncSession,
+) -> None:
+    """Alert #3: Warn if a campaign proposal was generated but no
+    email was sent (proposal stuck in 'proposed' for >48h).
+    """
+    from src.marketing.models import MarketingCampaign
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+    result = await db.execute(
+        select(func.count(MarketingCampaign.id)).where(
+            MarketingCampaign.status == "proposed",
+            MarketingCampaign.created_at <= cutoff,
+        ),
+    )
+    stale_count = result.scalar() or 0
+
+    if stale_count == 0:
+        return
+
+    # No cooldown — this is rare enough not to spam
+    await _notify_admin(
+        db,
+        kind="marketing_stale_campaign",
+        title=(
+            f"MarketingBot: {stale_count} campaign proposal"
+            f"{'s' if stale_count != 1 else ''}"
+            " awaiting review"
+        ),
+        body=(
+            f"{stale_count} campaign proposal(s) have been "
+            f"waiting for approval for over 48 hours. "
+            f"Review them in the admin dashboard."
+        ),
+    )
+
+
+async def check_news_signal_staleness(
+    db: AsyncSession,
+) -> None:
+    """Alert #4: Warn if the news digest file is missing or stale.
+
+    The news-digest project should sync daily via scp.  If the
+    file is >48 hours old or missing entirely, the marketing bot
+    is running on HN-only signals.
+    """
+    if await _redis_cooldown_check(
+        _NEWS_STALE_KEY, _DAILY_COOLDOWN,
+    ):
+        return
+
+    from src.marketing.news_signals import _find_digest_file
+
+    digest_path = _find_digest_file()
+
+    if digest_path is None:
+        await _notify_admin(
+            db,
+            kind="marketing_news_stale",
+            title="MarketingBot: News digest file not found",
+            body=(
+                "digest_history.json is missing from all "
+                "expected paths. The marketing bot is running "
+                "on HN Algolia signals only. Check that the "
+                "news-digest project is syncing via scp."
+            ),
+        )
+        return
+
+    # Check file age
+    try:
+        mtime = datetime.fromtimestamp(
+            digest_path.stat().st_mtime, tz=timezone.utc,
+        )
+        age_hours = (
+            datetime.now(timezone.utc) - mtime
+        ).total_seconds() / 3600
+
+        if age_hours > 48:
+            await _notify_admin(
+                db,
+                kind="marketing_news_stale",
+                title="MarketingBot: News digest is stale",
+                body=(
+                    f"digest_history.json is {age_hours:.0f} "
+                    f"hours old (last modified: "
+                    f"{mtime.strftime('%Y-%m-%d %H:%M UTC')}). "
+                    f"The news-digest scp sync may have stopped."
+                ),
+            )
+        else:
+            # Fresh — reset cooldown
+            try:
+                from src.redis_client import get_redis
+
+                r = get_redis()
+                await r.delete(_NEWS_STALE_KEY)
+            except Exception:
+                pass
+    except OSError:
+        pass  # Can't stat the file — will catch next time
+
+
+async def check_rate_limit_accumulation(
+    db: AsyncSession,
+) -> None:
+    """Alert #5: Warn if rate-limiting is frequent.
+
+    Rate-limited posts show as 'skipped' in tick results and never
+    trigger failure alerts. If multiple platforms are consistently
+    rate-limited, something is wrong with cadence config.
+    """
+    if await _redis_cooldown_check(
+        _RATE_LIMIT_KEY, _DAILY_COOLDOWN,
+    ):
+        return
+
+    # Check Redis for recent rate-limit skip counts
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        # The orchestrator logs skips — we track via a counter
+        count_raw = await r.get("ag:mktg:rate_limit_count")
+        rl_count = int(count_raw) if count_raw else 0
+
+        if rl_count < 5:
+            # Reset cooldown if low
+            await r.delete(_RATE_LIMIT_KEY)
+            return
+
+        # Reset the counter after alerting
+        await r.set("ag:mktg:rate_limit_count", "0", ex=86400)
+    except Exception:
+        return
+
+    await _notify_admin(
+        db,
+        kind="marketing_rate_limited",
+        title=(
+            f"MarketingBot: {rl_count} rate-limit"
+            f" skips in 24h"
+        ),
+        body=(
+            f"The marketing bot was rate-limited {rl_count} "
+            f"times in the last 24 hours. Consider increasing "
+            f"platform post intervals in the config."
+        ),
+    )
+
+
+async def run_watchdog_checks(db: AsyncSession) -> dict:
+    """Run all watchdog checks.  Called once per scheduler tick.
+
+    Returns a summary of which checks ran and any alerts sent.
+    """
+    results: dict = {}
+    checks = [
+        ("auth_health", check_auth_health),
+        ("zero_post_day", check_zero_post_day),
+        ("campaign_proposal", check_campaign_proposal_delivery),
+        ("news_staleness", check_news_signal_staleness),
+        ("rate_limit", check_rate_limit_accumulation),
+    ]
+
+    for name, check_fn in checks:
+        try:
+            await check_fn(db)
+            results[name] = "ok"
+        except Exception:
+            logger.exception("Watchdog check %s failed", name)
+            results[name] = "error"
+
+    return results
