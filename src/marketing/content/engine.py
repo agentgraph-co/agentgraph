@@ -104,6 +104,17 @@ async def generate_proactive(
         pass  # News signals are optional
 
     # Build the prompt
+    launch_context = ""
+    if marketing_settings.pre_launch:
+        launch_context = (
+            "\n\nIMPORTANT: AgentGraph is NOT publicly launched yet. "
+            "Frame it as 'coming soon' or 'building in public'. "
+            "Tease what it will offer, build curiosity. "
+            "Do NOT say 'check it out' or 'sign up' — "
+            "say things like 'we're building', 'coming soon', "
+            "'follow along', 'stay tuned'.\n"
+        )
+
     prompt = (
         f"Write a {platform} post about AgentGraph "
         f"based on this angle:\n\n"
@@ -112,6 +123,7 @@ async def generate_proactive(
         f"Maximum length: {tone.max_length} characters.\n"
         f"Platform: {platform}"
         f"{news_context}"
+        f"{launch_context}"
     )
 
     # Determine content type for LLM tier routing

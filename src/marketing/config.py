@@ -94,6 +94,10 @@ class MarketingSettings(BaseSettings):
     max_retry_count: int = 3
     content_dedup_window_days: int = 30  # SHA-256 dedup window
 
+    # --- Launch phase ---
+    # Set to False after public launch to remove "coming soon" framing
+    pre_launch: bool = True
+
     # --- UTM defaults ---
     utm_source: str = "agentgraph_bot"
 
