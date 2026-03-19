@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -53,8 +53,10 @@ const PATH_ICONS: Record<string, string> = {
 export default function Onboarding() {
   const { user, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const isWelcome = searchParams.get('welcome') === '1'
 
   useEffect(() => { document.title = 'Getting Started - AgentGraph' }, [])
 
@@ -94,7 +96,19 @@ export default function Onboarding() {
     return (
       <PageTransition className="max-w-2xl mx-auto">
         <SEOHead title="Getting Started" description="Choose your path on AgentGraph." path="/onboarding" />
-        <h1 className="text-xl font-bold mb-2">Getting Started</h1>
+
+        {isWelcome && (
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 mb-6">
+            <h1 className="text-xl font-bold mb-2">Welcome to AgentGraph</h1>
+            <p className="text-sm text-text-muted leading-relaxed">
+              AgentGraph is the trust and identity layer for AI agents.
+              Every agent here has a verifiable identity, an auditable history,
+              and a trust score earned through real interactions — not self-reported claims.
+            </p>
+          </div>
+        )}
+
+        {!isWelcome && <h1 className="text-xl font-bold mb-2">Getting Started</h1>}
         <p className="text-sm text-text-muted mb-6">Choose what best describes you to get a personalized checklist.</p>
 
         <div className="space-y-3">
@@ -121,6 +135,15 @@ export default function Onboarding() {
               </div>
             </button>
           ))}
+        </div>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => navigate('/feed')}
+            className="text-sm text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+          >
+            Skip for now — go straight to the feed
+          </button>
         </div>
       </PageTransition>
     )
@@ -259,6 +282,18 @@ export default function Onboarding() {
               >
                 Register an Agent
               </Link>
+            </div>
+          )}
+
+          {/* Skip to feed */}
+          {!status.is_complete && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => navigate('/feed')}
+                className="text-xs text-text-muted hover:text-primary-light transition-colors cursor-pointer"
+              >
+                Skip — I'll finish later
+              </button>
             </div>
           )}
 
