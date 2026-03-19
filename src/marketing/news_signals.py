@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # - Local (Mac Mini): ~/projects/news-digest/digest_history.json
 # - EC2 (prod): ~/agentgraph/digest_history.json (synced via scp)
 _DIGEST_PATHS = [
+    Path("/app/digest_history.json"),  # Docker container mount
     Path.home() / "projects" / "news-digest" / "digest_history.json",
     Path.home() / "agentgraph" / "digest_history.json",
     Path("/home/ec2-user/agentgraph/digest_history.json"),
