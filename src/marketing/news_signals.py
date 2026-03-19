@@ -15,28 +15,39 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Path to the news-digest project's history file
-_DIGEST_HISTORY = (
-    Path.home() / "projects" / "news-digest" / "digest_history.json"
-)
+# Path to the news-digest history file:
+# - Local (Mac Mini): ~/projects/news-digest/digest_history.json
+# - EC2 (prod): ~/agentgraph/digest_history.json (synced via scp)
+_DIGEST_PATHS = [
+    Path.home() / "projects" / "news-digest" / "digest_history.json",
+    Path.home() / "agentgraph" / "digest_history.json",
+    Path("/home/ec2-user/agentgraph/digest_history.json"),
+]
 
 _HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search_by_date"
 _HN_QUERIES = ["AI agent", "agent security", "decentralized identity"]
 _HN_TIMEOUT = 10.0
 
 
+def _find_digest_file() -> Path | None:
+    """Find the digest history file from known paths."""
+    for p in _DIGEST_PATHS:
+        if p.exists():
+            return p
+    return None
+
+
 def _parse_digest_history(
     limit: int = 10,
 ) -> list[dict]:
     """Read recent articles from the news-digest history file."""
-    if not _DIGEST_HISTORY.exists():
-        logger.info(
-            "News digest history not found at %s", _DIGEST_HISTORY,
-        )
+    digest_path = _find_digest_file()
+    if not digest_path:
+        logger.info("News digest history not found in any path")
         return []
 
     try:
-        data = json.loads(_DIGEST_HISTORY.read_text())
+        data = json.loads(digest_path.read_text())
     except (json.JSONDecodeError, OSError):
         logger.warning(
             "Failed to parse digest_history.json", exc_info=True,
