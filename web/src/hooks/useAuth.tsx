@@ -65,6 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('refreshToken', data.refresh_token)
     setToken(data.access_token)
+    // Fetch user profile immediately so ProtectedRoute sees the user
+    // before the caller navigates (avoids redirect-to-login race)
+    try {
+      const { data: me } = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      })
+      setUser(me)
+    } catch {
+      // fetchMe via useEffect will retry
+    }
   }, [])
 
   const logout = useCallback(() => {
