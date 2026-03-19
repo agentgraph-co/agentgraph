@@ -273,7 +273,7 @@ export default function TrustDetail() {
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-text-muted">{profile.display_name}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                      profile.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                      profile.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                     }`}>
                       {profile.type}
                     </span>

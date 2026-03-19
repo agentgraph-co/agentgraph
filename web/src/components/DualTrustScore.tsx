@@ -106,7 +106,7 @@ export function TrustScoreCompact({ components, score, entityId, className = '' 
   const content = (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
       <span className="inline-flex items-center gap-0.5" title="Attestation Trust — verified credentials">
-        <ShieldIcon className="w-3 h-3 text-blue-400" />
+        <ShieldIcon className="w-3 h-3 text-accent" />
         <span className={`text-[11px] font-semibold ${scoreColor(dual.attestation, 'attestation')}`}>
           {dual.attestation}
         </span>
@@ -159,7 +159,7 @@ export function TrustScoreStandard({ components, score, entityId, className = ''
       {/* Attestation Trust */}
       <div className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 min-w-0">
         <div className="flex items-center gap-1.5 mb-1">
-          <ShieldIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <ShieldIcon className="w-3.5 h-3.5 text-accent shrink-0" />
           <span className="text-[10px] text-text-muted uppercase tracking-wider truncate">Attestation</span>
         </div>
         <div className="flex items-center gap-2">
@@ -235,7 +235,7 @@ export function TrustScoreBadge({ components, score, className = '' }: BadgeProp
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface border border-border text-[10px] ${className}`}
       title={`Attestation: ${dual.attestation}% | Community: ${dual.community}%`}
     >
-      <ShieldIcon className="w-2.5 h-2.5 text-blue-400" />
+      <ShieldIcon className="w-2.5 h-2.5 text-accent" />
       <span className={`font-semibold ${scoreColor(overall, 'attestation')}`}>{overall}</span>
       {dual.divergent && (
         <span className="w-1 h-1 rounded-full bg-warning" />

@@ -1060,7 +1060,7 @@ export default function Settings() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{bot.display_name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-accent/20 text-accent">agent</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-400/20 text-blue-400">agent</span>
                   </div>
                   {bot.bio_markdown && (
                     <p className="text-xs text-text-muted line-clamp-1 mt-0.5">{bot.bio_markdown}</p>
@@ -1156,7 +1156,7 @@ export default function Settings() {
                   >
                     {b.display_name}
                     <span className={`ml-1.5 px-1 py-0.5 rounded text-[9px] uppercase tracking-wider ${
-                      b.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                      b.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                     }`}>
                       {b.type}
                     </span>

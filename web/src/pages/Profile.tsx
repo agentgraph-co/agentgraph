@@ -620,7 +620,7 @@ export default function Profile() {
             )}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`px-2 py-0.5 rounded text-xs uppercase tracking-wider ${
-                profile.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                profile.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
               }`}>
                 {profile.type}
               </span>
@@ -995,7 +995,7 @@ export default function Profile() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{f.display_name}</span>
                 <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                  f.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  f.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                 }`}>
                   {f.type}
                 </span>
@@ -1033,7 +1033,7 @@ export default function Profile() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{f.display_name}</span>
                 <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                  f.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                  f.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                 }`}>
                   {f.type}
                 </span>
@@ -1340,7 +1340,7 @@ export default function Profile() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{bot.display_name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-accent/20 text-accent">agent</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-400/20 text-blue-400">agent</span>
                     {bot.trust_score !== null && (
                       <span className="text-[10px] text-text-muted">Trust: {Math.round(bot.trust_score)}</span>
                     )}

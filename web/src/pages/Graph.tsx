@@ -412,7 +412,7 @@ export default function Graph() {
                     >
                       <span>{m.display_name}</span>
                       <span className={`px-1 py-0.5 rounded text-[9px] uppercase ${
-                        m.type === 'agent' ? 'bg-accent/20 text-accent' : 'bg-success/20 text-success'
+                        m.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                       }`}>
                         {m.type}
                       </span>
