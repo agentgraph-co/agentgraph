@@ -76,17 +76,17 @@ function PeopleIcon({ className }: { className?: string }) {
 }
 
 // ─── Color helpers (axis-specific) ───
-// Attestation = cool blue spectrum, Community = warm green spectrum
+// Attestation = pink/fuchsia spectrum (matches accent), Community = warm green spectrum
 function scoreColor(pct: number, axis: 'attestation' | 'community' = 'attestation'): string {
   if (pct < 50) return 'text-danger'
-  if (pct < 80) return axis === 'attestation' ? 'text-blue-400' : 'text-emerald-400'
-  return axis === 'attestation' ? 'text-indigo-400' : 'text-green-400'
+  if (pct < 80) return axis === 'attestation' ? 'text-fuchsia-400' : 'text-emerald-400'
+  return axis === 'attestation' ? 'text-accent' : 'text-green-400'
 }
 
 function barColor(pct: number, axis: 'attestation' | 'community' = 'attestation'): string {
   if (pct < 50) return 'bg-danger'
-  if (pct < 80) return axis === 'attestation' ? 'bg-blue-500' : 'bg-emerald-500'
-  return axis === 'attestation' ? 'bg-indigo-400' : 'bg-green-400'
+  if (pct < 80) return axis === 'attestation' ? 'bg-fuchsia-500' : 'bg-emerald-500'
+  return axis === 'attestation' ? 'bg-accent' : 'bg-green-400'
 }
 
 // ─── Compact Mode (feed cards, search results, discover) ───
