@@ -178,7 +178,22 @@ async def generate_weekly_plan(
         "Emphasise anti-ban strategy: Reddit needs 9:1, "
         "HN is human-only.  "
         "Budget estimate should reflect Anthropic API costs "
-        "for content generation only."
+        "for content generation only.\n\n"
+        "## Platform priority (we have ZERO followers on owned channels)\n"
+        "1. **Reddit** (highest priority — 2-3 posts/week): "
+        "topic-based reach, millions of subscribers see good posts "
+        "regardless of our follower count.\n"
+        "2. **Dev.to** (1 post/week): SEO value, ranks in Google, "
+        "compounds over time.\n"
+        "3. **Bluesky / Twitter** (1 post/week max each): "
+        "credibility and presence only — zero reach until we "
+        "build followers.\n"
+        "4. **LinkedIn** (1 post/week if configured): "
+        "professional credibility.\n"
+        "5. **Discord** (if configured): community engagement "
+        "in existing servers.\n"
+        "Allocate the majority of posts to Reddit and Dev.to. "
+        "Do NOT over-index on Bluesky/Twitter."
     )
 
     resp = await anthropic_generate(
