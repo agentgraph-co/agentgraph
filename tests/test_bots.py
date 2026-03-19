@@ -21,7 +21,7 @@ from src.bots.engine import (
 )
 from src.database import get_db
 from src.main import app
-from src.models import Entity, EntityType, Post, TrustScore
+from src.models import DirectMessage, Entity, EntityType, Post, TrustScore
 
 
 @pytest_asyncio.fixture
@@ -204,7 +204,7 @@ async def test_post_as_bot(db: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_welcome_bot_greets_new_user(db: AsyncSession):
-    """WelcomeBot posts a welcome when a new entity registers."""
+    """WelcomeBot sends a welcome DM when a new entity registers."""
     await ensure_bots_exist(db)
 
     # Create a human entity for the welcome
@@ -225,14 +225,14 @@ async def test_welcome_bot_greets_new_user(db: AsyncSession):
         "entity_type": "human",
     }, _test_db=db)
 
-    # Check WelcomeBot posted
+    # Check WelcomeBot sent a DM (not a public post)
     welcome_bot = BOT_BY_KEY["welcomebot"]
-    posts = await db.execute(
-        select(Post).where(Post.author_entity_id == welcome_bot["id"])
+    dms = await db.execute(
+        select(DirectMessage).where(DirectMessage.sender_id == welcome_bot["id"])
     )
-    welcome_posts = posts.scalars().all()
-    assert len(welcome_posts) >= 1
-    assert "NewUser" in welcome_posts[-1].content
+    welcome_dms = dms.scalars().all()
+    assert len(welcome_dms) >= 1
+    assert "NewUser" in welcome_dms[-1].content
 
 
 @pytest.mark.asyncio
