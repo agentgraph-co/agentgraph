@@ -7,7 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 
-const URL_RE = /(https?:\/\/[^\s<]+)/g
+const URL_RE = /(https?:\/\/[^\s<]+)/
 
 function linkify(text: string): ReactNode[] {
   const parts = text.split(URL_RE)
