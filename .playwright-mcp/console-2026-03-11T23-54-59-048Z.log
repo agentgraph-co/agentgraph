@@ -1,5 +1,0 @@
-[      34ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:86
-[     276ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/admin/stats:0
-[    1329ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/admin/stats:0
-[   10138ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
-[   21564ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

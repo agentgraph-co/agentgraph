@@ -1,3 +1,0 @@
-[     108ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
-[     126ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
-[    8694ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0

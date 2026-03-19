@@ -1,5 +1,0 @@
-[     318ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
-[     333ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/me:0
-[     335ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://***REMOVED***:5174/api/v1/auth/refresh:0
-[   24257ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39
-[   35261ms] [WARNING] WebSocket connection to 'ws://***REMOVED***:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://***REMOVED***:5174/src/hooks/useWebSocket.tsx:39

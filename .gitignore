@@ -48,6 +48,16 @@ logs/
 
 # Task-master
 .task-master/
+.taskmaster/
+
+# Claude Code worktrees and MCP logs
+.claude/worktrees/
+.playwright-mcp/
+
+# Root-level screenshots (audit artifacts, not source)
+/*.png
+/Screenshot*
+/docs/screenhots/
 
 # Xcode
 *.xcodeproj/

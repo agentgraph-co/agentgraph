@@ -1,2 +1,0 @@
-[     272ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://earlybird:***REMOVED***@3.237.239.123/manifest.json:0
-[     273ms] [ERROR] Manifest fetch from http://earlybird:***REMOVED***@3.237.239.123/manifest.json failed, code 401 @ http://earlybird:***REMOVED***@3.237.239.123/login:0

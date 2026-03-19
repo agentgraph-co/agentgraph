@@ -1,2 +1,0 @@
-[      45ms] [WARNING] WebSocket connection to 'ws://localhost:5174/api/v1/ws?channels=feed,notifications,messages,marketplace,activity' failed: WebSocket is closed before the connection is established. @ http://localhost:5174/src/hooks/useWebSocket.tsx?t=1772142705134:86
-[     243ms] [WARNING] THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5174/node_modules/.vite/deps/react-force-graph-3d.js?v=4a0cac90:1817

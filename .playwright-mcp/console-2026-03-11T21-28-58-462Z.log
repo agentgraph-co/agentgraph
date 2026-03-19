@@ -1,4 +1,0 @@
-[     144ms] [WARNING] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. @ http://***REMOVED***:5174/node_modules/.vite/deps/framer-motion.js?v=211d6f5c:195
-[     701ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/profiles?limit=20&offset=0:0
-[    1724ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/profiles?limit=20&offset=0:0
-[    9215ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://***REMOVED***:5174/api/v1/auth/login:0
