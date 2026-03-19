@@ -18,6 +18,7 @@ from pathlib import Path
 from src.marketing.config import marketing_settings
 from src.marketing.content.tone import get_tone
 from src.marketing.content.topics import Topic, get_angle, pick_topic
+from src.marketing.llm.cost_tracker import estimate_cost
 from src.marketing.llm.router import generate as llm_generate
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,9 @@ async def generate_proactive(
         llm_model=result.model,
         llm_tokens_in=result.tokens_in,
         llm_tokens_out=result.tokens_out,
+        llm_cost_usd=estimate_cost(
+            result.model, result.tokens_in, result.tokens_out,
+        ),
         content_hash=h,
         utm_params={
             "source": marketing_settings.utm_source,
@@ -237,6 +241,9 @@ async def generate_reactive(
         llm_model=result.model,
         llm_tokens_in=result.tokens_in,
         llm_tokens_out=result.tokens_out,
+        llm_cost_usd=estimate_cost(
+            result.model, result.tokens_in, result.tokens_out,
+        ),
         content_hash=h,
         utm_params={
             "source": marketing_settings.utm_source,
