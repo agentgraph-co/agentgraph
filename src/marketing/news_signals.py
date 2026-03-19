@@ -3,11 +3,16 @@
 Sources:
 1. Local news-digest project (digest_history.json) — recent articles
 2. HN Algolia API — AI agent and security stories
+
+All signals are relevance-filtered to AgentGraph's domain before
+being returned, so off-topic personal-interest articles from the
+user's news digest don't leak into marketing content.
 """
 from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -25,8 +30,30 @@ _DIGEST_PATHS = [
 ]
 
 _HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search_by_date"
-_HN_QUERIES = ["AI agent", "agent security", "decentralized identity"]
+_HN_QUERIES = [
+    "AI agent",
+    "agent security",
+    "decentralized identity",
+    "multi-agent",
+    "LLM framework",
+    "bot trust",
+    "AI safety",
+    "agent protocol",
+]
 _HN_TIMEOUT = 10.0
+
+# Keywords that indicate an article is relevant to AgentGraph's
+# domain.  Checked case-insensitively against the title.
+_RELEVANCE_KEYWORDS = re.compile(
+    r"agent|multi.?agent|llm|large language|gpt|claude|"
+    r"trust|identity|did |decentrali[sz]|verif|"
+    r"bot|autonom|ai safety|ai security|"
+    r"mcp|protocol|framework|langchain|autogen|crewai|"
+    r"open.?claw|moltbook|marketplace|"
+    r"scraping|api|sdk|developer|open.?source|"
+    r"social.?network|graph|federat|fediverse",
+    re.IGNORECASE,
+)
 
 
 def _find_digest_file() -> Path | None:
@@ -37,10 +64,22 @@ def _find_digest_file() -> Path | None:
     return None
 
 
+def _is_relevant(title: str) -> bool:
+    """Check if an article title is relevant to AgentGraph's domain."""
+    return bool(_RELEVANCE_KEYWORDS.search(title))
+
+
 def _parse_digest_history(
     limit: int = 10,
+    days: int = 1,
 ) -> list[dict]:
-    """Read recent articles from the news-digest history file."""
+    """Read recent articles from the news-digest history file.
+
+    Args:
+        limit: Max articles to return.
+        days: How far back to look (1 for daily posts, 7 for weekly
+              campaign planning).
+    """
     digest_path = _find_digest_file()
     if not digest_path:
         logger.info("News digest history not found in any path")
@@ -55,7 +94,7 @@ def _parse_digest_history(
         return []
 
     sent = data.get("sent_articles", {})
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     recent: list[dict] = []
 
     for _hash, article in sent.items():
@@ -70,8 +109,12 @@ def _parse_digest_history(
         if ts < cutoff:
             continue
 
+        title = article.get("title", "")
+        if not _is_relevant(title):
+            continue
+
         recent.append({
-            "title": article.get("title", ""),
+            "title": title,
             "source": article.get("source", "news-digest"),
             "url": article.get("link", ""),
             "relevance": "news_digest",
@@ -83,7 +126,7 @@ def _parse_digest_history(
 
 
 async def _fetch_hn_stories(
-    query: str, limit: int = 5,
+    query: str, limit: int = 5, days: int = 3,
 ) -> list[dict]:
     """Fetch recent HN stories matching a query via Algolia."""
     params = {
@@ -95,7 +138,7 @@ async def _fetch_hn_stories(
                 int(
                     (
                         datetime.now(timezone.utc)
-                        - timedelta(days=3)
+                        - timedelta(days=days)
                     ).timestamp(),
                 ),
             )
@@ -152,11 +195,17 @@ def _deduplicate(
 
 async def gather_news_signals(
     limit: int = 20,
+    days: int = 1,
 ) -> list[dict]:
     """Gather and merge news signals from all sources.
 
-    Returns a deduplicated list sorted by recency, capped at
-    *limit* items.  Each item is::
+    Args:
+        limit: Max signals to return.
+        days: Lookback window.  Use 1 for daily proactive posts,
+              7 for weekly campaign planning.
+
+    Returns a deduplicated, relevance-filtered list sorted by
+    recency, capped at *limit* items.  Each item is::
 
         {
             "title": str,
@@ -165,10 +214,15 @@ async def gather_news_signals(
             "relevance": str,
         }
     """
-    signals: list[dict] = _parse_digest_history(limit=limit)
+    signals: list[dict] = _parse_digest_history(
+        limit=limit, days=days,
+    )
 
+    hn_days = max(days, 3)  # HN minimum 3 days for enough signal
     for query in _HN_QUERIES:
-        hn = await _fetch_hn_stories(query, limit=5)
+        hn = await _fetch_hn_stories(
+            query, limit=5, days=hn_days,
+        )
         signals.extend(hn)
 
     signals = _deduplicate(signals)

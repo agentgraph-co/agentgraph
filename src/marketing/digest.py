@@ -82,6 +82,11 @@ async def get_digest_data(db: AsyncSession) -> dict:
 
     total_posts = sum(p["posts"] for p in platforms)
 
+    # Failure summary for the week
+    from src.marketing.alerts import get_failure_summary
+
+    failures = await get_failure_summary(db, hours=7 * 24)
+
     return {
         "week_start": week_start.strftime("%B %d, %Y"),
         "week_end": now.strftime("%B %d, %Y"),
@@ -90,6 +95,7 @@ async def get_digest_data(db: AsyncSession) -> dict:
         "cost_breakdown": cost_breakdown,
         "total_cost_usd": round(total_cost, 4),
         "top_posts": top_posts,
+        "failures": failures,
     }
 
 
@@ -202,6 +208,71 @@ def _render_digest_email(data: dict) -> str:
             "No posts with metrics this week</p>"
         )
 
+    # Failures section
+    failures = data.get("failures", {})
+    failures_section = ""
+    total_failures = (
+        failures.get("total_failed", 0)
+        + failures.get("total_permanently_failed", 0)
+    )
+    if total_failures > 0:
+        failure_rows = ""
+        for platform, counts in failures.get(
+            "by_platform", {},
+        ).items():
+            failed = counts.get("failed", 0)
+            perm = counts.get("permanently_failed", 0)
+            failure_rows += (
+                "<tr>"
+                "<td style='padding:8px 12px;"
+                "border-bottom:1px solid #334155;"
+                f"color:#e2e8f0;'>{platform}</td>"
+                "<td style='padding:8px 12px;"
+                "border-bottom:1px solid #334155;"
+                f"text-align:center;color:#f87171;'>{failed}</td>"
+                "<td style='padding:8px 12px;"
+                "border-bottom:1px solid #334155;"
+                f"text-align:center;color:#ef4444;'>{perm}</td>"
+                "</tr>"
+            )
+
+        recent_error_html = ""
+        for err in failures.get("recent_errors", [])[:5]:
+            recent_error_html += (
+                "<div style='padding:6px 10px;"
+                "background:#1e293b;border-radius:4px;"
+                "margin-bottom:4px;font-size:12px;'>"
+                "<span style='color:#6366f1;'>"
+                f"{err['platform']}</span>"
+                "<span style='color:#94a3b8;'> — </span>"
+                "<span style='color:#f87171;'>"
+                f"{err['error']}</span>"
+                "</div>"
+            )
+
+        failures_section = (
+            "<tr><td style='padding-bottom:24px;'>"
+            "<h2 style='color:#f87171;font-size:16px;"
+            "margin:0 0 12px;'>"
+            f"Failures ({total_failures})</h2>"
+            "<table width='100%' cellpadding='0' "
+            "cellspacing='0' "
+            "style='background:#0f172a;"
+            "border-radius:8px;'>"
+            "<tr>"
+            "<th style='padding:8px 12px;text-align:left;"
+            "color:#94a3b8;font-size:12px;'>Platform</th>"
+            "<th style='padding:8px 12px;text-align:center;"
+            "color:#94a3b8;font-size:12px;'>Failed</th>"
+            "<th style='padding:8px 12px;text-align:center;"
+            "color:#94a3b8;font-size:12px;'>Permanent</th>"
+            "</tr>"
+            f"{failure_rows}"
+            "</table>"
+            f"{recent_error_html}"
+            "</td></tr>"
+        )
+
     return _load_template(
         "marketing_digest.html",
         week_start=data["week_start"],
@@ -211,6 +282,7 @@ def _render_digest_email(data: dict) -> str:
         platform_rows=platform_rows,
         cost_rows=cost_rows,
         top_posts=top_posts_html,
+        failures_section=failures_section,
         fallback=(
             f"Marketing Digest: {data['total_posts']} posts, "
             f"${data['total_cost_usd']:.2f} spend"

@@ -207,6 +207,7 @@ async def trigger_marketing_tick(
 @router.get("/health")
 async def marketing_health(
     current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Check health of all configured platform adapters."""
     require_admin(current_entity)
@@ -257,6 +258,18 @@ async def marketing_health(
                 await adapter.health_check() if configured else False
             ),
         }
+
+    # Recent failure counts
+    from src.marketing.alerts import get_failure_summary
+
+    failures = await get_failure_summary(db, hours=24)
+    health["failures_24h"] = {
+        "failed": failures["total_failed"],
+        "permanently_failed": failures[
+            "total_permanently_failed"
+        ],
+        "by_platform": failures["by_platform"],
+    }
 
     return health
 
