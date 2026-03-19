@@ -293,6 +293,8 @@ REACTIVE_TRIGGERS: dict[str, dict] = {
             "found a bug", "bug report", "is broken", "getting an error",
             "keeps crashing", "not working", "has a glitch", "fails to",
             "500 error", "404 error", "report a bug", "bug fix needed",
+            "doesn't work", "won't load", "page crashed", "something broke",
+            "seeing an error", "throws an error", "can't login", "can't load",
         ],
         "response": (
             "Thanks for reporting this! To help us investigate:\n\n"
@@ -307,7 +309,9 @@ REACTIVE_TRIGGERS: dict[str, dict] = {
         "keywords": [
             "feature request", "suggestion", "would be nice",
             "wish we had", "should add", "idea for", "it would be great",
-            "we need", "can you add", "please add",
+            "we need", "can you add", "please add", "how about adding",
+            "it would help", "would love to see", "i wish", "wouldn't it be cool",
+            "missing feature", "needs a way to", "would be useful",
         ],
         "response": (
             "Great idea — noted! To help us prioritize:\n\n"
