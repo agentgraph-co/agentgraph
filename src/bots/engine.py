@@ -402,7 +402,11 @@ async def handle_post_created(
     content = payload.get("content", "")
 
     if not author_id or not post_id or not content:
+        logger.warning("handle_post_created: missing fields — author=%s post=%s content=%s",
+                        bool(author_id), bool(post_id), bool(content))
         return
+
+    logger.info("handle_post_created: post=%s content_preview=%s", post_id, content[:80])
 
     # Don't react to our own posts
     try:
@@ -419,8 +423,10 @@ async def handle_post_created(
         keywords = trigger["keywords"]
         # Use word-boundary matching to avoid false positives
         # e.g. "this is a great feature" should NOT match "feature request"
-        if not any(re.search(r"\b" + re.escape(kw) + r"\b", content_lower) for kw in keywords):
+        matched = [kw for kw in keywords if re.search(r"\b" + re.escape(kw) + r"\b", content_lower)]
+        if not matched:
             continue
+        logger.info("%s matched keywords %s in post %s", bot_key, matched, post_id)
 
         bot_def = BOT_BY_KEY.get(bot_key)
         if not bot_def:

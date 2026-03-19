@@ -373,7 +373,9 @@ async def create_post(
     async def _deferred_emit() -> None:
         await asyncio.sleep(0.5)
         try:
+            logger.info("Emitting post.created for post %s", _payload.get("post_id"))
             await emit("post.created", _payload)
+            logger.info("post.created emitted successfully for post %s", _payload.get("post_id"))
         except Exception:
             logger.exception("Deferred post.created emit failed")
 
