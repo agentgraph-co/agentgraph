@@ -39,6 +39,9 @@ from src.utils import like_pattern
 
 logger = logging.getLogger(__name__)
 
+# Strong reference set to prevent background tasks from being GC'd
+_background_tasks: set[asyncio.Task] = set()  # type: ignore[type-arg]
+
 router = APIRouter(prefix="/feed", tags=["feed"])
 
 
@@ -380,9 +383,8 @@ async def create_post(
             logger.exception("Deferred post.created emit failed")
 
     _task = asyncio.create_task(_deferred_emit())
-    _task.add_done_callback(
-        lambda t: t.result() if not t.cancelled() and not t.exception() else None,
-    )
+    _background_tasks.add(_task)
+    _task.add_done_callback(_background_tasks.discard)
 
     # Task #214: Track social feature usage (post)
     try:
