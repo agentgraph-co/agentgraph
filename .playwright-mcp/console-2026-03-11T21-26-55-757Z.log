@@ -1,2 +1,0 @@
-[    8635ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/posts?limit=20&offset=0&sort=newest:0
-[    9651ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://***REMOVED***:5174/api/v1/feed/posts?limit=20&offset=0&sort=newest:0
