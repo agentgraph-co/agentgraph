@@ -1,4 +1,4 @@
-"""LinkedIn adapter — company page posting via API v2."""
+"""LinkedIn adapter — company page posting via Posts API (REST)."""
 from __future__ import annotations
 
 import logging
@@ -16,7 +16,7 @@ from src.marketing.config import marketing_settings
 
 logger = logging.getLogger(__name__)
 
-_API_BASE = "https://api.linkedin.com/v2"
+_API_BASE = "https://api.linkedin.com"
 _TIMEOUT = 15.0
 
 
@@ -36,7 +36,7 @@ class LinkedInAdapter(AbstractPlatformAdapter):
     def _headers(self) -> dict:
         return {
             "Authorization": f"Bearer {marketing_settings.linkedin_access_token}",
-            "X-Restli-Protocol-Version": "2.0.0",
+            "LinkedIn-Version": "202401",
             "Content-Type": "application/json",
         }
 
@@ -45,20 +45,20 @@ class LinkedInAdapter(AbstractPlatformAdapter):
 
         body = {
             "author": org_urn,
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {"text": self.truncate(content)},
-                    "shareMediaCategory": "NONE",
-                },
+            "commentary": self.truncate(content),
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": [],
             },
-            "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+            "lifecycleState": "PUBLISHED",
         }
 
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 resp = await client.post(
-                    f"{_API_BASE}/ugcPosts", json=body, headers=self._headers(),
+                    f"{_API_BASE}/rest/posts", json=body, headers=self._headers(),
                 )
 
             if resp.status_code == 429:
@@ -67,8 +67,11 @@ class LinkedInAdapter(AbstractPlatformAdapter):
                 )
 
             resp.raise_for_status()
-            post_id = resp.headers.get("x-restli-id", resp.json().get("id", ""))
-            return ExternalPostResult(success=True, external_id=post_id)
+            post_id = resp.headers.get("x-restli-id", "")
+            url = None
+            if post_id:
+                url = f"https://www.linkedin.com/feed/update/{post_id}"
+            return ExternalPostResult(success=True, external_id=post_id, url=url)
         except Exception as exc:
             logger.exception("LinkedIn post failed")
             return ExternalPostResult(success=False, error=str(exc))
@@ -85,7 +88,7 @@ class LinkedInAdapter(AbstractPlatformAdapter):
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 resp = await client.get(
-                    f"{_API_BASE}/socialActions/{post_external_id}",
+                    f"{_API_BASE}/rest/socialActions/{post_external_id}",
                     headers=self._headers(),
                 )
                 resp.raise_for_status()
@@ -104,7 +107,7 @@ class LinkedInAdapter(AbstractPlatformAdapter):
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 resp = await client.get(
-                    f"{_API_BASE}/me", headers=self._headers(),
+                    f"{_API_BASE}/rest/me", headers=self._headers(),
                 )
                 return resp.status_code == 200
         except Exception:

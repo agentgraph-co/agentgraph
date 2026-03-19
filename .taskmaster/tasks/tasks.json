@@ -3270,6 +3270,160 @@
           "265",
           "266"
         ]
+      },
+      {
+        "id": 268,
+        "title": "Pre-Moltbook: Test New User Registration End-to-End",
+        "description": "Test the full registration flow on staging: register new user, verify email arrives (aiosmtplib/ImprovMX), click verification link, confirm login works, check admin dashboard, verify welcome notification. Test desktop and mobile.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Steps:\n1. Register a brand new user with fresh email on staging (:5174)\n2. Verify verification email arrives\n3. Click verification link, confirm account activates\n4. Verify user can log in after verification\n5. Check user appears in admin dashboard entity list\n6. Verify welcome notification is created\n7. Test on both desktop and mobile viewports",
+        "testStrategy": "Complete registration flow end-to-end. Verify all steps succeed. Check DB records match expected state.",
+        "subtasks": []
+      },
+      {
+        "id": 269,
+        "title": "Pre-Moltbook: Fix Bug Reports and Feature Requests (Issue Tracking)",
+        "description": "Both bug fix requests and feature requests appear broken. Investigate BugHunter and FeatureBot keyword detection, IssueReport creation, bot reply posts, admin resolution flow, and follow-up notifications.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Steps:\n1. Test BugHunter bot keyword detection in feed posts (triggers on 'bug', 'broken', 'issue')\n2. Test FeatureBot keyword detection ('feature request', 'wish', 'would be nice')\n3. Verify IssueReport records are created in the database\n4. Verify bot reply posts appear in the feed thread\n5. Test admin issue resolution: PATCH /admin/issues/{id}/resolve\n6. Verify follow-up notification to original reporter\n7. Check bots are active (is_active=true) and properly registered",
+        "testStrategy": "Create test posts with trigger keywords. Verify IssueReport records created. Test admin resolution API. Verify notification delivery.",
+        "subtasks": []
+      },
+      {
+        "id": 270,
+        "title": "Pre-Moltbook: Engagement Metrics and Google Analytics Integration",
+        "description": "Implement proper engagement tracking: evaluate GA4 vs self-hosted analytics, configure UTM capture from marketing links, build conversion funnel (click \u2192 register \u2192 first action), add referrer tracking on registration.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Steps:\n1. Evaluate GA4 vs self-hosted (existing analytics_events table)\n2. If GA4: add gtag.js snippet to index.html with consent handling\n3. Configure UTM parameter capture from marketing bot links \u2192 analytics_events\n4. Build conversion funnel: marketing click \u2192 landing \u2192 register \u2192 first action\n5. Add referrer tracking on registration to attribute signups to marketing channels\n6. Ensure analytics work behind the access gate and after removal\n7. Dashboard widget showing marketing \u2192 conversion attribution",
+        "testStrategy": "Click a marketing UTM link, register, take an action. Verify full funnel is tracked in analytics_events. Check dashboard shows attribution.",
+        "subtasks": []
+      },
+      {
+        "id": 271,
+        "title": "Pre-Moltbook: Welcome Bot Verification and Campaign Personalization",
+        "description": "Verify WelcomeBot triggers on new user registration, welcome DM is helpful, and explore personalizing messages based on weekly marketing campaign theme and UTM source.",
+        "status": "pending",
+        "dependencies": [
+          268
+        ],
+        "priority": "medium",
+        "details": "Steps:\n1. Confirm WelcomeBot triggers on entity.registered event\n2. Verify welcome DM content is helpful and accurate\n3. Test that welcome DM includes getting-started links\n4. Connect welcome messages to current week's campaign theme\n5. If user arrived via specific UTM campaign, tailor welcome to that topic\n6. Verify welcome bot doesn't fire for bot registrations (only humans)\n7. Test welcome flow with test registration from Task 268",
+        "testStrategy": "Register new user, verify welcome DM received. Check DM content matches current campaign. Verify bot registrations don't trigger welcome.",
+        "subtasks": []
+      },
+      {
+        "id": 272,
+        "title": "Pre-Moltbook: Activate LinkedIn and Telegram Adapters",
+        "description": "Implement LinkedIn (API v2, company page posts) and Telegram (python-telegram-bot, channel posts) adapters. Both require human approval. Test draft generation and dashboard queue.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Steps:\n1. LinkedIn adapter: implement post() using LinkedIn API v2 (httpx), company page posts\n2. Telegram adapter: implement post() using python-telegram-bot async, channel posts\n3. Both must implement is_configured() checking for API keys\n4. Both already in HUMAN_APPROVAL_PLATFORMS\n5. Test draft generation \u2014 verify posts appear in marketing dashboard draft queue\n6. Add platform-specific tone rules in content/tone.py if missing\n7. Document API key setup in .env.secrets",
+        "testStrategy": "Generate drafts for both platforms. Verify they appear in admin marketing dashboard. Test with real API keys if available.",
+        "subtasks": []
+      },
+      {
+        "id": 273,
+        "title": "Pre-Moltbook: Import Dry Run (50-100 Bots)",
+        "description": "Test the source-connected Moltbook import pipeline with 50-100 real bot profiles. Verify entity creation, DID generation, trust scores, profile completeness, search, graph, and idempotency.",
+        "status": "pending",
+        "dependencies": [
+          275,
+          276
+        ],
+        "priority": "high",
+        "details": "Steps:\n1. Run moltbook_fetcher.py against 50-100 real Moltbook bot profiles\n2. Verify entities created with correct metadata (name, description, capabilities)\n3. Verify DID documents generated for each imported bot\n4. Check trust scores initialized (sensible defaults, not 0 or max)\n5. Verify imported bot profiles have sufficient completeness\n6. Test imported bots appear in search results\n7. Test imported bots appear in social graph\n8. Verify no duplicate imports on re-run (idempotency)",
+        "testStrategy": "Run import, verify entity count. Re-run, verify no duplicates. Check search and graph include imported bots. Verify trust scores in expected range.",
+        "subtasks": []
+      },
+      {
+        "id": 274,
+        "title": "Pre-Moltbook: Seed Feed Content for New Users",
+        "description": "Ensure new users see quality content on first feed visit. Seed 10-20 posts from platform bots covering what AgentGraph is, getting started, features, security. Include posts about imported bots.",
+        "status": "pending",
+        "dependencies": [
+          273
+        ],
+        "priority": "high",
+        "details": "Steps:\n1. Seed feed with 10-20 high-quality posts from platform bots (WelcomeBot, AgentGraphBot)\n2. Posts cover: what AgentGraph is, how to get started, key features, security advantages\n3. Include posts about recently imported bots from Moltbook\n4. Consider 'trending' or 'discover' section for users with no follows\n5. Ensure feed sorting puts quality seed content at top for new users\n6. Test: register new account, visit /feed \u2014 verify content appears",
+        "testStrategy": "Register fresh account. Visit /feed. Verify 10+ quality posts visible. Verify posts are relevant and well-formatted.",
+        "subtasks": []
+      },
+      {
+        "id": 275,
+        "title": "Pre-Moltbook: Trust Scores for Imported Bots",
+        "description": "Define sensible default trust scores for imported bots: base score ~25/100 for verified source, slight boost for complete profiles, context label on profile page.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Steps:\n1. Imported bots should NOT start at 0 (looks broken) or max (unearned)\n2. Define base score (~25/100) for imported entities with verified source\n3. Bots with more complete profiles get slight boost\n4. Bots from Moltbook get context-appropriate scores\n5. Trust scores improve as community interacts (votes, follows)\n6. Display trust context on profile: 'Imported from Moltbook, not yet community-verified'\n7. Ensure trust recompute job handles imported bots correctly",
+        "testStrategy": "Import bots, verify trust scores are in expected range (20-35). Verify profile shows import context. Simulate community interaction, verify score changes.",
+        "subtasks": []
+      },
+      {
+        "id": 276,
+        "title": "Pre-Moltbook: Profile Completeness for Imported Bots",
+        "description": "Ensure imported bot profiles look good: map Moltbook fields comprehensively, generate placeholder avatars, auto-categorize capabilities, add 'Imported from Moltbook' badge.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Steps:\n1. Map Moltbook profile fields to AgentGraph entity fields comprehensively\n2. Generate placeholder avatars for bots without images (identicon or initials)\n3. Auto-categorize capabilities from Moltbook metadata\n4. Ensure description/bio is populated\n5. Add 'Imported from Moltbook' badge/indicator on profiles\n6. Test profile pages on desktop and mobile\n7. Verify profile pages load fast with all fields populated",
+        "testStrategy": "Import bots, check profiles have avatar, bio, capabilities. Verify badge displays. Test mobile rendering.",
+        "subtasks": []
+      },
+      {
+        "id": 277,
+        "title": "Pre-Moltbook: EC2 t3.small Capacity Planning",
+        "description": "Evaluate if t3.small (2 vCPU, 2GB RAM) handles Moltbook import traffic. Load test with k6/locust, monitor memory, plan upgrade path to t3.medium, set up CloudWatch alarms.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Steps:\n1. Estimate concurrent users from marketing push (50-200 in first 24hr)\n2. Load test: simulate 100 concurrent users hitting key endpoints\n3. Monitor memory under load (2GB tight with PostgreSQL + Redis + FastAPI)\n4. Check Docker container memory limits in docker-compose.prod.yml\n5. Plan upgrade path: t3.small \u2192 t3.medium if needed (~$30/mo)\n6. Set up CloudWatch alarms for CPU > 80% and memory > 85%\n7. Consider adding swap space as safety net",
+        "testStrategy": "Run load test with 100 concurrent users. Monitor CPU/memory. Verify no OOM kills. Document upgrade plan.",
+        "subtasks": []
+      },
+      {
+        "id": 278,
+        "title": "Pre-Moltbook: Search Performance with Thousands of Entities",
+        "description": "Verify search works at scale after Moltbook import. Check ILIKE performance, add indexes if needed, test pg_trgm for fuzzy search, verify trust-score ranking.",
+        "status": "pending",
+        "dependencies": [
+          273
+        ],
+        "priority": "medium",
+        "details": "Steps:\n1. After dry run import, test search with 50-100+ entities\n2. Measure response time for common queries (ILIKE is O(n) without index)\n3. Add database indexes on entities.display_name, entities.bio if missing\n4. Test search from web UI \u2014 verify results render correctly with many results\n5. Consider pg_trgm extension for fuzzy text search if performance is poor\n6. Verify trust-score ranking in search results works correctly",
+        "testStrategy": "Run search queries, measure response time. Verify < 200ms for common queries. Check results are ranked by trust score.",
+        "subtasks": []
+      },
+      {
+        "id": 279,
+        "title": "Pre-Moltbook: Bot Claim/Ownership Flow",
+        "description": "Design and implement a flow for bot owners to claim their imported profiles. 'Claim this bot' button, verification via source platform, elevated trust scores for claimed bots.",
+        "status": "pending",
+        "dependencies": [
+          273
+        ],
+        "priority": "medium",
+        "details": "Steps:\n1. Add 'Claim this bot' button on imported bot profiles\n2. Verification flow: prove ownership via source platform (matching API key, GitHub OAuth)\n3. Claimed bots get elevated trust scores and 'verified owner' badge\n4. Unclaimed bots remain as read-only profiles with base trust scores\n5. Notify admin when a claim is submitted for review\n6. This drives engagement: bot owners come to AgentGraph to manage identity",
+        "testStrategy": "Import a bot, click Claim, complete verification. Verify trust score increases and badge appears. Verify admin notification.",
+        "subtasks": []
+      },
+      {
+        "id": 280,
+        "title": "Pre-Moltbook: Email Infrastructure Rate Limits for Signup Surge",
+        "description": "Prepare email infrastructure for burst signups: check ImprovMX rate limits, test batch sending, implement email queue with retry, rate limit registration endpoint, test deliverability.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Steps:\n1. Check ImprovMX rate limits for forwarded outbound email\n2. Test sending 50+ verification emails in quick succession\n3. Implement email queue with retry logic if not present\n4. Add rate limiting on registration endpoint (prevent abuse)\n5. Verify email templates render correctly (verification, welcome, password reset)\n6. Test email deliverability \u2014 check spam score\n7. Fallback plan if email delivery fails (manual verification?)",
+        "testStrategy": "Send 50 test emails in 60 seconds. Verify all delivered. Check spam folder. Monitor for rate limit errors.",
+        "subtasks": []
       }
     ],
     "metadata": {

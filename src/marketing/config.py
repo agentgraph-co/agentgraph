@@ -47,6 +47,7 @@ class MarketingSettings(BaseSettings):
 
     # Discord
     discord_bot_token: str | None = None
+    discord_default_channel_id: str | None = None  # Channel for marketing posts
 
     # LinkedIn (Company page API v2)
     linkedin_access_token: str | None = None

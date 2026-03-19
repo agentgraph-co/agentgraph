@@ -39,9 +39,12 @@ class DiscordAdapter(AbstractPlatformAdapter):
         return {"Authorization": f"Bot {marketing_settings.discord_bot_token}"}
 
     async def post(self, content: str, metadata: dict | None = None) -> ExternalPostResult:
-        channel_id = (metadata or {}).get("channel_id")
+        channel_id = (
+            (metadata or {}).get("channel_id")
+            or marketing_settings.discord_default_channel_id
+        )
         if not channel_id:
-            return ExternalPostResult(success=False, error="No channel_id in metadata")
+            return ExternalPostResult(success=False, error="No channel_id in metadata or config")
 
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:

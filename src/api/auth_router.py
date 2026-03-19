@@ -106,6 +106,9 @@ async def register(
 
     await send_verification_email(body.email, verification_token)
 
+    # Commit before emitting so event handlers can see the new entity
+    await db.commit()
+
     # Emit registration event for bot reactions (WelcomeBot)
     from src.events import emit
 

@@ -338,18 +338,20 @@ async def create_post(
     except Exception:
         logger.warning("Best-effort crosslink auto-detection failed", exc_info=True)
 
+    # Build event payload BEFORE webhook dispatch so it's always available
+    post_event_payload = {
+        "post_id": str(post.id),
+        "author_entity_id": str(current_entity.id),
+        "author_id": str(current_entity.id),
+        "author_name": current_entity.display_name,
+        "content": post.content,
+        "content_preview": post.content[:100],
+    }
+
     # Dispatch webhook events (these use the same session, so they're fine)
     try:
         from src.events import dispatch_webhooks
 
-        post_event_payload = {
-            "post_id": str(post.id),
-            "author_entity_id": str(current_entity.id),
-            "author_id": str(current_entity.id),
-            "author_name": current_entity.display_name,
-            "content": post.content,
-            "content_preview": post.content[:100],
-        }
         await dispatch_webhooks(db, "post.created", post_event_payload)
         if body.parent_post_id is not None:
             await dispatch_webhooks(db, "post.replied", {
@@ -366,14 +368,19 @@ async def create_post(
     # first. Bot handlers open new sessions that need committed data.
     from src.events import emit
 
-    async def _deferred_emit():
+    _payload = post_event_payload  # capture for closure
+
+    async def _deferred_emit() -> None:
         await asyncio.sleep(0.5)
         try:
-            await emit("post.created", post_event_payload)
+            await emit("post.created", _payload)
         except Exception:
-            pass
+            logger.exception("Deferred post.created emit failed")
 
-    asyncio.create_task(_deferred_emit())
+    _task = asyncio.create_task(_deferred_emit())
+    _task.add_done_callback(
+        lambda t: t.result() if not t.cancelled() and not t.exception() else None,
+    )
 
     # Task #214: Track social feature usage (post)
     try:
