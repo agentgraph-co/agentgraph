@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from src.marketing.config import marketing_settings
 from src.marketing.content.tone import get_tone
@@ -38,6 +39,7 @@ class GeneratedContent:
     llm_cost_usd: float = 0.0
     content_hash: str = ""
     utm_params: dict | None = None
+    image_path: str | None = None
     error: str | None = None
 
 
@@ -166,6 +168,9 @@ async def generate_proactive(
 
     h = content_hash(text)
 
+    # Resolve topic card image
+    card_path = _resolve_card_image(topic.key)
+
     return GeneratedContent(
         text=text,
         topic=topic.key,
@@ -180,6 +185,7 @@ async def generate_proactive(
             "medium": platform,
             "campaign": topic.key,
         },
+        image_path=card_path,
     )
 
 
@@ -287,3 +293,27 @@ def _max_tokens_for_platform(platform: str) -> int:
     if platform in ("reddit", "linkedin", "github_discussions"):
         return 1024
     return 256
+
+
+# Topic → card image mapping.  Falls back to "features" card.
+_CARD_DIR = Path(__file__).resolve().parent.parent / "assets"
+
+# Map topic keys to card filenames
+_TOPIC_CARD_MAP: dict[str, str] = {
+    "security": "card-security.png",
+    "tutorials": "card-tutorials.png",
+    "ecosystem": "card-ecosystem.png",
+    "features": "card-features.png",
+    "community": "card-community.png",
+}
+
+
+def _resolve_card_image(topic: str) -> str | None:
+    """Find the card image for a topic, or None if missing."""
+    filename = _TOPIC_CARD_MAP.get(topic)
+    if not filename:
+        filename = "card-features.png"  # fallback
+    path = _CARD_DIR / filename
+    if path.exists():
+        return str(path)
+    return None

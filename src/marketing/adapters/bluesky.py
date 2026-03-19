@@ -69,6 +69,33 @@ class BlueskyAdapter(AbstractPlatformAdapter):
     def _auth_headers(self) -> dict:
         return {"Authorization": f"Bearer {self._access_jwt}"}
 
+    async def _upload_image(
+        self, image_path: str,
+    ) -> dict | None:
+        """Upload an image blob to Bluesky, return the blob ref."""
+        try:
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+
+            async with httpx.AsyncClient(
+                timeout=30.0,
+            ) as client:
+                resp = await client.post(
+                    f"{_PDS_URL}/com.atproto.repo.uploadBlob",
+                    content=image_data,
+                    headers={
+                        **self._auth_headers(),
+                        "Content-Type": "image/png",
+                    },
+                )
+                resp.raise_for_status()
+                return resp.json().get("blob")
+        except Exception as exc:
+            logger.warning(
+                "Bluesky image upload failed: %s", exc,
+            )
+            return None
+
     async def post(self, content: str, metadata: dict | None = None) -> ExternalPostResult:
         if not await self._ensure_session():
             return ExternalPostResult(success=False, error="Bluesky auth failed")
@@ -88,6 +115,22 @@ class BlueskyAdapter(AbstractPlatformAdapter):
         facets = _extract_link_facets(content)
         if facets:
             record["facets"] = facets
+
+        # Attach image if provided
+        image_path = (
+            metadata.get("image_path") if metadata else None
+        )
+        if image_path:
+            blob = await self._upload_image(image_path)
+            if blob:
+                record["embed"] = {
+                    "$type": "app.bsky.embed.images",
+                    "images": [{
+                        "alt": "AgentGraph — trust infrastructure "
+                               "for AI agents",
+                        "image": blob,
+                    }],
+                }
 
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
