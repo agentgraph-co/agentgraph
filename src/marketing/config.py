@@ -74,12 +74,12 @@ class MarketingSettings(BaseSettings):
     huggingface_token: str | None = None
 
     # --- Scheduling cadences (seconds) ---
-    twitter_post_interval: int = 6 * 60 * 60       # 6hr
-    reddit_post_interval: int = 12 * 60 * 60        # 12hr
-    discord_post_interval: int = 8 * 60 * 60         # 8hr
-    linkedin_post_interval: int = 24 * 60 * 60       # 24hr
-    bluesky_post_interval: int = 8 * 60 * 60         # 8hr
-    telegram_post_interval: int = 8 * 60 * 60        # 8hr
+    twitter_post_interval: int = 24 * 60 * 60       # 1/day
+    reddit_post_interval: int = 24 * 60 * 60         # 1/day
+    discord_post_interval: int = 24 * 60 * 60        # 1/day
+    linkedin_post_interval: int = 24 * 60 * 60       # 1/day
+    bluesky_post_interval: int = 24 * 60 * 60        # 1/day
+    telegram_post_interval: int = 24 * 60 * 60       # 1/day
     devto_post_interval: int = 7 * 24 * 60 * 60      # Weekly
     hashnode_post_interval: int = 7 * 24 * 60 * 60   # Weekly
 

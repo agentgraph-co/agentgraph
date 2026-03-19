@@ -30,8 +30,13 @@ from src.marketing.scheduler import (
 
 logger = logging.getLogger(__name__)
 
-# Platforms that require human approval — draft only, never auto-post
-HUMAN_APPROVAL_PLATFORMS = {"hackernews", "producthunt"}
+# ALL platforms require human approval until workflow is proven.
+# Posts go to draft queue; admin approves via dashboard.
+HUMAN_APPROVAL_PLATFORMS = {
+    "twitter", "reddit", "bluesky", "discord", "linkedin",
+    "telegram", "devto", "hashnode", "github_discussions",
+    "huggingface", "hackernews", "producthunt",
+}
 
 
 def _get_adapters() -> dict[str, AbstractPlatformAdapter]:
