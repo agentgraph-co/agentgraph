@@ -35,16 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (token) {
-      // Skip if user was already eagerly set (e.g. by register())
-      if (!user) {
-        fetchMe()
-      } else {
-        setIsLoading(false)
-      }
+      fetchMe()
     } else {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, fetchMe])
 
   const login = useCallback(async (email: string, password: string) => {
