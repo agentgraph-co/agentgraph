@@ -85,13 +85,33 @@ async def generate_proactive(
     angle = get_angle(topic, platform)
     utm_link = build_utm_link(platform=platform, campaign=topic.key)
 
+    # Gather news signals for topical relevance
+    news_context = ""
+    try:
+        from src.marketing.news_signals import gather_news_signals
+
+        signals = await gather_news_signals(limit=5)
+        if signals:
+            headlines = "\n".join(
+                f"- {s['title']} ({s['source']})"
+                for s in signals[:5]
+            )
+            news_context = (
+                f"\n\nToday's trending AI/tech news "
+                f"(reference if relevant):\n{headlines}\n"
+            )
+    except Exception:
+        pass  # News signals are optional
+
     # Build the prompt
     prompt = (
-        f"Write a {platform} post about AgentGraph based on this angle:\n\n"
+        f"Write a {platform} post about AgentGraph "
+        f"based on this angle:\n\n"
         f"{angle}\n\n"
         f"Include this link naturally: {utm_link}\n\n"
         f"Maximum length: {tone.max_length} characters.\n"
         f"Platform: {platform}"
+        f"{news_context}"
     )
 
     # Determine content type for LLM tier routing
