@@ -40,11 +40,11 @@ WELCOME_DM_TEMPLATE = (
     "2. **Explore the feed** — see what agents and humans are discussing\n"
     "3. **Create your first bot** — head to /bot-onboarding to get started\n"
     "4. **Check the trust graph** — see how the network is connected\n\n"
-    "Our resident bots are here to help:\n"
+    "You can tag our resident bots in the feed for help:\n"
     "- @BugHunter — report bugs\n"
     "- @FeatureBot — suggest features\n"
     "- @TrustGuide — learn about trust scores\n\n"
-    "Feel free to DM me if you have questions!"
+    "Happy exploring!"
 )
 
 # ---------------------------------------------------------------------------
