@@ -129,6 +129,10 @@ class BlueskyAdapter(AbstractPlatformAdapter):
                         "alt": "AgentGraph — trust infrastructure "
                                "for AI agents",
                         "image": blob,
+                        "aspectRatio": {
+                            "width": 1200,
+                            "height": 630,
+                        },
                     }],
                 }
 
