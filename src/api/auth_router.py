@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +44,8 @@ from src.audit import log_action
 from src.config import settings
 from src.database import get_db
 from src.models import AnalyticsEvent, Entity
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -108,6 +112,15 @@ async def register(
 
     # Commit before emitting so event handlers can see the new entity
     await db.commit()
+
+    # Bootstrap trust score so new users can immediately use DMs etc.
+    try:
+        from src.trust.score import compute_trust_score
+
+        await compute_trust_score(db, entity.id)
+        await db.commit()
+    except Exception:
+        logger.warning("Failed to bootstrap trust score for %s", entity.id, exc_info=True)
 
     # Emit registration event for bot reactions (WelcomeBot)
     from src.events import emit
