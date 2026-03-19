@@ -12,6 +12,42 @@ from src.marketing.models import MarketingCampaign, MarketingPost
 
 logger = logging.getLogger(__name__)
 
+# Platform-specific URL patterns for external_id → URL mapping
+_URL_PATTERNS: dict[str, str] = {
+    "twitter": "https://x.com/i/status/{id}",
+    "reddit": "https://reddit.com/comments/{id}",
+    "linkedin": "https://linkedin.com/feed/update/{id}",
+    "devto": "https://dev.to/agentgraph/{id}",
+    "hashnode": "https://agentgraph.hashnode.dev/{id}",
+}
+
+
+def _post_url(
+    platform: str, external_id: str | None,
+) -> str | None:
+    """Construct a URL to the external post from its ID."""
+    if not external_id:
+        return None
+
+    # Bluesky AT URIs need special handling
+    if platform == "bluesky" and external_id.startswith("at://"):
+        # at://did:plc:xxx/app.bsky.feed.post/yyy → bsky.app URL
+        parts = external_id.split("/")
+        if len(parts) >= 5:
+            rkey = parts[-1]
+            return (
+                "https://bsky.app/profile/"
+                "agentgraph.bsky.social"
+                f"/post/{rkey}"
+            )
+        return None
+
+    pattern = _URL_PATTERNS.get(platform)
+    if pattern:
+        return pattern.format(id=external_id)
+
+    return None
+
 
 async def get_dashboard_data(db: AsyncSession) -> dict:
     """Aggregate marketing data for the admin dashboard."""
@@ -131,6 +167,7 @@ async def get_dashboard_data(db: AsyncSession) -> dict:
             "platform": p.platform,
             "topic": p.topic,
             "content": p.content[:200],
+            "url": _post_url(p.platform, p.external_id),
             "posted_at": p.posted_at.isoformat() if p.posted_at else None,
             "metrics": p.metrics_json,
             "llm_model": p.llm_model,

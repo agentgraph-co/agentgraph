@@ -206,19 +206,38 @@ class BlueskyAdapter(AbstractPlatformAdapter):
 
 
 def _extract_link_facets(text: str) -> list[dict]:
-    """Extract URLs from text and create Bluesky facets."""
+    """Extract URLs from text and create Bluesky facets.
+
+    Handles both full URLs (https://...) and bare domains
+    (agentgraph.co/...) since LLMs sometimes strip the protocol.
+    """
     import re
 
-    url_pattern = re.compile(r"https?://\S+")
+    # Match full URLs and bare domain patterns
+    url_pattern = re.compile(
+        r"https?://\S+"
+        r"|(?:agentgraph\.co\S*)",
+    )
     facets = []
     for match in url_pattern.finditer(text):
         start = match.start()
         end = match.end()
+        url = match.group()
+
+        # Ensure the URI has a protocol for the facet
+        uri = url if url.startswith("http") else f"https://{url}"
+
         # Bluesky uses byte offsets
         byte_start = len(text[:start].encode("utf-8"))
         byte_end = len(text[:end].encode("utf-8"))
         facets.append({
-            "index": {"byteStart": byte_start, "byteEnd": byte_end},
-            "features": [{"$type": "app.bsky.richtext.facet#link", "uri": match.group()}],
+            "index": {
+                "byteStart": byte_start,
+                "byteEnd": byte_end,
+            },
+            "features": [{
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": uri,
+            }],
         })
     return facets

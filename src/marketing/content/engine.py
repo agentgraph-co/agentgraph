@@ -119,7 +119,7 @@ async def generate_proactive(
         f"Write a {platform} post about AgentGraph "
         f"based on this angle:\n\n"
         f"{angle}\n\n"
-        f"Include this link naturally: {utm_link}\n\n"
+        f"Include this full link (keep the https://): {utm_link}\n\n"
         f"Maximum length: {tone.max_length} characters.\n"
         f"Platform: {platform}"
         f"{news_context}"
