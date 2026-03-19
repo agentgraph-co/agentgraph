@@ -1,4 +1,4 @@
-"""Weekly performance digest — auto-generated Sunday midnight UTC."""
+"""Weekly marketing digest — emailed to admin every Sunday midnight UTC."""
 from __future__ import annotations
 
 import logging
@@ -7,14 +7,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.marketing.content.templates import WEEKLY_DIGEST
 from src.marketing.models import MarketingPost
 
 logger = logging.getLogger(__name__)
 
 
-async def generate_weekly_digest(db: AsyncSession) -> str:
-    """Generate a markdown-formatted weekly digest of marketing performance."""
+async def get_digest_data(db: AsyncSession) -> dict:
+    """Gather weekly digest data for dashboard and email."""
     now = datetime.now(timezone.utc)
     week_start = now - timedelta(days=7)
 
@@ -28,12 +27,10 @@ async def generate_weekly_digest(db: AsyncSession) -> str:
             MarketingPost.posted_at >= week_start,
         ).group_by(MarketingPost.platform),
     )
-    platform_rows_list = []
-    for row in platform_q.all():
-        platform_rows_list.append(
-            f"| {row.platform} | {row.count} | — | — |"
-        )
-    platform_rows = "\n".join(platform_rows_list) or "| (none) | 0 | — | — |"
+    platforms = [
+        {"platform": row.platform, "posts": row.count}
+        for row in platform_q.all()
+    ]
 
     # Cost by model
     cost_q = await db.execute(
@@ -50,12 +47,17 @@ async def generate_weekly_digest(db: AsyncSession) -> str:
             MarketingPost.created_at >= week_start,
         ).group_by(MarketingPost.llm_model),
     )
-    cost_rows_list = []
-    for row in cost_q.all():
-        cost_rows_list.append(
-            f"| {row.llm_model} | {row.calls} | {row.tokens} | ${float(row.cost):.4f} |"
-        )
-    cost_rows = "\n".join(cost_rows_list) or "| (none) | 0 | 0 | $0.00 |"
+    cost_breakdown = [
+        {
+            "model": row.llm_model,
+            "calls": row.calls,
+            "tokens": row.tokens,
+            "cost_usd": round(float(row.cost), 4),
+        }
+        for row in cost_q.all()
+    ]
+
+    total_cost = sum(c["cost_usd"] for c in cost_breakdown)
 
     # Top performing posts
     top_q = await db.execute(
@@ -65,24 +67,152 @@ async def generate_weekly_digest(db: AsyncSession) -> str:
             MarketingPost.metrics_json.isnot(None),
         ).order_by(MarketingPost.posted_at.desc()).limit(5),
     )
-    top_list = []
+    top_posts = []
     for post in top_q.scalars().all():
         m = post.metrics_json or {}
         engagement = m.get("likes", 0) + m.get("comments", 0) + m.get("shares", 0)
-        top_list.append(
-            f"- [{post.platform}] {post.content[:80]}... "
-            f"({engagement} engagements)"
-        )
-    top_posts = "\n".join(top_list) or "- No posts with metrics this week"
+        top_posts.append({
+            "platform": post.platform,
+            "content": post.content[:120],
+            "engagement": engagement,
+            "likes": m.get("likes", 0),
+            "comments": m.get("comments", 0),
+            "shares": m.get("shares", 0),
+        })
 
-    digest = WEEKLY_DIGEST.format(
-        week_start=week_start.strftime("%B %d, %Y"),
-        platform_rows=platform_rows,
-        cost_rows=cost_rows,
-        top_posts=top_posts,
-        total_clicks=0,  # TODO: wire to analytics_events UTM tracking
-        attributed_signups=0,
-        cost_per_signup=0.0,
+    total_posts = sum(p["posts"] for p in platforms)
+
+    return {
+        "week_start": week_start.strftime("%B %d, %Y"),
+        "week_end": now.strftime("%B %d, %Y"),
+        "platforms": platforms,
+        "total_posts": total_posts,
+        "cost_breakdown": cost_breakdown,
+        "total_cost_usd": round(total_cost, 4),
+        "top_posts": top_posts,
+    }
+
+
+async def generate_weekly_digest(db: AsyncSession) -> dict:
+    """Generate digest data (used by dashboard API)."""
+    return await get_digest_data(db)
+
+
+async def send_weekly_digest_email(db: AsyncSession) -> bool:
+    """Generate and email the weekly digest to admin.
+
+    Called by the scheduler every Sunday midnight UTC.
+    Returns True if email was sent successfully.
+    """
+    from src.email import send_email
+    from src.models import Entity
+
+    data = await get_digest_data(db)
+
+    # Find admin
+    result = await db.execute(
+        select(Entity).where(
+            Entity.email == "***REMOVED***",
+            Entity.is_active.is_(True),
+        ).limit(1),
+    )
+    admin = result.scalar_one_or_none()
+    if not admin:
+        logger.warning("No admin entity found for weekly digest email")
+        return False
+
+    html = _render_digest_email(data)
+    subject = (
+        f"AgentGraph Marketing Digest — "
+        f"Week of {data['week_start']}"
     )
 
-    return digest
+    sent = await send_email(admin.email, subject, html)
+    if sent:
+        logger.info("Weekly digest email sent to %s", admin.email)
+    else:
+        logger.error("Failed to send weekly digest email")
+    return sent
+
+
+def _render_digest_email(data: dict) -> str:
+    """Render the weekly digest as an HTML email."""
+    from src.email import _load_template
+
+    # Platform rows
+    platform_rows = ""
+    for p in data["platforms"]:
+        platform_rows += (
+            "<tr>"
+            "<td style='padding:8px 12px;"
+            "border-bottom:1px solid #334155;'>"
+            f"{p['platform']}</td>"
+            "<td style='padding:8px 12px;"
+            "border-bottom:1px solid #334155;"
+            f"text-align:center;'>{p['posts']}</td>"
+            "</tr>"
+        )
+    if not platform_rows:
+        platform_rows = (
+            "<tr><td colspan='2' style='padding:8px 12px;"
+            "color:#94a3b8;'>No posts this week</td></tr>"
+        )
+
+    # Cost rows
+    cost_rows = ""
+    for c in data["cost_breakdown"]:
+        cost_rows += (
+            "<tr>"
+            "<td style='padding:8px 12px;"
+            "border-bottom:1px solid #334155;'>"
+            f"{c['model']}</td>"
+            "<td style='padding:8px 12px;"
+            "border-bottom:1px solid #334155;"
+            f"text-align:center;'>{c['calls']}</td>"
+            "<td style='padding:8px 12px;"
+            "border-bottom:1px solid #334155;"
+            f"text-align:right;'>${c['cost_usd']:.4f}</td>"
+            "</tr>"
+        )
+    if not cost_rows:
+        cost_rows = (
+            "<tr><td colspan='3' style='padding:8px 12px;"
+            "color:#94a3b8;'>No LLM usage this week</td></tr>"
+        )
+
+    # Top posts
+    top_posts_html = ""
+    for tp in data["top_posts"]:
+        top_posts_html += (
+            "<div style='padding:12px;background:#1e293b;"
+            "border-radius:8px;margin-bottom:8px;'>"
+            "<div style='color:#6366f1;font-size:12px;"
+            f"margin-bottom:4px;'>{tp['platform']}</div>"
+            "<div style='color:#e2e8f0;font-size:14px;'>"
+            f"{tp['content']}</div>"
+            "<div style='color:#94a3b8;font-size:12px;"
+            f"margin-top:6px;'>{tp['engagement']} engagements "
+            f"({tp['likes']} likes, {tp['comments']} comments, "
+            f"{tp['shares']} shares)</div>"
+            "</div>"
+        )
+    if not top_posts_html:
+        top_posts_html = (
+            "<p style='color:#94a3b8;'>"
+            "No posts with metrics this week</p>"
+        )
+
+    return _load_template(
+        "marketing_digest.html",
+        week_start=data["week_start"],
+        week_end=data["week_end"],
+        total_posts=str(data["total_posts"]),
+        total_cost=f"${data['total_cost_usd']:.2f}",
+        platform_rows=platform_rows,
+        cost_rows=cost_rows,
+        top_posts=top_posts_html,
+        fallback=(
+            f"Marketing Digest: {data['total_posts']} posts, "
+            f"${data['total_cost_usd']:.2f} spend"
+        ),
+    )

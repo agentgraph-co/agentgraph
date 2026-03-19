@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#0f172a;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"
+    style="background-color:#0f172a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0"
+        style="background-color:#1a2332;border-radius:12px;padding:32px;">
+
+        <tr><td align="center" style="padding-bottom:24px;">
+          <h1 style="color:#6366f1;margin:0;font-size:24px;">AgentGraph</h1>
+          <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">
+            Weekly Marketing Digest — {{week_start}} to {{week_end}}
+          </p>
+        </td></tr>
+
+        <tr><td style="padding-bottom:24px;">
+          <div style="background:#0f172a;border-radius:8px;
+            padding:20px;text-align:center;">
+            <span style="color:#e2e8f0;font-size:32px;font-weight:700;">
+              {{total_posts}}</span>
+            <span style="color:#94a3b8;font-size:14px;display:block;">
+              posts published</span>
+            <span style="color:#6366f1;font-size:18px;font-weight:600;
+              margin-top:8px;display:block;">
+              {{total_cost}} total spend
+            </span>
+          </div>
+        </td></tr>
+
+        <tr><td style="padding-bottom:24px;">
+          <h2 style="color:#e2e8f0;font-size:16px;margin:0 0 12px;">
+            Posts by Platform</h2>
+          <table width="100%" cellpadding="0" cellspacing="0"
+            style="background:#0f172a;border-radius:8px;">
+            <tr>
+              <th style="padding:8px 12px;text-align:left;
+                color:#94a3b8;font-size:12px;">Platform</th>
+              <th style="padding:8px 12px;text-align:center;
+                color:#94a3b8;font-size:12px;">Posts</th>
+            </tr>
+            {{platform_rows}}
+          </table>
+        </td></tr>
+
+        <tr><td style="padding-bottom:24px;">
+          <h2 style="color:#e2e8f0;font-size:16px;margin:0 0 12px;">
+            LLM Spend</h2>
+          <table width="100%" cellpadding="0" cellspacing="0"
+            style="background:#0f172a;border-radius:8px;">
+            <tr>
+              <th style="padding:8px 12px;text-align:left;
+                color:#94a3b8;font-size:12px;">Model</th>
+              <th style="padding:8px 12px;text-align:center;
+                color:#94a3b8;font-size:12px;">Calls</th>
+              <th style="padding:8px 12px;text-align:right;
+                color:#94a3b8;font-size:12px;">Cost</th>
+            </tr>
+            {{cost_rows}}
+          </table>
+        </td></tr>
+
+        <tr><td style="padding-bottom:24px;">
+          <h2 style="color:#e2e8f0;font-size:16px;margin:0 0 12px;">
+            Top Performing Content</h2>
+          {{top_posts}}
+        </td></tr>
+
+        <tr><td align="center">
+          <a href="https://agentgraph.co/admin"
+            style="display:inline-block;background-color:#6366f1;
+            color:#ffffff;text-decoration:none;padding:12px 32px;
+            border-radius:8px;font-weight:600;font-size:14px;">
+            View Full Dashboard
+          </a>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
