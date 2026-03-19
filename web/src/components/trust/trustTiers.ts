@@ -37,15 +37,15 @@ const COMMUNITY_TIERS: readonly { min: number; label: string }[] = [
 ]
 
 // ─── Tier Colors (axis-specific, accessible, color-blind safe) ───
-// Attestation = cool spectrum (blue/indigo) — institutional/credential trust
+// Attestation = pink/fuchsia spectrum — institutional/credential trust
 // Community   = warm spectrum (green/emerald) — peer/social trust
 
 const ATTESTATION_COLORS: readonly string[] = [
   '#6C7086', // 0 — gray/muted (no credentials)
-  '#60A5FA', // 1 — sky blue (basic verification)
-  '#3B82F6', // 2 — blue (confirmed)
-  '#818CF8', // 3 — indigo (validated)
-  '#A78BFA', // 4 — violet (gradient start — verified)
+  '#F0ABFC', // 1 — fuchsia-300 (basic verification)
+  '#E879F9', // 2 — fuchsia-400 / accent (confirmed)
+  '#D946EF', // 3 — fuchsia-500 (validated)
+  '#C026D3', // 4 — fuchsia-600 (gradient start — verified)
   '#F59E0B', // 5 — gold (certified — prestige tier)
 ]
 
@@ -59,7 +59,7 @@ const COMMUNITY_COLORS: readonly string[] = [
 ]
 
 const ATTESTATION_GRADIENTS: Record<number, string> = {
-  4: 'linear-gradient(135deg, #A78BFA, #6366F1)',
+  4: 'linear-gradient(135deg, #D946EF, #A21CAF)',
   5: 'linear-gradient(135deg, #F59E0B, #EAB308)',
 }
 
@@ -118,9 +118,9 @@ export function tierTextClass(level: number, axis: TrustAxis = 'attestation'): s
   if (level === 0) return 'text-text-muted'
   if (axis === 'attestation') {
     switch (level) {
-      case 1: return 'text-sky-400'
-      case 2: return 'text-blue-500'
-      case 3: return 'text-indigo-400'
+      case 1: return 'text-fuchsia-300'
+      case 2: return 'text-fuchsia-400'
+      case 3: return 'text-fuchsia-500'
       default: return ''
     }
   }
