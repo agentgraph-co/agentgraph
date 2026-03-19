@@ -266,8 +266,14 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
                 results["drafts"].append({"platform": platform_name, "topic": content.topic})
                 continue
 
-            # Post it
-            result = await adapter.post(content.text)
+            # Post it (with image if available)
+            post_metadata = {}
+            if content.image_path:
+                post_metadata["image_path"] = content.image_path
+            result = await adapter.post(
+                content.text,
+                metadata=post_metadata or None,
+            )
 
             if result.success:
                 await _save_post(
