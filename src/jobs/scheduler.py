@@ -180,6 +180,30 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Weekly digest email job failed")
 
+        # Job 10: Marketing metrics refresh
+        try:
+            from src.config import settings as _metrics_settings
+
+            if _metrics_settings.marketing_enabled:
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.marketing.metrics import (
+                            refresh_metrics,
+                        )
+
+                        summary = await refresh_metrics(session)
+                        if summary.get("updated", 0) > 0:
+                            logger.info(
+                                "Marketing metrics refresh: %s",
+                                summary,
+                            )
+                        else:
+                            logger.debug(
+                                "Marketing metrics: nothing to update",
+                            )
+        except Exception:
+            logger.exception("Marketing metrics refresh failed")
+
         # Job 9: Moltbook auto-import flywheel
         try:
             from src.config import settings as _mkt_settings

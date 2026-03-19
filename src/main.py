@@ -32,6 +32,7 @@ from src.api.badge_router import router as badge_router
 from src.api.badges_router import router as badges_router
 from src.api.bot_onboarding_router import router as bot_onboarding_router
 from src.api.bridges_router import router as bridges_router
+from src.api.campaign_router import router as campaign_router
 from src.api.compliance_router import router as compliance_router
 from src.api.credentials_router import router as credentials_router
 from src.api.crewai_router import router as crewai_router
@@ -595,6 +596,7 @@ app.include_router(bot_onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
+app.include_router(campaign_router, prefix=settings.api_v1_prefix)
 app.include_router(marketing_router, prefix=settings.api_v1_prefix)
 app.include_router(token_router, prefix=settings.api_v1_prefix)
 
