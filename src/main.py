@@ -167,16 +167,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     register_event_handlers()
 
-    # Register marketing event handlers if enabled
-    if settings.marketing_enabled:
-        try:
-            from src.events import register_handler
-            from src.marketing.onboarding import handle_entity_registered_marketing
-
-            register_handler("entity.registered", handle_entity_registered_marketing)
-            logging.getLogger(__name__).info("Marketing event handlers registered")
-        except Exception:
-            logging.getLogger(__name__).warning("Marketing handlers registration failed")
+    # Note: marketing welcome DM handler removed — bots/engine.py WelcomeBot
+    # already sends a welcome DM on entity.registered (was causing duplicates).
 
     # Startup: bootstrap official bots (idempotent)
     try:

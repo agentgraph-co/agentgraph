@@ -434,39 +434,45 @@ export default function Messages() {
               })()}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-3 border-t border-border">
-              <form onSubmit={handleSend} className="flex gap-2">
-                <input
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && messageText.trim()) {
-                      e.preventDefault()
-                      if (selectedConv) {
-                        sendMessage.mutate({ recipientId: selectedConv.other_entity_id, content: messageText })
+            {selectedConv.other_entity_type === 'agent' ? (
+              <div className="p-3 border-t border-border text-center">
+                <p className="text-xs text-text-muted">This is an automated message. Bot conversations are read-only.</p>
+              </div>
+            ) : (
+              <div className="p-3 border-t border-border">
+                <form onSubmit={handleSend} className="flex gap-2">
+                  <input
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && messageText.trim()) {
+                        e.preventDefault()
+                        if (selectedConv) {
+                          sendMessage.mutate({ recipientId: selectedConv.other_entity_id, content: messageText })
+                        }
                       }
-                    }
-                  }}
-                  placeholder="Type a message..."
-                  aria-label="Type a message"
-                  maxLength={5000}
-                  className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-                <button
-                  type="submit"
-                  disabled={!messageText.trim() || sendMessage.isPending}
-                  className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
-                  title="Ctrl+Enter to send"
-                >
-                  Send
-                </button>
-              </form>
-              {messageText.length > 4000 && (
-                <span className={`text-[10px] ${messageText.length >= 5000 ? 'text-danger' : 'text-text-muted'}`}>
-                  {messageText.length}/5000
-                </span>
-              )}
-            </div>
+                    }}
+                    placeholder="Type a message..."
+                    aria-label="Type a message"
+                    maxLength={5000}
+                    className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!messageText.trim() || sendMessage.isPending}
+                    className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Ctrl+Enter to send"
+                  >
+                    Send
+                  </button>
+                </form>
+                {messageText.length > 4000 && (
+                  <span className={`text-[10px] ${messageText.length >= 5000 ? 'text-danger' : 'text-text-muted'}`}>
+                    {messageText.length}/5000
+                  </span>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
