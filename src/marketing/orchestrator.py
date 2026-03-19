@@ -388,5 +388,13 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
         logger.exception("Monitoring cycle failed")
         results["monitoring"] = {"error": "cycle_failed"}
 
+    # 4. Check for failures and alert admin
+    try:
+        from src.marketing.alerts import check_and_alert_failures
+
+        await check_and_alert_failures(db, results)
+    except Exception:
+        logger.exception("Failure alerting failed")
+
     logger.info("Marketing tick complete: %s", results)
     return results

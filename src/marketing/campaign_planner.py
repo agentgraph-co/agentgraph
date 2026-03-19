@@ -118,7 +118,7 @@ async def generate_weekly_plan(
     )
 
     perf = await _last_week_performance(db)
-    signals = await gather_news_signals(limit=15)
+    signals = await gather_news_signals(limit=15, days=7)
     platforms = await _configured_platforms()
 
     monday = date.today() + timedelta(
