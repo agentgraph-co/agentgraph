@@ -82,7 +82,7 @@ interface MarketingDashboard {
   type_stats: { post_type: string; count: number }[]
   engagement: { total_likes: number; total_comments: number; total_shares: number; total_impressions: number }
   cost: { breakdown: { model: string; calls: number; cost_usd: number; tokens_in: number; tokens_out: number }[]; daily_spend_usd: number; monthly_spend_usd: number }
-  recent_posts: { id: string; platform: string; content: string; topic: string | null; posted_at: string | null; metrics: Record<string, number> | null; llm_model: string | null; llm_cost_usd: number | null }[]
+  recent_posts: { id: string; platform: string; content: string; url: string | null; topic: string | null; posted_at: string | null; metrics: Record<string, number> | null; llm_model: string | null; llm_cost_usd: number | null }[]
   pending_drafts: number
   campaigns: { id: string; name: string; status: string; topic: string; platforms: string[] }[]
 }
@@ -2242,7 +2242,7 @@ export default function Admin() {
                         {mktDashboard.recent_posts.map((post) => (
                           <tr key={post.id} className="border-b border-border/50">
                             <td className="text-xs px-4 py-2 capitalize">{post.platform}</td>
-                            <td className="text-xs px-4 py-2 max-w-[200px] truncate">{post.content}</td>
+                            <td className="text-xs px-4 py-2 max-w-[200px] truncate">{post.url ? <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 hover:underline">{post.content}</a> : post.content}</td>
                             <td className="text-xs px-4 py-2 capitalize">{post.topic ?? '—'}</td>
                             <td className="text-xs px-4 py-2 text-text-muted">{post.llm_model ?? 'template'}</td>
                             <td className="text-xs px-4 py-2 text-right">${(post.llm_cost_usd ?? 0).toFixed(4)}</td>
