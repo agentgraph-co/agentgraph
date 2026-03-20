@@ -38,7 +38,7 @@ def main():
 
     # Step 0: Login as admin
     print("\n=== Step 0: Login as admin ===")
-    admin_email = os.environ.get("ADMIN_EMAIL", "***REMOVED***")
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@agentgraph.co")
     admin_password = os.environ.get("ADMIN_PASSWORD")
     if not admin_password:
         print("ERROR: Set ADMIN_PASSWORD env var")

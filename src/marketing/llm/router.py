@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 
+from src.config import settings
 from src.marketing.llm.anthropic_client import LLMResponse
 from src.marketing.llm.cost_tracker import (
     is_over_daily_budget,
@@ -253,7 +254,7 @@ async def _send_budget_nudge(title: str, body: str) -> None:
         # Find admin entity
         result = await db.execute(
             select(Entity).where(
-                Entity.email == "***REMOVED***",
+                Entity.email == settings.admin_email,
                 Entity.is_active.is_(True),
             ).limit(1),
         )

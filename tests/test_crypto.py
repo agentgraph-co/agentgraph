@@ -5,7 +5,7 @@ from src.crypto import decrypt_token, encrypt_token
 
 
 def test_encrypt_decrypt_roundtrip():
-    plaintext = "***REMOVED***"
+    plaintext = "test_token_value_12345"
     ciphertext = encrypt_token(plaintext)
     assert ciphertext != plaintext
     assert decrypt_token(ciphertext) == plaintext

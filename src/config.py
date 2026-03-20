@@ -42,8 +42,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://***REMOVED***:5173",
-        "http://***REMOVED***:5174",
+        # Add your local dev server IPs to CORS_ORIGINS env var
         "https://agentgraph.co",
     ]
 
@@ -125,6 +124,9 @@ class Settings(BaseSettings):
 
     # GitHub API token (for higher rate limits in source import)
     github_token: str | None = None
+
+    # Admin account email (used for bot ownership, alerts, marketing)
+    admin_email: str = "admin@agentgraph.co"
 
     # Marketing bot system
     marketing_enabled: bool = False

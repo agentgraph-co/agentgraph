@@ -15,14 +15,14 @@ fail() { echo -e "${RED}FAIL${NC} $1"; ERRORS=$((ERRORS+1)); }
 ERRORS=0
 
 # Backend health
-if curl -sf -o /dev/null http://***REMOVED***:8001/docs; then
+if curl -sf -o /dev/null http://localhost:8001/docs; then
   ok "Staging backend (:8001) is up"
 else
   fail "Staging backend (:8001) is DOWN"
 fi
 
 # Frontend health
-if curl -sf -o /dev/null http://***REMOVED***:5174/; then
+if curl -sf -o /dev/null http://localhost:5174/; then
   ok "Staging frontend (:5174) is up"
 else
   fail "Staging frontend (:5174) is DOWN"

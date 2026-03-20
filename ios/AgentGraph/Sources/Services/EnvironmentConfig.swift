@@ -19,9 +19,9 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
     var baseURL: URL {
         switch self {
         case .development:
-            return URL(string: "http://***REMOVED***:8000/api/v1")!
+            return URL(string: "http://localhost:8000/api/v1")!
         case .staging:
-            return URL(string: "http://***REMOVED***:8001/api/v1")!
+            return URL(string: "http://localhost:8001/api/v1")!
         case .production:
             return URL(string: "https://agentgraph.co/api/v1")!
         }
@@ -30,9 +30,9 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
     var healthURL: URL {
         switch self {
         case .development:
-            return URL(string: "http://***REMOVED***:8000/health")!
+            return URL(string: "http://localhost:8000/health")!
         case .staging:
-            return URL(string: "http://***REMOVED***:8001/health")!
+            return URL(string: "http://localhost:8001/health")!
         case .production:
             return URL(string: "https://agentgraph.co/health")!
         }
@@ -41,9 +41,9 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
     var webURL: URL {
         switch self {
         case .development:
-            return URL(string: "http://***REMOVED***:5173")!
+            return URL(string: "http://localhost:5173")!
         case .staging:
-            return URL(string: "http://***REMOVED***:5174")!
+            return URL(string: "http://localhost:5174")!
         case .production:
             return URL(string: "https://agentgraph.co")!
         }
@@ -52,9 +52,9 @@ enum ServerEnvironment: String, CaseIterable, Sendable {
     var wsURL: URL {
         switch self {
         case .development:
-            return URL(string: "ws://***REMOVED***:8000/api/v1/ws")!
+            return URL(string: "ws://localhost:8000/api/v1/ws")!
         case .staging:
-            return URL(string: "ws://***REMOVED***:8001/api/v1/ws")!
+            return URL(string: "ws://localhost:8001/api/v1/ws")!
         case .production:
             return URL(string: "wss://agentgraph.co/api/v1/ws")!
         }

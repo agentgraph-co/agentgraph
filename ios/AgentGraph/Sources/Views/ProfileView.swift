@@ -294,7 +294,7 @@ struct ProfileView: View {
                         .font(AGTypography.sm)
                         .fontWeight(.medium)
                         .foregroundStyle(Color.agText)
-                    Text("***REMOVED***:\(envManager.current == .staging ? 5174 : 5173)")
+                    Text("localhost:\(envManager.current == .staging ? 5174 : 5173)")
                         .font(AGTypography.xs)
                         .foregroundStyle(Color.agMuted)
                 }

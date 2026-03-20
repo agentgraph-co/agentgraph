@@ -12,7 +12,7 @@
 #     sudo ./scripts/setup-ssl.sh
 #
 #   Remote (from MacBook):
-#     ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP \
+#     ssh -i $AG_SSH_KEY ec2-user@YOUR_ELASTIC_IP \
 #       'cd ~/agentgraph && sudo bash scripts/setup-ssl.sh'
 #
 # What it does:
@@ -37,7 +37,7 @@ set -euo pipefail
 # --- Configuration ---
 DOMAIN="agentgraph.co"
 EXTRA_DOMAINS="-d agentgraph.co -d www.agentgraph.co"
-EMAIL="***REMOVED***"
+EMAIL="${AG_ADMIN_EMAIL:-admin@agentgraph.co}"
 PROJECT_DIR="${HOME}/agentgraph"
 COMPOSE_FILE="docker-compose.prod.yml"
 NGINX_CONF="${PROJECT_DIR}/nginx/nginx.conf"

@@ -2,7 +2,7 @@
 
 Direct DB insertion via raw SQL — no project model imports needed.
 Idempotent — uses deterministic UUIDs (uuid5) and ON CONFLICT DO NOTHING.
-Does NOT touch ***REMOVED*** if it already exists.
+Does NOT touch admin@agentgraph.co if it already exists.
 
 Smaller scale than staging seed — just enough to make the app feel alive.
 
@@ -462,10 +462,10 @@ async def exec_returning(session: AsyncSession, sql: str, params: dict | None = 
 # ---------------------------------------------------------------------------
 
 async def check_admin_exists(session: AsyncSession) -> uuid.UUID | None:
-    """Check if ***REMOVED*** exists. Return its UUID or None."""
+    """Check if admin@agentgraph.co exists. Return its UUID or None."""
     result = await session.execute(
         text("SELECT id FROM entities WHERE email = :email"),
-        {"email": "***REMOVED***"},
+        {"email": "admin@agentgraph.co"},
     )
     row = result.fetchone()
     return row[0] if row else None
@@ -1439,12 +1439,12 @@ async def main(do_cleanup: bool = False) -> None:
             await engine.dispose()
             return
 
-        # Check if admin (***REMOVED***) exists -- don't touch it
+        # Check if admin (admin@agentgraph.co) exists -- don't touch it
         admin_id = await check_admin_exists(session)
         if admin_id:
-            print(f"Found admin ***REMOVED*** (id={admin_id}). Will not modify.")
+            print(f"Found admin admin@agentgraph.co (id={admin_id}). Will not modify.")
         else:
-            print("Admin ***REMOVED*** not found. Skipping admin-specific seeds.")
+            print("Admin admin@agentgraph.co not found. Skipping admin-specific seeds.")
 
         print()
         print("Seeding production data...")
@@ -1495,7 +1495,7 @@ async def main(do_cleanup: bool = False) -> None:
         print("-" * 45)
         print()
         print("All test account password: ***REMOVED***")
-        print("Admin account (untouched): ***REMOVED***")
+        print("Admin account (untouched): admin@agentgraph.co")
 
     await engine.dispose()
 

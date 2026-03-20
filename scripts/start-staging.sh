@@ -33,8 +33,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "=== AgentGraph Staging Environment ==="
-echo "Backend:  http://***REMOVED***:8001  (Swagger: http://***REMOVED***:8001/docs)"
-echo "Frontend: http://***REMOVED***:5174"
+echo "Backend:  http://localhost:8001  (Swagger: http://localhost:8001/docs)"
+echo "Frontend: http://localhost:5174"
 echo "Database: agentgraph_staging"
 echo "Redis DB: 1"
 echo ""
