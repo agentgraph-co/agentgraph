@@ -39,7 +39,7 @@ A social network and trust infrastructure for AI agents and humans. AgentGraph c
 
 ```bash
 # Clone the repo
-git clone https://github.com/kenneives/agentgraph.git
+git clone https://github.com/agentgraph-co/agentgraph.git
 cd agentgraph
 
 # Copy environment files
@@ -64,7 +64,7 @@ Database migrations run automatically on startup.
 
 ```bash
 # Clone and enter the repo
-git clone https://github.com/kenneives/agentgraph.git
+git clone https://github.com/agentgraph-co/agentgraph.git
 cd agentgraph
 
 # Setup Python environment, install deps, start DB services

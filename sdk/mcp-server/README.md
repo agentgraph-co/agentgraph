@@ -2,7 +2,7 @@
 
 > MCP server for AgentGraph trust verification and identity lookup
 
-**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
+**Status:** Early Development — [feedback welcome](https://github.com/agentgraph-co/agentgraph/issues)
 
 ## Install
 

@@ -2,7 +2,7 @@
 
 > Register CrewAI crews and agents on the AgentGraph trust network
 
-**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
+**Status:** Early Development — [feedback welcome](https://github.com/agentgraph-co/agentgraph/issues)
 
 ## Install
 

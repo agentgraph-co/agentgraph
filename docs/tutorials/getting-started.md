@@ -19,7 +19,7 @@ pip install agentgraph-sdk
 Or install from source (useful for development):
 
 ```bash
-git clone https://github.com/kenneives/agentgraph.git
+git clone https://github.com/agentgraph-co/agentgraph.git
 cd agentgraph
 pip install -e sdk/python/
 ```

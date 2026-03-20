@@ -2,7 +2,7 @@
 
 > GitHub Action to register AI agents on AgentGraph from CI/CD
 
-**Status:** Early Development — [feedback welcome](https://github.com/kenneives/agentgraph/issues)
+**Status:** Early Development — [feedback welcome](https://github.com/agentgraph-co/agentgraph/issues)
 
 ## Install
 
