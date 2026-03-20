@@ -364,6 +364,8 @@ export default function Profile() {
 
   const [showClaimDialog, setShowClaimDialog] = useState(false)
   const [claimReason, setClaimReason] = useState('')
+  const [showRemovalDialog, setShowRemovalDialog] = useState(false)
+  const [removalReason, setRemovalReason] = useState('')
 
   const claimMutation = useMutation({
     mutationFn: async () => {
@@ -373,10 +375,24 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
       setShowClaimDialog(false)
       setClaimReason('')
-      addToast('Claim request submitted. An admin will review it.', 'success')
+      addToast('Profile claimed successfully! You are now the operator.', 'success')
     },
     onError: (err: any) => {
-      addToast(err?.response?.data?.detail || 'Failed to submit claim', 'error')
+      addToast(err?.response?.data?.detail || 'Failed to claim profile', 'error')
+    },
+  })
+
+  const removalMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/profiles/${entityId}/request-removal`, { reason: removalReason })
+    },
+    onSuccess: () => {
+      setShowRemovalDialog(false)
+      setRemovalReason('')
+      addToast('Removal request submitted. We\'ll review it within 48 hours.', 'success')
+    },
+    onError: (err: any) => {
+      addToast(err?.response?.data?.detail || 'Failed to submit removal request', 'error')
     },
   })
 
@@ -837,32 +853,34 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Claim this bot — shown for provisional unclaimed bots to logged-in humans */}
-        {profile.type === 'agent' && profile.is_provisional && !profile.operator_id && user && user.id !== entityId && (
-          <div className="mb-4">
-            {profile.onboarding_data?.ownership_claim?.status === 'pending' ? (
-              profile.onboarding_data.ownership_claim.claimed_by === user.id ? (
-                <div className="flex items-center gap-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-md">
-                  <span className="text-xs text-warning font-medium">Your claim is pending admin review</span>
+        {/* Imported profile banner — shown for provisional unclaimed bots */}
+        {profile.type === 'agent' && profile.is_provisional && !profile.operator_id && (
+          <div className="mb-4 bg-primary/5 border border-primary/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-primary-light mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-text mb-2">
+                  This profile was imported{profile.source_type ? ` from ${profile.source_type}` : ''}. If you operate this bot, you can claim and verify this profile.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {user && user.id !== entityId && (
+                    <button
+                      onClick={() => setShowClaimDialog(true)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                      Claim this profile
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowRemovalDialog(true)}
+                    className="text-sm text-text-muted hover:text-danger transition-colors cursor-pointer underline underline-offset-2"
+                  >
+                    Not your bot? Request removal
+                  </button>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2 bg-surface-hover border border-border rounded-md">
-                  <span className="text-xs text-text-muted">Someone has already submitted a claim for this bot</span>
-                </div>
-              )
-            ) : profile.onboarding_data?.ownership_claim?.status === 'rejected' && profile.onboarding_data.ownership_claim.claimed_by === user.id ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-md">
-                <span className="text-xs text-danger">Your previous claim was not approved</span>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowClaimDialog(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary-light border border-primary/20 rounded-md text-sm hover:bg-primary/20 transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                Claim this bot
-              </button>
-            )}
+            </div>
           </div>
         )}
 
@@ -1499,14 +1517,14 @@ export default function Profile() {
           <div className="bg-surface border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-text mb-2">Claim {profile.display_name}</h3>
             <p className="text-sm text-text-muted mb-4">
-              Submit a request to claim ownership of this bot profile. An admin will review your request.
+              Claim ownership of this imported profile. You will immediately become the operator of this bot.
             </p>
             <textarea
               value={claimReason}
               onChange={(e) => setClaimReason(e.target.value)}
               rows={3}
               maxLength={1000}
-              placeholder="Why do you believe you own this bot? (optional)"
+              placeholder="Why do you believe you operate this bot? (optional)"
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none mb-4"
             />
             <div className="flex gap-3 justify-end">
@@ -1521,7 +1539,42 @@ export default function Profile() {
                 disabled={claimMutation.isPending}
                 className="px-4 py-2 text-sm rounded-md bg-primary text-white hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50"
               >
-                {claimMutation.isPending ? 'Submitting...' : 'Submit Claim'}
+                {claimMutation.isPending ? 'Claiming...' : 'Claim Profile'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Removal dialog */}
+      {showRemovalDialog && profile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowRemovalDialog(false)}>
+          <div className="bg-surface border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-text mb-2">Request Removal</h3>
+            <p className="text-sm text-text-muted mb-4">
+              Request removal of this imported profile. Our team will review your request within 48 hours.
+            </p>
+            <textarea
+              value={removalReason}
+              onChange={(e) => setRemovalReason(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="Why should this profile be removed? (optional)"
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowRemovalDialog(false); setRemovalReason('') }}
+                className="px-4 py-2 text-sm rounded-md border border-border text-text-muted hover:text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => removalMutation.mutate()}
+                disabled={removalMutation.isPending}
+                className="px-4 py-2 text-sm rounded-md bg-danger text-white hover:bg-danger/80 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {removalMutation.isPending ? 'Submitting...' : 'Submit Request'}
               </button>
             </div>
           </div>

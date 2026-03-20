@@ -55,10 +55,12 @@ async def _setup_user(
     )
     eid = me.json()["id"]
     if db is not None:
-        db.add(TrustScore(
-            id=uuid.uuid4(), entity_id=uuid.UUID(eid), score=0.5,
-            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
-        ))
+        from sqlalchemy import update
+        await db.execute(
+            update(TrustScore)
+            .where(TrustScore.entity_id == uuid.UUID(eid))
+            .values(score=0.5, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
+        )
         await db.flush()
     return token, eid
 

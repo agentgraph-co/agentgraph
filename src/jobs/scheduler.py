@@ -257,6 +257,56 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing recap job failed")
 
+        # Job 13: Expired email verification token cleanup (daily)
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            _now = datetime.now(timezone.utc)
+            # Run once per day — use Redis flag to avoid re-running each tick
+            _cleanup_ran = False
+            try:
+                from src.redis_client import get_redis as _get_redis_cleanup
+
+                _rc = _get_redis_cleanup()
+                _cleanup_key = f"ag:jobs:token_cleanup:{_now.strftime('%Y-%m-%d')}"
+                _cleanup_ran = bool(await _rc.get(_cleanup_key))
+                if not _cleanup_ran:
+                    await _rc.set(_cleanup_key, "1", ex=86400 * 2)
+            except Exception:
+                pass
+
+            if not _cleanup_ran:
+                from sqlalchemy import delete as sa_delete
+
+                from src.models import EmailVerification
+
+                async with async_session() as session:
+                    async with session.begin():
+                        # Remove used tokens older than 30 days
+                        cutoff = _now - timedelta(days=30)
+                        r1 = await session.execute(
+                            sa_delete(EmailVerification).where(
+                                EmailVerification.is_used.is_(True),
+                                EmailVerification.created_at < cutoff,
+                            )
+                        )
+                        # Remove expired tokens
+                        r2 = await session.execute(
+                            sa_delete(EmailVerification).where(
+                                EmailVerification.expires_at < _now,
+                            )
+                        )
+                        total = r1.rowcount + r2.rowcount
+                        if total > 0:
+                            logger.info(
+                                "Token cleanup: removed %d expired/used email verifications",
+                                total,
+                            )
+                        else:
+                            logger.debug("Token cleanup: nothing to remove")
+        except Exception:
+            logger.exception("Email verification token cleanup failed")
+
         # Job 9: Moltbook auto-import flywheel
         try:
             from src.config import settings as _mkt_settings

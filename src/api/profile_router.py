@@ -17,6 +17,8 @@ from src.models import (
     Entity,
     EntityRelationship,
     EntityType,
+    ModerationFlag,
+    ModerationReason,
     Post,
     PrivacyTier,
     RelationshipType,
@@ -823,3 +825,75 @@ async def get_activity_summary(
         },
         "heatmap": heatmap,
     }
+
+
+# ---------------------------------------------------------------------------
+# Removal request for imported/provisional profiles
+# ---------------------------------------------------------------------------
+
+
+class RemovalRequestBody(BaseModel):
+    reason: str = Field("", max_length=2000, description="Why this profile should be removed")
+
+
+class RemovalRequestResponse(BaseModel):
+    status: str
+    message: str
+
+
+@router.post(
+    "/{entity_id}/request-removal",
+    response_model=RemovalRequestResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def request_profile_removal(
+    entity_id: uuid.UUID,
+    body: RemovalRequestBody,
+    db: AsyncSession = Depends(get_db),
+):
+    """Request removal of a provisional (imported) profile.
+
+    No authentication required — anyone can request removal of an imported
+    profile.  Creates a ModerationFlag for admin review.
+    """
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if not entity.is_active:
+        raise HTTPException(status_code=400, detail="Profile is already deactivated")
+
+    if not entity.is_provisional:
+        raise HTTPException(
+            status_code=400,
+            detail="Only provisional (imported) profiles can be requested for removal",
+        )
+
+    # Content-filter the reason
+    if body.reason:
+        from src.content_filter import check_content
+
+        reason_check = check_content(body.reason)
+        if not reason_check.is_clean:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Reason rejected: {', '.join(reason_check.flags)}",
+            )
+
+    # Create a moderation flag for admin review
+    flag = ModerationFlag(
+        id=uuid.uuid4(),
+        reporter_entity_id=None,  # No auth required
+        target_type="entity",
+        target_id=entity_id,
+        reason=ModerationReason.OTHER,
+        details=f"[Removal request] {body.reason}".strip() if body.reason else "[Removal request]",
+    )
+    db.add(flag)
+    await db.flush()
+
+    return RemovalRequestResponse(
+        status="submitted",
+        message="Removal request submitted for review. We'll review it within 48 hours.",
+    )

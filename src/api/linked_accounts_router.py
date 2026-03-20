@@ -20,6 +20,9 @@ from src.models import LinkedAccount
 
 logger = logging.getLogger(__name__)
 
+# Strong reference set to prevent background tasks from being GC'd
+_background_tasks: set[asyncio.Task] = set()  # type: ignore[type-arg]
+
 router = APIRouter(prefix="/linked-accounts", tags=["linked-accounts"])
 
 
@@ -139,7 +142,9 @@ async def github_callback(
 
     # Kick off background sync for reputation data
     linked = existing or la
-    asyncio.ensure_future(_background_sync(linked.id, entity_id))
+    _task = asyncio.create_task(_background_sync(linked.id, entity_id))
+    _background_tasks.add(_task)
+    _task.add_done_callback(_background_tasks.discard)
 
     return RedirectResponse(
         f"{settings.base_url}/settings?linked=github&status=success",
@@ -207,7 +212,9 @@ async def claim_account(
     await db.flush()
 
     # Pull public data immediately
-    asyncio.ensure_future(_background_sync(la.id, str(entity.id)))
+    _task = asyncio.create_task(_background_sync(la.id, str(entity.id)))
+    _background_tasks.add(_task)
+    _task.add_done_callback(_background_tasks.discard)
 
     return {
         "status": "claimed",
@@ -280,7 +287,9 @@ async def verify_account(
         await db.flush()
 
         # Recompute trust score
-        asyncio.ensure_future(_background_sync(la.id, str(entity.id)))
+        _task = asyncio.create_task(_background_sync(la.id, str(entity.id)))
+        _background_tasks.add(_task)
+        _task.add_done_callback(_background_tasks.discard)
 
         return {"status": "verified", "verification_status": "verified_challenge"}
 
@@ -429,7 +438,9 @@ async def unlink_account(
     await db.flush()
 
     # Recompute trust score without external rep
-    asyncio.ensure_future(_recompute_trust(str(entity.id)))
+    _task = asyncio.create_task(_recompute_trust(str(entity.id)))
+    _background_tasks.add(_task)
+    _task.add_done_callback(_background_tasks.discard)
 
     return {"status": "unlinked", "provider": provider}
 

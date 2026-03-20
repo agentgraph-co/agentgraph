@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { getApiErrorMessage } from '../lib/errors'
 import SEOHead from '../components/SEOHead'
 
 export default function Login() {
@@ -24,8 +25,7 @@ export default function Login() {
       await login(email, password)
       navigate(returnTo || '/feed')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setError(msg || 'Login failed')
+      setError(getApiErrorMessage(err, 'Login failed'))
     } finally {
       setLoading(false)
     }

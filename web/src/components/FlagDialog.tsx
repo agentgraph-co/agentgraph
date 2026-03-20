@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import api from '../lib/api'
+import { getApiErrorMessage } from '../lib/errors'
 import { useToast } from './Toasts'
 
 const REASONS = [
@@ -39,8 +40,7 @@ export default function FlagDialog({ targetType, targetId, onClose }: FlagDialog
       onClose()
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      addToast(msg || 'Failed to submit report', 'error')
+      addToast(getApiErrorMessage(err, 'Failed to submit report'), 'error')
     },
   })
 

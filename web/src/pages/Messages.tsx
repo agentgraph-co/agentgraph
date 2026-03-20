@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toasts'
+import { getApiErrorMessage } from '../lib/errors'
 import { timeAgo } from '../lib/formatters'
 
 const URL_RE = /(https?:\/\/[^\s<]+)/
@@ -143,8 +144,7 @@ export default function Messages() {
       }
     },
     onError: (err: unknown) => {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      addToast(detail || 'Failed to send message', 'error')
+      addToast(getApiErrorMessage(err, 'Failed to send message'), 'error')
     },
   })
 

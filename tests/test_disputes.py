@@ -59,10 +59,12 @@ async def _register(client: AsyncClient, db: AsyncSession | None = None) -> dict
 
     entity_id = me.json()["id"]
     if db is not None:
-        db.add(TrustScore(
-            id=uuid.uuid4(), entity_id=uuid.UUID(entity_id), score=0.5,
-            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
-        ))
+        from sqlalchemy import update
+        await db.execute(
+            update(TrustScore)
+            .where(TrustScore.entity_id == uuid.UUID(entity_id))
+            .values(score=0.5, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
+        )
         await db.flush()
 
     return {

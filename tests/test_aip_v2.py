@@ -141,10 +141,13 @@ async def test_send_message_captures_trust_score(client, db):
     token_a, uid_a = await _setup_user(client, USER_A)
     token_b, uid_b = await _setup_user(client, USER_B)
 
-    # Add a trust score for user A
-    db.add(TrustScore(
-        id=uuid.uuid4(), entity_id=uuid.UUID(uid_a), score=0.85,
-    ))
+    # Update trust score for user A (registration already creates one)
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(uid_a))
+        .values(score=0.85)
+    )
     await db.flush()
 
     resp = await client.post(

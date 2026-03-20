@@ -59,9 +59,14 @@ def _auth(token: str) -> dict:
 async def _grant_trust(db, entity_id: str, score: float = 0.5):
     import uuid as _uuid
 
+    from sqlalchemy import update as _sa_update
+
     from src.models import TrustScore
-    ts = TrustScore(id=_uuid.uuid4(), entity_id=entity_id, score=score, components={})
-    db.add(ts)
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == _uuid.UUID(entity_id))
+        .values(score=score, components={})
+    )
     await db.flush()
 
 

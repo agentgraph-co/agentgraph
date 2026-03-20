@@ -144,9 +144,13 @@ async def test_min_trust_check_passes(client, db):
     _, eid = await _create_user(client, f"tp-{uuid.uuid4().hex[:8]}@test.com", "TrustedUser")
     entity_id = uuid.UUID(eid)
 
-    # Create a trust score above threshold
-    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=0.8)
-    db.add(ts)
+    # Update trust score above threshold
+    from sqlalchemy import update as _sa_update
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == entity_id)
+        .values(score=0.8, components={})
+    )
     await db.flush()
 
     result = await check_min_trust_for_publish(db, entity_id, min_trust=0.3)
@@ -162,9 +166,13 @@ async def test_min_trust_check_fails(client, db):
     _, eid = await _create_user(client, f"tf-{uuid.uuid4().hex[:8]}@test.com", "UntrustedUser")
     entity_id = uuid.UUID(eid)
 
-    # Create a trust score below threshold
-    ts = TrustScore(id=uuid.uuid4(), entity_id=entity_id, score=0.1)
-    db.add(ts)
+    # Update trust score below threshold
+    from sqlalchemy import update as _sa_update
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == entity_id)
+        .values(score=0.1, components={})
+    )
     await db.flush()
 
     # grace_period_days=0 to test pure trust threshold without newbie grace

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import math
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import (
@@ -18,6 +21,8 @@ from src.models import (
     TrustScoreHistory,
     Vote,
 )
+
+logger = logging.getLogger(__name__)
 
 # Weights for trust score components (v3: 6 components)
 # External reputation is additive — 0.0 if no accounts linked
@@ -661,11 +666,104 @@ async def refresh_attestation_weights(db: AsyncSession) -> int:
     return updated
 
 
-async def batch_recompute(db: AsyncSession) -> int:
+def _compute_community_from_attestations(
+    attestations: list[TrustAttestation],
+) -> tuple[float, dict[str, float]]:
+    """Compute community factor from pre-loaded attestations (no DB query).
+
+    Same logic as ``_community_factor`` but operates on a pre-fetched list
+    instead of querying the database per entity.
+    """
+    if not attestations:
+        return 0.0, {}
+
+    now = datetime.now(timezone.utc)
+    cutoff_90 = now - timedelta(days=90)
+    cutoff_180 = now - timedelta(days=180)
+
+    # Apply gaming cap: group by attester, keep max ATTESTATION_MAX_PER_ATTESTER
+    attester_counts: dict[uuid.UUID, int] = {}
+    filtered: list[TrustAttestation] = []
+    for att in attestations:
+        count = attester_counts.get(att.attester_entity_id, 0)
+        if count < ATTESTATION_MAX_PER_ATTESTER:
+            filtered.append(att)
+            attester_counts[att.attester_entity_id] = count + 1
+
+    if not filtered:
+        return 0.0, {}
+
+    total_weight = 0.0
+    weighted_sum = 0.0
+    context_weights: dict[str, float] = {}
+    context_sums: dict[str, float] = {}
+
+    for att in filtered:
+        w = att.weight or 0.5
+        created = att.created_at
+        if created and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+
+        if created and created < cutoff_180:
+            w *= ATTESTATION_DECAY_180_DAYS
+        elif created and created < cutoff_90:
+            w *= ATTESTATION_DECAY_90_DAYS
+
+        weighted_sum += w
+        total_weight += 1.0
+
+        ctx = att.context
+        if ctx:
+            context_sums[ctx] = context_sums.get(ctx, 0.0) + w
+            context_weights[ctx] = context_weights.get(ctx, 0.0) + 1.0
+
+    overall = weighted_sum / total_weight if total_weight > 0 else 0.0
+    overall = min(overall, 1.0)
+
+    contextual_scores: dict[str, float] = {}
+    for ctx in context_sums:
+        ctx_score = context_sums[ctx] / context_weights[ctx]
+        contextual_scores[ctx] = round(min(ctx_score, 1.0), 4)
+
+    return overall, contextual_scores
+
+
+def _compute_external_from_accounts(
+    accounts: list[LinkedAccount],
+) -> float:
+    """Compute external reputation factor from pre-loaded linked accounts.
+
+    Same logic as ``_external_reputation_factor`` but operates on a
+    pre-fetched list instead of querying the database per entity.
+    """
+    from src.external_reputation import VERIFICATION_WEIGHTS
+
+    if not accounts:
+        return 0.0
+
+    total = 0.0
+    count = 0
+    for acct in accounts:
+        weight = VERIFICATION_WEIGHTS.get(acct.verification_status, 0.0)
+        if weight > 0 and acct.reputation_score is not None:
+            total += acct.reputation_score * weight
+            count += 1
+
+    return total / count if count > 0 else 0.0
+
+
+# Default chunk size for batch_recompute; callers may override.
+BATCH_CHUNK_SIZE = 500
+
+
+async def batch_recompute(
+    db: AsyncSession, chunk_size: int = BATCH_CHUNK_SIZE,
+) -> int:
     """Recompute trust scores for all active entities.
 
-    Pre-loads component data in bulk queries, then computes per-entity
-    scores in memory with minimal per-entity DB hits.
+    Processes entities in chunks of *chunk_size* to bound memory usage,
+    and bulk-loads attestations, linked accounts, and existing trust
+    scores per chunk to avoid N+1 query patterns.
 
     Also refreshes attestation weights before recomputing.
     """
@@ -674,152 +772,243 @@ async def batch_recompute(db: AsyncSession) -> int:
 
     cutoff_30d = datetime.now(timezone.utc) - timedelta(days=30)
 
-    # Fetch all active entities
-    entities_result = await db.execute(
-        select(Entity).where(Entity.is_active.is_(True))
-    )
-    entities = entities_result.scalars().all()
-    if not entities:
+    # Count total active entities for logging
+    total_entities = await db.scalar(
+        select(func.count())
+        .select_from(Entity)
+        .where(Entity.is_active.is_(True))
+    ) or 0
+    if total_entities == 0:
         return 0
 
-    entity_ids = [e.id for e in entities]
-    entity_map = {e.id: e for e in entities}
+    total_chunks = (total_entities + chunk_size - 1) // chunk_size
+    processed = 0
+    chunk_num = 0
 
-    # Bulk query 1: post counts per entity (last 30 days)
-    post_result = await db.execute(
-        select(Post.author_entity_id, func.count())
-        .where(
-            Post.author_entity_id.in_(entity_ids),
-            Post.created_at >= cutoff_30d,
+    # Keyset pagination: order by id, fetch chunk_size at a time
+    last_id: uuid.UUID | None = None
+
+    while True:
+        chunk_num += 1
+
+        # Fetch one chunk of entities via keyset pagination
+        q = (
+            select(Entity)
+            .where(Entity.is_active.is_(True))
+            .order_by(Entity.id)
+            .limit(chunk_size)
         )
-        .group_by(Post.author_entity_id)
-    )
-    post_counts = dict(post_result.all())
+        if last_id is not None:
+            q = q.where(Entity.id > last_id)
 
-    # Bulk query 2: vote counts per entity (last 30 days)
-    vote_result = await db.execute(
-        select(Vote.entity_id, func.count())
-        .where(
-            Vote.entity_id.in_(entity_ids),
-            Vote.created_at >= cutoff_30d,
-        )
-        .group_by(Vote.entity_id)
-    )
-    vote_counts = dict(vote_result.all())
+        entities_result = await db.execute(q)
+        entities = entities_result.scalars().all()
+        if not entities:
+            break
 
-    # Bulk query 3: review averages per entity
-    review_result = await db.execute(
-        select(Review.target_entity_id, func.avg(Review.rating))
-        .where(Review.target_entity_id.in_(entity_ids))
-        .group_by(Review.target_entity_id)
-    )
-    review_avgs = dict(review_result.all())
+        entity_ids = [e.id for e in entities]
+        entity_map = {e.id: e for e in entities}
+        last_id = entity_ids[-1]
 
-    # Bulk query 4: endorsement counts per entity
-    endorse_result = await db.execute(
-        select(CapabilityEndorsement.agent_entity_id, func.count())
-        .where(CapabilityEndorsement.agent_entity_id.in_(entity_ids))
-        .group_by(CapabilityEndorsement.agent_entity_id)
-    )
-    endorse_counts = dict(endorse_result.all())
-
-    # Compute scores in-memory
-    count = 0
-    for eid in entity_ids:
-        entity = entity_map[eid]
-        verification = _verification_factor(entity)
-        age = _age_factor(entity)
-
-        # Activity factor from pre-loaded data
-        total_activity = post_counts.get(eid, 0) + vote_counts.get(eid, 0)
-        activity = (
-            min(math.log(total_activity + 1) / math.log(ACTIVITY_LOG_CAP), 1.0)
-            if total_activity > 0
-            else 0.0
+        logger.info(
+            "Processing chunk %d/%d (%d/%d entities)",
+            chunk_num, total_chunks, processed + len(entity_ids), total_entities,
         )
 
-        # Reputation from pre-loaded data
-        avg_rating_raw = review_avgs.get(eid)
-        review_score = float(avg_rating_raw) / 5.0 if avg_rating_raw else 0.0
-        ec = endorse_counts.get(eid, 0)
-        endorsement_score = (
-            min(math.log(ec + 1) / math.log(20), 1.0) if ec > 0 else 0.0
-        )
-        if avg_rating_raw is not None and ec > 0:
-            reputation = 0.6 * review_score + 0.4 * endorsement_score
-        elif avg_rating_raw is not None:
-            reputation = review_score
-        elif ec > 0:
-            reputation = endorsement_score
-        else:
-            reputation = 0.0
+        # -- Bulk queries for this chunk --
 
-        # Community factor still needs per-entity query (attestation data is complex)
-        community, contextual_scores = await _community_factor(db, eid)
-        external = await _external_reputation_factor(db, eid)
-
-        score = (
-            VERIFICATION_WEIGHT * verification
-            + AGE_WEIGHT * age
-            + ACTIVITY_WEIGHT * activity
-            + REPUTATION_WEIGHT * reputation
-            + COMMUNITY_WEIGHT * community
-            + EXTERNAL_WEIGHT * external
-        )
-
-        framework_modifier = getattr(entity, "framework_trust_modifier", None)
-        if framework_modifier is not None and framework_modifier != 1.0:
-            score *= framework_modifier
-
-        components = {
-            "verification": round(verification, 4),
-            "age": round(age, 4),
-            "activity": round(activity, 4),
-            "reputation": round(reputation, 4),
-            "community": round(community, 4),
-            "external_reputation": round(external, 4),
-        }
-
-        # Update primary_context from attestation frequency
-        _update_primary_context(entity, contextual_scores)
-
-        # Upsert
-        existing = await db.scalar(
-            select(TrustScore).where(TrustScore.entity_id == eid)
-        )
-        old_score = existing.score if existing else 0.0
-        if existing:
-            existing.score = round(score, 4)
-            existing.components = components
-            existing.contextual_scores = contextual_scores
-            existing.computed_at = datetime.now(timezone.utc)
-        else:
-            ts = TrustScore(
-                id=uuid.uuid4(),
-                entity_id=eid,
-                score=round(score, 4),
-                components=components,
-                contextual_scores=contextual_scores,
-                computed_at=datetime.now(timezone.utc),
+        # Bulk query 1: post counts per entity (last 30 days)
+        post_result = await db.execute(
+            select(Post.author_entity_id, func.count())
+            .where(
+                Post.author_entity_id.in_(entity_ids),
+                Post.created_at >= cutoff_30d,
             )
-            db.add(ts)
+            .group_by(Post.author_entity_id)
+        )
+        post_counts = dict(post_result.all())
 
-        # Record history snapshot
-        db.add(TrustScoreHistory(
-            id=uuid.uuid4(),
-            entity_id=eid,
-            score=round(score, 4),
-            components=components,
-            recorded_at=datetime.now(timezone.utc),
-        ))
+        # Bulk query 2: vote counts per entity (last 30 days)
+        vote_result = await db.execute(
+            select(Vote.entity_id, func.count())
+            .where(
+                Vote.entity_id.in_(entity_ids),
+                Vote.created_at >= cutoff_30d,
+            )
+            .group_by(Vote.entity_id)
+        )
+        vote_counts = dict(vote_result.all())
 
-        # Anomaly detection for batch recompute
-        try:
-            await _check_trust_anomaly(db, eid, old_score, round(score, 4))
-        except Exception:
-            pass
+        # Bulk query 3: review averages per entity
+        review_result = await db.execute(
+            select(Review.target_entity_id, func.avg(Review.rating))
+            .where(Review.target_entity_id.in_(entity_ids))
+            .group_by(Review.target_entity_id)
+        )
+        review_avgs = dict(review_result.all())
 
-        count += 1
+        # Bulk query 4: endorsement counts per entity
+        endorse_result = await db.execute(
+            select(CapabilityEndorsement.agent_entity_id, func.count())
+            .where(CapabilityEndorsement.agent_entity_id.in_(entity_ids))
+            .group_by(CapabilityEndorsement.agent_entity_id)
+        )
+        endorse_counts = dict(endorse_result.all())
 
-    await db.flush()
-    return count
+        # Bulk query 5: all attestations for this chunk (replaces per-entity query)
+        att_result = await db.execute(
+            select(TrustAttestation).where(
+                TrustAttestation.target_entity_id.in_(entity_ids),
+            )
+        )
+        all_attestations = att_result.scalars().all()
+        att_map: dict[uuid.UUID, list[TrustAttestation]] = defaultdict(list)
+        for att in all_attestations:
+            att_map[att.target_entity_id].append(att)
+
+        # Bulk query 6: all linked accounts for this chunk (replaces per-entity query)
+        acct_result = await db.execute(
+            select(LinkedAccount).where(
+                LinkedAccount.entity_id.in_(entity_ids),
+            )
+        )
+        all_accounts = acct_result.scalars().all()
+        acct_map: dict[uuid.UUID, list[LinkedAccount]] = defaultdict(list)
+        for acct in all_accounts:
+            acct_map[acct.entity_id].append(acct)
+
+        # Bulk query 7: existing trust scores for this chunk (replaces per-entity SELECT)
+        ts_result = await db.execute(
+            select(TrustScore).where(TrustScore.entity_id.in_(entity_ids))
+        )
+        existing_scores = {ts.entity_id: ts for ts in ts_result.scalars().all()}
+
+        # -- Compute scores in-memory --
+
+        now_ts = datetime.now(timezone.utc)
+        upsert_rows: list[dict] = []
+        history_rows: list[dict] = []
+
+        for eid in entity_ids:
+            entity = entity_map[eid]
+            verification = _verification_factor(entity)
+            age = _age_factor(entity)
+
+            # Activity factor from pre-loaded data
+            total_activity = post_counts.get(eid, 0) + vote_counts.get(eid, 0)
+            activity = (
+                min(math.log(total_activity + 1) / math.log(ACTIVITY_LOG_CAP), 1.0)
+                if total_activity > 0
+                else 0.0
+            )
+
+            # Reputation from pre-loaded data
+            avg_rating_raw = review_avgs.get(eid)
+            review_score = float(avg_rating_raw) / 5.0 if avg_rating_raw else 0.0
+            ec = endorse_counts.get(eid, 0)
+            endorsement_score = (
+                min(math.log(ec + 1) / math.log(20), 1.0) if ec > 0 else 0.0
+            )
+            if avg_rating_raw is not None and ec > 0:
+                reputation = 0.6 * review_score + 0.4 * endorsement_score
+            elif avg_rating_raw is not None:
+                reputation = review_score
+            elif ec > 0:
+                reputation = endorsement_score
+            else:
+                reputation = 0.0
+
+            # Community factor from pre-loaded attestations (no per-entity query)
+            community, contextual_scores = _compute_community_from_attestations(
+                att_map.get(eid, []),
+            )
+
+            # External reputation from pre-loaded linked accounts (no per-entity query)
+            external = _compute_external_from_accounts(acct_map.get(eid, []))
+
+            score = (
+                VERIFICATION_WEIGHT * verification
+                + AGE_WEIGHT * age
+                + ACTIVITY_WEIGHT * activity
+                + REPUTATION_WEIGHT * reputation
+                + COMMUNITY_WEIGHT * community
+                + EXTERNAL_WEIGHT * external
+            )
+
+            framework_modifier = getattr(entity, "framework_trust_modifier", None)
+            if framework_modifier is not None and framework_modifier != 1.0:
+                score *= framework_modifier
+
+            components = {
+                "verification": round(verification, 4),
+                "age": round(age, 4),
+                "activity": round(activity, 4),
+                "reputation": round(reputation, 4),
+                "community": round(community, 4),
+                "external_reputation": round(external, 4),
+            }
+
+            # Update primary_context from attestation frequency
+            _update_primary_context(entity, contextual_scores)
+
+            rounded_score = round(score, 4)
+
+            # Collect upsert row for batch INSERT ... ON CONFLICT UPDATE
+            existing_ts = existing_scores.get(eid)
+            upsert_rows.append({
+                "id": existing_ts.id if existing_ts else uuid.uuid4(),
+                "entity_id": eid,
+                "score": rounded_score,
+                "components": components,
+                "contextual_scores": contextual_scores,
+                "computed_at": now_ts,
+            })
+
+            # Collect history row for batch insert
+            history_rows.append({
+                "id": uuid.uuid4(),
+                "entity_id": eid,
+                "score": rounded_score,
+                "components": components,
+                "recorded_at": now_ts,
+            })
+
+            # Anomaly detection for batch recompute
+            old_score = existing_ts.score if existing_ts else 0.0
+            try:
+                await _check_trust_anomaly(db, eid, old_score, rounded_score)
+            except Exception:
+                pass
+
+        # Batch upsert trust scores: INSERT ... ON CONFLICT(entity_id) DO UPDATE
+        if upsert_rows:
+            stmt = pg_insert(TrustScore).values(upsert_rows)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["entity_id"],
+                set_={
+                    "score": stmt.excluded.score,
+                    "components": stmt.excluded.components,
+                    "contextual_scores": stmt.excluded.contextual_scores,
+                    "computed_at": stmt.excluded.computed_at,
+                },
+            )
+            await db.execute(stmt)
+
+        # Batch insert history rows
+        if history_rows:
+            await db.execute(
+                pg_insert(TrustScoreHistory).values(history_rows)
+            )
+
+        await db.flush()
+        processed += len(entity_ids)
+
+        # Expire loaded entities to free memory before next chunk
+        for entity in entities:
+            db.expire(entity)
+
+    logger.info(
+        "Batch recompute complete: %d entities processed in %d chunks",
+        processed, chunk_num,
+    )
+    return processed

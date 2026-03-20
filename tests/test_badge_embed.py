@@ -49,15 +49,15 @@ async def _setup_user(client: AsyncClient) -> tuple:
 
 
 async def _set_trust_score(db, entity_id: str, score: float) -> None:
+    from sqlalchemy import update as _sa_update
+
     from src.models import TrustScore
 
-    ts = TrustScore(
-        id=uuid.uuid4(),
-        entity_id=uuid.UUID(entity_id),
-        score=score,
-        components={"verification": 1.0, "age": 0.5},
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(entity_id))
+        .values(score=score, components={"verification": 1.0, "age": 0.5})
     )
-    db.add(ts)
     await db.flush()
 
 

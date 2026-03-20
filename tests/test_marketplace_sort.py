@@ -48,11 +48,12 @@ async def _setup(client: AsyncClient, db: AsyncSession) -> str:
     # Grant sufficient trust for marketplace listing creation (threshold 0.15)
     me = await client.get("/api/v1/auth/me", headers=_auth(token))
     eid = uuid.UUID(me.json()["id"])
-    ts = TrustScore(
-        id=uuid.uuid4(), entity_id=eid, score=0.5,
-        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+    from sqlalchemy import update as _sa_update
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == eid)
+        .values(score=0.5, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
     )
-    db.add(ts)
     await db.flush()
     return token
 

@@ -44,11 +44,13 @@ def _auth(token: str) -> dict:
 
 
 async def _grant_trust(db: AsyncSession, entity_id: str, score: float = 0.5) -> None:
+    from sqlalchemy import update
     eid = uuid.UUID(entity_id)
-    db.add(TrustScore(
-        id=uuid.uuid4(), entity_id=eid, score=score,
-        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
-    ))
+    await db.execute(
+        update(TrustScore)
+        .where(TrustScore.entity_id == eid)
+        .values(score=score, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
+    )
     await db.flush()
 
 
