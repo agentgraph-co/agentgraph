@@ -204,6 +204,21 @@ async def trigger_marketing_tick(
     return results
 
 
+@router.post("/trigger/{platform}", response_model=None)
+async def trigger_platform_tick(
+    platform: str,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Manually trigger a marketing post for a specific platform."""
+    require_admin(current_entity)
+    from src.marketing.orchestrator import generate_and_post_for_platform
+
+    result = await generate_and_post_for_platform(db, platform)
+    await db.commit()
+    return result
+
+
 @router.get("/health")
 async def marketing_health(
     current_entity: Entity = Depends(get_current_entity),

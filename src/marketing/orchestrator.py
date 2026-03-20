@@ -387,6 +387,49 @@ async def post_approved_drafts(db: AsyncSession) -> dict:
     return results
 
 
+async def generate_and_post_for_platform(
+    db: AsyncSession, platform: str,
+) -> dict:
+    """Generate and enqueue a post for a single platform (admin trigger).
+
+    Bypasses cadence checks — always generates content.
+    """
+    if not marketing_settings.marketing_enabled:
+        return {"status": "disabled"}
+
+    adapters = _get_adapters()
+    adapter = adapters.get(platform)
+    if adapter is None:
+        return {"status": "error", "error": f"Unknown platform: {platform}"}
+
+    if not await adapter.is_configured():
+        return {"status": "error", "error": f"{platform} is not configured"}
+
+    recent_topics = await get_recent_topics(platform)
+
+    content = await generate_proactive(platform, recent_topics=recent_topics)
+    if content.error:
+        return {"status": "error", "error": content.error}
+
+    if await _is_duplicate(db, content.content_hash, platform):
+        return {"status": "skipped", "reason": "duplicate"}
+
+    # Always go through human approval for manual triggers
+    await enqueue_draft(
+        db, platform=platform, content=content.text,
+        topic=content.topic, llm_model=content.llm_model,
+        llm_tokens_in=content.llm_tokens_in,
+        llm_tokens_out=content.llm_tokens_out,
+        llm_cost_usd=content.llm_cost_usd,
+        utm_params=content.utm_params,
+    )
+    return {
+        "status": "draft_created",
+        "platform": platform,
+        "topic": content.topic,
+    }
+
+
 async def run_marketing_tick(db: AsyncSession) -> dict:
     """Main entry point — called by the scheduler every 30 minutes.
 

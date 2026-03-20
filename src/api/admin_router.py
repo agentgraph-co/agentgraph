@@ -16,10 +16,13 @@ from src.database import get_db
 from src.models import (
     AnalyticsEvent,
     AnomalyAlert,
+    APIKey,
     AuditLog,
     BehavioralBaseline,
     Bookmark,
     CapabilityEndorsement,
+    DIDDocument,
+    DIDStatus,
     EmailVerification,
     Entity,
     EntityRelationship,
@@ -32,10 +35,12 @@ from src.models import (
     Notification,
     PopulationAlert,
     Post,
+    RelationshipType,
     Review,
     Submolt,
     Transaction,
     TransactionStatus,
+    TrustScore,
     Vote,
     WebhookSubscription,
 )
@@ -1767,4 +1772,295 @@ async def resolve_issue(
         "message": f"Issue {status_label[body.status]}",
         "issue_id": str(issue.id),
         "resolution_reply_id": str(reply.id) if reply else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Bot ownership claims — admin review queue
+# ---------------------------------------------------------------------------
+
+
+class ClaimItem(BaseModel):
+    agent_id: str
+    agent_name: str
+    claimer_id: str
+    claimer_name: str
+    claimed_at: str
+    reason: str
+    source_url: str | None = None
+    source_type: str | None = None
+
+
+class ClaimListResponse(BaseModel):
+    claims: list[ClaimItem]
+    total: int
+
+
+class ClaimDecisionRequest(BaseModel):
+    note: str = ""
+
+
+@router.get(
+    "/claims",
+    response_model=ClaimListResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def list_claims(
+    status_filter: str = Query("pending", pattern="^(pending|approved|rejected)$"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List bot ownership claims. Admin only."""
+    require_admin(current_entity)
+
+    stmt = (
+        select(Entity)
+        .where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+            Entity.onboarding_data["ownership_claim"]["status"].astext == status_filter,
+        )
+        .order_by(Entity.updated_at.desc())
+    )
+
+    count_stmt = (
+        select(func.count())
+        .select_from(Entity)
+        .where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+            Entity.onboarding_data["ownership_claim"]["status"].astext == status_filter,
+        )
+    )
+
+    total = await db.scalar(count_stmt) or 0
+    result = await db.execute(stmt.offset(offset).limit(limit))
+    agents = result.scalars().all()
+
+    claims: list[ClaimItem] = []
+    for agent in agents:
+        claim = (agent.onboarding_data or {}).get("ownership_claim", {})
+        claims.append(ClaimItem(
+            agent_id=str(agent.id),
+            agent_name=agent.display_name,
+            claimer_id=claim.get("claimed_by", ""),
+            claimer_name=claim.get("claimer_name", "Unknown"),
+            claimed_at=claim.get("claimed_at", ""),
+            reason=claim.get("reason", ""),
+            source_url=agent.source_url,
+            source_type=agent.source_type,
+        ))
+
+    return ClaimListResponse(claims=claims, total=total)
+
+
+@router.post(
+    "/claims/{agent_id}/approve",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def approve_claim(
+    agent_id: uuid.UUID,
+    body: ClaimDecisionRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve a bot ownership claim. Links bot to claimer, elevates trust. Admin only."""
+    require_admin(current_entity)
+
+    agent = await db.get(Entity, agent_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(404, "Agent not found")
+
+    onboarding = agent.onboarding_data or {}
+    claim = onboarding.get("ownership_claim")
+    if not claim or claim.get("status") != "pending":
+        raise HTTPException(400, "No pending claim for this agent")
+
+    claimer_id = uuid.UUID(claim["claimed_by"])
+    claimer = await db.get(Entity, claimer_id)
+    if claimer is None or not claimer.is_active:
+        raise HTTPException(400, "Claiming user no longer exists or is inactive")
+
+    from datetime import timezone as tz
+
+    # Update claim status
+    claim["status"] = "approved"
+    claim["reviewed_by"] = str(current_entity.id)
+    claim["reviewed_at"] = datetime.now(tz.utc).isoformat()
+    claim["review_note"] = body.note
+    onboarding["ownership_claim"] = claim
+    agent.onboarding_data = {**onboarding}
+
+    # Link bot to claimer
+    agent.operator_id = claimer_id
+    agent.is_provisional = False
+    agent.claim_token = None
+    agent.provisional_expires_at = None
+
+    # Upgrade API key scopes
+    key_result = await db.execute(
+        select(APIKey).where(
+            APIKey.entity_id == agent.id,
+            APIKey.is_active.is_(True),
+        )
+    )
+    for key in key_result.scalars().all():
+        key.scopes = ["agent:read", "agent:write", "webhooks:manage"]
+
+    # Upgrade DID from PROVISIONAL to FULL
+    did_doc = await db.scalar(
+        select(DIDDocument).where(DIDDocument.entity_id == agent.id)
+    )
+    if did_doc and did_doc.did_status == DIDStatus.PROVISIONAL:
+        did_doc.did_status = DIDStatus.FULL
+        did_doc.promoted_at = datetime.now(tz.utc)
+        did_doc.promoted_by = current_entity.id
+        did_doc.promotion_reason = "ownership_claim_approved"
+
+    # Create operator-agent relationship
+    existing_rel = await db.execute(
+        select(EntityRelationship).where(
+            EntityRelationship.source_entity_id == claimer_id,
+            EntityRelationship.target_entity_id == agent.id,
+            EntityRelationship.type == RelationshipType.OPERATOR_AGENT,
+        )
+    )
+    if existing_rel.scalar_one_or_none() is None:
+        rel = EntityRelationship(
+            id=uuid.uuid4(),
+            source_entity_id=claimer_id,
+            target_entity_id=agent.id,
+            type=RelationshipType.OPERATOR_AGENT,
+        )
+        db.add(rel)
+
+    # Boost trust score — operator-linked = 0.7 verification component
+    trust = await db.scalar(
+        select(TrustScore).where(TrustScore.entity_id == agent.id)
+    )
+    if trust:
+        components = trust.components or {}
+        components["verification"] = 0.7
+        trust.components = {**components}
+        # Recompute overall score as weighted average
+        weights = {
+            "activity": 0.2,
+            "endorsements": 0.15,
+            "verification": 0.25,
+            "consistency": 0.2,
+            "community": 0.2,
+        }
+        total_weight = sum(weights.get(k, 0.1) for k in components)
+        if total_weight > 0:
+            trust.score = round(
+                sum(components.get(k, 0) * weights.get(k, 0.1) for k in components) / total_weight,
+                4,
+            )
+    else:
+        # Create trust score with verification component
+        trust = TrustScore(
+            id=uuid.uuid4(),
+            entity_id=agent.id,
+            score=0.175,  # 0.7 * 0.25 weight
+            components={"verification": 0.7},
+        )
+        db.add(trust)
+
+    # Notify claimer
+    notif = Notification(
+        id=uuid.uuid4(),
+        entity_id=claimer_id,
+        kind="claim_approved",
+        title="Bot ownership claim approved",
+        body=f"Your claim on {agent.display_name} has been approved. "
+        "You are now the verified owner.",
+        reference_id=str(agent.id),
+    )
+    db.add(notif)
+
+    await log_action(
+        db,
+        action="admin.claim.approve",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "claimer_id": str(claimer_id),
+            "note": body.note,
+        },
+    )
+    await db.flush()
+
+    return {
+        "message": "Claim approved. Bot linked to owner with verified status.",
+        "agent_id": str(agent.id),
+        "owner_id": str(claimer_id),
+    }
+
+
+@router.post(
+    "/claims/{agent_id}/reject",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def reject_claim(
+    agent_id: uuid.UUID,
+    body: ClaimDecisionRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a bot ownership claim. Admin only."""
+    require_admin(current_entity)
+
+    agent = await db.get(Entity, agent_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(404, "Agent not found")
+
+    onboarding = agent.onboarding_data or {}
+    claim = onboarding.get("ownership_claim")
+    if not claim or claim.get("status") != "pending":
+        raise HTTPException(400, "No pending claim for this agent")
+
+    claimer_id = uuid.UUID(claim["claimed_by"])
+
+    from datetime import timezone as tz
+
+    claim["status"] = "rejected"
+    claim["reviewed_by"] = str(current_entity.id)
+    claim["reviewed_at"] = datetime.now(tz.utc).isoformat()
+    claim["review_note"] = body.note
+    onboarding["ownership_claim"] = claim
+    agent.onboarding_data = {**onboarding}
+
+    # Notify claimer
+    notif = Notification(
+        id=uuid.uuid4(),
+        entity_id=claimer_id,
+        kind="claim_rejected",
+        title="Bot ownership claim rejected",
+        body=(
+            f"Your claim on {agent.display_name} was not approved."
+            + (f" Reason: {body.note}" if body.note else "")
+        ),
+        reference_id=str(agent.id),
+    )
+    db.add(notif)
+
+    await log_action(
+        db,
+        action="admin.claim.reject",
+        entity_id=current_entity.id,
+        resource_type="entity",
+        resource_id=agent.id,
+        details={
+            "claimer_id": str(claimer_id),
+            "note": body.note,
+        },
+    )
+    await db.flush()
+
+    return {
+        "message": "Claim rejected.",
+        "agent_id": str(agent.id),
     }
