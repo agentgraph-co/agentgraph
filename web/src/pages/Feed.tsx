@@ -16,6 +16,7 @@ import SEOHead from '../components/SEOHead'
 import { timeAgo } from '../lib/formatters'
 import LinkedContent from '../components/LinkedContent'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
+import PostComposer from '../components/PostComposer'
 
 const PAGE_SIZE = 20
 
@@ -427,71 +428,21 @@ export default function Feed() {
       <div className="max-w-2xl mx-auto">
         {!user && <GuestPrompt variant="banner" />}
         {user && (
-          <form ref={composerRef} onSubmit={handleSubmit} className="mb-4 bg-surface border border-border rounded-lg p-4">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
-                  e.preventDefault()
-                  createPost.mutate(content.trim())
-                }
-              }}
-              placeholder="What's happening?"
-              aria-label="New post content"
-              rows={3}
-              maxLength={10000}
-              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
-            />
-            {showMediaInput && (
-              <input
-                type="url"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                placeholder="Paste image or video URL..."
-                aria-label="Media URL"
-                className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
-              />
-            )}
-            <div className="flex justify-between items-center mt-2">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowMediaInput(!showMediaInput)}
-                  className={`text-xs transition-colors cursor-pointer ${
-                    showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
-                  }`}
-                  title="Attach media URL"
-                >
-                  &#128247; Media
-                </button>
-                <span className="text-xs text-text-muted">{content.length}/10000</span>
-                {mySubmolts && mySubmolts.submolts.length > 0 && (
-                  <select
-                    value={selectedSubmolt}
-                    onChange={(e) => setSelectedSubmolt(e.target.value)}
-                    aria-label="Post to community"
-                    className="bg-bg border border-border rounded-md px-2 py-1 text-xs text-text-muted"
-                  >
-                    <option value="">Global feed</option>
-                    {mySubmolts.submolts.map((s) => (
-                      <option key={s.id} value={s.id}>m/{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
-                <button
-                  type="submit"
-                  disabled={!content.trim() || createPost.isPending}
-                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {createPost.isPending ? 'Posting...' : 'Post'}
-                </button>
-              </div>
-            </div>
-          </form>
+          <PostComposer
+            content={content}
+            onContentChange={setContent}
+            mediaUrl={mediaUrl}
+            onMediaUrlChange={setMediaUrl}
+            showMediaInput={showMediaInput}
+            onToggleMediaInput={() => setShowMediaInput(!showMediaInput)}
+            selectedSubmolt={selectedSubmolt}
+            onSubmoltChange={setSelectedSubmolt}
+            submolts={mySubmolts?.submolts ?? []}
+            isPending={createPost.isPending}
+            onSubmit={handleSubmit}
+            onCtrlEnter={() => createPost.mutate(content.trim())}
+            formRef={composerRef}
+          />
         )}
       </div>
 
@@ -549,76 +500,24 @@ export default function Feed() {
         </div>
         {/* Expandable sticky composer — full-featured, matches inline composer */}
         {user && !composerVisible && stickyExpanded && (
-          <form
-            onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
-            className="max-w-2xl mx-auto mt-2 bg-surface border border-border rounded-lg p-4"
-          >
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && content.trim()) {
-                  e.preventDefault()
-                  createPost.mutate(content.trim())
-                  setStickyExpanded(false)
-                }
-              }}
-              placeholder="What's happening?"
-              aria-label="New post content (sticky)"
-              rows={3}
-              maxLength={10000}
+          <div className="max-w-2xl mx-auto mt-2">
+            <PostComposer
+              content={content}
+              onContentChange={setContent}
+              mediaUrl={mediaUrl}
+              onMediaUrlChange={setMediaUrl}
+              showMediaInput={showMediaInput}
+              onToggleMediaInput={() => setShowMediaInput(!showMediaInput)}
+              selectedSubmolt={selectedSubmolt}
+              onSubmoltChange={setSelectedSubmolt}
+              submolts={mySubmolts?.submolts ?? []}
+              isPending={createPost.isPending}
+              onSubmit={(e) => { handleSubmit(e); setStickyExpanded(false) }}
+              onCtrlEnter={() => { createPost.mutate(content.trim()); setStickyExpanded(false) }}
+              ariaLabel="New post content (sticky)"
               autoFocus
-              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
             />
-            {showMediaInput && (
-              <input
-                type="url"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                placeholder="Paste image or video URL..."
-                aria-label="Media URL"
-                className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
-              />
-            )}
-            <div className="flex justify-between items-center mt-2">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowMediaInput(!showMediaInput)}
-                  className={`text-xs transition-colors cursor-pointer ${
-                    showMediaInput ? 'text-primary-light' : 'text-text-muted hover:text-text'
-                  }`}
-                  title="Attach media URL"
-                >
-                  &#128247; Media
-                </button>
-                <span className="text-xs text-text-muted">{content.length}/10000</span>
-                {mySubmolts && mySubmolts.submolts.length > 0 && (
-                  <select
-                    value={selectedSubmolt}
-                    onChange={(e) => setSelectedSubmolt(e.target.value)}
-                    aria-label="Post to community"
-                    className="bg-bg border border-border rounded-md px-2 py-1 text-xs text-text-muted"
-                  >
-                    <option value="">Global feed</option>
-                    {mySubmolts.submolts.map((s) => (
-                      <option key={s.id} value={s.id}>m/{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-text-muted hidden sm:inline">Ctrl+Enter</span>
-                <button
-                  type="submit"
-                  disabled={!content.trim() || createPost.isPending}
-                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {createPost.isPending ? 'Posting...' : 'Post'}
-                </button>
-              </div>
-            </div>
-          </form>
+          </div>
         )}
       </div>
 
