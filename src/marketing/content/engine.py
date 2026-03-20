@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.marketing.config import marketing_settings
-from src.marketing.content.tone import get_tone
+from src.marketing.content.tone import ToneProfile, get_tone
 from src.marketing.content.topics import Topic, get_angle, pick_topic
 from src.marketing.llm.cost_tracker import estimate_cost
 from src.marketing.llm.router import generate as llm_generate
@@ -118,16 +118,26 @@ async def generate_proactive(
             "'follow along', 'stay tuned'.\n"
         )
 
-    prompt = (
-        f"Write a {platform} post about AgentGraph "
-        f"based on this angle:\n\n"
-        f"{angle}\n\n"
-        f"Include this full link (keep the https://): {utm_link}\n\n"
-        f"Maximum length: {tone.max_length} characters.\n"
-        f"Platform: {platform}"
-        f"{news_context}"
-        f"{launch_context}"
-    )
+    if platform in ("devto", "hashnode"):
+        prompt = _build_blog_prompt(
+            platform=platform,
+            angle=angle,
+            utm_link=utm_link,
+            tone=tone,
+            news_context=news_context,
+            launch_context=launch_context,
+        )
+    else:
+        prompt = (
+            f"Write a {platform} post about AgentGraph "
+            f"based on this angle:\n\n"
+            f"{angle}\n\n"
+            f"Include this full link (keep the https://): {utm_link}\n\n"
+            f"Maximum length: {tone.max_length} characters.\n"
+            f"Platform: {platform}"
+            f"{news_context}"
+            f"{launch_context}"
+        )
 
     # Determine content type for LLM tier routing
     content_type = f"{platform}_post"
@@ -143,6 +153,13 @@ async def generate_proactive(
         return GeneratedContent(
             text="", topic=topic.key, platform=platform, post_type="proactive",
             error=result.error,
+        )
+
+    # Guard against empty LLM responses (no error but no content)
+    if not result.text or not result.text.strip():
+        return GeneratedContent(
+            text="", topic=topic.key, platform=platform, post_type="proactive",
+            error="LLM returned empty content",
         )
 
     # Apply disclosure footer
@@ -290,6 +307,47 @@ async def generate_data_driven(
             "medium": platform,
             "campaign": template_key,
         },
+    )
+
+
+def _build_blog_prompt(
+    *,
+    platform: str,
+    angle: str,
+    utm_link: str,
+    tone: ToneProfile,
+    news_context: str,
+    launch_context: str,
+) -> str:
+    """Build a detailed prompt for blog/article platforms (Dev.to, Hashnode).
+
+    Blog posts need much more structure than social media posts — the generic
+    "Write a {platform} post" prompt produces thin or empty content because
+    the LLM doesn't know what depth is expected.
+    """
+    return (
+        f"Write a technical blog article for {platform} about AgentGraph.\n\n"
+        f"## Article topic / angle\n"
+        f"{angle}\n\n"
+        f"## Requirements\n"
+        f"- Length: 1500-3000 words\n"
+        f"- Format: Markdown with headers (##), code blocks, and bullet points\n"
+        f"- Start with a TL;DR section (2-3 sentences)\n"
+        f"- Include at least one code example showing an API call or SDK usage\n"
+        f"- Discuss architecture decisions and trade-offs honestly\n"
+        f"- End with a conclusion and a link to learn more\n"
+        f"- Include this link naturally in the article: {utm_link}\n"
+        f"- Do NOT include YAML front matter (no --- block)\n"
+        f"- Start directly with the article content (the title is set separately)\n\n"
+        f"## About AgentGraph\n"
+        f"AgentGraph is a trust infrastructure platform for AI agents. "
+        f"It provides verifiable identity (W3C DIDs), trust scoring, "
+        f"social graph visualization, and a marketplace — creating a unified "
+        f"space where AI agents and humans interact as peers. "
+        f"Key features: on-chain DIDs, auditable agent evolution trails, "
+        f"trust-scored social graph, MCP bridge for tool discovery.\n"
+        f"{news_context}"
+        f"{launch_context}"
     )
 
 

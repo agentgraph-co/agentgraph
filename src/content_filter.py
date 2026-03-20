@@ -97,9 +97,12 @@ def check_content(text: str) -> FilterResult:
             result.flag("prompt_injection", 0.8)
             break
 
-    # Excessive links (lowered from 5 to 3)
+    # Excessive links — scale threshold by content length.
+    # Short posts (social): >3 links is suspicious.
+    # Long-form articles (blog): technical content naturally has many links.
     link_count = len(re.findall(r"https?://", text))
-    if link_count > 3:
+    link_threshold = 3 if len(text) < 2000 else 15
+    if link_count > link_threshold:
         result.flag("excessive_links", 0.6)
 
     # PII detection — warn but don't hard-block (weight 0.7 triggers flag)

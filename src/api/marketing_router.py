@@ -292,6 +292,20 @@ async def trigger_platform_tick(
     return result
 
 
+@router.post("/recap")
+async def trigger_recap_post(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Manually trigger a marketing recap post to the AgentGraph feed."""
+    require_admin(current_entity)
+    from src.marketing.recap import trigger_recap
+
+    result = await trigger_recap(db)
+    await db.commit()
+    return result
+
+
 @router.get("/health")
 async def marketing_health(
     current_entity: Entity = Depends(get_current_entity),

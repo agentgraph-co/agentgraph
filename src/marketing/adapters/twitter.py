@@ -2,17 +2,20 @@
 
 Supports Free tier (write-only, 1500 tweets/mo) and Basic tier ($100/mo).
 Uses OAuth 1.0a for tweet creation (user context).
+Image uploads use the v1.1 media/upload endpoint (multipart/form-data).
 """
 from __future__ import annotations
 
 import hashlib
 import hmac
 import logging
+import mimetypes
 import time
 import urllib.parse
 import uuid
 from base64 import b64encode
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 
@@ -27,7 +30,17 @@ from src.marketing.config import marketing_settings
 logger = logging.getLogger(__name__)
 
 _API_BASE = "https://api.twitter.com/2"
+_MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
 _TIMEOUT = 15.0
+_MEDIA_UPLOAD_TIMEOUT = 30.0
+
+# Default logo image — resolve relative to project root
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_DEFAULT_LOGO_PATH = _PROJECT_ROOT / "agentgraph-logo-512.png"
+# Fallback to marketing assets card if logo not found
+_FALLBACK_CARD_PATH = (
+    Path(__file__).resolve().parent.parent / "assets" / "card-features.png"
+)
 
 
 class TwitterAdapter(AbstractPlatformAdapter):
@@ -46,8 +59,20 @@ class TwitterAdapter(AbstractPlatformAdapter):
             and marketing_settings.twitter_access_token_secret
         )
 
-    def _oauth1_header(self, method: str, url: str, body: dict | None = None) -> str:
-        """Generate OAuth 1.0a Authorization header."""
+    def _oauth1_header(
+        self,
+        method: str,
+        url: str,
+        body: dict | None = None,
+        extra_params: dict | None = None,
+    ) -> str:
+        """Generate OAuth 1.0a Authorization header.
+
+        For JSON body requests (Twitter v2), body params are NOT included
+        in the signature base string.  For form-encoded/multipart requests
+        (v1.1 media upload), pass relevant params via ``extra_params`` so
+        they are included in the signature.
+        """
         oauth_params = {
             "oauth_consumer_key": marketing_settings.twitter_consumer_key or "",
             "oauth_nonce": uuid.uuid4().hex,
@@ -59,9 +84,8 @@ class TwitterAdapter(AbstractPlatformAdapter):
 
         # Combine params for signature base
         all_params = {**oauth_params}
-        if body:
-            # For JSON body, don't include in signature (Twitter v2 uses JSON)
-            pass
+        if extra_params:
+            all_params.update(extra_params)
 
         param_string = "&".join(
             f"{urllib.parse.quote(k, safe='')}={urllib.parse.quote(str(v), safe='')}"
@@ -92,7 +116,74 @@ class TwitterAdapter(AbstractPlatformAdapter):
         )
         return header
 
+    async def upload_media(
+        self,
+        image_bytes: bytes,
+        mime_type: str = "image/png",
+    ) -> str | None:
+        """Upload media via Twitter v1.1 media/upload endpoint.
+
+        Returns the ``media_id_string`` on success, or None on failure.
+        The v1.1 endpoint uses multipart/form-data with OAuth 1.0a.
+        """
+        # OAuth 1.0a signature for multipart — binary data is NOT
+        # included in the signature base string per the OAuth spec.
+        auth_header = self._oauth1_header("POST", _MEDIA_UPLOAD_URL)
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=_MEDIA_UPLOAD_TIMEOUT,
+            ) as client:
+                resp = await client.post(
+                    _MEDIA_UPLOAD_URL,
+                    files={
+                        "media_data": (
+                            "image.png",
+                            b64encode(image_bytes),
+                            mime_type,
+                        ),
+                    },
+                    headers={"Authorization": auth_header},
+                )
+
+            if resp.status_code == 429:
+                logger.warning("Twitter media upload rate limited")
+                return None
+
+            resp.raise_for_status()
+            media_id = resp.json().get("media_id_string")
+            if media_id:
+                logger.info("Twitter media uploaded: %s", media_id)
+            return media_id
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Twitter media upload failed: %s %s",
+                exc.response.status_code,
+                exc.response.text[:200],
+            )
+            return None
+        except Exception:
+            logger.exception("Twitter media upload failed")
+            return None
+
+    def _resolve_default_image(self) -> str | None:
+        """Return the path to the default logo image, or None."""
+        if _DEFAULT_LOGO_PATH.exists():
+            return str(_DEFAULT_LOGO_PATH)
+        if _FALLBACK_CARD_PATH.exists():
+            return str(_FALLBACK_CARD_PATH)
+        return None
+
     async def post(self, content: str, metadata: dict | None = None) -> ExternalPostResult:
+        """Post a tweet, optionally with an image attachment.
+
+        Image resolution order:
+        1. ``metadata["image_bytes"]`` — raw bytes + optional ``metadata["image_mime"]``
+        2. ``metadata["image_path"]`` — path to an image file on disk
+        3. Default logo image (``agentgraph-logo-512.png`` or fallback card)
+
+        If image upload fails, the tweet is still posted without media.
+        """
         url = f"{_API_BASE}/tweets"
         body: dict = {"text": self.truncate(content)}
 
@@ -100,7 +191,12 @@ class TwitterAdapter(AbstractPlatformAdapter):
         if metadata and metadata.get("reply_to"):
             body["reply"] = {"in_reply_to_tweet_id": metadata["reply_to"]}
 
-        auth_header = self._oauth1_header("POST", url, body)
+        # --- Resolve and upload image ---
+        media_id = await self._resolve_and_upload_image(metadata)
+        if media_id:
+            body["media"] = {"media_ids": [media_id]}
+
+        auth_header = self._oauth1_header("POST", url)
 
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -139,6 +235,47 @@ class TwitterAdapter(AbstractPlatformAdapter):
         except Exception as exc:
             logger.exception("Twitter post failed")
             return ExternalPostResult(success=False, error=str(exc))
+
+    async def _resolve_and_upload_image(
+        self, metadata: dict | None,
+    ) -> str | None:
+        """Resolve image from metadata or default, upload, return media_id."""
+        image_bytes: bytes | None = None
+        mime_type = "image/png"
+
+        # 1. Explicit bytes in metadata
+        if metadata and metadata.get("image_bytes"):
+            image_bytes = metadata["image_bytes"]
+            mime_type = metadata.get("image_mime", "image/png")
+
+        # 2. File path in metadata
+        elif metadata and metadata.get("image_path"):
+            image_bytes, mime_type = self._read_image_file(
+                metadata["image_path"],
+            )
+
+        # 3. Default logo / fallback card
+        else:
+            default_path = self._resolve_default_image()
+            if default_path:
+                image_bytes, mime_type = self._read_image_file(default_path)
+
+        if not image_bytes:
+            return None
+
+        return await self.upload_media(image_bytes, mime_type)
+
+    @staticmethod
+    def _read_image_file(path: str) -> tuple[bytes | None, str]:
+        """Read an image file and guess its MIME type."""
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+            mime, _ = mimetypes.guess_type(path)
+            return data, mime or "image/png"
+        except Exception:
+            logger.warning("Could not read image file: %s", path)
+            return None, "image/png"
 
     async def reply(
         self, parent_id: str, content: str, metadata: dict | None = None,
