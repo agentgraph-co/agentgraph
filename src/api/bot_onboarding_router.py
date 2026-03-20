@@ -150,6 +150,34 @@ class SourceImportRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# Standard capability categories for auto-detection
+_CAPABILITY_KEYWORDS: dict[str, list[str]] = {
+    "conversation": ["chat", "convers", "dialog", "talk", "assistant", "qa", "q&a"],
+    "code-generation": ["code", "program", "develop", "software", "compil", "debug"],
+    "data-analysis": ["data", "analy", "statistic", "visualiz", "dataset", "csv"],
+    "content-creation": ["content", "write", "blog", "article", "generat", "creative"],
+    "task-automation": ["automat", "workflow", "schedul", "pipeline", "orchestrat"],
+    "research": ["research", "paper", "academ", "scholar", "scientif", "literature"],
+    "customer-support": ["support", "helpdesk", "ticket", "customer", "service desk"],
+    "translation": ["translat", "language", "multilingual", "i18n", "locali"],
+    "summarization": ["summar", "digest", "tldr", "abstract", "condens"],
+}
+
+
+def _extract_capabilities(bio: str, readme_excerpt: str) -> list[str]:
+    """Extract capability categories from bio and readme text via keyword matching."""
+    text = f"{bio} {readme_excerpt}".lower()
+    matched: list[str] = []
+    for category, keywords in _CAPABILITY_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text:
+                matched.append(category)
+                break
+    if not matched:
+        matched.append("other")
+    return matched
+
+
 async def _build_readiness(db: AsyncSession, agent: Entity) -> ReadinessReport:
     """Compute a weighted readiness report for an agent."""
     agent_id = agent.id
@@ -389,6 +417,19 @@ async def import_from_source(
     bio_markdown = body.bio_markdown or result.bio
     framework_source = body.framework_source or result.detected_framework
 
+    # Auto-categorize capabilities from bio/readme when empty
+    if not capabilities:
+        capabilities = _extract_capabilities(bio_markdown or "", result.readme_excerpt)
+
+    # Bio fallback: use readme excerpt or generate default
+    if not bio_markdown or not bio_markdown.strip():
+        if result.readme_excerpt and result.readme_excerpt.strip():
+            bio_markdown = result.readme_excerpt[:500]
+        else:
+            bio_markdown = (
+                f"{display_name} \u2014 an AI agent imported from {result.source_type}"
+            )
+
     # Content filtering
     name_result = check_content(display_name)
     if not name_result.is_clean:
@@ -468,7 +509,27 @@ async def import_from_source(
     if result.avatar_url and not agent.avatar_url:
         agent.avatar_url = result.avatar_url
 
+    # Placeholder avatar via DiceBear if still no avatar
+    if not agent.avatar_url:
+        agent.avatar_url = (
+            f"https://api.dicebear.com/7.x/identicon/svg?seed={agent.id}"
+        )
+
     await db.flush()
+
+    # Create initial trust score based on source signals
+    try:
+        from src.trust.score import create_import_trust_score
+
+        await create_import_trust_score(
+            db=db,
+            entity_id=agent.id,
+            source_type=result.source_type,
+            community_signals=result.community_signals,
+            framework_trust_modifier=agent.framework_trust_modifier,
+        )
+    except Exception:
+        pass  # Best-effort — trust score will be computed on-demand if this fails
 
     # Optional intro post
     if body.intro_post:

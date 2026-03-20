@@ -92,11 +92,29 @@ function CheckIcon() {
   )
 }
 
+function MoltbookIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#6B7280" />
+      <text x="8" y="11" textAnchor="middle" fontSize="7" fontWeight="bold" fill="white">M</text>
+    </svg>
+  )
+}
+
+function WarningIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0 text-amber-400" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8.982 1.566a1.13 1.13 0 00-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 01-1.1 0L7.1 5.995A.905.905 0 018 5zm.002 6a1 1 0 110 2 1 1 0 010-2z" />
+    </svg>
+  )
+}
+
 const SOURCE_ICONS: Record<string, () => ReactNode> = {
   github: GitHubIcon,
   npm: NpmIcon,
   pypi: PyPIIcon,
   huggingface: HuggingFaceIcon,
+  moltbook: MoltbookIcon,
 }
 
 export default function SourceBadge({
@@ -108,6 +126,7 @@ export default function SourceBadge({
 }: SourceBadgeProps) {
   const Icon = SOURCE_ICONS[sourceType.toLowerCase()] ?? LinkIcon
   const name = extractName(sourceUrl, sourceType.toLowerCase())
+  const sourceLabel = sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
 
   const stats: { label: string; value: string }[] = []
   if (communitySignals && !compact) {
@@ -137,9 +156,18 @@ export default function SourceBadge({
       title={verified ? `Verified source: ${sourceUrl}` : sourceUrl}
     >
       <Icon />
+      {!compact && <span className="text-text-muted/60">Imported from {sourceLabel}:</span>}
       <span className="truncate max-w-[160px]">{name}</span>
 
       {verified && <CheckIcon />}
+
+      {sourceType.toLowerCase() === 'moltbook' && (
+        <>
+          <span className="text-border">|</span>
+          <WarningIcon />
+          <span className="text-amber-400/80">Not independently verified</span>
+        </>
+      )}
 
       {stats.length > 0 && (
         <>

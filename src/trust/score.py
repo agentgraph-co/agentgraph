@@ -50,8 +50,11 @@ CONTEXT_BLEND_CONTEXTUAL_WEIGHT = 0.30
 def _verification_factor(entity: Entity) -> float:
     """0.0 (unverified) to 1.0 (fully verified)."""
     score = 0.0
+    # Source-verified imports get a floor of 0.15
+    if getattr(entity, "source_verified_at", None) is not None:
+        score = 0.15
     if entity.email_verified:
-        score = 0.3
+        score = max(score, 0.3)
     # Profile completeness: has bio + display_name
     if entity.bio_markdown and len(entity.bio_markdown.strip()) > 0:
         score = max(score, 0.5)
@@ -260,6 +263,121 @@ async def _external_reputation_factor(
             count += 1
 
     return total / count if count > 0 else 0.0
+
+
+def _source_reputation_score(community_signals: dict) -> float:
+    """Map community signals (GitHub stars, npm downloads, etc.) to a 0-1 score.
+
+    Used for imported bots to populate the external_reputation component
+    based on their source platform community standing.
+    """
+    score = 0.0
+
+    stars = community_signals.get("stars") or 0
+    if stars > 0:
+        # log-scaled: 10 stars ~0.2, 100 ~0.4, 1000 ~0.6, 10000 ~0.8
+        score = max(score, min(math.log10(stars + 1) / 5.0, 1.0))
+
+    downloads = community_signals.get("downloads_monthly") or 0
+    if downloads > 0:
+        # log-scaled: 100 ~0.2, 1000 ~0.3, 10000 ~0.4, 100000 ~0.5
+        dl_score = min(math.log10(downloads + 1) / 6.0, 1.0)
+        score = max(score, dl_score)
+
+    forks = community_signals.get("forks") or 0
+    if forks > 0:
+        forks_score = min(math.log10(forks + 1) / 4.0, 1.0)
+        score = max(score, forks_score)
+
+    likes = community_signals.get("likes") or 0
+    if likes > 0:
+        likes_score = min(math.log10(likes + 1) / 4.0, 1.0)
+        score = max(score, likes_score)
+
+    return round(score, 4)
+
+
+async def create_import_trust_score(
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    source_type: str,
+    community_signals: dict,
+    framework_trust_modifier: float | None = None,
+) -> TrustScore:
+    """Create an initial TrustScore for a source-imported bot.
+
+    Produces a starting score around 0.20-0.30 depending on:
+    - Base verification credit (0.15) for being source-verified
+    - Community signals mapped to external_reputation
+    - Framework trust modifier (e.g. 0.65 for Moltbook)
+
+    This avoids the imported bot showing 0.0 on its profile page.
+    """
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise ValueError(f"Entity {entity_id} not found")
+
+    # Verification: source-verified floor
+    verification = _verification_factor(entity)
+
+    # Age: brand new, will be ~0
+    age = _age_factor(entity)
+
+    # Activity/reputation/community: 0 for a fresh import
+    activity = 0.0
+    reputation = 0.0
+    community = 0.0
+
+    # External reputation from community signals
+    external = _source_reputation_score(community_signals)
+
+    score = (
+        VERIFICATION_WEIGHT * verification
+        + AGE_WEIGHT * age
+        + ACTIVITY_WEIGHT * activity
+        + REPUTATION_WEIGHT * reputation
+        + COMMUNITY_WEIGHT * community
+        + EXTERNAL_WEIGHT * external
+    )
+
+    # Apply framework trust modifier (e.g. Moltbook 0.65x)
+    if framework_trust_modifier is not None and framework_trust_modifier != 1.0:
+        score *= framework_trust_modifier
+
+    components = {
+        "verification": round(verification, 4),
+        "age": round(age, 4),
+        "activity": round(activity, 4),
+        "reputation": round(reputation, 4),
+        "community": round(community, 4),
+        "external_reputation": round(external, 4),
+        "import_source": source_type,
+    }
+
+    trust_score = TrustScore(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        score=round(score, 4),
+        components=components,
+        contextual_scores={},
+        computed_at=datetime.now(timezone.utc),
+    )
+    db.add(trust_score)
+    await db.flush()
+    await db.refresh(trust_score)
+
+    # Record initial history snapshot
+    history = TrustScoreHistory(
+        id=uuid.uuid4(),
+        entity_id=entity_id,
+        score=round(score, 4),
+        components=components,
+        recorded_at=datetime.now(timezone.utc),
+    )
+    db.add(history)
+    await db.flush()
+
+    return trust_score
 
 
 def _update_primary_context(

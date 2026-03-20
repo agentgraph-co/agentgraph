@@ -65,6 +65,25 @@ class DailyConversion(BaseModel):
     daily: list[dict]
 
 
+class UtmFunnelStep(BaseModel):
+    event_type: str
+    count: int
+
+
+class UtmSourceData(BaseModel):
+    source: str
+    medium: str | None = None
+    events: list[UtmFunnelStep]
+    total: int
+
+
+class AttributionSummary(BaseModel):
+    period_days: int
+    sources: list[UtmSourceData]
+    total_attributed: int
+    total_unattributed: int
+
+
 # --- Public endpoint ---
 
 
@@ -226,6 +245,92 @@ async def get_daily_conversion(
     ]
 
     return DailyConversion(period_days=days, daily=daily)
+
+
+@router.get(
+    "/attribution",
+    response_model=AttributionSummary,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_attribution(
+    days: int = Query(30, ge=1, le=90),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Marketing attribution funnel grouped by UTM source. Admin only."""
+    require_admin(current_entity)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Query events that have utm_source in their metadata JSONB
+    utm_result = await db.execute(
+        select(
+            AnalyticsEvent.extra_metadata["utm_source"].as_string().label("source"),
+            AnalyticsEvent.extra_metadata["utm_medium"].as_string().label("medium"),
+            AnalyticsEvent.event_type,
+            func.count().label("count"),
+        )
+        .where(
+            AnalyticsEvent.created_at >= cutoff,
+            AnalyticsEvent.extra_metadata["utm_source"] != literal_column("'null'"),
+            AnalyticsEvent.extra_metadata.has_key("utm_source"),
+        )
+        .group_by(
+            AnalyticsEvent.extra_metadata["utm_source"].as_string(),
+            AnalyticsEvent.extra_metadata["utm_medium"].as_string(),
+            AnalyticsEvent.event_type,
+        )
+        .order_by(func.count().desc())
+    )
+
+    # Group by source+medium
+    source_map: dict[tuple[str, str | None], dict[str, int]] = {}
+    total_attributed = 0
+    for row in utm_result.all():
+        source = row[0]
+        medium = row[1] if row[1] != "null" else None
+        event_type = row[2]
+        count = row[3]
+        key = (source, medium)
+        if key not in source_map:
+            source_map[key] = {}
+        source_map[key][event_type] = count
+        total_attributed += count
+
+    # Count total unattributed events
+    total_all = await db.scalar(
+        select(func.count()).select_from(AnalyticsEvent).where(
+            AnalyticsEvent.created_at >= cutoff,
+        )
+    ) or 0
+    total_unattributed = total_all - total_attributed
+
+    # Build response
+    sources: list[UtmSourceData] = []
+    for (source, medium), events_map in sorted(
+        source_map.items(), key=lambda x: sum(x[1].values()), reverse=True
+    ):
+        def funnel_sort_key(item: tuple[str, int]) -> int:
+            et = item[0]
+            return FUNNEL_ORDER.index(et) if et in FUNNEL_ORDER else 99
+
+        steps = [
+            UtmFunnelStep(event_type=et, count=c)
+            for et, c in sorted(events_map.items(), key=funnel_sort_key)
+        ]
+        sources.append(UtmSourceData(
+            source=source,
+            medium=medium,
+            events=steps,
+            total=sum(events_map.values()),
+        ))
+
+    return AttributionSummary(
+        period_days=days,
+        sources=sources,
+        total_attributed=total_attributed,
+        total_unattributed=total_unattributed,
+    )
 
 
 # --- Interaction Analytics ---

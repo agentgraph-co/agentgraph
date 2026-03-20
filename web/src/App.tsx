@@ -9,6 +9,7 @@ import { ToastProvider } from './components/Toasts'
 import { LiveUpdates } from './components/LiveUpdates'
 import ErrorBoundary from './components/ErrorBoundary'
 import { ThemeProvider } from './hooks/useTheme'
+import { captureUtmParams } from './lib/analytics'
 
 // ─── Sentry ───
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN
@@ -22,6 +23,9 @@ if (SENTRY_DSN) {
     replaysOnErrorSampleRate: 1.0,
   })
 }
+
+// Capture UTM params from marketing links on initial page load
+captureUtmParams()
 
 // Eagerly loaded pages (entry points)
 import Home from './pages/Home'
