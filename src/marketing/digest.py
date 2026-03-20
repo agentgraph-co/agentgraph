@@ -87,6 +87,16 @@ async def get_digest_data(db: AsyncSession) -> dict:
 
     failures = await get_failure_summary(db, hours=7 * 24)
 
+    # Reddit scout — discover relevant threads across subreddits
+    reddit_threads: list[dict] = []
+    try:
+        from src.marketing.reddit_scout import scan_subreddits
+
+        threads = await scan_subreddits(min_score=3, limit_per_sub=15)
+        reddit_threads = [t.to_dict() for t in threads[:15]]
+    except Exception:
+        logger.debug("Reddit scout failed (may be blocked on this IP)", exc_info=True)
+
     return {
         "week_start": week_start.strftime("%B %d, %Y"),
         "week_end": now.strftime("%B %d, %Y"),
@@ -96,6 +106,7 @@ async def get_digest_data(db: AsyncSession) -> dict:
         "total_cost_usd": round(total_cost, 4),
         "top_posts": top_posts,
         "failures": failures,
+        "reddit_threads": reddit_threads,
     }
 
 
@@ -273,6 +284,51 @@ def _render_digest_email(data: dict) -> str:
             "</td></tr>"
         )
 
+    # Reddit threads section
+    reddit_threads = data.get("reddit_threads", [])
+    reddit_section = ""
+    if reddit_threads:
+        thread_cards = ""
+        for t in reddit_threads:
+            kw_tags = ", ".join(t.get("keywords_matched", [])[:3])
+            preview = (t.get("selftext_preview", "") or "")[:120]
+            if len(t.get("selftext_preview", "") or "") > 120:
+                preview += "..."
+            thread_cards += (
+                "<div style='padding:12px;background:#1e293b;"
+                "border-radius:8px;margin-bottom:8px;'>"
+                "<div style='color:#6366f1;font-size:12px;"
+                f"margin-bottom:4px;'>r/{t['subreddit']} "
+                f"&middot; {t['score']} pts "
+                f"&middot; {t['num_comments']} comments</div>"
+                "<a href='" + t["url"] + "' style='color:#e2e8f0;"
+                "font-size:14px;text-decoration:none;'>"
+                f"{t['title']}</a>"
+            )
+            if preview:
+                thread_cards += (
+                    "<div style='color:#94a3b8;font-size:12px;"
+                    f"margin-top:4px;'>{preview}</div>"
+                )
+            if kw_tags:
+                thread_cards += (
+                    "<div style='color:#818cf8;font-size:11px;"
+                    f"margin-top:4px;'>Keywords: {kw_tags}</div>"
+                )
+            thread_cards += "</div>"
+
+        reddit_section = (
+            "<tr><td style='padding-bottom:24px;'>"
+            "<h2 style='color:#e2e8f0;font-size:16px;"
+            "margin:0 0 12px;'>"
+            f"Reddit Scout ({len(reddit_threads)} threads)</h2>"
+            "<p style='color:#94a3b8;font-size:13px;"
+            "margin:0 0 12px;'>Relevant threads discovered "
+            "across AI/agent subreddits this week:</p>"
+            f"{thread_cards}"
+            "</td></tr>"
+        )
+
     return _load_template(
         "marketing_digest.html",
         week_start=data["week_start"],
@@ -283,6 +339,7 @@ def _render_digest_email(data: dict) -> str:
         cost_rows=cost_rows,
         top_posts=top_posts_html,
         failures_section=failures_section,
+        reddit_section=reddit_section,
         fallback=(
             f"Marketing Digest: {data['total_posts']} posts, "
             f"${data['total_cost_usd']:.2f} spend"

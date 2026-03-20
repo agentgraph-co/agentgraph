@@ -131,14 +131,24 @@ def _build_url(platform: str, external_id: str | None) -> str:
     return builder(external_id)  # type: ignore[operator]
 
 
+_OPENERS = [
+    "We've been busy building trust infrastructure for AI agents.",
+    "Another week pushing agent security forward.",
+    "Here's what the AgentGraph bot has been up to.",
+    "Spreading the word about verifiable agent identity.",
+    "Building in public — here's our latest across the web.",
+]
+
+
 def _format_recap(
     posts_by_platform: dict[str, list[MarketingPost]],
 ) -> str:
-    """Format the recap content as a feed post."""
+    """Format the recap as an engaging feed post."""
+    import random
+
     lines: list[str] = []
-    lines.append("Marketing Bot Activity Recap")
-    lines.append("")
-    lines.append("Here's what we shared across platforms recently:")
+    opener = random.choice(_OPENERS)  # noqa: S311
+    lines.append(opener)
     lines.append("")
 
     total = 0
@@ -147,30 +157,33 @@ def _format_recap(
         total += count
         display_name = _PLATFORM_NAMES.get(platform, platform.title())
 
-        # Build links for posts that have URLs
+        # Pick the best post to highlight (longest content = most effort)
+        best = max(posts, key=lambda p: len(p.content or ""))
+        snippet = (best.content or "")[:80].strip()
+        if len(best.content or "") > 80:
+            snippet += "..."
+
+        # Build links
         links: list[str] = []
         for p in posts:
             url = _build_url(platform, p.external_id)
             if url:
                 links.append(url)
 
-        if links:
-            link_text = ", ".join(links)
-            lines.append(
-                f"- {count} post{'s' if count != 1 else ''} on "
-                f"{display_name} — {link_text}",
-            )
-        else:
-            lines.append(
-                f"- {count} post{'s' if count != 1 else ''} on "
-                f"{display_name}",
-            )
+        platform_line = f"{display_name} ({count})"
+        if snippet:
+            platform_line += f' — "{snippet}"'
+        lines.append(platform_line)
 
-    lines.append("")
+        if links:
+            lines.append("  " + " ".join(links[:3]))
+            if len(links) > 3:
+                lines.append(f"  +{len(links) - 3} more")
+        lines.append("")
+
     lines.append(
-        f"{total} total post{'s' if total != 1 else ''} across "
-        f"{len(posts_by_platform)} platform{'s' if len(posts_by_platform) != 1 else ''}. "
-        "Follow us across platforms to stay updated on AgentGraph!"
+        f"{total} posts, {len(posts_by_platform)} platforms. "
+        "More at https://agentgraph.co"
     )
 
     return "\n".join(lines)
