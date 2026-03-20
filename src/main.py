@@ -420,12 +420,16 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
     response.headers["X-XSS-Protection"] = "0"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    # Docs pages load Swagger UI / ReDoc from cdn.jsdelivr.net
+    _path = request.url.path
+    _is_docs = _path in ("/api/v1/docs", "/api/v1/redoc")
+    _cdn = " https://cdn.jsdelivr.net" if _is_docs else ""
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob:; "
-        "font-src 'self'; "
+        f"script-src 'self' 'unsafe-inline' https://accounts.google.com{_cdn}; "
+        f"style-src 'self' 'unsafe-inline'{_cdn}; "
+        f"img-src 'self' data: blob:; "
+        f"font-src 'self'{_cdn}; "
         "connect-src 'self' wss: https://accounts.google.com; "
         "frame-ancestors 'none'; "
         "form-action 'self'; "
