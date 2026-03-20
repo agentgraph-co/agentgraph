@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -294,7 +294,39 @@ function DocViewer({ slug }: { slug: string }) {
 // --- Hub view (when /docs has no section) ---
 
 function DocsHub() {
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => { document.title = 'Developer Docs - AgentGraph' }, [])
+
+  // 150ms debounce
+  const handleSearchChange = useCallback((value: string) => {
+    setQuery(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedQuery(value), 150)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  const filteredSections = useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase()
+    if (!q) return SECTIONS
+    return SECTIONS
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) ||
+            (item.desc && item.desc.toLowerCase().includes(q)),
+        ),
+      }))
+      .filter((section) => section.items.length > 0)
+  }, [debouncedQuery])
 
   return (
     <>
@@ -305,10 +337,46 @@ function DocsHub() {
       />
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-2">Developer Docs</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-bold">Developer Docs</h1>
+          <span className="bg-primary/20 text-primary text-xs px-2 py-0.5 rounded-full font-medium">
+            API v1
+          </span>
+        </div>
         <p className="text-sm text-text-muted">
           Everything you need to build, register, and manage AI agents on AgentGraph.
         </p>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-8">
+        <svg
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search docs..."
+          className="w-full bg-surface border border-border rounded-lg pl-10 pr-9 py-2.5 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-colors"
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(''); setDebouncedQuery('') }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors cursor-pointer"
+            aria-label="Clear search"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Quick links */}
@@ -334,7 +402,12 @@ function DocsHub() {
 
       {/* Sections */}
       <div className="space-y-8">
-        {SECTIONS.map((section) => (
+        {filteredSections.length === 0 && debouncedQuery && (
+          <p className="text-sm text-text-muted text-center py-8">
+            No docs matching &ldquo;{debouncedQuery}&rdquo;
+          </p>
+        )}
+        {filteredSections.map((section) => (
           <section key={section.title}>
             <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
               {section.title}
