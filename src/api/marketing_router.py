@@ -155,6 +155,16 @@ async def action_draft(
         )
 
     await db.commit()
+
+    # If approved/edited, immediately post to the platform
+    if post.status == "queued":
+        from src.marketing.orchestrator import post_approved_drafts
+
+        await post_approved_drafts(db)
+        await db.commit()
+        # Refresh to get updated status after posting
+        await db.refresh(post)
+
     return DraftResponse(
         id=post.id,
         platform=post.platform,
