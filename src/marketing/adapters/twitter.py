@@ -40,16 +40,16 @@ class TwitterAdapter(AbstractPlatformAdapter):
 
     async def is_configured(self) -> bool:
         return bool(
-            marketing_settings.twitter_api_key
-            and marketing_settings.twitter_api_secret
+            marketing_settings.twitter_consumer_key
+            and marketing_settings.twitter_consumer_secret
             and marketing_settings.twitter_access_token
-            and marketing_settings.twitter_access_secret
+            and marketing_settings.twitter_access_token_secret
         )
 
     def _oauth1_header(self, method: str, url: str, body: dict | None = None) -> str:
         """Generate OAuth 1.0a Authorization header."""
         oauth_params = {
-            "oauth_consumer_key": marketing_settings.twitter_api_key or "",
+            "oauth_consumer_key": marketing_settings.twitter_consumer_key or "",
             "oauth_nonce": uuid.uuid4().hex,
             "oauth_signature_method": "HMAC-SHA1",
             "oauth_timestamp": str(int(time.time())),
@@ -74,8 +74,8 @@ class TwitterAdapter(AbstractPlatformAdapter):
         )
 
         signing_key = (
-            f"{urllib.parse.quote(marketing_settings.twitter_api_secret or '', safe='')}&"
-            f"{urllib.parse.quote(marketing_settings.twitter_access_secret or '', safe='')}"
+            f"{urllib.parse.quote(marketing_settings.twitter_consumer_secret or '', safe='')}&"
+            f"{urllib.parse.quote(marketing_settings.twitter_access_token_secret or '', safe='')}"
         )
 
         signature = b64encode(
