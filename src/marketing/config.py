@@ -112,3 +112,15 @@ class MarketingSettings(BaseSettings):
 
 
 marketing_settings = MarketingSettings()
+
+# Per-platform posting schedule: which days to post, how many per week,
+# and whether the platform can auto-post or needs human review.
+PLATFORM_SCHEDULE: dict[str, dict] = {
+    "twitter": {"posts_per_week": 3, "auto_post": True, "days": ["mon", "wed", "fri"]},
+    "bluesky": {"posts_per_week": 3, "auto_post": True, "days": ["tue", "thu", "sat"]},
+    "reddit": {"posts_per_week": 2, "auto_post": False, "days": ["tue", "thu"]},
+    "huggingface": {"posts_per_week": 2, "auto_post": True, "days": ["wed", "sat"]},
+    "devto": {"posts_per_week": 1, "auto_post": False, "days": ["mon"]},
+    "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["wed"]},
+    "hashnode": {"posts_per_week": 1, "auto_post": False, "days": ["tue"]},
+}

@@ -93,12 +93,16 @@ async def generate_proactive(
     try:
         from src.marketing.news_signals import gather_news_signals
 
-        signals = await gather_news_signals(limit=5)
+        signals = await gather_news_signals(limit=5, days=2)
         if signals:
-            headlines = "\n".join(
-                f"- {s['title']} ({s['source']})"
-                for s in signals[:5]
-            )
+            lines: list[str] = []
+            for s in signals[:5]:
+                line = f"- {s['title']} ({s['source']})"
+                summary = s.get("summary")
+                if summary:
+                    line += f": {summary[:120]}"
+                lines.append(line)
+            headlines = "\n".join(lines)
             news_context = (
                 f"\n\nToday's trending AI/tech news "
                 f"(reference if relevant):\n{headlines}\n"

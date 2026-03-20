@@ -76,6 +76,10 @@ def _parse_digest_history(
 ) -> list[dict]:
     """Read recent articles from the news-digest history file.
 
+    Supports two formats:
+    1. Hash-keyed: ``{"sent_articles": {"<hash>": {"title": ..., "sent_at": ...}}}``
+    2. Title-keyed: ``{"<title>": {"url": ..., "published": ..., "source": ..., "summary": ...}}``
+
     Args:
         limit: Max articles to return.
         days: How far back to look (1 for daily posts, 7 for weekly
@@ -94,33 +98,64 @@ def _parse_digest_history(
         )
         return []
 
-    sent = data.get("sent_articles", {})
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     recent: list[dict] = []
 
-    for _hash, article in sent.items():
-        sent_at = article.get("sent_at", "")
-        try:
-            ts = datetime.fromisoformat(
-                sent_at.replace("Z", "+00:00"),
-            )
-        except (ValueError, AttributeError):
-            continue
+    # Format 1: hash-keyed with sent_articles wrapper
+    sent = data.get("sent_articles", {})
+    if sent:
+        for _hash, article in sent.items():
+            sent_at = article.get("sent_at", "")
+            try:
+                ts = datetime.fromisoformat(
+                    sent_at.replace("Z", "+00:00"),
+                )
+            except (ValueError, AttributeError):
+                continue
 
-        if ts < cutoff:
-            continue
+            if ts < cutoff:
+                continue
 
-        title = article.get("title", "")
-        if not _is_relevant(title):
-            continue
+            title = article.get("title", "")
+            if not _is_relevant(title):
+                continue
 
-        recent.append({
-            "title": title,
-            "source": article.get("source", "news-digest"),
-            "url": article.get("link", ""),
-            "relevance": "news_digest",
-            "timestamp": ts.isoformat(),
-        })
+            recent.append({
+                "title": title,
+                "source": article.get("source", "news-digest"),
+                "url": article.get("link", ""),
+                "relevance": "news_digest",
+                "timestamp": ts.isoformat(),
+            })
+
+    # Format 2: title-keyed (keys are article titles, values have
+    # url, published, source, summary)
+    if not sent:
+        for title, article in data.items():
+            if not isinstance(article, dict):
+                continue
+            pub = article.get("published", "")
+            try:
+                ts = datetime.fromisoformat(
+                    pub.replace("Z", "+00:00"),
+                )
+            except (ValueError, AttributeError):
+                continue
+
+            if ts < cutoff:
+                continue
+
+            if not _is_relevant(title):
+                continue
+
+            recent.append({
+                "title": title,
+                "source": article.get("source", "news-digest"),
+                "url": article.get("url", ""),
+                "summary": article.get("summary", ""),
+                "relevance": "news_digest",
+                "timestamp": ts.isoformat(),
+            })
 
     recent.sort(key=lambda a: a["timestamp"], reverse=True)
     return recent[:limit]
@@ -213,6 +248,7 @@ async def gather_news_signals(
             "source": str,
             "url": str,
             "relevance": str,
+            "summary": str | None,  # present for digest items with summaries
         }
     """
     signals: list[dict] = _parse_digest_history(
@@ -237,10 +273,13 @@ async def gather_news_signals(
     # Strip internal timestamp before returning
     cleaned: list[dict] = []
     for sig in signals[:limit]:
-        cleaned.append({
+        item: dict = {
             "title": sig["title"],
             "source": sig["source"],
             "url": sig["url"],
             "relevance": sig["relevance"],
-        })
+        }
+        if sig.get("summary"):
+            item["summary"] = sig["summary"]
+        cleaned.append(item)
     return cleaned
