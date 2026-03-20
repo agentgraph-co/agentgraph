@@ -17,7 +17,7 @@ set -euo pipefail
 
 EC2_HOST="${AG_EC2_HOST:?Set AG_EC2_HOST env var (e.g. your Elastic IP)}"
 EC2_USER="ec2-user"
-SSH_KEY="${AG_SSH_KEY:-$HOME/.ssh/***REMOVED***}"
+SSH_KEY="${AG_SSH_KEY:?Set AG_SSH_KEY env var (path to your SSH key)}"
 BACKUP_DIR="/home/ec2-user/backups"
 CONTAINER="agentgraph-postgres-1"
 PG_USER="agentgraph"
