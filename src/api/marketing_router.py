@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -238,8 +239,8 @@ async def action_draft(
     )
 
 
-# Platforms that auto-attach images when posting
-_IMAGE_PLATFORMS = {"twitter", "bluesky", "linkedin"}
+# Platforms that support image attachments in posts
+_IMAGE_PLATFORMS = {"twitter", "bluesky", "linkedin", "reddit", "devto", "hashnode", "discord"}
 
 
 def _topic_image_url(topic: str | None, platform: str) -> str | None:
@@ -550,6 +551,53 @@ async def get_marketing_conversions(
     )
 
 
+# --- Reddit: digest_history.json fallback ---
+
+_DIGEST_HISTORY_PATH = Path("/home/ec2-user/agentgraph/digest_history.json")
+
+
+def _reddit_from_digest_history() -> list[RedditThreadResponse]:
+    """Extract Reddit articles from the news-digest history file.
+
+    The news-digest bot on the Windows server scrapes Reddit RSS
+    and SCPs digest_history.json to EC2. This is the last-resort
+    fallback when both live Reddit API and Redis cache are empty.
+    """
+    import json
+
+    if not _DIGEST_HISTORY_PATH.exists():
+        return []
+    try:
+        with open(_DIGEST_HISTORY_PATH) as f:
+            data = json.load(f)
+    except Exception:
+        return []
+
+    results: list[RedditThreadResponse] = []
+    for info in data.get("sent_articles", {}).values():
+        source = info.get("source", "")
+        if not source.startswith("Reddit"):
+            continue
+        link = info.get("link", "")
+        # Extract subreddit from source name like "Reddit r/artificial"
+        sub = source.replace("Reddit r/", "").replace("Reddit ", "")
+        results.append(
+            RedditThreadResponse(
+                title=info.get("title", ""),
+                url=link,
+                permalink=link.replace("https://www.reddit.com", ""),
+                subreddit=sub,
+                score=0,
+                num_comments=0,
+                created_utc=0.0,
+                selftext_preview=info.get("summary", "")[:300],
+                author="",
+                keywords_matched=[],
+            ),
+        )
+    return results[:20]
+
+
 # --- Reddit Scout endpoints ---
 
 
@@ -562,28 +610,37 @@ async def get_reddit_threads(
     min_score: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
 ) -> list[RedditThreadResponse]:
-    """Scan Reddit for relevant threads. Falls back to cached results on EC2."""
+    """Scan Reddit for relevant threads.
+
+    Falls back to Redis cache, then to digest_history.json (synced
+    from the news-digest bot on Windows server via SCP).
+    """
     require_admin(current_entity)
     from src.marketing.reddit_scout import get_cached_threads, scan_subreddits
 
     threads = await scan_subreddits(sort=sort, min_score=min_score)
     if not threads:
         threads = await get_cached_threads()
-    return [
-        RedditThreadResponse(
-            title=t.title,
-            url=t.url,
-            permalink=t.permalink,
-            subreddit=t.subreddit,
-            score=t.score,
-            num_comments=t.num_comments,
-            created_utc=t.created_utc,
-            selftext_preview=t.selftext_preview,
-            author=t.author,
-            keywords_matched=t.keywords_matched,
-        )
-        for t in threads
-    ]
+
+    if threads:
+        return [
+            RedditThreadResponse(
+                title=t.title,
+                url=t.url,
+                permalink=t.permalink,
+                subreddit=t.subreddit,
+                score=t.score,
+                num_comments=t.num_comments,
+                created_utc=t.created_utc,
+                selftext_preview=t.selftext_preview,
+                author=t.author,
+                keywords_matched=t.keywords_matched,
+            )
+            for t in threads
+        ]
+
+    # Final fallback: extract Reddit articles from digest_history.json
+    return _reddit_from_digest_history()
 
 
 @router.post(
