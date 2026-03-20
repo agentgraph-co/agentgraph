@@ -106,6 +106,34 @@ class RedditDraftResponse(BaseModel):
     llm_cost_usd: float
 
 
+class HFDiscussionResponse(BaseModel):
+    title: str
+    url: str
+    repo_id: str
+    discussion_num: int
+    author: str
+    num_comments: int
+    status: str
+    created_at: str
+    content_preview: str
+    keywords_matched: list[str]
+
+
+class HFDraftRequest(BaseModel):
+    repo_id: str = Field(..., description="HF repo ID (e.g. meta-llama/Llama-3.3-70B)")
+    discussion_num: int = Field(..., description="Discussion number")
+    discussion_title: str = Field(..., description="Discussion title for context")
+    context: str | None = Field(None, description="Extra context for the LLM")
+
+
+class HFDraftResponse(BaseModel):
+    repo_id: str
+    discussion_title: str
+    draft_content: str
+    llm_model: str | None
+    llm_cost_usd: float
+
+
 # --- Endpoints ---
 
 @router.get("/dashboard", response_model=MarketingDashboardResponse)
@@ -746,6 +774,108 @@ async def generate_reddit_draft(
     return RedditDraftResponse(
         thread_url=req.thread_url,
         thread_title=thread_title,
+        draft_content=result.text,
+        llm_model=result.model,
+        llm_cost_usd=round(cost, 6),
+    )
+
+
+# --- HuggingFace Scout endpoints ---
+
+
+@router.get(
+    "/huggingface/discussions",
+    response_model=list[HFDiscussionResponse],
+)
+async def get_hf_discussions(
+    current_entity: Entity = Depends(get_current_entity),
+) -> list[HFDiscussionResponse]:
+    """Scan HuggingFace for relevant model discussions to engage with."""
+    require_admin(current_entity)
+    from src.marketing.hf_scout import scan_hf_discussions
+
+    discussions = await scan_hf_discussions()
+    return [
+        HFDiscussionResponse(
+            title=d.title,
+            url=d.url,
+            repo_id=d.repo_id,
+            discussion_num=d.discussion_num,
+            author=d.author,
+            num_comments=d.num_comments,
+            status=d.status,
+            created_at=d.created_at,
+            content_preview=d.content_preview,
+            keywords_matched=d.keywords_matched,
+        )
+        for d in discussions
+    ]
+
+
+@router.post(
+    "/huggingface/generate-draft",
+    response_model=HFDraftResponse,
+)
+async def generate_hf_draft(
+    req: HFDraftRequest,
+    current_entity: Entity = Depends(get_current_entity),
+) -> HFDraftResponse:
+    """Generate a draft reply for a HuggingFace discussion."""
+    require_admin(current_entity)
+
+    prompt = (
+        f"Write a reply to this HuggingFace discussion on "
+        f"the model page `{req.repo_id}`:\n\n"
+        f"**Discussion title:** {req.discussion_title}\n\n"
+    )
+    if req.context:
+        prompt += f"**Additional context:** {req.context}\n\n"
+
+    prompt += (
+        "## Instructions\n"
+        "- You are a developer who works on AI agent trust and "
+        "identity infrastructure (AgentGraph).\n"
+        "- Respond with genuine technical insight relevant to "
+        "the discussion.\n"
+        "- If agent trust, verification, or identity is relevant, "
+        "mention AgentGraph naturally — don't force it.\n"
+        "- Write 1-3 paragraphs. Be technically precise.\n"
+        "- Reference the specific model/repo when relevant.\n"
+        "- No marketing speak, no emojis.\n"
+    )
+
+    from src.marketing.llm.router import generate as llm_generate
+
+    system = (
+        "You are a knowledgeable AI/ML engineer who participates "
+        "in HuggingFace model discussions. You have expertise in "
+        "agent identity, trust scoring, and multi-agent systems. "
+        "Write like a real researcher sharing expertise."
+    )
+
+    result = await llm_generate(
+        prompt,
+        content_type="hf_scout_draft",
+        system=system,
+        max_tokens=512,
+        temperature=0.7,
+    )
+
+    if result.error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"LLM generation failed: {result.error}",
+        )
+
+    from src.marketing.llm.cost_tracker import estimate_cost
+
+    cost = estimate_cost(
+        result.model, result.tokens_in, result.tokens_out,
+    )
+
+    return HFDraftResponse(
+        repo_id=req.repo_id,
+        discussion_title=req.discussion_title,
         draft_content=result.text,
         llm_model=result.model,
         llm_cost_usd=round(cost, 6),

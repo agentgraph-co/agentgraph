@@ -175,6 +175,27 @@ interface RedditDraftResult {
   llm_cost_usd: number
 }
 
+interface HFDiscussion {
+  title: string
+  url: string
+  repo_id: string
+  discussion_num: number
+  author: string
+  num_comments: number
+  status: string
+  created_at: string
+  content_preview: string
+  keywords_matched: string[]
+}
+
+interface HFDraftResult {
+  repo_id: string
+  discussion_title: string
+  draft_content: string
+  llm_model: string | null
+  llm_cost_usd: number
+}
+
 interface IssueItem {
   id: string
   post_id: string
@@ -257,6 +278,9 @@ export default function Admin() {
   const [redditDraft, setRedditDraft] = useState<RedditDraftResult | null>(null)
   const [redditDraftContext, setRedditDraftContext] = useState('')
   const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null)
+  const [hfDraft, setHfDraft] = useState<HFDraftResult | null>(null)
+  const [hfDraftContext, setHfDraftContext] = useState('')
+  const [generatingHfDraftFor, setGeneratingHfDraftFor] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
@@ -849,6 +873,36 @@ export default function Admin() {
     },
     onError: () => {
       setGeneratingDraftFor(null)
+      addToast('Failed to generate draft', 'error')
+    },
+  })
+
+  // ─── HuggingFace Scout queries ───
+
+  const { data: hfDiscussions, isLoading: hfLoading, refetch: refetchHf } = useQuery<HFDiscussion[]>({
+    queryKey: ['admin-hf-discussions'],
+    queryFn: async () => (await api.get('/admin/marketing/huggingface/discussions')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 5 * 60_000,
+  })
+
+  const generateHfDraftMutation = useMutation({
+    mutationFn: async ({ repoId, discussionNum, discussionTitle, context }: { repoId: string; discussionNum: number; discussionTitle: string; context?: string }) => {
+      return (await api.post('/admin/marketing/huggingface/generate-draft', {
+        repo_id: repoId,
+        discussion_num: discussionNum,
+        discussion_title: discussionTitle,
+        context: context || undefined,
+      })).data as HFDraftResult
+    },
+    onSuccess: (data) => {
+      setHfDraft(data)
+      setGeneratingHfDraftFor(null)
+      setHfDraftContext('')
+      addToast('HuggingFace draft generated', 'success')
+    },
+    onError: () => {
+      setGeneratingHfDraftFor(null)
       addToast('Failed to generate draft', 'error')
     },
   })
@@ -2736,11 +2790,11 @@ export default function Admin() {
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Discovery — Threads to Engage</h2>
                   <button
-                    onClick={() => refetchReddit()}
-                    disabled={redditLoading}
+                    onClick={() => { refetchReddit(); refetchHf() }}
+                    disabled={redditLoading || hfLoading}
                     className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
                   >
-                    {redditLoading ? 'Scanning...' : 'Refresh Scan'}
+                    {(redditLoading || hfLoading) ? 'Scanning...' : 'Refresh Scan'}
                   </button>
                 </div>
                 <p className="text-xs text-text-muted mb-3">
@@ -2821,9 +2875,101 @@ export default function Admin() {
                   </div>
                 ) : (
                   <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
-                    No relevant threads found. Try refreshing the scan.
+                    No relevant Reddit threads found.
                   </div>
                 )}
+
+                {/* HuggingFace Discussions */}
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                    HuggingFace Model Discussions
+                  </h3>
+                  {hfLoading ? (
+                    <div className="py-4"><InlineSkeleton /></div>
+                  ) : hfDiscussions && hfDiscussions.length > 0 ? (
+                    <div className="space-y-2">
+                      {hfDiscussions.map((disc) => {
+                        const discKey = `${disc.repo_id}/${disc.discussion_num}`
+                        return (
+                          <div key={discKey} className="bg-surface border border-border rounded-lg p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <a
+                                  href={disc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium text-yellow-400 hover:text-yellow-300 hover:underline leading-snug"
+                                >
+                                  {disc.title}
+                                </a>
+                                <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
+                                  <span className="font-medium text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded">{disc.repo_id}</span>
+                                  <span>{disc.num_comments} comments</span>
+                                  <span>{disc.author}</span>
+                                </div>
+                                {disc.content_preview && (
+                                  <div className="text-xs text-text-muted mt-1.5 line-clamp-2">{disc.content_preview}</div>
+                                )}
+                                {disc.keywords_matched.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {disc.keywords_matched.map((kw) => (
+                                      <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded bg-success/10 text-success">{kw}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0">
+                                {generatingHfDraftFor === discKey ? (
+                                  <div className="space-y-2 w-48">
+                                    <input
+                                      type="text"
+                                      value={hfDraftContext}
+                                      onChange={e => setHfDraftContext(e.target.value)}
+                                      placeholder="Extra context (optional)"
+                                      className="w-full text-[10px] bg-surface-hover border border-border rounded px-2 py-1"
+                                    />
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => generateHfDraftMutation.mutate({
+                                          repoId: disc.repo_id,
+                                          discussionNum: disc.discussion_num,
+                                          discussionTitle: disc.title,
+                                          context: hfDraftContext,
+                                        })}
+                                        disabled={generateHfDraftMutation.isPending}
+                                        className="text-[10px] bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                      >
+                                        {generateHfDraftMutation.isPending ? 'Generating...' : 'Generate'}
+                                      </button>
+                                      <button
+                                        onClick={() => { setGeneratingHfDraftFor(null); setHfDraftContext('') }}
+                                        className="text-[10px] text-text-muted hover:text-text px-2 py-1 cursor-pointer"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setGeneratingHfDraftFor(discKey)}
+                                    className="text-[10px] bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-2 py-1 rounded cursor-pointer whitespace-nowrap"
+                                  >
+                                    Generate Draft
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
+                      No relevant HuggingFace discussions found.
+                    </div>
+                  )}
+                </div>
 
                 {/* Reddit Draft Modal */}
                 {redditDraft && (
@@ -2861,6 +3007,49 @@ export default function Admin() {
                             className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded inline-flex items-center"
                           >
                             Open Thread
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* HuggingFace Draft Modal */}
+                {hfDraft && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setHfDraft(null)}>
+                    <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between p-4 border-b border-border">
+                        <div>
+                          <h3 className="text-sm font-semibold">HuggingFace Draft Reply</h3>
+                          <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">{hfDraft.repo_id} — {hfDraft.discussion_title}</div>
+                        </div>
+                        <button onClick={() => setHfDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
+                      </div>
+                      <div className="p-4">
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{hfDraft.draft_content}</pre>
+                      </div>
+                      <div className="flex items-center justify-between p-4 border-t border-border">
+                        <div className="text-[10px] text-text-muted">
+                          {hfDraft.llm_model && <span>Model: {hfDraft.llm_model}</span>}
+                          {hfDraft.llm_cost_usd > 0 && <span className="ml-2">Cost: ${hfDraft.llm_cost_usd.toFixed(4)}</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(hfDraft.draft_content)
+                              addToast('Draft copied to clipboard', 'success')
+                            }}
+                            className="text-xs bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-4 py-2 rounded cursor-pointer"
+                          >
+                            Copy to Clipboard
+                          </button>
+                          <a
+                            href={`https://huggingface.co/${hfDraft.repo_id}/discussions`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded inline-flex items-center"
+                          >
+                            Open Discussion
                           </a>
                         </div>
                       </div>
