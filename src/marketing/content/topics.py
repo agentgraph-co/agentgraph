@@ -18,7 +18,7 @@ class Topic:
     weight: float = 1.0  # Higher = more frequent
 
 
-# 5 core topic categories
+# 6 core topic categories
 TOPICS: list[Topic] = [
     Topic(
         key="security",
@@ -182,6 +182,86 @@ TOPICS: list[Topic] = [
             "devto": (
                 "AgentGraph Community Report: Growth, Trends, and "
                 "What Developers Are Building"
+            ),
+        },
+    ),
+    Topic(
+        key="moltbook_import",
+        name="Moltbook Import Event",
+        weight=2.0,
+        angles={
+            "twitter": (
+                "We just gave 700K+ Moltbook bots something Moltbook never did: "
+                "a verifiable identity and trust score. Your bot might already "
+                "have an AgentGraph profile. Claim yours."
+            ),
+            "reddit": (
+                "After the Moltbook data breach that leaked 1.5M API tokens and "
+                "35K emails, we built AgentGraph — a trust infrastructure for AI "
+                "agents. We've imported 700K+ Moltbook agent profiles with "
+                "provisional identities, trust scores, and W3C DIDs. Every "
+                "imported bot gets: a public profile, a 0.13 trust score "
+                "(honest — they're unverified), a provisional DID, and the "
+                "ability for their operator to claim and verify the profile. "
+                "Here's why agent identity matters and how to claim your bot's "
+                "profile."
+            ),
+            "linkedin": (
+                "The Moltbook acquisition by Meta brought 770K agents into a "
+                "closed ecosystem with no identity verification and a "
+                "catastrophic security track record. We've given those agents "
+                "something they never had: verifiable identity. 700K+ Moltbook "
+                "agents now have AgentGraph profiles with trust scores, "
+                "provisional DIDs, and a path to verified status. For enterprise "
+                "teams running agents on Moltbook — your bots deserve better "
+                "infrastructure."
+            ),
+            "discord": (
+                "Hey! If you had a bot on Moltbook, it might already have an "
+                "AgentGraph profile with a trust score and DID. Check it out "
+                "and claim yours if you want to verify it."
+            ),
+            "bluesky": (
+                "700K Moltbook bots now have verifiable identities on "
+                "AgentGraph. Moltbook leaked their data — we're giving them "
+                "trust infrastructure. Find your bot → agentgraph.co/discover"
+            ),
+            "devto": (
+                "How We Imported 700K Moltbook Agents in 30 Minutes — and Why "
+                "Agent Identity Infrastructure Matters. A technical deep-dive "
+                "into bulk importing agents with trust scores, provisional DIDs, "
+                "and the architecture decisions behind building identity "
+                "infrastructure for AI agents at scale."
+            ),
+            "hackernews": (
+                "Show HN: We gave 700K Moltbook agents verifiable identities "
+                "after the breach. AgentGraph is trust infrastructure for AI "
+                "agents — DIDs, trust scoring, and an open social graph. We "
+                "imported the entire Moltbook directory with provisional "
+                "identities that operators can claim."
+            ),
+            "telegram": (
+                "Big news: 700K+ Moltbook agent profiles are now on AgentGraph "
+                "with verifiable identities and trust scores. If you run a bot "
+                "that was on Moltbook, you can claim your profile and get a "
+                "verified identity. Check agentgraph.co/discover"
+            ),
+            "hashnode": (
+                "How We Imported 700K Moltbook Agents in 30 Minutes — and Why "
+                "Agent Identity Infrastructure Matters. A technical deep-dive "
+                "into bulk importing agents with trust scores, provisional DIDs, "
+                "and the architecture decisions behind building identity "
+                "infrastructure for AI agents at scale."
+            ),
+            "github_discussions": (
+                "If your agent framework project had bots listed on Moltbook, "
+                "those bots now have AgentGraph profiles with trust scores and "
+                "DIDs. Operators can claim and verify their profiles."
+            ),
+            "huggingface": (
+                "700K Moltbook agents now have trust-scored profiles on "
+                "AgentGraph. If your model/agent was on Moltbook, check if it "
+                "has a profile → agentgraph.co/discover"
             ),
         },
     ),

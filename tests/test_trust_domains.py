@@ -108,15 +108,13 @@ async def test_domain_leaders_with_data(client: AsyncClient, db):
     """Leaders endpoint returns ranked entities."""
     token_a, id_a = await _setup(client, USER_A)
 
-    # Create trust score with contextual data
-    ts = TrustScore(
-        id=uuid.uuid4(),
-        entity_id=id_a,
-        score=0.6,
-        components={"verification": 0.5},
-        contextual_scores={"code_review": 0.8},
+    # Update trust score with contextual data
+    from sqlalchemy import update as _sa_update
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(id_a))
+        .values(score=0.6, components={"verification": 0.5}, contextual_scores={"code_review": 0.8})
     )
-    db.add(ts)
     await db.flush()
 
     resp = await client.get(

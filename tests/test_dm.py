@@ -50,12 +50,13 @@ def _auth(token: str) -> dict:
 
 async def _grant_trust(db: AsyncSession, entity_id: str, score: float = 0.5) -> None:
     """Give entity a trust score sufficient for trust-gated actions."""
+    from sqlalchemy import update as _sa_update
     eid = uuid.UUID(entity_id)
-    ts = TrustScore(
-        id=uuid.uuid4(), entity_id=eid, score=score,
-        components={"verification": 0.3, "age": 0.1, "activity": 0.1},
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == eid)
+        .values(score=score, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
     )
-    db.add(ts)
     await db.flush()
 
 

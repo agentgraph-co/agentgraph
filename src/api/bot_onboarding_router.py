@@ -924,11 +924,15 @@ async def request_claim(
     current_entity: Entity = Depends(get_current_entity),
     _rate: None = Depends(rate_limit_writes),
 ) -> ClaimRequestResponse:
-    """Request ownership of a provisional (unclaimed) bot profile.
+    """Claim ownership of a provisional (unclaimed) imported bot profile.
 
-    Creates a pending claim that an admin must approve or reject.
+    Immediately assigns the claiming user as operator.
     Only human users can claim bots.
     """
+    from datetime import timezone as tz
+
+    from src.trust.score import compute_trust_score
+
     # Must be human
     if current_entity.type != EntityType.HUMAN:
         raise HTTPException(403, "Only human users can claim bots")
@@ -942,23 +946,11 @@ async def request_claim(
 
     # Must be provisional / unclaimed
     if not agent.is_provisional:
-        raise HTTPException(400, "This bot is not available for claiming")
+        raise HTTPException(409, "This bot is not provisional — it cannot be claimed")
 
     # Already has an operator
     if agent.operator_id is not None:
-        raise HTTPException(400, "This bot already has an owner")
-
-    # Check for existing pending claim
-    onboarding = agent.onboarding_data or {}
-    existing_claim = onboarding.get("ownership_claim")
-    if existing_claim:
-        if existing_claim.get("status") == "pending":
-            raise HTTPException(409, "A claim request is already pending for this bot")
-        if (
-            existing_claim.get("status") == "approved"
-            and existing_claim.get("claimed_by") == str(current_entity.id)
-        ):
-            raise HTTPException(409, "You already own this bot")
+        raise HTTPException(409, "This bot has already been claimed")
 
     # Content-filter the reason
     if body.reason:
@@ -966,11 +958,15 @@ async def request_claim(
         if not reason_check.is_clean:
             raise HTTPException(400, f"Reason rejected: {', '.join(reason_check.flags)}")
 
-    # Store claim request in onboarding_data JSONB
-    from datetime import timezone as tz
+    # Immediately assign ownership
+    agent.operator_id = current_entity.id
+    agent.is_provisional = False
+    agent.operator_approved = True
 
+    # Record claim in onboarding_data JSONB
+    onboarding = agent.onboarding_data or {}
     claim_data = {
-        "status": "pending",
+        "status": "approved",
         "claimed_by": str(current_entity.id),
         "claimer_name": current_entity.display_name,
         "claimed_at": datetime.now(tz.utc).isoformat(),
@@ -980,6 +976,12 @@ async def request_claim(
     # Force SQLAlchemy to detect JSONB mutation
     agent.onboarding_data = {**onboarding}
     await db.flush()
+
+    # Recompute trust score for the entity
+    try:
+        await compute_trust_score(db, agent.id)
+    except Exception:
+        pass  # Best-effort — trust recompute may fail for new entities
 
     # Notify all admins
     admin_result = await db.execute(
@@ -993,17 +995,17 @@ async def request_claim(
         notif = Notification(
             id=uuid.uuid4(),
             entity_id=admin.id,
-            kind="claim_request",
-            title="New bot ownership claim",
-            body=f"{current_entity.display_name} wants to claim {agent.display_name}",
+            kind="claim_approved",
+            title="Bot profile claimed",
+            body=f"{current_entity.display_name} claimed {agent.display_name}",
             reference_id=str(agent.id),
         )
         db.add(notif)
     await db.flush()
 
     return ClaimRequestResponse(
-        status="pending",
-        message="Claim request submitted. An admin will review it shortly.",
+        status="approved",
+        message="Profile claimed successfully. You are now the operator of this bot.",
     )
 
 

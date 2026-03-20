@@ -577,7 +577,7 @@ async def _handle_join_submolt(
 ) -> dict[str, Any]:
     import uuid
 
-    from sqlalchemy import select
+    from sqlalchemy import func, select, update
 
     from src.models import Submolt, SubmoltMembership
 
@@ -604,7 +604,10 @@ async def _handle_join_submolt(
         role="member",
     )
     db.add(membership)
-    submolt.member_count = (submolt.member_count or 0) + 1
+    await db.execute(
+        update(Submolt).where(Submolt.id == submolt.id)
+        .values(member_count=func.coalesce(Submolt.member_count, 0) + 1)
+    )
     await db.flush()
 
     return {"message": f"Joined submolt '{submolt.display_name}'"}

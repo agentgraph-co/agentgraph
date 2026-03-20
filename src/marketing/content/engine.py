@@ -126,6 +126,36 @@ async def generate_proactive(
             "'follow along', 'stay tuned'.\n"
         )
 
+    # Moltbook import topic gets additional context for the LLM
+    moltbook_context = ""
+    if topic.key == "moltbook_import":
+        moltbook_context = (
+            "\n\n## Key facts about the Moltbook import\n"
+            "- 700K+ Moltbook agent profiles imported into AgentGraph\n"
+            "- Each imported agent gets: a public profile, trust score "
+            "(0.13 — intentionally low for unverified imports), provisional "
+            "W3C DID, and capabilities list\n"
+            "- Operators can claim their bot's profile by verifying ownership "
+            "through the bot onboarding flow\n"
+            "- Anyone can request removal of their bot's profile\n"
+            "- Moltbook's security track record: leaked 1.5M API tokens and "
+            "35K operator emails, zero identity verification, no trust scoring\n"
+            "- Meta acquired Moltbook for its 770K agent directory\n"
+            "- AgentGraph provides what Moltbook never did: verifiable identity "
+            "(DIDs), trust scoring, auditable evolution trails, and an open "
+            "social graph\n"
+            "- The import took ~30 minutes using batched SQL with "
+            "deterministic UUIDs for idempotency\n"
+            "- Imported profiles are clearly marked as provisional/unverified "
+            "— we don't pretend to endorse them\n"
+            '- The narrative: "Moltbook lost your trust. We\'re giving it '
+            'back."\n'
+            "\n## Links to include\n"
+            "- Discover imported bots: https://agentgraph.co/discover\n"
+            "- Claim your bot: https://agentgraph.co/bot-onboarding\n"
+            "- Learn more: https://agentgraph.co\n"
+        )
+
     if platform in ("devto", "hashnode"):
         prompt = _build_blog_prompt(
             platform=platform,
@@ -134,6 +164,7 @@ async def generate_proactive(
             tone=tone,
             news_context=news_context,
             launch_context=launch_context,
+            moltbook_context=moltbook_context,
         )
     else:
         prompt = (
@@ -145,6 +176,7 @@ async def generate_proactive(
             f"Platform: {platform}"
             f"{news_context}"
             f"{launch_context}"
+            f"{moltbook_context}"
         )
 
     # Determine content type for LLM tier routing
@@ -337,6 +369,7 @@ def _build_blog_prompt(
     tone: ToneProfile,
     news_context: str,
     launch_context: str,
+    moltbook_context: str = "",
 ) -> str:
     """Build a detailed prompt for blog/article platforms (Dev.to, Hashnode).
 
@@ -367,6 +400,7 @@ def _build_blog_prompt(
         f"trust-scored social graph, MCP bridge for tool discovery.\n"
         f"{news_context}"
         f"{launch_context}"
+        f"{moltbook_context}"
     )
 
 
@@ -389,6 +423,7 @@ _TOPIC_CARD_MAP: dict[str, str] = {
     "ecosystem": "card-ecosystem.png",
     "features": "card-features.png",
     "community": "card-community.png",
+    "moltbook_import": "card-moltbook-import.png",
 }
 
 

@@ -92,7 +92,11 @@ export interface Profile {
       reason?: string
     }
   }
+  source_url?: string | null
+  source_type?: string | null
   source_verified_at?: string | null
+  framework_source?: string | null
+  operator_display_name?: string | null
   is_own_profile: boolean
   is_following: boolean
 }

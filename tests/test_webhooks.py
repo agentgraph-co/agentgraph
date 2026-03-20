@@ -49,10 +49,12 @@ async def _setup_user(
             "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"},
         )
         eid = uuid.UUID(me.json()["id"])
-        db.add(TrustScore(
-            id=uuid.uuid4(), entity_id=eid, score=0.5,
-            components={"verification": 0.3, "age": 0.1, "activity": 0.1},
-        ))
+        from sqlalchemy import update
+        await db.execute(
+            update(TrustScore)
+            .where(TrustScore.entity_id == eid)
+            .values(score=0.5, components={"verification": 0.3, "age": 0.1, "activity": 0.1})
+        )
         await db.flush()
     return token
 

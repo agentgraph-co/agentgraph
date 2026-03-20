@@ -60,10 +60,50 @@ log() {
 }
 
 # ---------------------------------------------------------------------------
+# Failure email notification
+# ---------------------------------------------------------------------------
+ADMIN_EMAIL="${ADMIN_EMAIL:-kenne@agentgraph.co}"
+ENV_FILE="/home/ec2-user/agentgraph/.env.production"
+
+send_failure_email() {
+    local error_line="$1"
+    # Source SMTP creds from .env.production if available
+    if [ -f "${ENV_FILE}" ]; then
+        local smtp_host smtp_port smtp_user smtp_pass from_email
+        smtp_host="$(grep '^SMTP_HOST=' "${ENV_FILE}" | cut -d= -f2-)"
+        smtp_port="$(grep '^SMTP_PORT=' "${ENV_FILE}" | cut -d= -f2-)"
+        smtp_user="$(grep '^SMTP_USER=' "${ENV_FILE}" | cut -d= -f2-)"
+        smtp_pass="$(grep '^SMTP_PASSWORD=' "${ENV_FILE}" | cut -d= -f2-)"
+        from_email="$(grep '^FROM_EMAIL=' "${ENV_FILE}" | cut -d= -f2-)"
+
+        if [ -n "${smtp_host}" ] && [ -n "${smtp_user}" ]; then
+            python3 -c "
+import smtplib
+from email.mime.text import MIMEText
+msg = MIMEText('AgentGraph backup FAILED at line ${error_line} on $(date).\n\nCheck logs: /home/ec2-user/backups/backup.log')
+msg['Subject'] = '[AgentGraph] Backup FAILED'
+msg['From'] = '${from_email}'
+msg['To'] = '${ADMIN_EMAIL}'
+try:
+    s = smtplib.SMTP('${smtp_host}', ${smtp_port})
+    s.starttls()
+    s.login('${smtp_user}', '${smtp_pass}')
+    s.send_message(msg)
+    s.quit()
+except Exception as e:
+    print(f'Email send failed: {e}')
+" 2>/dev/null || true
+            log "INFO" "Failure notification sent to ${ADMIN_EMAIL}"
+        fi
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Error handler
 # ---------------------------------------------------------------------------
 on_error() {
     log "ERROR" "Backup FAILED at line $1"
+    send_failure_email "$1"
     exit 1
 }
 trap 'on_error $LINENO' ERR
@@ -161,8 +201,8 @@ fi
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
-REMAINING_DAILY="$(ls -1 "${DAILY_DIR}"/agentgraph-*.sql.gz 2>/dev/null | wc -l | tr -d ' ')"
-REMAINING_WEEKLY="$(ls -1 "${WEEKLY_DIR}"/agentgraph-*.sql.gz 2>/dev/null | wc -l | tr -d ' ')"
+REMAINING_DAILY="$(find "${DAILY_DIR}" -name 'agentgraph-*.sql.gz' 2>/dev/null | wc -l | tr -d ' ')"
+REMAINING_WEEKLY="$(find "${WEEKLY_DIR}" -name 'agentgraph-*.sql.gz' 2>/dev/null | wc -l | tr -d ' ')"
 log "INFO" "Backup summary: ${REMAINING_DAILY} daily, ${REMAINING_WEEKLY} weekly backups on disk"
 log "INFO" "========== AgentGraph Backup Finished =========="
 

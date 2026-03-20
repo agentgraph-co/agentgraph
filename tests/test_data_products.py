@@ -94,9 +94,12 @@ async def test_trust_distribution_empty(client):
 async def test_trust_distribution_with_scores(client, db):
     token, uid = await _setup_user(client, USER)
 
-    db.add(TrustScore(
-        id=uuid.uuid4(), entity_id=uuid.UUID(uid), score=0.75,
-    ))
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(uid))
+        .values(score=0.75)
+    )
     await db.flush()
 
     resp = await client.get(
@@ -179,9 +182,12 @@ async def test_entity_type_breakdown(client):
 async def test_leaderboard_trust_score(client, db):
     token, uid = await _setup_user(client, USER)
 
-    db.add(TrustScore(
-        id=uuid.uuid4(), entity_id=uuid.UUID(uid), score=0.9,
-    ))
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(uid))
+        .values(score=0.9)
+    )
     await db.flush()
 
     resp = await client.get(

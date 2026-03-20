@@ -70,12 +70,12 @@ async def test_flag_stores_reporter_trust_score(client, db):
     target_token, target_id = await _setup_user(client, USER_TARGET)
 
     # Set reporter's trust score
-    ts = TrustScore(
-        id=uuid.uuid4(),
-        entity_id=uuid.UUID(reporter_id),
-        score=0.85,
+    from sqlalchemy import update as _sa_update
+    await db.execute(
+        _sa_update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(reporter_id))
+        .values(score=0.85, components={})
     )
-    db.add(ts)
     await db.flush()
 
     # Target creates a post to flag
@@ -159,8 +159,13 @@ async def test_flags_sorted_by_trust_score(client, db):
     })
 
     # Set trust scores
-    db.add(TrustScore(id=uuid.uuid4(), entity_id=uuid.UUID(reporter_id), score=0.9))
-    db.add(TrustScore(id=uuid.uuid4(), entity_id=uuid.UUID(low_id), score=0.2))
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore).where(TrustScore.entity_id == uuid.UUID(reporter_id)).values(score=0.9)
+    )
+    await db.execute(
+        update(TrustScore).where(TrustScore.entity_id == uuid.UUID(low_id)).values(score=0.2)
+    )
     await db.flush()
 
     # Create two posts and flag them
@@ -278,7 +283,10 @@ async def test_flag_entity_with_trust_score(client, db):
         "display_name": "EntityTarget",
     })
 
-    db.add(TrustScore(id=uuid.uuid4(), entity_id=uuid.UUID(reporter_id), score=0.7))
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore).where(TrustScore.entity_id == uuid.UUID(reporter_id)).values(score=0.7)
+    )
     await db.flush()
 
     flag_resp = await client.post(

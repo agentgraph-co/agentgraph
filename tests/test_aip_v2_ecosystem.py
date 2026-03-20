@@ -281,10 +281,13 @@ async def test_connectivity_with_trust_score(client, db):
     token_a, uid_a = await _setup_user(client, USER_A)
     token_b, uid_b = await _setup_user(client, USER_B)
 
-    # Add a trust score for user B
-    db.add(TrustScore(
-        id=uuid.uuid4(), entity_id=uuid.UUID(uid_b), score=0.92,
-    ))
+    # Update trust score for user B (registration already creates one)
+    from sqlalchemy import update
+    await db.execute(
+        update(TrustScore)
+        .where(TrustScore.entity_id == uuid.UUID(uid_b))
+        .values(score=0.92)
+    )
     await db.flush()
 
     resp = await client.post(
