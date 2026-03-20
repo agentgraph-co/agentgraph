@@ -160,60 +160,37 @@ async def action_draft(
     import logging
 
     _logger = logging.getLogger(__name__)
-    _logger.warning(
-        "DRAFT ACTION: action=%s post_id=%s post.id=%s",
-        req.action, post_id, post.id,
-    )
 
     if req.action in ("approve", "edit_approve"):
-        _logger.warning("POSTING BLOCK ENTERED for %s", post.id)
         try:
             from src.marketing.orchestrator import _get_adapters
 
             await db.refresh(post)
-            _logger.warning(
-                "Post refreshed: platform=%s status=%s",
-                post.platform, post.status,
-            )
             adapters = _get_adapters()
-            _logger.warning(
-                "Adapters loaded: %s", list(adapters.keys()),
-            )
             adapter = adapters.get(post.platform)
-            if adapter:
-                configured = await adapter.is_configured()
-                _logger.warning(
-                    "Adapter %s configured=%s", post.platform, configured,
-                )
-                if configured:
-                    result = await adapter.post(post.content)
-                    if result.success:
-                        post.status = "posted"
-                        post.external_id = result.external_id
-                        _logger.warning(
-                            "Posted %s to %s: %s",
-                            post.id, post.platform, result.external_id,
-                        )
-                    else:
-                        post.error_message = result.error
-                        _logger.warning(
-                            "Failed to post %s to %s: %s",
-                            post.id, post.platform, result.error,
-                        )
+            if adapter and await adapter.is_configured():
+                result = await adapter.post(post.content)
+                if result.success:
+                    post.status = "posted"
+                    post.external_id = result.external_id
+                    _logger.info(
+                        "Posted %s to %s: %s",
+                        post.id, post.platform, result.external_id,
+                    )
                 else:
+                    post.error_message = result.error
                     _logger.warning(
-                        "Adapter %s NOT configured", post.platform,
+                        "Failed to post %s to %s: %s",
+                        post.id, post.platform, result.error,
                     )
             else:
                 _logger.warning(
-                    "No adapter found for platform: %s", post.platform,
+                    "Adapter not available for %s", post.platform,
                 )
         except Exception as exc:
             post.error_message = str(exc)
-            _logger.exception("Error in posting block for %s", post.id)
+            _logger.exception("Error posting %s", post.id)
         await db.commit()
-    else:
-        _logger.warning("POSTING BLOCK SKIPPED: action=%s", req.action)
 
     await db.refresh(post)
     return DraftResponse(
