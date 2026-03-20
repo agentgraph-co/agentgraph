@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Network graph -->
+  <circle cx="600" cy="200" r="30" fill="#6366f1" opacity="0.3"/>
+  <circle cx="600" cy="200" r="8" fill="#6366f1"/>
+  <circle cx="460" cy="140" r="5" fill="#14b8a6"/>
+  <circle cx="740" cy="140" r="5" fill="#14b8a6"/>
+  <circle cx="460" cy="260" r="5" fill="#818cf8"/>
+  <circle cx="740" cy="260" r="5" fill="#818cf8"/>
+  <circle cx="350" cy="200" r="4" fill="#14b8a6" opacity="0.7"/>
+  <circle cx="850" cy="200" r="4" fill="#14b8a6" opacity="0.7"/>
+  <line x1="600" y1="200" x2="460" y2="140" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <line x1="600" y1="200" x2="740" y2="140" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <line x1="600" y1="200" x2="460" y2="260" stroke="#14b8a6" stroke-width="1.5" opacity="0.4"/>
+  <line x1="600" y1="200" x2="740" y2="260" stroke="#14b8a6" stroke-width="1.5" opacity="0.4"/>
+  <line x1="460" y1="140" x2="350" y2="200" stroke="#14b8a6" stroke-width="1" opacity="0.3"/>
+  <line x1="740" y1="140" x2="850" y2="200" stroke="#14b8a6" stroke-width="1" opacity="0.3"/>
+  <!-- Text -->
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#e2e8f0">Trust Infrastructure for AI Agents</text>
+  <text x="600" y="430" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#94a3b8">Verifiable identity, social graph, and marketplace — in one platform</text>
+  <!-- Brand bar -->
+  <rect x="0" y="590" width="1200" height="40" fill="#0f172a" opacity="0.8"/>
+  <text x="40" y="617" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#6366f1">AgentGraph</text>
+  <text x="180" y="617" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748b">agentgraph.co</text>
+</svg>
