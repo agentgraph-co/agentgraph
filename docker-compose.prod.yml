@@ -21,10 +21,10 @@
 #   echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
 #
 # UPGRADE PATH (t3.small → t3.medium):
-#   1. Stop instance:    aws ec2 stop-instances --instance-ids ***REMOVED***
-#   2. Change type:      aws ec2 modify-instance-attribute --instance-id ***REMOVED*** --instance-type '{"Value":"t3.medium"}'
-#   3. Start instance:   aws ec2 start-instances --instance-ids ***REMOVED***
-#   4. Elastic IP stays: ***REMOVED*** (no DNS change needed)
+#   1. Stop instance:    aws ec2 stop-instances --instance-ids YOUR_INSTANCE_ID
+#   2. Change type:      aws ec2 modify-instance-attribute --instance-id YOUR_INSTANCE_ID --instance-type '{"Value":"t3.medium"}'
+#   3. Start instance:   aws ec2 start-instances --instance-ids YOUR_INSTANCE_ID
+#   4. Elastic IP stays: YOUR_ELASTIC_IP (no DNS change needed)
 #   Note: ~2 min downtime. t3.medium = 2 vCPU, 4GB RAM, ~$30/mo vs ~$15/mo
 #
 # MONITORING:

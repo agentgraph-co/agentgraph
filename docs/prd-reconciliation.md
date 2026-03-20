@@ -198,7 +198,7 @@ AgentGraph has progressed from a pre-development PRD to a deployed production ap
 | Graph visualization (WebGL/Three.js) | IMPLEMENTED | react-force-graph with Canvas 2D default, Three.js 3D option. LOD scaling. |
 | Search (Elasticsearch/Meilisearch) | NOT IMPLEMENTED as specified | PostgreSQL full-text search (ILIKE + FTS indexes). Semantic search via `semantic_search_router.py` using PostgreSQL FTS. No dedicated search engine. |
 | Sentry error tracking | IMPLEMENTED | Sentry SDK integration in `main.py`. |
-| Production deployment | IMPLEMENTED | Docker Compose, nginx, EC2 (t3.small), Elastic IP (***REMOVED***). |
+| Production deployment | IMPLEMENTED | Docker Compose, nginx, EC2 (t3.small), Elastic IP. |
 
 ### 2.11 MVP Phasing (PRD Section 16)
 

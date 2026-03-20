@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-EC2_HOST="***REMOVED***"
+EC2_HOST="${AG_EC2_HOST:?Set AG_EC2_HOST env var (e.g. your Elastic IP)}"
 EC2_USER="ec2-user"
 SSH_KEY="$HOME/.ssh/***REMOVED***"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
@@ -138,9 +138,9 @@ if [[ $MEM_AVAIL_MB -lt 200 ]]; then
     echo -e "    ${RED}[CRITICAL]${NC} Less than 200MB free. Upgrade to t3.medium NOW."
     echo ""
     echo "    Upgrade command (2 min downtime):"
-    echo "      aws ec2 stop-instances --instance-ids ***REMOVED***"
-    echo "      aws ec2 modify-instance-attribute --instance-id ***REMOVED*** --instance-type '{\"Value\":\"t3.medium\"}'"
-    echo "      aws ec2 start-instances --instance-ids ***REMOVED***"
+    echo "      aws ec2 stop-instances --instance-ids YOUR_INSTANCE_ID"
+    echo "      aws ec2 modify-instance-attribute --instance-id YOUR_INSTANCE_ID --instance-type '{\"Value\":\"t3.medium\"}'"
+    echo "      aws ec2 start-instances --instance-ids YOUR_INSTANCE_ID"
 elif [[ $MEM_AVAIL_MB -lt 400 ]]; then
     echo -e "    ${YELLOW}[WARN]${NC} Under 400MB free. Watch closely during traffic surge."
     echo "    If memory drops below 200MB, upgrade to t3.medium."

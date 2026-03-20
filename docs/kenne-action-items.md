@@ -16,17 +16,17 @@ Point `agentgraph.co` to your EC2 Elastic IP.
 
 ```
 Type    Name    Value               TTL
-A       @       ***REMOVED***        300
-A       www     ***REMOVED***        300
+A       @       YOUR_ELASTIC_IP        300
+A       www     YOUR_ELASTIC_IP        300
 ```
 
 4. **Verify propagation** (may take 5–60 minutes):
 ```bash
 dig agentgraph.co +short
-# Should return: ***REMOVED***
+# Should return: YOUR_ELASTIC_IP
 
 dig www.agentgraph.co +short
-# Should return: ***REMOVED***
+# Should return: YOUR_ELASTIC_IP
 ```
 
 5. You can also check at https://dnschecker.org/#A/agentgraph.co
@@ -41,7 +41,7 @@ Once DNS is pointing to your server (Task #120), SSH into EC2 and run the script
 
 ```bash
 # 1. SSH into EC2
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # 2. Pull latest code (includes the SSL script)
 cd ~/agentgraph && git pull
@@ -71,12 +71,12 @@ curl -I https://agentgraph.co/api/v1/trust/methodology
 
 **If something goes wrong:**
 - The script backs up current nginx config before swapping
-- If certbot fails: check that DNS is propagated (`dig agentgraph.co +short` returns `***REMOVED***`)
+- If certbot fails: check that DNS is propagated (`dig agentgraph.co +short` returns `YOUR_ELASTIC_IP`)
 - If port 80 is busy: `sudo ss -tlnp | grep :80` to find what's using it
 - The script is safe to re-run
 
 **Prerequisites checklist:**
-- [ ] DNS A records pointing to ***REMOVED*** (Task #120)
+- [ ] DNS A records pointing to YOUR_ELASTIC_IP (Task #120)
 - [ ] EC2 security group allows HTTP (80) and HTTPS (443) — already configured
 - [ ] Docker running on EC2 — already configured
 
@@ -97,7 +97,7 @@ Sentry is already wired in both frontend (App.tsx) and backend. Just needs the D
 
 5. **SSH into EC2 and add the backend DSN:**
 ```bash
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # Add to your .env.secrets file
 echo 'SENTRY_DSN=https://your-backend-dsn-here' >> ~/agentgraph/.env.secrets
@@ -154,7 +154,7 @@ The code is ready (src/email.py, templates in src/templates/). You need an SMTP 
 
 6. **Add SMTP settings to EC2:**
 ```bash
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # Add to .env.secrets
 cat >> ~/agentgraph/.env.secrets << 'EOF'
@@ -230,7 +230,7 @@ crontab -e
 **Option B: Run cron on EC2** (more reliable, always on)
 
 ```bash
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # Create a simpler on-server backup script
 cat > ~/backup-db.sh << 'SCRIPT'

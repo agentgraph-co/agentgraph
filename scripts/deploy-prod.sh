@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AgentGraph Production Deployment Script
-# Deploys to EC2 instance at ***REMOVED*** via SSH.
+# Deploys to EC2 instance via SSH.
 #
 # Usage:
 #   ./scripts/deploy-prod.sh                 # Full deploy (backend + frontend)
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-EC2_HOST="***REMOVED***"
+EC2_HOST="${AG_EC2_HOST:?Set AG_EC2_HOST env var (e.g. your Elastic IP)}"
 EC2_USER="ec2-user"
 SSH_KEY="$HOME/.ssh/***REMOVED***"
 PROJECT_DIR="agentgraph"
