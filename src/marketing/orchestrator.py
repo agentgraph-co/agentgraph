@@ -44,6 +44,7 @@ def _get_adapters() -> dict[str, AbstractPlatformAdapter]:
     from src.marketing.adapters.bluesky import BlueskyAdapter
     from src.marketing.adapters.devto import DevtoAdapter
     from src.marketing.adapters.discord_bot import DiscordAdapter
+    from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
     from src.marketing.adapters.linkedin import LinkedInAdapter
     from src.marketing.adapters.reddit import RedditAdapter
     from src.marketing.adapters.twitter import TwitterAdapter
@@ -55,6 +56,7 @@ def _get_adapters() -> dict[str, AbstractPlatformAdapter]:
         "linkedin": LinkedInAdapter(),
         "discord": DiscordAdapter(),
         "devto": DevtoAdapter(),
+        "github_discussions": GitHubDiscussionsAdapter(),
     }
 
 
