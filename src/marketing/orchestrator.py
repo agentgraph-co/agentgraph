@@ -532,7 +532,17 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
         logger.exception("Reddit reminder failed")
         results["reddit_reminder"] = False
 
-    # 6. Check for failures and alert admin
+    # 6. Send weekly plan reminder (Sunday)
+    try:
+        from src.marketing.plan_reminder import send_plan_reminder
+
+        plan_reminded = await send_plan_reminder(db)
+        results["plan_reminder"] = plan_reminded
+    except Exception:
+        logger.exception("Plan reminder failed")
+        results["plan_reminder"] = False
+
+    # 7. Check for failures and alert admin
     try:
         from src.marketing.alerts import check_and_alert_failures
 
