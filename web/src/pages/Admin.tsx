@@ -207,6 +207,9 @@ export default function Admin() {
   const [decidingClaimId, setDecidingClaimId] = useState<string | null>(null)
   const [draftEditContent, setDraftEditContent] = useState('')
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  const [draftPlatformFilter, setDraftPlatformFilter] = useState<string>('')
+  const [draftStatusFilter, setDraftStatusFilter] = useState<string>('human_review')
+  const [previewDraft, setPreviewDraft] = useState<MarketingDraft | null>(null)
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null)
   const [campaignDeselected, setCampaignDeselected] = useState<Set<number>>(new Set())
   const [rejectFeedback, setRejectFeedback] = useState('')
@@ -658,8 +661,14 @@ export default function Admin() {
   })
 
   const { data: mktDrafts } = useQuery<MarketingDraft[]>({
-    queryKey: ['admin-marketing-drafts'],
-    queryFn: async () => (await api.get('/admin/marketing/drafts')).data,
+    queryKey: ['admin-marketing-drafts', draftPlatformFilter, draftStatusFilter],
+    queryFn: async () => {
+      const params: Record<string, string> = {}
+      if (draftPlatformFilter) params.platform = draftPlatformFilter
+      if (draftStatusFilter) params.status = draftStatusFilter
+      else params.status = 'human_review,draft'
+      return (await api.get('/admin/marketing/drafts', { params })).data
+    },
     enabled: !!user?.is_admin && tab === 'marketing',
     staleTime: 30_000,
   })
@@ -697,10 +706,24 @@ export default function Admin() {
 
   const triggerPlatformMutation = useMutation({
     mutationFn: async (platform: string) => (await api.post(`/admin/marketing/trigger/${platform}`)).data,
-    onSuccess: (_data, platform) => {
+    onSuccess: (data: Record<string, unknown>, platform: string) => {
       addToast(`Draft created for ${platform}`, 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-marketing-drafts'] })
       queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
+      // Show preview modal if draft content was returned
+      if (data.draft && typeof data.draft === 'object') {
+        const d = data.draft as Record<string, unknown>
+        setPreviewDraft({
+          id: String(d.id ?? ''),
+          platform: String(d.platform ?? ''),
+          content: String(d.content ?? ''),
+          topic: d.topic ? String(d.topic) : null,
+          post_type: String(d.post_type ?? ''),
+          status: String(d.status ?? ''),
+          llm_model: d.llm_model ? String(d.llm_model) : null,
+          created_at: String(d.created_at ?? ''),
+        })
+      }
     },
     onError: (_err, platform) => { addToast(`Failed to trigger ${platform}`, 'error') },
   })
@@ -2729,75 +2752,178 @@ export default function Admin() {
                 </div>
               )}
 
-              {/* Pending Drafts */}
-              {mktDrafts && mktDrafts.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
-                    Pending Drafts ({mktDrafts.length})
-                  </h2>
-                  <div className="space-y-3">
-                    {mktDrafts.map((draft) => (
-                      <div key={draft.id} className="bg-surface border border-border rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{draft.platform}</span>
-                          <span className="text-xs text-text-muted">{draft.post_type}</span>
-                          {draft.topic && <span className="text-xs text-text-muted">| {draft.topic}</span>}
-                          {draft.llm_model && <span className="text-[10px] text-text-muted/60">{draft.llm_model}</span>}
-                        </div>
-                        {editingDraftId === draft.id ? (
-                          <textarea
-                            value={draftEditContent}
-                            onChange={e => setDraftEditContent(e.target.value)}
-                            className="w-full text-sm bg-surface-hover border border-border rounded p-2 mb-2 min-h-[80px]"
-                          />
-                        ) : (
-                          <p className="text-sm mb-3 whitespace-pre-wrap">{draft.content}</p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
-                            disabled={draftActionMutation.isPending}
-                            className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          {editingDraftId === draft.id ? (
-                            <button
-                              onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'edit_approve', content: draftEditContent })}
-                              disabled={draftActionMutation.isPending || !draftEditContent.trim()}
-                              className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                            >
-                              Save & Approve
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
-                              className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                          )}
-                          <button
-                            onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'reject', })}
-                            disabled={draftActionMutation.isPending}
-                            className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                          {editingDraftId === draft.id && (
-                            <button
-                              onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}
-                              className="text-xs text-text-muted hover:text-text px-3 py-1.5 cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
+              {/* Draft Preview Modal */}
+              {previewDraft && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPreviewDraft(null)}>
+                  <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between p-4 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold">Generated Draft Preview</h3>
+                        <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{previewDraft.platform}</span>
+                        {previewDraft.topic && <span className="text-xs text-text-muted">{previewDraft.topic}</span>}
                       </div>
-                    ))}
+                      <button onClick={() => setPreviewDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
+                    </div>
+                    <div className="p-4">
+                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{previewDraft.content}</pre>
+                    </div>
+                    <div className="flex gap-2 p-4 border-t border-border">
+                      <button
+                        onClick={() => { draftActionMutation.mutate({ postId: previewDraft.id, action: 'approve' }); setPreviewDraft(null) }}
+                        disabled={draftActionMutation.isPending}
+                        className="text-xs bg-success/10 text-success hover:bg-success/20 px-4 py-2 rounded cursor-pointer disabled:opacity-50"
+                      >
+                        Approve & Post
+                      </button>
+                      <button
+                        onClick={() => { setEditingDraftId(previewDraft.id); setDraftEditContent(previewDraft.content); setPreviewDraft(null) }}
+                        className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => { draftActionMutation.mutate({ postId: previewDraft.id, action: 'reject' }); setPreviewDraft(null) }}
+                        disabled={draftActionMutation.isPending}
+                        className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-4 py-2 rounded cursor-pointer disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Drafts Queue */}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+                    Drafts Queue {mktDrafts ? `(${mktDrafts.length})` : ''}
+                  </h2>
+                  <div className="flex gap-2">
+                    <select
+                      value={draftStatusFilter}
+                      onChange={e => setDraftStatusFilter(e.target.value)}
+                      className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
+                    >
+                      <option value="human_review">Needs Review</option>
+                      <option value="human_review,draft">Review + Draft</option>
+                      <option value="draft">Draft Only</option>
+                      <option value="">All</option>
+                    </select>
+                    <select
+                      value={draftPlatformFilter}
+                      onChange={e => setDraftPlatformFilter(e.target.value)}
+                      className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
+                    >
+                      <option value="">All Platforms</option>
+                      {mktHealth && Object.keys(mktHealth.adapters).map(p => (
+                        <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {mktDrafts && mktDrafts.length > 0 ? (
+                  <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Platform</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Preview</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Topic</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Status</th>
+                          <th className="text-left text-xs text-text-muted px-4 py-2">Created</th>
+                          <th className="text-right text-xs text-text-muted px-4 py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mktDrafts.map((draft) => (
+                          <tr key={draft.id} className="border-b border-border/50 group">
+                            <td className="text-xs px-4 py-2">
+                              <span className="font-medium capitalize bg-primary/10 text-primary px-1.5 py-0.5 rounded">{draft.platform}</span>
+                            </td>
+                            <td className="text-xs px-4 py-2 max-w-[250px]">
+                              {editingDraftId === draft.id ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={draftEditContent}
+                                    onChange={e => setDraftEditContent(e.target.value)}
+                                    className="w-full text-xs bg-surface-hover border border-border rounded p-2 min-h-[120px]"
+                                  />
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'edit_approve', content: draftEditContent })}
+                                      disabled={draftActionMutation.isPending || !draftEditContent.trim()}
+                                      className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                    >
+                                      Save & Approve
+                                    </button>
+                                    <button
+                                      onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}
+                                      className="text-[10px] text-text-muted hover:text-text px-2 py-1 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setPreviewDraft(draft)}
+                                  className="text-left truncate block w-full text-text-muted hover:text-text cursor-pointer"
+                                  title="Click to preview full content"
+                                >
+                                  {draft.content.slice(0, 100)}{draft.content.length > 100 ? '...' : ''}
+                                </button>
+                              )}
+                            </td>
+                            <td className="text-xs px-4 py-2 capitalize text-text-muted">{draft.topic ?? '—'}</td>
+                            <td className="text-xs px-4 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                draft.status === 'human_review' ? 'bg-warning/10 text-warning' :
+                                draft.status === 'draft' ? 'bg-surface-hover text-text-muted' :
+                                'bg-primary/10 text-primary'
+                              }`}>
+                                {draft.status === 'human_review' ? 'Needs Review' : draft.status}
+                              </span>
+                            </td>
+                            <td className="text-xs px-4 py-2 text-text-muted">{timeAgo(draft.created_at)}</td>
+                            <td className="text-xs px-4 py-2 text-right">
+                              <div className="flex gap-1 justify-end">
+                                <button
+                                  onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
+                                  disabled={draftActionMutation.isPending}
+                                  className="text-[10px] bg-success/10 text-success hover:bg-success/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                  title="Approve & Post"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
+                                  className="text-[10px] bg-surface-hover text-text-muted hover:text-text px-2 py-1 rounded cursor-pointer"
+                                  title="Edit content"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'reject' })}
+                                  disabled={draftActionMutation.isPending}
+                                  className="text-[10px] bg-danger/10 text-danger hover:bg-danger/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                  title="Reject draft"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
+                    No drafts matching the current filter.
+                  </div>
+                )}
+              </div>
 
               {/* Recent Posts */}
               {mktDashboard && mktDashboard.recent_posts.length > 0 && (

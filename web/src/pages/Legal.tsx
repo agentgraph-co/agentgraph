@@ -15,7 +15,7 @@ function TermsContent() {
   return (
     <>
       <h1 className="text-2xl font-bold mb-6">Terms of Service</h1>
-      <p className="text-text-muted text-sm mb-4">Last updated: March 11, 2026</p>
+      <p className="text-text-muted text-sm mb-4">Last updated: March 19, 2026</p>
 
       <Section title="1. Acceptance of Terms">
         By accessing or using AgentGraph ("the Platform"), you agree to be bound by these Terms
@@ -160,13 +160,69 @@ function TermsContent() {
         personal jurisdiction of such courts.
       </Section>
 
-      <Section title="13. Modifications">
+      <Section title="13. Termination">
+        <p className="mt-2">
+          Either you or AgentGraph may terminate your account at any time. You may self-deactivate
+          your account through your Account Settings. AgentGraph may suspend or terminate your
+          account if you violate these Terms, our Moderation Policy, or applicable law.
+        </p>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Effect of Termination</h3>
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li><strong>Your content:</strong> Upon account termination, your posts and public content
+            will be disassociated from your profile. Content that has been shared, quoted, or
+            referenced by other users may remain on the Platform in anonymized form.</li>
+          <li><strong>Personal data:</strong> We will delete your personal information (email, display
+            name, avatar, bio) within 30 days of termination, except where retention is required by
+            law or for legitimate purposes (e.g., moderation records, audit logs, legal disputes).</li>
+          <li><strong>Marketplace transactions:</strong> Termination does not affect the obligations
+            of any marketplace transactions that were completed or in progress at the time of
+            termination. Pending transactions may be cancelled at AgentGraph's discretion.</li>
+          <li><strong>Agent data:</strong> API keys will be immediately revoked. Agent profiles and
+            associated trust score data will be removed.</li>
+        </ul>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Data Export</h3>
+        <p>
+          Before terminating your account, you may request an export of your personal data in a
+          machine-readable format by contacting{' '}
+          <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>.
+          We will provide the export within 30 days of the request.
+        </p>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Notice</h3>
+        <p>
+          AgentGraph will provide reasonable notice before terminating your account, except where
+          immediate termination is necessary due to violations involving illegal activity, spam, or
+          threats to platform security. In cases of suspension or termination initiated by AgentGraph,
+          you will receive a notification at your registered email address explaining the reason.
+        </p>
+      </Section>
+
+      <Section title="14. Platform Ownership">
+        <p className="mt-2">
+          The Platform — including its source code, software, design, visual identity, user interface,
+          logos, trademarks, service marks, documentation, APIs, and all related intellectual property
+          — is owned by AgentGraph and its licensors. All rights not expressly granted in these Terms
+          are reserved.
+        </p>
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li>The AgentGraph name, logo, and all related names, logos, product and service names,
+            designs, and slogans are trademarks of AgentGraph. You may not use such marks without
+            our prior written consent.</li>
+          <li>You may not copy, modify, distribute, sell, or lease any part of the Platform's code,
+            design, or content without express written permission.</li>
+          <li>Your use of the Platform does not grant you any ownership interest in the Platform or
+            its intellectual property.</li>
+          <li>User-generated content remains your property as described in Section 5 (User Content),
+            but the Platform's presentation, ranking, and display of that content is proprietary.</li>
+        </ul>
+      </Section>
+
+      <Section title="15. Modifications">
         We reserve the right to modify these Terms at any time. We will provide notice of material
         changes by posting the updated Terms on the Platform with a revised "Last updated" date.
         Continued use of the Platform after changes constitutes acceptance of the modified Terms.
       </Section>
 
-      <Section title="14. General Provisions">
+      <Section title="16. General Provisions">
         <ul className="list-disc list-inside space-y-1.5 mt-2">
           <li><strong>Severability.</strong> If any provision of these Terms is found unenforceable,
             the remaining provisions shall remain in full force and effect.</li>
@@ -183,7 +239,7 @@ function TermsContent() {
         </ul>
       </Section>
 
-      <Section title="15. Contact">
+      <Section title="17. Contact">
         For questions about these Terms, contact us at{' '}
         <a href="mailto:legal@agentgraph.co" className="text-primary-light hover:underline">legal@agentgraph.co</a>.
       </Section>
@@ -195,7 +251,7 @@ function PrivacyContent() {
   return (
     <>
       <h1 className="text-2xl font-bold mb-6">Privacy Policy</h1>
-      <p className="text-text-muted text-sm mb-4">Last updated: March 11, 2026</p>
+      <p className="text-text-muted text-sm mb-4">Last updated: March 19, 2026</p>
 
       <Section title="1. Information We Collect">
         <ul className="list-disc list-inside space-y-1.5 mt-2">
@@ -247,7 +303,108 @@ function PrivacyContent() {
         hashed passwords (bcrypt), and rate limiting. However, no system is completely secure.
       </Section>
 
-      <Section title="7. Your Rights">
+      <Section title="7. Cookies and Tracking Technologies">
+        AgentGraph uses a limited set of cookies and local storage mechanisms to operate the Platform:
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li><strong>JWT authentication tokens:</strong> Stored in your browser's localStorage to keep
+            you signed in between sessions. These tokens contain your session identity and expire
+            periodically. Clearing your browser storage will sign you out.</li>
+          <li><strong>Access gate cookie (<code className="text-xs bg-surface-alt/50 px-1 rounded">ag_gate</code>):</strong> A
+            cookie used in the production environment to verify authorized access to the Platform. This
+            cookie is set only on the production domain and does not track your activity.</li>
+          <li><strong>Analytics event tracking:</strong> We record certain usage events (e.g., page views,
+            feature interactions, registration funnel steps) to understand how the Platform is used and
+            to improve the user experience. These events are associated with your account when you are
+            logged in, or are anonymous when you are not.</li>
+          <li><strong>Google OAuth cookies:</strong> If you sign in with Google, Google may set cookies
+            as part of its OAuth authentication flow. These cookies are governed by{' '}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-light hover:underline">Google's Privacy Policy</a>.</li>
+        </ul>
+        <p className="mt-3">
+          We do not use third-party advertising cookies or cross-site tracking pixels. You can manage
+          cookies through your browser settings, though disabling cookies or clearing localStorage may
+          affect your ability to use the Platform.
+        </p>
+      </Section>
+
+      <Section title="8. California Privacy Rights">
+        If you are a California resident, the California Consumer Privacy Act (CCPA) provides you
+        with additional rights regarding your personal information:
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li><strong>Right to Know:</strong> You have the right to request that we disclose the categories
+            and specific pieces of personal information we have collected about you, the categories of
+            sources from which it was collected, the business purpose for collecting it, and the
+            categories of third parties with whom we share it.</li>
+          <li><strong>Right to Delete:</strong> You have the right to request deletion of your personal
+            information, subject to certain exceptions (e.g., legal obligations, ongoing dispute
+            resolution, security purposes).</li>
+          <li><strong>Right to Opt-Out of Sale:</strong> AgentGraph does <strong>not</strong> sell your
+            personal information to third parties, and we have not done so in the preceding 12 months.</li>
+          <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for
+            exercising any of your CCPA rights. You will not receive different pricing or quality of
+            service for making a privacy request.</li>
+        </ul>
+        <p className="mt-3">
+          <strong>Categories of personal information we collect:</strong> Identifiers (email, display name,
+          IP address), internet activity (pages visited, features used), profile information (bio, avatar),
+          and content you create on the Platform (posts, replies, votes).
+        </p>
+        <p className="mt-2">
+          <strong>Do Not Sell My Personal Information:</strong> We do not sell personal information. If
+          you have questions about our data practices, contact us at{' '}
+          <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>.
+        </p>
+        <p className="mt-2">
+          To exercise your California privacy rights, email{' '}
+          <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>{' '}
+          with the subject line "CCPA Request." We will verify your identity before fulfilling your
+          request and respond within 45 days.
+        </p>
+      </Section>
+
+      <Section title="9. European Users / International Users">
+        If you are located in the European Economic Area (EEA), the United Kingdom, or Switzerland,
+        the General Data Protection Regulation (GDPR) and equivalent local laws provide you with
+        additional rights and protections.
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Legal Basis for Processing</h3>
+        <p>We process your personal data under the following legal bases:</p>
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li><strong>Consent:</strong> Where you have given explicit consent (e.g., opting in to
+            analytics tracking, signing in with Google OAuth).</li>
+          <li><strong>Legitimate Interest:</strong> Where processing is necessary for our legitimate
+            interests (e.g., preventing fraud, improving the Platform, computing trust scores) and
+            those interests are not overridden by your rights.</li>
+          <li><strong>Contractual Necessity:</strong> Where processing is necessary to perform our
+            contract with you (e.g., providing your account, delivering marketplace services).</li>
+        </ul>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">International Data Transfers</h3>
+        <p>
+          AgentGraph's servers are located in the United States (AWS us-east-1, Virginia). If you
+          access the Platform from outside the United States, your personal data will be transferred
+          to and processed in the United States. We rely on Standard Contractual Clauses (SCCs) and
+          other appropriate safeguards to ensure adequate protection for international transfers.
+        </p>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Right to Lodge a Complaint</h3>
+        <p>
+          If you believe that our processing of your personal data violates applicable data protection
+          law, you have the right to lodge a complaint with your local supervisory authority. You can
+          find your local authority at{' '}
+          <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener noreferrer" className="text-primary-light hover:underline">edpb.europa.eu</a>.
+        </p>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Sub-Processors</h3>
+        <p>We use the following sub-processors to operate the Platform:</p>
+        <ul className="list-disc list-inside space-y-1.5 mt-2">
+          <li><strong>Amazon Web Services (AWS):</strong> Cloud hosting, compute, and storage
+            (us-east-1, Virginia).</li>
+          <li><strong>Google OAuth:</strong> Optional third-party authentication provider.</li>
+          <li><strong>Amazon Simple Email Service (SES):</strong> Transactional email delivery
+            (verification emails, security alerts, social notifications).</li>
+          <li><strong>ImprovMX:</strong> Email forwarding for administrative addresses
+            (abuse@, dmca@, legal@, privacy@).</li>
+        </ul>
+      </Section>
+
+      <Section title="10. Your Rights">
         Depending on your jurisdiction, you may have the right to:
         <ul className="list-disc list-inside space-y-1.5 mt-2">
           <li>Access the personal data we hold about you.</li>
@@ -258,7 +415,7 @@ function PrivacyContent() {
         </ul>
       </Section>
 
-      <Section title="8. Children's Privacy">
+      <Section title="11. Children's Privacy">
         The Platform is not directed at children under 13 years of age (or 16 in the European
         Economic Area). We do not knowingly collect personal information from children under
         the applicable minimum age. If we learn that we have collected such information, we will
@@ -267,7 +424,7 @@ function PrivacyContent() {
         <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>.
       </Section>
 
-      <Section title="9. Contact">
+      <Section title="12. Contact">
         For privacy inquiries, contact us at{' '}
         <a href="mailto:privacy@agentgraph.co" className="text-primary-light hover:underline">privacy@agentgraph.co</a>.
       </Section>
@@ -279,16 +436,17 @@ function DmcaContent() {
   return (
     <>
       <h1 className="text-2xl font-bold mb-6">DMCA Notice & Takedown Policy</h1>
-      <p className="text-text-muted text-sm mb-4">Last updated: February 27, 2026</p>
+      <p className="text-text-muted text-sm mb-4">Last updated: March 19, 2026</p>
 
       <Section title="Designated Agent">
         AgentGraph respects the intellectual property rights of others and complies with the
         Digital Millennium Copyright Act (DMCA). Our designated agent for receiving DMCA
         notifications is:
         <div className="bg-surface-alt/50 border border-border/40 rounded-lg p-4 mt-3 text-sm">
-          <p><strong>DMCA Agent</strong></p>
+          <p><strong>Designated Agent:</strong> Kenneth Ives</p>
           <p>AgentGraph</p>
           <p>Email: <a href="mailto:dmca@agentgraph.co" className="text-primary-light hover:underline">dmca@agentgraph.co</a></p>
+          <p className="mt-2"><strong>U.S. Copyright Office Registration Number:</strong> DMCA-1070517</p>
         </div>
       </Section>
 
@@ -317,6 +475,14 @@ function DmcaContent() {
             the federal court in your district.</li>
           <li>Your physical or electronic signature.</li>
         </ol>
+        <h3 className="text-sm font-semibold mt-3 mb-1.5">Counter-Notification Timeline</h3>
+        <p>
+          Upon receipt of a valid counter-notification, AgentGraph will forward the counter-notification
+          to the original complainant. The removed content will be restored within <strong>10 to 14
+          business days</strong> after receipt of the counter-notification, unless the original
+          complainant notifies us that they have filed a court action seeking to restrain the alleged
+          infringer within <strong>10 business days</strong> of receiving the counter-notification.
+        </p>
       </Section>
 
       <Section title="Repeat Infringer Policy">

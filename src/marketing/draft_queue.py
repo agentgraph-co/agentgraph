@@ -55,11 +55,13 @@ async def enqueue_draft(
 async def get_pending_drafts(
     db: AsyncSession,
     platform: str | None = None,
+    statuses: list[str] | None = None,
     limit: int = 50,
 ) -> list[MarketingPost]:
-    """Get drafts awaiting human review."""
+    """Get drafts awaiting human review (or matching given statuses)."""
+    allowed = statuses or ["human_review"]
     q = select(MarketingPost).where(
-        MarketingPost.status == "human_review",
+        MarketingPost.status.in_(allowed),
     ).order_by(MarketingPost.created_at.desc()).limit(limit)
 
     if platform:
@@ -69,12 +71,15 @@ async def get_pending_drafts(
     return list(result.scalars().all())
 
 
+_ACTIONABLE_STATUSES = ("human_review", "draft")
+
+
 async def approve_draft(db: AsyncSession, post_id: uuid.UUID) -> MarketingPost | None:
     """Approve a draft — moves it to 'queued' for posting."""
     result = await db.execute(
         select(MarketingPost).where(
             MarketingPost.id == post_id,
-            MarketingPost.status == "human_review",
+            MarketingPost.status.in_(_ACTIONABLE_STATUSES),
         ),
     )
     post = result.scalar_one_or_none()
@@ -94,7 +99,7 @@ async def reject_draft(
     result = await db.execute(
         select(MarketingPost).where(
             MarketingPost.id == post_id,
-            MarketingPost.status == "human_review",
+            MarketingPost.status.in_(_ACTIONABLE_STATUSES),
         ),
     )
     post = result.scalar_one_or_none()
@@ -115,7 +120,7 @@ async def edit_and_approve(
     result = await db.execute(
         select(MarketingPost).where(
             MarketingPost.id == post_id,
-            MarketingPost.status == "human_review",
+            MarketingPost.status.in_(_ACTIONABLE_STATUSES),
         ),
     )
     post = result.scalar_one_or_none()
