@@ -158,12 +158,33 @@ async def action_draft(
 
     # If approved/edited, immediately post to the platform
     if post.status == "queued":
-        from src.marketing.orchestrator import post_approved_drafts
+        import logging
 
-        await post_approved_drafts(db)
-        await db.commit()
-        # Refresh to get updated status after posting
-        await db.refresh(post)
+        from src.marketing.orchestrator import _get_adapters
+
+        _logger = logging.getLogger(__name__)
+        adapters = _get_adapters()
+        adapter = adapters.get(post.platform)
+        if adapter and await adapter.is_configured():
+            try:
+                result = await adapter.post(post.content)
+                if result.success:
+                    post.status = "posted"
+                    post.external_id = result.external_id
+                    _logger.info(
+                        "Posted %s to %s: %s",
+                        post.id, post.platform, result.external_id,
+                    )
+                else:
+                    post.error_message = result.error
+                    _logger.warning(
+                        "Failed to post %s to %s: %s",
+                        post.id, post.platform, result.error,
+                    )
+            except Exception as exc:
+                post.error_message = str(exc)
+                _logger.exception("Error posting %s", post.id)
+            await db.commit()
 
     return DraftResponse(
         id=post.id,
