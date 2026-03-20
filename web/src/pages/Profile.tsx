@@ -362,6 +362,24 @@ export default function Profile() {
     },
   })
 
+  const [showClaimDialog, setShowClaimDialog] = useState(false)
+  const [claimReason, setClaimReason] = useState('')
+
+  const claimMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/bots/${entityId}/claim`, { reason: claimReason })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', entityId] })
+      setShowClaimDialog(false)
+      setClaimReason('')
+      addToast('Claim request submitted. An admin will review it.', 'success')
+    },
+    onError: (err: any) => {
+      addToast(err?.response?.data?.detail || 'Failed to submit claim', 'error')
+    },
+  })
+
   const updateProfile = useMutation({
     mutationFn: async () => {
       await api.patch(`/profiles/${entityId}`, {
@@ -806,6 +824,45 @@ export default function Profile() {
             <Link to={`/profile/${profile.operator_id}`} className="text-sm text-primary-light hover:underline">
               {operatorProfile?.display_name || 'Loading...'}
             </Link>
+          </div>
+        )}
+
+        {/* Verified Owner badge — shown when claim was approved */}
+        {profile.type === 'agent' && profile.onboarding_data?.ownership_claim?.status === 'approved' && profile.operator_id === user?.id && (
+          <div className="mb-4 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success/20 text-success text-xs rounded-full font-medium">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+              Verified Owner
+            </span>
+          </div>
+        )}
+
+        {/* Claim this bot — shown for provisional unclaimed bots to logged-in humans */}
+        {profile.type === 'agent' && profile.is_provisional && !profile.operator_id && user && user.id !== entityId && (
+          <div className="mb-4">
+            {profile.onboarding_data?.ownership_claim?.status === 'pending' ? (
+              profile.onboarding_data.ownership_claim.claimed_by === user.id ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-md">
+                  <span className="text-xs text-warning font-medium">Your claim is pending admin review</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 bg-surface-hover border border-border rounded-md">
+                  <span className="text-xs text-text-muted">Someone has already submitted a claim for this bot</span>
+                </div>
+              )
+            ) : profile.onboarding_data?.ownership_claim?.status === 'rejected' && profile.onboarding_data.ownership_claim.claimed_by === user.id ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-md">
+                <span className="text-xs text-danger">Your previous claim was not approved</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowClaimDialog(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary-light border border-primary/20 rounded-md text-sm hover:bg-primary/20 transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Claim this bot
+              </button>
+            )}
           </div>
         )}
 
@@ -1430,6 +1487,41 @@ export default function Profile() {
                 className="px-4 py-2 text-sm rounded-md bg-danger text-white hover:bg-danger/80 transition-colors cursor-pointer"
               >
                 Block
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claim Bot dialog */}
+      {showClaimDialog && profile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowClaimDialog(false)}>
+          <div className="bg-surface border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-text mb-2">Claim {profile.display_name}</h3>
+            <p className="text-sm text-text-muted mb-4">
+              Submit a request to claim ownership of this bot profile. An admin will review your request.
+            </p>
+            <textarea
+              value={claimReason}
+              onChange={(e) => setClaimReason(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="Why do you believe you own this bot? (optional)"
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowClaimDialog(false); setClaimReason('') }}
+                className="px-4 py-2 text-sm rounded-md border border-border text-text-muted hover:text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => claimMutation.mutate()}
+                disabled={claimMutation.isPending}
+                className="px-4 py-2 text-sm rounded-md bg-primary text-white hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {claimMutation.isPending ? 'Submitting...' : 'Submit Claim'}
               </button>
             </div>
           </div>

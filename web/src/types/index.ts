@@ -72,6 +72,7 @@ export interface Profile {
   follower_count: number
   following_count: number
   created_at: string
+  is_provisional: boolean
   onboarding_data?: {
     import_source?: {
       url: string
@@ -82,6 +83,13 @@ export interface Profile {
         downloads_monthly?: number
         likes?: number
       }
+    }
+    ownership_claim?: {
+      status: string
+      claimed_by: string
+      claimer_name?: string
+      claimed_at?: string
+      reason?: string
     }
   }
   source_verified_at?: string | null

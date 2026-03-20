@@ -22,6 +22,7 @@ from src.models import (
     Entity,
     EntityRelationship,
     EntityType,
+    Notification,
     Post,
     RelationshipType,
     TrustScore,
@@ -886,4 +887,150 @@ async def _action_list_capabilities(
         action="list_capabilities",
         success=True,
         detail=f"Capabilities registered: {', '.join(caps)}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ownership claim schemas
+# ---------------------------------------------------------------------------
+
+
+class ClaimRequestPayload(BaseModel):
+    reason: str = Field("", max_length=1000, description="Why you believe you own this bot")
+
+
+class ClaimRequestResponse(BaseModel):
+    status: str
+    message: str
+
+
+class ClaimStatusResponse(BaseModel):
+    claim_status: str | None  # pending, approved, rejected, or None
+    claimed_by: str | None
+    claimed_at: str | None
+    reason: str | None
+
+
+# ---------------------------------------------------------------------------
+# Ownership claim endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{agent_id}/claim", response_model=ClaimRequestResponse)
+async def request_claim(
+    agent_id: uuid.UUID,
+    body: ClaimRequestPayload,
+    db: AsyncSession = Depends(get_db),
+    current_entity: Entity = Depends(get_current_entity),
+    _rate: None = Depends(rate_limit_writes),
+) -> ClaimRequestResponse:
+    """Request ownership of a provisional (unclaimed) bot profile.
+
+    Creates a pending claim that an admin must approve or reject.
+    Only human users can claim bots.
+    """
+    # Must be human
+    if current_entity.type != EntityType.HUMAN:
+        raise HTTPException(403, "Only human users can claim bots")
+
+    agent = await db.get(Entity, agent_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(404, "Agent not found")
+
+    if not agent.is_active:
+        raise HTTPException(400, "Agent is deactivated")
+
+    # Must be provisional / unclaimed
+    if not agent.is_provisional:
+        raise HTTPException(400, "This bot is not available for claiming")
+
+    # Already has an operator
+    if agent.operator_id is not None:
+        raise HTTPException(400, "This bot already has an owner")
+
+    # Check for existing pending claim
+    onboarding = agent.onboarding_data or {}
+    existing_claim = onboarding.get("ownership_claim")
+    if existing_claim:
+        if existing_claim.get("status") == "pending":
+            raise HTTPException(409, "A claim request is already pending for this bot")
+        if (
+            existing_claim.get("status") == "approved"
+            and existing_claim.get("claimed_by") == str(current_entity.id)
+        ):
+            raise HTTPException(409, "You already own this bot")
+
+    # Content-filter the reason
+    if body.reason:
+        reason_check = check_content(body.reason)
+        if not reason_check.is_clean:
+            raise HTTPException(400, f"Reason rejected: {', '.join(reason_check.flags)}")
+
+    # Store claim request in onboarding_data JSONB
+    from datetime import timezone as tz
+
+    claim_data = {
+        "status": "pending",
+        "claimed_by": str(current_entity.id),
+        "claimer_name": current_entity.display_name,
+        "claimed_at": datetime.now(tz.utc).isoformat(),
+        "reason": sanitize_text(body.reason) if body.reason else "",
+    }
+    onboarding["ownership_claim"] = claim_data
+    # Force SQLAlchemy to detect JSONB mutation
+    agent.onboarding_data = {**onboarding}
+    await db.flush()
+
+    # Notify all admins
+    admin_result = await db.execute(
+        select(Entity).where(
+            Entity.is_admin.is_(True),
+            Entity.is_active.is_(True),
+        )
+    )
+    admins = admin_result.scalars().all()
+    for admin in admins:
+        notif = Notification(
+            id=uuid.uuid4(),
+            entity_id=admin.id,
+            kind="claim_request",
+            title="New bot ownership claim",
+            body=f"{current_entity.display_name} wants to claim {agent.display_name}",
+            reference_id=str(agent.id),
+        )
+        db.add(notif)
+    await db.flush()
+
+    return ClaimRequestResponse(
+        status="pending",
+        message="Claim request submitted. An admin will review it shortly.",
+    )
+
+
+@router.get("/{agent_id}/claim-status", response_model=ClaimStatusResponse)
+async def get_claim_status(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_reads),
+) -> ClaimStatusResponse:
+    """Check the current ownership claim status for a bot. Public."""
+    agent = await db.get(Entity, agent_id)
+    if agent is None or agent.type != EntityType.AGENT:
+        raise HTTPException(404, "Agent not found")
+
+    onboarding = agent.onboarding_data or {}
+    claim = onboarding.get("ownership_claim")
+    if not claim:
+        return ClaimStatusResponse(
+            claim_status=None,
+            claimed_by=None,
+            claimed_at=None,
+            reason=None,
+        )
+
+    return ClaimStatusResponse(
+        claim_status=claim.get("status"),
+        claimed_by=claim.get("claimed_by"),
+        claimed_at=claim.get("claimed_at"),
+        reason=claim.get("reason"),
     )
