@@ -39,11 +39,17 @@ async def _grant_trust(db, entity_id: str, score: float = 0.5):
     import uuid as _uuid
 
     from sqlalchemy import update as _sa_update
-    await db.execute(
+    eid = _uuid.UUID(entity_id)
+    result = await db.execute(
         _sa_update(TrustScore)
-        .where(TrustScore.entity_id == _uuid.UUID(entity_id))
+        .where(TrustScore.entity_id == eid)
         .values(score=score, components={})
     )
+    if result.rowcount == 0:
+        db.add(TrustScore(
+            id=_uuid.uuid4(), entity_id=eid,
+            score=score, components={},
+        ))
     await db.flush()
 
 
