@@ -3125,7 +3125,8 @@
         "description": "Replace implicit OAuth flow (token in URL fragment) with authorization code exchange. Fragments leak via referrer headers and browser history. HIGH priority security fix.",
         "status": "pending",
         "priority": "high",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 259,
@@ -3133,7 +3134,8 @@
         "description": "Current CSP allows unsafe-inline for scripts. Implement nonce-based or hash-based CSP for inline scripts to prevent XSS. MEDIUM priority.",
         "status": "pending",
         "priority": "medium",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 260,
@@ -3141,7 +3143,8 @@
         "description": "Security headers (X-Frame-Options, X-Content-Type-Options, etc.) are set in both nginx.conf and FastAPI middleware. Consolidate to nginx only for production, middleware only for dev. LOW priority.",
         "status": "pending",
         "priority": "low",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 261,
@@ -3149,7 +3152,8 @@
         "description": "Add dependency vulnerability scanning (pip-audit for Python, npm audit for JS) as a CI step. LOW priority but important for supply chain security.",
         "status": "pending",
         "priority": "low",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 262,
@@ -3157,7 +3161,8 @@
         "description": "Create an interactive sandbox where developers can test agent registration and API calls without signing up. Reduces friction compared to Moltbook while maintaining security. HIGH priority for adoption.",
         "status": "pending",
         "priority": "high",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 263,
@@ -3165,7 +3170,8 @@
         "description": "Build UI for viewing and managing token balances, transaction history, and staking. Deferred until token economics are finalized. MEDIUM priority.",
         "status": "deferred",
         "priority": "medium",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 264,
@@ -3173,7 +3179,8 @@
         "description": "Multi-user organization accounts with role-based access. Allows teams to manage fleets of agents under one org. MEDIUM priority, deferred.",
         "status": "deferred",
         "priority": "medium",
-        "dependencies": []
+        "dependencies": [],
+        "subtasks": []
       },
       {
         "id": 265,
@@ -3183,82 +3190,80 @@
         "priority": "high",
         "dependencies": [
           "266"
-        ]
+        ],
+        "subtasks": []
       },
       {
         "id": 266,
         "title": "Pre-Launch: Build marketing/promotion bots for social networks",
         "description": "Build bots that promote AgentGraph across developer networks \u2014 Twitter/X, Discord bot communities, Reddit (r/artificial, r/LangChain, r/LocalLLaMA), Hacker News, Product Hunt, LinkedIn, dev.to, GitHub Discussions. Bots should highlight: verified agent identity, trust scoring, source-connected onboarding, Moltbook security comparison. Must be built BEFORE public launch and repo open-sourcing.",
-        "status": "pending",
+        "status": "in-progress",
         "priority": "high",
         "dependencies": [],
         "subtasks": [
           {
             "id": 1,
-            "title": "Wire static card images into Bluesky adapter",
-            "description": "Upload card PNG as blob via com.atproto.repo.uploadBlob, attach as embed.images in post record. Map post topic to card file.",
-            "status": "pending",
-            "dependencies": []
+            "title": "Bluesky \u2014 LIVE and posting",
+            "description": "@agentgraph.bsky.social active. Strategy: dev-focused, cross-post best content, #AIAgents #OpenSource. 2-3/day.",
+            "status": "done",
+            "dependencies": [],
+            "parentId": "266"
           },
           {
             "id": 2,
-            "title": "Wire static card images into Twitter adapter",
-            "description": "Upload card image via Twitter media upload endpoint, attach media_id to tweet. Same topic-to-card mapping.",
+            "title": "Dev.to \u2014 first technical blog post for SEO",
+            "description": "Write 'How We Built Trust Scoring for AI Agents' or Moltbook security comparison. Needs DEVTO_API_KEY. Deep technical, code examples. 1/week. Syndicate to Hashnode.",
             "status": "pending",
-            "dependencies": [
-              1
-            ]
+            "dependencies": [],
+            "parentId": "266"
           },
           {
             "id": 3,
-            "title": "Add card selection logic to content engine",
-            "description": "In generate_proactive(), resolve card image path from src/marketing/assets/card-{topic}.png. Pass image_path through GeneratedContent to adapters.",
+            "title": "GitHub Discussions \u2014 engage in framework repos",
+            "description": "langchain-ai/langchain, microsoft/autogen, modelcontextprotocol/servers. Needs GITHUB_TOKEN. Answer trust/identity questions, share code, link docs when helpful. NOT promo.",
             "status": "pending",
-            "dependencies": []
+            "dependencies": [],
+            "parentId": "266"
           },
           {
             "id": 4,
-            "title": "Image optimization pipeline per platform",
-            "description": "Resize cards per platform: Twitter 1200x675, Bluesky 1200x630, LinkedIn 1200x627, Dev.to 1000x420. Pillow, cache resized.",
+            "title": "Reddit \u2014 account + asyncpraw creds",
+            "description": "Create account, OAuth app. Needs REDDIT_CLIENT_ID/SECRET/USERNAME/PASSWORD. Value-first in r/artificial, r/LangChain, r/LocalLLaMA. 90% comments, 10% posts. NEVER direct promo. Join first, share insights, mention AG naturally. Max 1-2/day.",
             "status": "pending",
-            "dependencies": [
-              3
-            ]
+            "dependencies": [],
+            "parentId": "266"
           },
           {
             "id": 5,
-            "title": "Dynamic OG image endpoint (/og?topic=X)",
-            "description": "Server-side endpoint rendering branded cards on-the-fly. Platforms auto-pull for rich link previews. Pillow or SVG-to-PNG.",
+            "title": "Twitter/X \u2014 dev account + OAuth keys",
+            "description": "Create @AgentGraphBot, apply at developer.twitter.com. Needs API_KEY/SECRET, ACCESS_TOKEN/SECRET. Thread format, stats-driven, engage AI community. #AIAgents #AgentTrust #MCP. 3-4/day. Punchy, no hard sell.",
             "status": "pending",
-            "dependencies": []
+            "dependencies": [],
+            "parentId": "266"
           },
           {
             "id": 6,
-            "title": "Figma MCP template-based card generation",
-            "description": "Create Figma template with swappable text/color layers. Use Figma MCP to generate card variants per post for more variety.",
+            "title": "Wire remaining platforms as keys available",
+            "description": "Discord (join LangChain/CrewAI first, be helpful), LinkedIn (API approval days), Telegram (own channel), HuggingFace, Hashnode (syndicate from Dev.to). See memory/project_marketing_platform_strategies.md.",
             "status": "pending",
             "dependencies": [
+              2,
+              4,
               5
-            ]
+            ],
+            "parentId": "266"
           },
           {
             "id": 7,
-            "title": "AI image generation for blog hero images",
-            "description": "Integrate DALL-E or Flux for unique hero images on Dev.to/Hashnode blog posts. Brand style prompt engineering. ~$0.04/image.",
+            "title": "HN Show HN + Product Hunt drafts (human-only)",
+            "description": "Bot drafts, Kenne posts. Wait until after Moltbook import. One shot each.",
             "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 8,
-            "title": "End-to-end test: post with image on Bluesky",
-            "description": "Generate proactive post with topic card attached, post to Bluesky, verify image displays correctly and dashboard link works.",
-            "status": "pending",
-            "dependencies": [
-              1,
-              3
-            ]
+            "dependencies": [],
+            "parentId": "266"
           }
-        ]
+        ],
+        "updatedAt": "2026-03-20T00:20:51.171Z",
+        "details": "PARTIALLY COMPLETE \u2014 all 13 adapters built, Bluesky LIVE.\n\nCRITICAL RULES:\n- ALL platforms require human approval (no auto-post)\n- Reddit/Discord: join communities FIRST, provide value weeks before mentioning AG\n- HN/PH: human-only, bot drafts only\n- Volume: 1/day or less until proven\n- Anti-ban: never direct promo Reddit, never spam Discord, never bot-post HN\n- Order: Listen \u2192 Contribute \u2192 Mention \u2192 Promote (weeks not days)\n\nSee memory/project_marketing_platform_strategies.md"
       },
       {
         "id": 267,
@@ -3269,29 +3274,32 @@
         "dependencies": [
           "265",
           "266"
-        ]
+        ],
+        "subtasks": []
       },
       {
         "id": 268,
         "title": "Pre-Moltbook: Test New User Registration End-to-End",
         "description": "Test the full registration flow on staging: register new user, verify email arrives (aiosmtplib/ImprovMX), click verification link, confirm login works, check admin dashboard, verify welcome notification. Test desktop and mobile.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Steps:\n1. Register a brand new user with fresh email on staging (:5174)\n2. Verify verification email arrives\n3. Click verification link, confirm account activates\n4. Verify user can log in after verification\n5. Check user appears in admin dashboard entity list\n6. Verify welcome notification is created\n7. Test on both desktop and mobile viewports",
         "testStrategy": "Complete registration flow end-to-end. Verify all steps succeed. Check DB records match expected state.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T00:00:41.091Z"
       },
       {
         "id": 269,
         "title": "Pre-Moltbook: Fix Bug Reports and Feature Requests (Issue Tracking)",
         "description": "Both bug fix requests and feature requests appear broken. Investigate BugHunter and FeatureBot keyword detection, IssueReport creation, bot reply posts, admin resolution flow, and follow-up notifications.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Steps:\n1. Test BugHunter bot keyword detection in feed posts (triggers on 'bug', 'broken', 'issue')\n2. Test FeatureBot keyword detection ('feature request', 'wish', 'would be nice')\n3. Verify IssueReport records are created in the database\n4. Verify bot reply posts appear in the feed thread\n5. Test admin issue resolution: PATCH /admin/issues/{id}/resolve\n6. Verify follow-up notification to original reporter\n7. Check bots are active (is_active=true) and properly registered",
         "testStrategy": "Create test posts with trigger keywords. Verify IssueReport records created. Test admin resolution API. Verify notification delivery.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T00:00:41.916Z"
       },
       {
         "id": 270,
@@ -3300,7 +3308,7 @@
         "status": "pending",
         "dependencies": [],
         "priority": "high",
-        "details": "Steps:\n1. Evaluate GA4 vs self-hosted (existing analytics_events table)\n2. If GA4: add gtag.js snippet to index.html with consent handling\n3. Configure UTM parameter capture from marketing bot links \u2192 analytics_events\n4. Build conversion funnel: marketing click \u2192 landing \u2192 register \u2192 first action\n5. Add referrer tracking on registration to attribute signups to marketing channels\n6. Ensure analytics work behind the access gate and after removal\n7. Dashboard widget showing marketing \u2192 conversion attribution",
+        "details": "AGREED APPROACH: Use existing self-hosted analytics (analytics_events table). No GA4.\n\nWhy: Free, privacy-friendly (no cookie consent), already built, sufficient for basic funnel.\n\nSteps:\n1. Add frontend event on registration: analytics.track('register', {utm_source, utm_medium})\n2. Add frontend event on first post/follow: analytics.track('first_action', {type})\n3. Build admin dashboard widget joining marketing_posts.utm_params \u2192 analytics_events\n4. Show funnel: impressions \u2192 clicks \u2192 registrations \u2192 first actions, by platform\n5. UTM links from marketing bot already include ?utm_source=agentgraph_bot&utm_medium={platform}&utm_campaign={topic}\n\nNo external dependencies. No new packages.",
         "testStrategy": "Click a marketing UTM link, register, take an action. Verify full funnel is tracked in analytics_events. Check dashboard shows attribution.",
         "subtasks": []
       },
@@ -3308,14 +3316,15 @@
         "id": 271,
         "title": "Pre-Moltbook: Welcome Bot Verification and Campaign Personalization",
         "description": "Verify WelcomeBot triggers on new user registration, welcome DM is helpful, and explore personalizing messages based on weekly marketing campaign theme and UTM source.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          268
+          "268"
         ],
         "priority": "medium",
         "details": "Steps:\n1. Confirm WelcomeBot triggers on entity.registered event\n2. Verify welcome DM content is helpful and accurate\n3. Test that welcome DM includes getting-started links\n4. Connect welcome messages to current week's campaign theme\n5. If user arrived via specific UTM campaign, tailor welcome to that topic\n6. Verify welcome bot doesn't fire for bot registrations (only humans)\n7. Test welcome flow with test registration from Task 268",
         "testStrategy": "Register new user, verify welcome DM received. Check DM content matches current campaign. Verify bot registrations don't trigger welcome.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T00:00:42.215Z"
       },
       {
         "id": 272,
@@ -3334,8 +3343,8 @@
         "description": "Test the source-connected Moltbook import pipeline with 50-100 real bot profiles. Verify entity creation, DID generation, trust scores, profile completeness, search, graph, and idempotency.",
         "status": "pending",
         "dependencies": [
-          275,
-          276
+          "275",
+          "276"
         ],
         "priority": "high",
         "details": "Steps:\n1. Run moltbook_fetcher.py against 50-100 real Moltbook bot profiles\n2. Verify entities created with correct metadata (name, description, capabilities)\n3. Verify DID documents generated for each imported bot\n4. Check trust scores initialized (sensible defaults, not 0 or max)\n5. Verify imported bot profiles have sufficient completeness\n6. Test imported bots appear in search results\n7. Test imported bots appear in social graph\n8. Verify no duplicate imports on re-run (idempotency)",
@@ -3348,7 +3357,7 @@
         "description": "Ensure new users see quality content on first feed visit. Seed 10-20 posts from platform bots covering what AgentGraph is, getting started, features, security. Include posts about imported bots.",
         "status": "pending",
         "dependencies": [
-          273
+          "273"
         ],
         "priority": "high",
         "details": "Steps:\n1. Seed feed with 10-20 high-quality posts from platform bots (WelcomeBot, AgentGraphBot)\n2. Posts cover: what AgentGraph is, how to get started, key features, security advantages\n3. Include posts about recently imported bots from Moltbook\n4. Consider 'trending' or 'discover' section for users with no follows\n5. Ensure feed sorting puts quality seed content at top for new users\n6. Test: register new account, visit /feed \u2014 verify content appears",
@@ -3394,7 +3403,7 @@
         "description": "Verify search works at scale after Moltbook import. Check ILIKE performance, add indexes if needed, test pg_trgm for fuzzy search, verify trust-score ranking.",
         "status": "pending",
         "dependencies": [
-          273
+          "273"
         ],
         "priority": "medium",
         "details": "Steps:\n1. After dry run import, test search with 50-100+ entities\n2. Measure response time for common queries (ILIKE is O(n) without index)\n3. Add database indexes on entities.display_name, entities.bio if missing\n4. Test search from web UI \u2014 verify results render correctly with many results\n5. Consider pg_trgm extension for fuzzy text search if performance is poor\n6. Verify trust-score ranking in search results works correctly",
@@ -3407,7 +3416,7 @@
         "description": "Design and implement a flow for bot owners to claim their imported profiles. 'Claim this bot' button, verification via source platform, elevated trust scores for claimed bots.",
         "status": "pending",
         "dependencies": [
-          273
+          "273"
         ],
         "priority": "medium",
         "details": "Steps:\n1. Add 'Claim this bot' button on imported bot profiles\n2. Verification flow: prove ownership via source platform (matching API key, GitHub OAuth)\n3. Claimed bots get elevated trust scores and 'verified owner' badge\n4. Unclaimed bots remain as read-only profiles with base trust scores\n5. Notify admin when a claim is submitted for review\n6. This drives engagement: bot owners come to AgentGraph to manage identity",
@@ -3428,13 +3437,13 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-17T17:52:31.605Z",
-      "taskCount": 256,
-      "completedCount": 199,
+      "lastModified": "2026-03-20T00:20:51.171Z",
+      "taskCount": 279,
+      "completedCount": 203,
       "tags": [
         "master"
       ],
-      "created": "2026-03-19T16:59:51.438Z",
+      "created": "2026-03-20T00:21:09.252Z",
       "description": "Tasks for master context"
     }
   }

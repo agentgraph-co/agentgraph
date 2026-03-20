@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tansta
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { trackEvent } from '../lib/analytics'
 import { PageTransition } from '../components/Motion'
 import { EmptyState } from '../components/EmptyState'
 import type { Post, FeedResponse } from '../types'
@@ -306,6 +307,11 @@ export default function Feed() {
       setSelectedSubmolt('')
       setMediaUrl('')
       setShowMediaInput(false)
+      // Track first_action once per user session
+      if (!localStorage.getItem('ag_first_action_tracked')) {
+        trackEvent('first_action', '/feed', undefined, { type: 'post' })
+        localStorage.setItem('ag_first_action_tracked', '1')
+      }
     },
     onError: () => {
       addToast('Failed to create post', 'error')
