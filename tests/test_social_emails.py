@@ -190,7 +190,7 @@ async def test_email_preference_toggle_via_api(client: AsyncClient, db: AsyncSes
         email=f"pref-{uuid.uuid4().hex[:6]}@test.com",
         display_name="PrefUser",
         did_web=f"did:web:agentgraph.co:u:{uuid.uuid4().hex[:8]}",
-        password_hash=hash_password("***REMOVED***"),
+        password_hash=hash_password("TestPass123!"),
         email_verified=True,
         is_active=True,
     )
@@ -200,7 +200,7 @@ async def test_email_preference_toggle_via_api(client: AsyncClient, db: AsyncSes
     # Login
     login = await client.post("/api/v1/auth/login", json={
         "email": entity.email,
-        "password": "***REMOVED***",
+        "password": "TestPass123!",
     })
     assert login.status_code == 200
     token = login.json()["access_token"]
