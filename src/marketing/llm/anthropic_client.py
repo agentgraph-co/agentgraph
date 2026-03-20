@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 _API_URL = "https://api.anthropic.com/v1/messages"
 _API_VERSION = "2023-06-01"
-_TIMEOUT = 60.0
+_TIMEOUT = 120.0  # Sonnet blog posts need longer
 
 
 @dataclass
