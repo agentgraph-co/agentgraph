@@ -39,15 +39,16 @@ MONITOR_KEYWORDS = [
 
 def _get_monitoring_adapters() -> dict[str, AbstractPlatformAdapter]:
     """Get adapters that support keyword monitoring."""
+    from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
     from src.marketing.adapters.hackernews import HackerNewsAdapter
     from src.marketing.adapters.reddit import RedditAdapter
 
     adapters: dict[str, AbstractPlatformAdapter] = {
         "reddit": RedditAdapter(),
         "hackernews": HackerNewsAdapter(),
+        "github_discussions": GitHubDiscussionsAdapter(),
     }
     # Twitter search requires Basic tier
-    # Add more as needed
     return adapters
 
 

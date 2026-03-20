@@ -345,6 +345,7 @@ async def marketing_health(
     from src.marketing.adapters.bluesky import BlueskyAdapter
     from src.marketing.adapters.devto import DevtoAdapter
     from src.marketing.adapters.discord_bot import DiscordAdapter
+    from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
     from src.marketing.adapters.hackernews import HackerNewsAdapter
     from src.marketing.adapters.hashnode import HashnodeAdapter
     from src.marketing.adapters.huggingface import HuggingFaceAdapter
@@ -368,6 +369,7 @@ async def marketing_health(
         "telegram": TelegramAdapter(),
         "devto": DevtoAdapter(),
         "hashnode": HashnodeAdapter(),
+        "github_discussions": GitHubDiscussionsAdapter(),
         "huggingface": HuggingFaceAdapter(),
         "hackernews": HackerNewsAdapter(),
     }

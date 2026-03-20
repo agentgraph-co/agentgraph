@@ -19,7 +19,7 @@ SPAM_PATTERNS = [
 # Excessive caps or repetition
 NOISE_PATTERNS = [
     re.compile(r"(.)\1{9,}"),  # Same char repeated 10+ times
-    re.compile(r"[A-Z\s]{50,}"),  # 50+ consecutive uppercase chars (case-sensitive intentional)
+    re.compile(r"[A-Z]{20,}"),  # 20+ consecutive uppercase (no spaces)
 ]
 
 # Prompt injection attempts
