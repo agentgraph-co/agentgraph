@@ -310,7 +310,7 @@ async def test_non_admin_cannot_list_issues(client: AsyncClient, db: AsyncSessio
         email=f"nonadmin-{uuid.uuid4().hex[:6]}@test.com",
         display_name="NonAdmin",
         did_web=f"did:web:agentgraph.co:u:{uuid.uuid4().hex[:8]}",
-        password_hash=hash_password("***REMOVED***"),
+        password_hash=hash_password("TestPass123!"),
         email_verified=True,
         is_active=True,
         is_admin=False,
@@ -318,7 +318,7 @@ async def test_non_admin_cannot_list_issues(client: AsyncClient, db: AsyncSessio
     db.add(human)
     await db.flush()
 
-    token = await _login(client, human.email, "***REMOVED***")
+    token = await _login(client, human.email, "TestPass123!")
     headers = {"Authorization": f"Bearer {token}"}
 
     r = await client.get("/api/v1/admin/issues", headers=headers)
