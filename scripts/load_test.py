@@ -8,7 +8,7 @@ Usage examples:
     python3 scripts/load_test.py --scenario auth_flow --users 100 --concurrency 20
     python3 scripts/load_test.py --scenario mixed --users 200 --duration 60
     python3 scripts/load_test.py --all --users 50 --concurrency 10
-    python3 scripts/load_test.py --scenario feed_crud --base-url http://***REMOVED***:8001
+    python3 scripts/load_test.py --scenario feed_crud --base-url http://localhost:8001
 """
 from __future__ import annotations
 

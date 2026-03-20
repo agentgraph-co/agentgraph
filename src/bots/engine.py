@@ -19,6 +19,7 @@ from src.bots.definitions import (
     REACTIVE_TRIGGERS,
     SCHEDULED_CONTENT,
 )
+from src.config import settings
 from src.models import (
     Conversation,
     DirectMessage,
@@ -66,7 +67,7 @@ async def ensure_bots_exist(db: AsyncSession) -> dict:
     # Look up admin to set as operator of all official bots
     admin_q = await db.execute(
         select(Entity).where(
-            Entity.email == "***REMOVED***",
+            Entity.email == settings.admin_email,
             Entity.is_active.is_(True),
         ).limit(1),
     )

@@ -15,7 +15,7 @@ pip install locust
 locust -f tests/load/locustfile.py --host http://localhost:8000
 
 # Run against staging
-locust -f tests/load/locustfile.py --host http://***REMOVED***:8001
+locust -f tests/load/locustfile.py --host http://localhost:8001
 ```
 
 Then open **http://localhost:8089** in your browser to configure and start the test.

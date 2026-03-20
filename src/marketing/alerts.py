@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.marketing.models import MarketingPost
 
 logger = logging.getLogger(__name__)
@@ -203,7 +204,7 @@ async def _send_failure_alert(
     # Find admin
     result = await db.execute(
         sa_select(Entity).where(
-            Entity.email == "***REMOVED***",
+            Entity.email == settings.admin_email,
             Entity.is_active.is_(True),
         ).limit(1),
     )
@@ -311,7 +312,7 @@ async def _notify_admin(
 
     result = await db.execute(
         select(Entity).where(
-            Entity.email == "***REMOVED***",
+            Entity.email == settings.admin_email,
             Entity.is_active.is_(True),
         ).limit(1),
     )

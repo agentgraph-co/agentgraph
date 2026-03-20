@@ -15,7 +15,7 @@ set -euo pipefail
 # --- Configuration ---
 EC2_HOST="${AG_EC2_HOST:?Set AG_EC2_HOST env var (e.g. your Elastic IP)}"
 EC2_USER="ec2-user"
-SSH_KEY="$HOME/.ssh/***REMOVED***"
+SSH_KEY="${AG_SSH_KEY:-$HOME/.ssh/***REMOVED***}"
 PROJECT_DIR="agentgraph"
 COMPOSE_FILE="docker-compose.prod.yml"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
@@ -233,7 +233,7 @@ else:
   done
 
   if echo "$LOGIN_RESULT" | grep -q "LOGIN_OK"; then
-    ok "Login verified (***REMOVED***)"
+    ok "Login verified"
   else
     echo "    $LOGIN_RESULT"
     fail "Login verification failed. Check backend logs."

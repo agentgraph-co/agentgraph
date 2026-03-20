@@ -34,7 +34,7 @@ Once DNS is pointing to your server:
 
 ```bash
 # SSH into EC2
-ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
+ssh -i $AG_SSH_KEY ec2-user@YOUR_ELASTIC_IP
 
 # Pull latest (includes setup-ssl.sh)
 cd ~/agentgraph && git pull
@@ -67,7 +67,7 @@ curl -I https://agentgraph.co/api/v1/trust/methodology
 4. SSH into EC2 and add to your environment:
 
 ```bash
-ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
+ssh -i $AG_SSH_KEY ec2-user@YOUR_ELASTIC_IP
 
 # Add to your .env.secrets file
 echo 'SENTRY_DSN=https://your-dsn-here@sentry.io/project-id' >> ~/agentgraph/.env.secrets
