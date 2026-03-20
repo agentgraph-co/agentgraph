@@ -41,7 +41,7 @@ class TwitterAdapter(AbstractPlatformAdapter):
     async def is_configured(self) -> bool:
         return bool(
             marketing_settings.twitter_consumer_key
-            and marketing_settings.twitter_consumer_secret
+            and marketing_settings.twitter_consumer_key_secret
             and marketing_settings.twitter_access_token
             and marketing_settings.twitter_access_token_secret
         )
@@ -74,7 +74,7 @@ class TwitterAdapter(AbstractPlatformAdapter):
         )
 
         signing_key = (
-            f"{urllib.parse.quote(marketing_settings.twitter_consumer_secret or '', safe='')}&"
+            f"{urllib.parse.quote(marketing_settings.twitter_consumer_key_secret or '', safe='')}&"
             f"{urllib.parse.quote(marketing_settings.twitter_access_token_secret or '', safe='')}"
         )
 
