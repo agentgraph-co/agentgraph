@@ -38,6 +38,16 @@ SCOUT_KEYWORDS = [
     "agent interoperability",
     "decentralized identity",
     "agent verification",
+    "AI agent",
+    "autonomous agent",
+    "LLM agent",
+    "agent orchestration",
+    "tool use",
+    "function calling",
+    "agent marketplace",
+    "agent safety",
+    "bot trust",
+    "agentic",
 ]
 
 _USER_AGENT = "AgentGraphScout/1.0 (read-only monitoring; +https://agentgraph.co)"
