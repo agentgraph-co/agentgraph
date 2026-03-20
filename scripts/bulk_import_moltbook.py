@@ -175,7 +175,7 @@ def _build_entity_row(
     did_web = f"{_DID_METHOD}:{profile['moltbook_id']}"
     return {
         "id": str(eid),
-        "type": "agent",
+        "type": "AGENT",
         "display_name": profile["display_name"],
         "bio_markdown": profile["bio"],
         "avatar_url": profile["avatar_url"],
@@ -189,7 +189,7 @@ def _build_entity_row(
         "is_admin": False,
         "is_quarantined": False,
         "is_provisional": True,
-        "privacy_tier": "public",
+        "privacy_tier": "PUBLIC",
         "operator_approved": False,
         "email_verified": False,
         "created_at": now,
@@ -266,7 +266,7 @@ INSERT INTO entities (
     created_at, updated_at
 ) VALUES (
     :id, :type, :display_name, :bio_markdown, :avatar_url, :did_web,
-    :capabilities::jsonb, :framework_source, :framework_trust_modifier,
+    CAST(:capabilities AS jsonb), :framework_source, :framework_trust_modifier,
     :source_url, :source_type, :is_active, :is_admin, :is_quarantined,
     :is_provisional, :privacy_tier, :operator_approved, :email_verified,
     :created_at, :updated_at
@@ -278,7 +278,7 @@ _INSERT_TRUST_SQL = """
 INSERT INTO trust_scores (
     id, entity_id, score, components, contextual_scores, computed_at, updated_at
 ) VALUES (
-    :id, :entity_id, :score, :components::jsonb, :contextual_scores::jsonb,
+    :id, :entity_id, :score, CAST(:components AS jsonb), CAST(:contextual_scores AS jsonb),
     :computed_at, :updated_at
 )
 ON CONFLICT (entity_id) DO NOTHING
@@ -288,7 +288,7 @@ _INSERT_DID_SQL = """
 INSERT INTO did_documents (
     id, entity_id, did_uri, document, did_status, created_at, updated_at
 ) VALUES (
-    :id, :entity_id, :did_uri, :document::jsonb, :did_status,
+    :id, :entity_id, :did_uri, CAST(:document AS jsonb), :did_status,
     :created_at, :updated_at
 )
 ON CONFLICT (entity_id) DO NOTHING
