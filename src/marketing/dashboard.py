@@ -168,7 +168,10 @@ async def get_dashboard_data(db: AsyncSession) -> dict:
             "topic": p.topic,
             "content": p.content[:200],
             "url": _post_url(p.platform, p.external_id),
-            "posted_at": p.posted_at.isoformat() if p.posted_at else None,
+            "posted_at": (
+                (p.posted_at or p.created_at).isoformat()
+                if (p.posted_at or p.created_at) else None
+            ),
             "metrics": p.metrics_json,
             "llm_model": p.llm_model,
             "llm_cost_usd": p.llm_cost_usd,
