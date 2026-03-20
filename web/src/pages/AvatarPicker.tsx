@@ -42,6 +42,7 @@ const PLATFORM_BOT_AVATARS = [
   '/avatars/agentgraph.svg',
   '/avatars/bughunter.svg',
   '/avatars/featurebot.svg',
+  '/avatars/marketingbot.svg',
   '/avatars/securitywatch.svg',
   '/avatars/trustguide.svg',
   '/avatars/welcomebot.svg',

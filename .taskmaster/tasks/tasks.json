@@ -3459,47 +3459,51 @@
         "id": "281",
         "title": "Marketing: Twitter image support for marketing posts",
         "description": "Add image attachment support to the Twitter/X marketing adapter so posts can include images (screenshots, graphs, infographics) for higher engagement.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "266"
         ],
         "priority": "medium",
         "details": "The Twitter adapter currently posts text-only tweets. Add support for uploading and attaching images via the Twitter media upload API. Use cases: trust score graphs, platform screenshots, infographics comparing AgentGraph vs competitors.",
         "testStrategy": "Post a tweet with an image attachment via the marketing bot. Verify image renders correctly on Twitter.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T06:50:14.753Z"
       },
       {
         "id": "282",
         "title": "Marketing: Recap posts on agentgraph.co feed twice per week",
         "description": "Schedule the marketing bot to publish recap/highlight posts to the AgentGraph feed twice per week summarizing platform activity, new features, and community growth.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Create a scheduled job that generates and posts recap content to the AgentGraph feed. Content: new agent registrations, trust score milestones, feature releases, community highlights. Frequency: Tuesday and Friday. Posts should feel organic, not robotic.",
         "testStrategy": "Trigger a recap post manually. Verify it appears in the feed with correct formatting and relevant content.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T06:50:14.760Z"
       },
       {
         "id": "283",
         "title": "Marketing: Reddit read-only monitoring via public .json endpoints",
         "description": "Scrape subreddits (r/artificial, r/LangChain, r/LocalLLaMA) for relevant threads using public .json endpoints. Generate draft replies for manual posting by Kenne. No API credentials needed.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Use Reddit's public .json endpoints (e.g., reddit.com/r/artificial/new.json) to monitor subreddits for threads mentioning agent identity, trust, MCP, or competitor platforms. Store relevant threads in DB. Generate draft reply suggestions using LLM. Surface drafts in admin marketing dashboard for Kenne to review and post manually.",
         "testStrategy": "Run the monitor against r/artificial. Verify it finds relevant threads and generates sensible draft replies. Check admin dashboard shows drafts.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T06:50:14.766Z"
       },
       {
         "id": "284",
         "title": "Marketing: Fix Dev.to blank post generation",
         "description": "Debug and fix the Dev.to adapter which is generating blank/empty posts. The adapter has API key configured but content generation is failing silently.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "The Dev.to marketing adapter is producing blank posts. Investigate the content generation pipeline for the Dev.to adapter: check LLM prompt, response parsing, and post formatting. Add error logging for empty content. Ensure fallback behavior if LLM returns empty response.",
         "testStrategy": "Trigger a Dev.to post generation. Verify non-empty content is produced. Check logs for any errors in the pipeline.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-20T06:50:14.773Z"
       },
       {
         "id": "285",
@@ -3511,13 +3515,24 @@
         "details": "Deferred until after public launch. Strategy: join framework-specific Discord servers (LangChain, CrewAI, AutoGen), listen for trust/identity/security discussions, provide genuinely helpful answers, and mention AgentGraph only when directly relevant. Never spam or self-promote.",
         "testStrategy": "N/A — deferred. When implemented: verify bot joins servers, monitors channels, and generates draft responses for human review.",
         "subtasks": []
+      },
+      {
+        "id": "286",
+        "title": "Pre-Launch: Migrate GitHub repo to agentgraph org",
+        "description": "Create GitHub org \"agentgraph\", transfer repo from kenneives/agentgraph, update all references (footer link, CLAUDE.md, docs, package.json). Do before making repo public. GitHub auto-redirects old URLs.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "details": "Steps:\n1. Create GitHub org: github.com/organizations/new → name \"agentgraph\"\n2. Transfer repo: kenneives/agentgraph → Settings → Transfer → agentgraph org\n3. Update footer link in web/src/components/Layout.tsx\n4. Update CLAUDE.md repo reference\n5. Update any hardcoded GitHub URLs in docs/\n6. Verify old URLs redirect correctly\n7. Do this BEFORE task 267 (remove password gate)",
+        "testStrategy": "Verify repo accessible at github.com/agentgraph/agentgraph. Verify old URL redirects. Verify footer link works.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-19T12:00:00.000Z",
-      "taskCount": 284,
-      "completedCount": 222,
+      "lastModified": "2026-03-20T06:50:14.773Z",
+      "taskCount": 285,
+      "completedCount": 226,
       "tags": [
         "master"
       ]
