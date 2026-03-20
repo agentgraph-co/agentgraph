@@ -96,6 +96,7 @@ interface MarketingDraft {
   status: string
   llm_model: string | null
   created_at: string
+  image_url: string | null
 }
 
 interface MarketingHealth {
@@ -746,6 +747,7 @@ export default function Admin() {
           status: String(d.status ?? ''),
           llm_model: d.llm_model ? String(d.llm_model) : null,
           created_at: String(d.created_at ?? ''),
+          image_url: d.image_url ? String(d.image_url) : null,
         })
       }
     },
@@ -2956,6 +2958,12 @@ export default function Admin() {
                     </div>
                     <div className="p-4">
                       <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{previewDraft.content}</pre>
+                      {previewDraft.image_url && (
+                        <div className="mt-4 p-3 bg-surface-hover rounded-lg">
+                          <p className="text-xs text-text-muted mb-2">Attached image:</p>
+                          <img src={previewDraft.image_url} alt="Post card" className="max-w-[200px] rounded border border-border" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2 p-4 border-t border-border">
                       <button

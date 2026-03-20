@@ -161,13 +161,25 @@ async def generate_weekly_plan(
     signals = await gather_news_signals(limit=15, days=7)
     platforms = await _configured_platforms()
 
-    monday = date.today() + timedelta(
-        days=(7 - date.today().weekday()) % 7 or 7,
-    )
-    week_label = monday.isoformat()
+    today = date.today()
+    today_weekday = today.weekday()  # 0=Mon
+    # If generated early in the week (Mon-Wed), plan rest of this week + full next week.
+    # If generated later (Thu-Sun), plan remaining days + full next week.
+    # Always start from tomorrow so the first post fires the very next day.
+    tomorrow = today + timedelta(days=1)
+    remaining_this_week = 6 - today_weekday  # days left including today
+    end_of_plan = today + timedelta(days=remaining_this_week + 7)
+    week_label = tomorrow.isoformat()
+
+    day_names = []
+    for i in range(1, (end_of_plan - today).days + 1):
+        d = today + timedelta(days=i)
+        day_names.append(d.strftime("%A").lower())
 
     user_prompt = (
-        f"Week of: {week_label}\n\n"
+        f"Plan starting: {week_label} "
+        f"(today is {today.strftime('%A')})\n"
+        f"Available days: {', '.join(day_names)}\n\n"
         f"## Configured platforms\n{json.dumps(platforms)}\n\n"
         f"## Last week performance\n"
         f"{json.dumps(perf[:20], indent=2)}\n\n"
@@ -228,8 +240,8 @@ async def generate_weekly_plan(
         ],
         status="proposed",
         schedule_config=plan,
-        start_date=monday,
-        end_date=monday + timedelta(days=6),
+        start_date=tomorrow,
+        end_date=end_of_plan,
     )
     db.add(campaign)
     await db.flush()
