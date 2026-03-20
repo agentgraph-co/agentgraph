@@ -71,6 +71,35 @@ class ConversionResponse(BaseModel):
     total_cost_usd: float
 
 
+class RedditThreadResponse(BaseModel):
+    title: str
+    url: str
+    permalink: str
+    subreddit: str
+    score: int
+    num_comments: int
+    created_utc: float
+    selftext_preview: str
+    author: str
+    keywords_matched: list[str]
+
+
+class RedditDraftRequest(BaseModel):
+    thread_url: str = Field(..., description="Full Reddit thread URL")
+    context: str | None = Field(
+        None,
+        description="Optional extra context for the LLM to consider",
+    )
+
+
+class RedditDraftResponse(BaseModel):
+    thread_url: str
+    thread_title: str
+    draft_content: str
+    llm_model: str | None
+    llm_cost_usd: float
+
+
 # --- Endpoints ---
 
 @router.get("/dashboard", response_model=MarketingDashboardResponse)
@@ -497,4 +526,131 @@ async def get_marketing_conversions(
         total_clicks=total_clicks,
         total_signups=total_signups,
         total_cost_usd=round(total_cost, 4),
+    )
+
+
+# --- Reddit Scout endpoints ---
+
+
+@router.get(
+    "/reddit/threads",
+    response_model=list[RedditThreadResponse],
+)
+async def get_reddit_threads(
+    sort: str = Query("hot", description="Sort: hot, new, top, rising"),
+    min_score: int = Query(0, ge=0),
+    current_entity: Entity = Depends(get_current_entity),
+) -> list[RedditThreadResponse]:
+    """Scan Reddit for relevant threads using public .json endpoints."""
+    require_admin(current_entity)
+    from src.marketing.reddit_scout import scan_subreddits
+
+    threads = await scan_subreddits(sort=sort, min_score=min_score)
+    return [
+        RedditThreadResponse(
+            title=t.title,
+            url=t.url,
+            permalink=t.permalink,
+            subreddit=t.subreddit,
+            score=t.score,
+            num_comments=t.num_comments,
+            created_utc=t.created_utc,
+            selftext_preview=t.selftext_preview,
+            author=t.author,
+            keywords_matched=t.keywords_matched,
+        )
+        for t in threads
+    ]
+
+
+@router.post(
+    "/reddit/generate-draft",
+    response_model=RedditDraftResponse,
+)
+async def generate_reddit_draft(
+    req: RedditDraftRequest,
+    current_entity: Entity = Depends(get_current_entity),
+) -> RedditDraftResponse:
+    """Generate a draft reply for a specific Reddit thread."""
+    require_admin(current_entity)
+    from src.marketing.reddit_scout import fetch_thread_detail
+
+    detail = await fetch_thread_detail(req.thread_url)
+    if not detail:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not fetch thread. Check the URL.",
+        )
+
+    thread_title = detail["title"]
+    thread_body = detail.get("selftext", "")[:1000]
+    subreddit = detail.get("subreddit", "")
+    top_comments_text = ""
+    for c in detail.get("top_comments", [])[:3]:
+        top_comments_text += (
+            f"\n- u/{c['author']} ({c['score']} pts): "
+            f"{c['body'][:200]}"
+        )
+
+    extra_context = ""
+    if req.context:
+        extra_context = (
+            f"\n\nAdditional context from the admin:\n{req.context}\n"
+        )
+
+    prompt = (
+        f"You are writing a Reddit comment for r/{subreddit}.\n\n"
+        f"Thread title: {thread_title}\n"
+        f"Thread body: {thread_body}\n"
+    )
+    if top_comments_text:
+        prompt += f"\nTop comments:{top_comments_text}\n"
+    prompt += extra_context
+    prompt += (
+        "\n\nWrite a helpful, insightful reply that adds genuine value "
+        "to the discussion. Rules:\n"
+        "- Be helpful FIRST. Share knowledge or perspectives.\n"
+        "- If AgentGraph is genuinely relevant, mention it naturally — "
+        "but NEVER force it.\n"
+        "- Do NOT be promotional. No 'check out' or 'sign up' language.\n"
+        "- Match the subreddit's tone and culture.\n"
+        "- Keep it concise — 2-4 paragraphs max.\n"
+        "- No emojis, no hashtags, no marketing speak.\n"
+        "- Sound like a knowledgeable person, not a brand account.\n"
+    )
+
+    from src.marketing.llm.router import generate as llm_generate
+
+    system = (
+        "You are a knowledgeable developer and AI researcher who "
+        "genuinely participates in Reddit discussions. You are NOT "
+        "a marketing bot. Write like a real person sharing expertise."
+    )
+
+    result = await llm_generate(
+        prompt,
+        content_type="reddit_scout_draft",
+        system=system,
+        max_tokens=512,
+        temperature=0.7,
+    )
+
+    if result.error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"LLM generation failed: {result.error}",
+        )
+
+    from src.marketing.llm.cost_tracker import estimate_cost
+
+    cost = estimate_cost(
+        result.model, result.tokens_in, result.tokens_out,
+    )
+
+    return RedditDraftResponse(
+        thread_url=req.thread_url,
+        thread_title=thread_title,
+        draft_content=result.text,
+        llm_model=result.model,
+        llm_cost_usd=round(cost, 6),
     )
