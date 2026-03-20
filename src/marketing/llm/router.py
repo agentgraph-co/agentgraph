@@ -57,6 +57,8 @@ CONTENT_TYPE_TIERS: dict[str, ContentTier] = {
     "launch_announcement": ContentTier.HIGH_STAKES,
     # Reddit scout drafts — Sonnet (quality matters, manual posting)
     "reddit_scout_draft": ContentTier.STANDARD,
+    # HuggingFace scout drafts — Sonnet (technical discussions)
+    "hf_scout_draft": ContentTier.STANDARD,
     # High-volume / boosts — Haiku
     "boost_reply": ContentTier.VOLUME,
     "thread_continuation": ContentTier.VOLUME,

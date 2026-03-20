@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.marketing.adapters.base import AbstractPlatformAdapter
-from src.marketing.config import marketing_settings
+from src.marketing.config import PLATFORM_SCHEDULE, marketing_settings
 from src.marketing.content.engine import (
     GeneratedContent,
     generate_proactive,
@@ -30,12 +30,45 @@ from src.marketing.scheduler import (
 
 logger = logging.getLogger(__name__)
 
-# ALL platforms require human approval until workflow is proven.
-# Posts go to draft queue; admin approves via dashboard.
+# Day abbreviation map (datetime weekday int → 3-letter abbreviation)
+_DAY_ABBR = {0: "mon", 1: "tue", 2: "wed", 3: "thu", 4: "fri", 5: "sat", 6: "sun"}
+
+
+def _today_abbr() -> str:
+    """Return today's 3-letter day abbreviation (e.g. 'mon', 'tue')."""
+    return _DAY_ABBR[datetime.now(timezone.utc).weekday()]
+
+
+def _is_platform_scheduled_today(platform: str) -> bool:
+    """Check if *platform* is scheduled to post today per PLATFORM_SCHEDULE.
+
+    Platforms not listed in PLATFORM_SCHEDULE are always allowed (legacy
+    behaviour — e.g. discord, telegram, github_discussions).
+    """
+    schedule = PLATFORM_SCHEDULE.get(platform)
+    if schedule is None:
+        return True  # no schedule constraint → allow
+    return _today_abbr() in schedule.get("days", [])
+
+
+def _is_auto_post(platform: str) -> bool:
+    """Return True if the platform can auto-post without human review."""
+    schedule = PLATFORM_SCHEDULE.get(platform)
+    if schedule is None:
+        return False  # unlisted platforms default to human review
+    return schedule.get("auto_post", False)
+
+
+# Platforms that require human approval.  Now derived from PLATFORM_SCHEDULE
+# for scheduled platforms; all others still require approval by default.
 HUMAN_APPROVAL_PLATFORMS = {
-    "twitter", "reddit", "bluesky", "discord", "linkedin",
-    "telegram", "devto", "hashnode", "github_discussions",
-    "huggingface", "hackernews", "producthunt",
+    name
+    for name, cfg in PLATFORM_SCHEDULE.items()
+    if not cfg.get("auto_post", False)
+} | {
+    # Platforms not in PLATFORM_SCHEDULE that should always need approval
+    "discord", "telegram", "github_discussions",
+    "hackernews", "producthunt",
 }
 
 
@@ -231,6 +264,14 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
                 },
             )
             continue
+
+        # Skip platforms not scheduled for today
+        if not _is_platform_scheduled_today(platform_name):
+            results["skipped"].append(
+                {"platform": platform_name, "reason": "not_scheduled_today"},
+            )
+            continue
+
         try:
             # Check if adapter is configured
             if not await adapter.is_configured():
@@ -267,8 +308,8 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
                 )
                 continue
 
-            # Human approval platforms → draft queue
-            if platform_name in HUMAN_APPROVAL_PLATFORMS:
+            # Non-auto-post platforms → draft queue for human review
+            if not _is_auto_post(platform_name):
                 await enqueue_draft(
                     db, platform=platform_name, content=content.text,
                     topic=content.topic, llm_model=content.llm_model,
@@ -453,7 +494,25 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
     proactive_results = await run_proactive_cycle(db)
     results["proactive"] = proactive_results
 
-    # 3. Run reactive monitoring cycle
+    # 3. Run HF auto-pick cycle on posting days (Wed/Sat)
+    try:
+        from datetime import date as _date
+
+        _today = _date.today().strftime("%a").lower()
+        hf_days = {"wed", "sat"}
+        if _today in hf_days:
+            from src.marketing.hf_autopick import run_hf_autopick_cycle
+
+            hf_result = await run_hf_autopick_cycle()
+            results["hf_autopick"] = hf_result
+            logger.info("HF auto-pick result: %s", hf_result.get("status"))
+        else:
+            results["hf_autopick"] = {"status": "not_hf_day", "today": _today}
+    except Exception:
+        logger.exception("HF auto-pick cycle failed")
+        results["hf_autopick"] = {"error": "cycle_failed"}
+
+    # 4. Run reactive monitoring cycle
     try:
         from src.marketing.monitor import run_monitoring_cycle
 
@@ -463,7 +522,17 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
         logger.exception("Monitoring cycle failed")
         results["monitoring"] = {"error": "cycle_failed"}
 
-    # 4. Check for failures and alert admin
+    # 5. Send Reddit posting day reminder (Tue/Thu)
+    try:
+        from src.marketing.reddit_reminder import send_reddit_reminder
+
+        reddit_reminded = await send_reddit_reminder(db)
+        results["reddit_reminder"] = reddit_reminded
+    except Exception:
+        logger.exception("Reddit reminder failed")
+        results["reddit_reminder"] = False
+
+    # 6. Check for failures and alert admin
     try:
         from src.marketing.alerts import check_and_alert_failures
 

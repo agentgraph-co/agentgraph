@@ -77,6 +77,28 @@ class ConversionResponse(BaseModel):
     total_cost_usd: float
 
 
+class ActivityItem(BaseModel):
+    id: uuid.UUID
+    platform: str
+    content_preview: str
+    status: str
+    post_type: str
+    topic: str | None
+    external_id: str | None
+    posted_at: str | None
+    created_at: str
+    metrics: dict | None
+
+    model_config = {"from_attributes": True}
+
+
+class BotActivityResponse(BaseModel):
+    posted: list[ActivityItem]
+    pending_review: list[ActivityItem]
+    failed: list[ActivityItem]
+    total: int
+
+
 class RedditThreadResponse(BaseModel):
     title: str
     url: str
@@ -88,6 +110,7 @@ class RedditThreadResponse(BaseModel):
     selftext_preview: str
     author: str
     keywords_matched: list[str]
+    ranking_score: int | None = None
 
 
 class RedditDraftRequest(BaseModel):
@@ -390,6 +413,56 @@ async def trigger_recap_post(
     return result
 
 
+@router.get("/activity", response_model=BotActivityResponse)
+async def get_bot_activity(
+    limit: int = Query(50, ge=1, le=200),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> BotActivityResponse:
+    """Get recent marketing bot activity grouped by status."""
+    require_admin(current_entity)
+    from src.marketing.models import MarketingPost
+
+    q = (
+        select(MarketingPost)
+        .order_by(MarketingPost.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(q)).scalars().all()
+
+    posted: list[ActivityItem] = []
+    pending_review: list[ActivityItem] = []
+    failed: list[ActivityItem] = []
+
+    for row in rows:
+        item = ActivityItem(
+            id=row.id,
+            platform=row.platform,
+            content_preview=row.content[:200] if row.content else "",
+            status=row.status,
+            post_type=row.post_type,
+            topic=row.topic,
+            external_id=row.external_id,
+            posted_at=row.posted_at.isoformat() if row.posted_at else None,
+            created_at=row.created_at.isoformat(),
+            metrics=row.metrics_json,
+        )
+        if row.status == "posted":
+            posted.append(item)
+        elif row.status == "human_review":
+            pending_review.append(item)
+        elif row.status == "failed":
+            failed.append(item)
+        # Other statuses (draft, rejected) go nowhere special — still counted
+
+    return BotActivityResponse(
+        posted=posted,
+        pending_review=pending_review,
+        failed=failed,
+        total=len(rows),
+    )
+
+
 @router.get("/health")
 async def marketing_health(
     current_entity: Entity = Depends(get_current_entity),
@@ -645,6 +718,39 @@ def _reddit_from_digest_history() -> list[RedditThreadResponse]:
 # --- Reddit Scout endpoints ---
 
 
+def _rank_thread(thread: RedditThreadResponse) -> int:
+    """Score a thread for actionability.
+
+    Scoring:
+    - keywords_matched count * 3
+    - score > 50 → +2
+    - num_comments 3-30 (sweet spot) → +2, else +1
+    - Recency: last 24h → +3, last 48h → +2, last week → +1
+    """
+    import time
+
+    ranking = len(thread.keywords_matched) * 3
+
+    if thread.score > 50:
+        ranking += 2
+
+    if 3 <= thread.num_comments <= 30:
+        ranking += 2
+    elif thread.num_comments > 0:
+        ranking += 1
+
+    now = time.time()
+    age_hours = (now - thread.created_utc) / 3600 if thread.created_utc else 999
+    if age_hours <= 24:
+        ranking += 3
+    elif age_hours <= 48:
+        ranking += 2
+    elif age_hours <= 168:  # 7 days
+        ranking += 1
+
+    return ranking
+
+
 @router.get(
     "/reddit/threads",
     response_model=list[RedditThreadResponse],
@@ -652,12 +758,14 @@ def _reddit_from_digest_history() -> list[RedditThreadResponse]:
 async def get_reddit_threads(
     sort: str = Query("hot", description="Sort: hot, new, top, rising"),
     min_score: int = Query(0, ge=0),
+    top_n: int = Query(10, ge=1, le=50, description="Return top N ranked threads"),
     current_entity: Entity = Depends(get_current_entity),
 ) -> list[RedditThreadResponse]:
-    """Scan Reddit for relevant threads.
+    """Scan Reddit for relevant threads, ranked by actionability.
 
     Falls back to Redis cache, then to digest_history.json (synced
     from the news-digest bot on Windows server via SCP).
+    Returns only the top N most actionable threads.
     """
     require_admin(current_entity)
     from src.marketing.reddit_scout import get_cached_threads, scan_subreddits
@@ -666,8 +774,9 @@ async def get_reddit_threads(
     if not threads:
         threads = await get_cached_threads()
 
+    results: list[RedditThreadResponse] = []
     if threads:
-        return [
+        results = [
             RedditThreadResponse(
                 title=t.title,
                 url=t.url,
@@ -682,9 +791,16 @@ async def get_reddit_threads(
             )
             for t in threads
         ]
+    else:
+        # Final fallback: extract Reddit articles from digest_history.json
+        results = _reddit_from_digest_history()
 
-    # Final fallback: extract Reddit articles from digest_history.json
-    return _reddit_from_digest_history()
+    # Score and rank threads
+    for r in results:
+        r.ranking_score = _rank_thread(r)
+    results.sort(key=lambda x: x.ranking_score or 0, reverse=True)
+
+    return results[:top_n]
 
 
 @router.post(

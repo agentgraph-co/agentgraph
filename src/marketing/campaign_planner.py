@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.email import send_email
-from src.marketing.config import marketing_settings
+from src.marketing.config import PLATFORM_SCHEDULE, marketing_settings
 from src.marketing.models import MarketingCampaign, MarketingPost
 from src.marketing.news_signals import gather_news_signals
 
@@ -176,11 +176,28 @@ async def generate_weekly_plan(
         d = today + timedelta(days=i)
         day_names.append(d.strftime("%A").lower())
 
+    # Build per-platform schedule constraints for the LLM
+    schedule_lines: list[str] = []
+    for plat, cfg in PLATFORM_SCHEDULE.items():
+        if plat in platforms:
+            mode = "auto-post" if cfg.get("auto_post") else "human-review"
+            schedule_lines.append(
+                f"- **{plat}**: {cfg['posts_per_week']}x/week on "
+                f"{', '.join(cfg['days'])} ({mode})"
+            )
+
+    schedule_block = "\n".join(schedule_lines) if schedule_lines else "No schedule constraints."
+
     user_prompt = (
         f"Plan starting: {week_label} "
         f"(today is {today.strftime('%A')})\n"
         f"Available days: {', '.join(day_names)}\n\n"
         f"## Configured platforms\n{json.dumps(platforms)}\n\n"
+        f"## Platform posting schedule (MUST follow these days exactly)\n"
+        f"{schedule_block}\n\n"
+        f"IMPORTANT: Only schedule posts on the allowed days listed "
+        f"above for each platform.  Do not exceed the posts_per_week "
+        f"limit for any platform.\n\n"
         f"## Last week performance\n"
         f"{json.dumps(perf[:20], indent=2)}\n\n"
         f"## Trending news signals\n"
@@ -192,19 +209,19 @@ async def generate_weekly_plan(
         "Budget estimate should reflect Anthropic API costs "
         "for content generation only.\n\n"
         "## Platform priority (we have ZERO followers on owned channels)\n"
-        "1. **Reddit** (highest priority — 2-3 posts/week): "
+        "1. **Reddit** (highest priority — 2 posts/week): "
         "topic-based reach, millions of subscribers see good posts "
         "regardless of our follower count.\n"
         "2. **Dev.to** (1 post/week): SEO value, ranks in Google, "
         "compounds over time.\n"
-        "3. **Bluesky / Twitter** (1 post/week max each): "
+        "3. **Bluesky / Twitter** (3 posts/week each): "
         "credibility and presence only — zero reach until we "
         "build followers.\n"
         "4. **LinkedIn** (1 post/week if configured): "
         "professional credibility.\n"
         "5. **Discord** (if configured): community engagement "
         "in existing servers.\n"
-        "Allocate the majority of posts to Reddit and Dev.to. "
+        "Allocate posts according to the platform schedule above. "
         "Do NOT over-index on Bluesky/Twitter."
     )
 

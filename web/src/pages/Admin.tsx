@@ -165,6 +165,7 @@ interface RedditThread {
   selftext_preview: string
   author: string
   keywords_matched: string[]
+  ranking_score: number | null
 }
 
 interface RedditDraftResult {
@@ -194,6 +195,26 @@ interface HFDraftResult {
   draft_content: string
   llm_model: string | null
   llm_cost_usd: number
+}
+
+interface ActivityItem {
+  id: string
+  platform: string
+  content_preview: string
+  status: string
+  post_type: string
+  topic: string | null
+  external_id: string | null
+  posted_at: string | null
+  created_at: string
+  metrics: Record<string, number> | null
+}
+
+interface BotActivity {
+  posted: ActivityItem[]
+  pending_review: ActivityItem[]
+  failed: ActivityItem[]
+  total: number
 }
 
 interface IssueItem {
@@ -281,6 +302,7 @@ export default function Admin() {
   const [hfDraft, setHfDraft] = useState<HFDraftResult | null>(null)
   const [hfDraftContext, setHfDraftContext] = useState('')
   const [generatingHfDraftFor, setGeneratingHfDraftFor] = useState<string | null>(null)
+  const [activityFilter, setActivityFilter] = useState<'all' | 'posted' | 'pending' | 'failed'>('all')
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
@@ -905,6 +927,15 @@ export default function Admin() {
       setGeneratingHfDraftFor(null)
       addToast('Failed to generate draft', 'error')
     },
+  })
+
+  // ─── Bot Activity query ───
+
+  const { data: botActivity, isLoading: activityLoading } = useQuery<BotActivity>({
+    queryKey: ['admin-bot-activity'],
+    queryFn: async () => (await api.get('/admin/marketing/activity')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 30_000,
   })
 
   // ─── Issues tab queries ───
@@ -2819,6 +2850,9 @@ export default function Admin() {
                             </a>
                             <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
                               <span className="font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">r/{thread.subreddit}</span>
+                              {thread.ranking_score != null && (
+                                <span className="font-medium text-success bg-success/10 px-1.5 py-0.5 rounded" title="Actionability score">Rank {thread.ranking_score}</span>
+                              )}
                               <span>{thread.score} pts</span>
                               <span>{thread.num_comments} comments</span>
                               <span>u/{thread.author}</span>
@@ -3056,6 +3090,102 @@ export default function Admin() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Bot Activity Feed */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Bot Activity</h2>
+                  <div className="flex gap-1">
+                    {(['all', 'posted', 'pending', 'failed'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setActivityFilter(f)}
+                        className={`text-[10px] px-2 py-1 rounded cursor-pointer transition-colors ${
+                          activityFilter === f
+                            ? 'bg-primary/20 text-primary'
+                            : 'bg-surface-hover text-text-muted hover:text-text'
+                        }`}
+                      >
+                        {f === 'all' ? `All${botActivity ? ` (${botActivity.total})` : ''}` :
+                         f === 'posted' ? `Posted${botActivity ? ` (${botActivity.posted.length})` : ''}` :
+                         f === 'pending' ? `Pending${botActivity ? ` (${botActivity.pending_review.length})` : ''}` :
+                         `Failed${botActivity ? ` (${botActivity.failed.length})` : ''}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {activityLoading ? (
+                  <div className="py-6"><InlineSkeleton /></div>
+                ) : botActivity ? (() => {
+                  const items: ActivityItem[] =
+                    activityFilter === 'posted' ? botActivity.posted :
+                    activityFilter === 'pending' ? botActivity.pending_review :
+                    activityFilter === 'failed' ? botActivity.failed :
+                    [...botActivity.posted, ...botActivity.pending_review, ...botActivity.failed]
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  const platformColors: Record<string, string> = {
+                    twitter: 'bg-blue-500/10 text-blue-400',
+                    reddit: 'bg-orange-500/10 text-orange-400',
+                    bluesky: 'bg-sky-400/10 text-sky-400',
+                    huggingface: 'bg-yellow-400/10 text-yellow-400',
+                    devto: 'bg-gray-400/10 text-gray-400',
+                    discord: 'bg-indigo-500/10 text-indigo-400',
+                    linkedin: 'bg-blue-600/10 text-blue-500',
+                    telegram: 'bg-cyan-500/10 text-cyan-400',
+                    hashnode: 'bg-blue-400/10 text-blue-300',
+                    hackernews: 'bg-orange-600/10 text-orange-500',
+                    github_discussions: 'bg-gray-500/10 text-gray-300',
+                  }
+                  const statusBadge = (s: string) =>
+                    s === 'posted' ? 'bg-success/10 text-success' :
+                    s === 'human_review' ? 'bg-warning/10 text-warning' :
+                    s === 'failed' ? 'bg-danger/10 text-danger' :
+                    'bg-surface-hover text-text-muted'
+                  return items.length > 0 ? (
+                    <div className="space-y-2">
+                      {items.map((item) => (
+                        <div key={item.id} className="bg-surface border border-border rounded-lg p-3 flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-0.5">
+                            <span className={`text-[10px] font-medium capitalize px-1.5 py-0.5 rounded ${platformColors[item.platform] || 'bg-surface-hover text-text-muted'}`}>
+                              {item.platform}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs leading-relaxed text-text/80 line-clamp-2">{item.content_preview}</div>
+                            <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
+                              <span className={`px-1.5 py-0.5 rounded ${statusBadge(item.status)}`}>
+                                {item.status === 'human_review' ? 'Pending Review' : item.status}
+                              </span>
+                              {item.topic && <span className="bg-surface-hover px-1.5 py-0.5 rounded capitalize">{item.topic}</span>}
+                              <span>{timeAgo(item.created_at)}</span>
+                            </div>
+                          </div>
+                          {item.external_id && (
+                            <a
+                              href={
+                                item.platform === 'twitter' ? `https://twitter.com/i/web/status/${item.external_id}` :
+                                item.platform === 'bluesky' ? `https://bsky.app/profile/agentgraph.bsky.social/post/${item.external_id}` :
+                                item.platform === 'reddit' ? `https://old.reddit.com${item.external_id}` :
+                                item.platform === 'devto' ? `https://dev.to/agentgraph/${item.external_id}` :
+                                '#'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 text-[10px] text-primary hover:text-primary-light"
+                            >
+                              View
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
+                      No activity in this category.
+                    </div>
+                  )
+                })() : null}
               </div>
 
               {/* Stats Cards */}
