@@ -71,7 +71,7 @@ async def get_pending_drafts(
     return list(result.scalars().all())
 
 
-_ACTIONABLE_STATUSES = ("human_review", "draft")
+_ACTIONABLE_STATUSES = ("human_review", "draft", "queued")
 
 
 async def approve_draft(db: AsyncSession, post_id: uuid.UUID) -> MarketingPost | None:
