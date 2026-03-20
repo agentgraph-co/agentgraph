@@ -40,6 +40,8 @@ class DraftResponse(BaseModel):
     llm_model: str | None
     created_at: str
     image_url: str | None = None
+    destination: str | None = None
+    parent_external_id: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -149,6 +151,7 @@ async def get_pending_drafts(
             llm_model=d.llm_model,
             created_at=d.created_at.isoformat(),
             image_url=_topic_image_url(d.topic, d.platform),
+            parent_external_id=d.parent_external_id,
         )
         for d in drafts
     ]
@@ -236,6 +239,7 @@ async def action_draft(
         llm_model=post.llm_model,
         created_at=post.created_at.isoformat(),
         image_url=_topic_image_url(post.topic, post.platform),
+        parent_external_id=post.parent_external_id,
     )
 
 
