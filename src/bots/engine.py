@@ -63,6 +63,16 @@ WELCOME_DM_TEMPLATE = (
 
 async def ensure_bots_exist(db: AsyncSession) -> dict:
     """Create any missing official bots. Idempotent and race-safe."""
+    # Look up admin to set as operator of all official bots
+    admin_q = await db.execute(
+        select(Entity).where(
+            Entity.email == "***REMOVED***",
+            Entity.is_active.is_(True),
+        ).limit(1),
+    )
+    admin = admin_q.scalar_one_or_none()
+    admin_id = admin.id if admin else None
+
     created = []
     for bot_def in BOT_DEFINITIONS:
         existing = await db.get(Entity, bot_def["id"])
@@ -71,6 +81,9 @@ async def ensure_bots_exist(db: AsyncSession) -> dict:
             avatar = bot_def.get("avatar_url")
             if avatar and existing.avatar_url != avatar:
                 existing.avatar_url = avatar
+            # Ensure operator_id is set
+            if admin_id and not existing.operator_id:
+                existing.operator_id = admin_id
             continue
 
         entity = Entity(
@@ -83,6 +96,7 @@ async def ensure_bots_exist(db: AsyncSession) -> dict:
             capabilities=bot_def["capabilities"],
             autonomy_level=bot_def["autonomy_level"],
             framework_source=bot_def["framework_source"],
+            operator_id=admin_id,
             is_provisional=False,
             operator_approved=True,
             is_active=True,
