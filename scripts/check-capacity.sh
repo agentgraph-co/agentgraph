@@ -42,7 +42,7 @@ run() {
 }
 
 echo -e "${BOLD}=== AgentGraph Production Capacity Report ===${NC}"
-echo -e "  Instance: t3.small (2 vCPU, 2GB RAM)"
+echo -e "  Instance: $(run 'cat /proc/cpuinfo | grep processor | wc -l' 2>/dev/null || echo '?') vCPU, $(run 'free -h | awk \"/^Mem:/ {print \\$2}\"' 2>/dev/null || echo '?') RAM"
 echo -e "  Host:     ${EC2_HOST}"
 echo -e "  Time:     $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo ""
