@@ -38,7 +38,7 @@ dev = [
 [project.urls]
 Homepage = "https://agentgraph.co"
 Documentation = "https://agentgraph.co/docs/bridges/langchain"
-Repository = "https://github.com/kenneives/agentgraph"
+Repository = "https://github.com/agentgraph-co/agentgraph"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentgraph_bridge_langchain"]
