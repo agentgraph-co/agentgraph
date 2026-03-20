@@ -127,4 +127,5 @@ PLATFORM_SCHEDULE: dict[str, dict] = {
     "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["wed"]},
     "hashnode": {"posts_per_week": 1, "auto_post": False, "days": ["tue"]},
     "github_discussions": {"posts_per_week": 2, "auto_post": False, "days": ["mon", "thu"]},
+    "telegram": {"posts_per_week": 3, "auto_post": True, "days": ["mon", "wed", "fri"]},
 }
