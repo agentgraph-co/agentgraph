@@ -543,11 +543,13 @@ async def get_reddit_threads(
     min_score: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
 ) -> list[RedditThreadResponse]:
-    """Scan Reddit for relevant threads using public .json endpoints."""
+    """Scan Reddit for relevant threads. Falls back to cached results on EC2."""
     require_admin(current_entity)
-    from src.marketing.reddit_scout import scan_subreddits
+    from src.marketing.reddit_scout import get_cached_threads, scan_subreddits
 
     threads = await scan_subreddits(sort=sort, min_score=min_score)
+    if not threads:
+        threads = await get_cached_threads()
     return [
         RedditThreadResponse(
             title=t.title,
