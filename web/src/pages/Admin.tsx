@@ -2731,10 +2731,10 @@ export default function Admin() {
                 )}
               </div>
 
-              {/* Reddit Scout */}
+              {/* Discovery — Reddit + HuggingFace threads to engage with */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Reddit Scout</h2>
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Discovery — Threads to Engage</h2>
                   <button
                     onClick={() => refetchReddit()}
                     disabled={redditLoading}
@@ -2744,7 +2744,7 @@ export default function Admin() {
                   </button>
                 </div>
                 <p className="text-xs text-text-muted mb-3">
-                  Read-only scan of public Reddit feeds. Generate a draft reply, then copy/paste to Reddit manually.
+                  Reddit threads and HuggingFace discussions relevant to AI agents, trust, and identity. Generate a draft reply for any thread.
                 </p>
 
                 {redditLoading ? (
@@ -2964,26 +2964,24 @@ export default function Admin() {
                 </div>
               )}
 
-              {/* Draft Preview Modal */}
+              {/* Draft Preview Modal — kept for trigger-generated drafts */}
               {previewDraft && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPreviewDraft(null)}>
-                  <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+                  <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between p-4 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">Generated Draft Preview</h3>
+                        <h3 className="text-sm font-semibold">Draft Preview</h3>
                         <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{previewDraft.platform}</span>
-                        {previewDraft.topic && <span className="text-xs text-text-muted">{previewDraft.topic}</span>}
+                        <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[previewDraft.platform] ?? ''}</span>
+                        {previewDraft.topic && <span className="text-[10px] bg-surface-hover text-text-muted px-1.5 py-0.5 rounded capitalize">{previewDraft.topic}</span>}
                       </div>
                       <button onClick={() => setPreviewDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
                     </div>
-                    <div className="p-4">
-                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{previewDraft.content}</pre>
+                    <div className="p-4 space-y-4">
                       {previewDraft.image_url && (
-                        <div className="mt-4 p-3 bg-surface-hover rounded-lg">
-                          <p className="text-xs text-text-muted mb-2">Attached image:</p>
-                          <img src={previewDraft.image_url} alt="Post card" className="max-w-[200px] rounded border border-border" />
-                        </div>
+                        <img src={previewDraft.image_url} alt="Post card" className="w-full max-w-[500px] rounded-lg border border-border" />
                       )}
+                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed bg-surface-hover rounded-lg p-3">{previewDraft.content}</pre>
                     </div>
                     <div className="flex gap-2 p-4 border-t border-border">
                       <button
@@ -3060,17 +3058,16 @@ export default function Admin() {
                           <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
                         </div>
 
-                        {/* Content preview + image */}
-                        <div className="flex gap-3">
-                          <div className="flex-1 min-w-0">
-                            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[160px] overflow-y-auto">{draft.content}</pre>
+                        {/* Card image preview */}
+                        {draft.image_url && (
+                          <div className="mb-3">
+                            <p className="text-[10px] text-text-muted mb-1.5">Post card image:</p>
+                            <img src={draft.image_url} alt="Post card" className="w-full max-w-[400px] rounded-lg border border-border" />
                           </div>
-                          {draft.image_url && (
-                            <div className="flex-shrink-0">
-                              <img src={draft.image_url} alt="Card" className="w-16 h-16 rounded border border-border object-cover" />
-                            </div>
-                          )}
-                        </div>
+                        )}
+
+                        {/* Content preview */}
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
 
                         {/* Actions */}
                         <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">

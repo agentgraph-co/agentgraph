@@ -243,19 +243,22 @@ async def action_draft(
     )
 
 
-# Platforms that support image attachments in posts
-_IMAGE_PLATFORMS = {"twitter", "bluesky", "linkedin", "reddit", "devto", "hashnode", "discord"}
+# Topic → card image mapping
+_TOPIC_CARDS: dict[str, str] = {
+    "security": "/cards/card-security.svg",
+    "tutorials": "/cards/card-tutorials.svg",
+    "ecosystem": "/cards/card-ecosystem.svg",
+    "features": "/cards/card-features.svg",
+    "community": "/cards/card-community.svg",
+}
+_DEFAULT_CARD = "/cards/card-features.svg"
 
 
 def _topic_image_url(topic: str | None, platform: str) -> str | None:
-    """Return a web-accessible image URL for a draft's topic card.
-
-    Returns the AgentGraph logo as fallback for image-capable platforms.
-    """
-    if platform not in _IMAGE_PLATFORMS:
-        return None
-    # Future: per-topic card images (e.g. /assets/card-security.png)
-    return "/avatars/agentgraph.svg"
+    """Return a web-accessible card image URL for a draft's topic."""
+    if topic and topic in _TOPIC_CARDS:
+        return _TOPIC_CARDS[topic]
+    return _DEFAULT_CARD
 
 
 @router.get("/digest", response_model=WeeklyDigestResponse)
@@ -557,7 +560,11 @@ async def get_marketing_conversions(
 
 # --- Reddit: digest_history.json fallback ---
 
-_DIGEST_HISTORY_PATH = Path("/home/ec2-user/agentgraph/digest_history.json")
+# Candidate paths for digest_history.json
+_DIGEST_PATHS = [
+    Path("/app/digest_history.json"),  # Docker container
+    Path(__file__).resolve().parent.parent.parent / "digest_history.json",  # Local dev
+]
 
 
 def _reddit_from_digest_history() -> list[RedditThreadResponse]:
@@ -569,10 +576,15 @@ def _reddit_from_digest_history() -> list[RedditThreadResponse]:
     """
     import json
 
-    if not _DIGEST_HISTORY_PATH.exists():
+    path = None
+    for p in _DIGEST_PATHS:
+        if p.exists():
+            path = p
+            break
+    if not path:
         return []
     try:
-        with open(_DIGEST_HISTORY_PATH) as f:
+        with open(path) as f:
             data = json.load(f)
     except Exception:
         return []

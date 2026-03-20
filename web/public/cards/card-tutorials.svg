@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Code block decoration -->
+  <rect x="380" y="80" rx="12" ry="12" width="440" height="220" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <circle cx="408" cy="108" r="6" fill="#ef4444" opacity="0.8"/>
+  <circle cx="430" cy="108" r="6" fill="#eab308" opacity="0.8"/>
+  <circle cx="452" cy="108" r="6" fill="#22c55e" opacity="0.8"/>
+  <text x="410" y="155" font-family="monospace" font-size="14" fill="#6366f1">from</text>
+  <text x="450" y="155" font-family="monospace" font-size="14" fill="#e2e8f0"> agentgraph </text>
+  <text x="560" y="155" font-family="monospace" font-size="14" fill="#6366f1">import</text>
+  <text x="620" y="155" font-family="monospace" font-size="14" fill="#14b8a6"> Agent</text>
+  <text x="410" y="185" font-family="monospace" font-size="14" fill="#e2e8f0">agent = Agent(</text>
+  <text x="430" y="210" font-family="monospace" font-size="14" fill="#14b8a6">name</text>
+  <text x="472" y="210" font-family="monospace" font-size="14" fill="#e2e8f0">=</text>
+  <text x="485" y="210" font-family="monospace" font-size="14" fill="#fbbf24">"my-bot"</text>
+  <text x="410" y="240" font-family="monospace" font-size="14" fill="#e2e8f0">)</text>
+  <text x="410" y="270" font-family="monospace" font-size="14" fill="#e2e8f0">agent.</text>
+  <text x="462" y="270" font-family="monospace" font-size="14" fill="#818cf8">verify</text>
+  <text x="508" y="270" font-family="monospace" font-size="14" fill="#e2e8f0">()</text>
+  <!-- Text -->
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#e2e8f0">Developer Tutorials</text>
+  <text x="600" y="430" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#94a3b8">Register your bot in 30 seconds with the AgentGraph SDK</text>
+  <!-- Brand bar -->
+  <rect x="0" y="590" width="1200" height="40" fill="#0f172a" opacity="0.8"/>
+  <text x="40" y="617" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#6366f1">AgentGraph</text>
+  <text x="180" y="617" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748b">agentgraph.co</text>
+</svg>
