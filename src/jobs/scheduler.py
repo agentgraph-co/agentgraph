@@ -130,19 +130,29 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
             logger.exception("Scheduled source import sync failed")
 
         # Job 7: Marketing bot orchestrator
+        # Gate: only fire after 18:00 UTC (10:00 AM PST) so the daily
+        # news digest (arrives ~17:10 UTC / 9:10 AM PST) is available.
         try:
-            from src.config import settings as _settings
+            from datetime import datetime, timezone
 
-            if _settings.marketing_enabled:
-                async with async_session() as session:
-                    async with session.begin():
-                        from src.marketing.orchestrator import run_marketing_tick
+            _utc_hour = datetime.now(timezone.utc).hour
+            if _utc_hour < 18:
+                logger.debug(
+                    "Marketing tick skipped: UTC hour %d < 18", _utc_hour,
+                )
+            else:
+                from src.config import settings as _settings
 
-                        summary = await run_marketing_tick(session)
-                        if summary.get("status") != "disabled":
-                            logger.info(
-                                "Marketing tick completed: %s", summary,
-                            )
+                if _settings.marketing_enabled:
+                    async with async_session() as session:
+                        async with session.begin():
+                            from src.marketing.orchestrator import run_marketing_tick
+
+                            summary = await run_marketing_tick(session)
+                            if summary.get("status") != "disabled":
+                                logger.info(
+                                    "Marketing tick completed: %s", summary,
+                                )
         except Exception:
             logger.exception("Marketing tick failed")
 
