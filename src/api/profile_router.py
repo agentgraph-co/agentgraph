@@ -261,6 +261,10 @@ class ProfileListResponse(BaseModel):
 async def browse_profiles(
     q: str | None = Query(None, max_length=200),
     entity_type: str | None = None,
+    source_type: str | None = Query(
+        None, max_length=30,
+        description="Filter by import source (e.g. moltbook, github, npm, pypi)",
+    ),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -289,6 +293,9 @@ async def browse_profiles(
             pass
         else:
             query = query.where(Entity.type == et)
+
+    if source_type:
+        query = query.where(Entity.source_type == source_type.lower())
 
     total = await db.scalar(
         select(func.count()).select_from(query.subquery())
