@@ -81,21 +81,17 @@ async def _send_via_smtp(to: str, subject: str, html_body: str) -> bool:
 
 
 async def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send an email via Resend (preferred), SMTP fallback, or dev-mode log.
+    """Send an email with rate limiting, retry, and overflow queuing.
 
-    Returns True on success, False on failure.
+    Delegates to :func:`src.email_queue.send_email_rated` which enforces a
+    per-minute rate limit (configurable via ``EMAIL_RATE_LIMIT_PER_MINUTE``),
+    retries on transient failures, and queues overflow when the limit is hit.
+
+    Returns True on success (or queued), False on failure after retries.
     """
-    if settings.resend_api_key:
-        return await _send_via_resend(to, subject, html_body)
+    from src.email_queue import send_email_rated
 
-    if settings.smtp_host:
-        return await _send_via_smtp(to, subject, html_body)
-
-    logger.info(
-        "Email (dev mode, no email provider configured):\n  To: %s\n  Subject: %s\n  Body: %s",
-        to, subject, html_body[:200],
-    )
-    return True
+    return await send_email_rated(to, subject, html_body)
 
 
 async def send_verification_email(to: str, token: str) -> bool:

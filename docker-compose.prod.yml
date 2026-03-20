@@ -1,3 +1,37 @@
+# =============================================================================
+# AgentGraph Production — Docker Compose
+# =============================================================================
+# Instance: t3.small (2 vCPU, 2GB RAM)
+#
+# Memory budget (2048 MB total):
+#   nginx:     64 MB
+#   backend:  768 MB  (2 uvicorn workers)
+#   postgres: 512 MB
+#   redis:    128 MB
+#   ─────────────────
+#   Total:   1472 MB  → ~576 MB free for OS + buffers
+#
+# SWAP SETUP (run once on EC2 before first deploy under load):
+#   sudo fallocate -l 2G /swapfile
+#   sudo chmod 600 /swapfile
+#   sudo mkswap /swapfile
+#   sudo swapon /swapfile
+#   echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+#   sudo sysctl vm.swappiness=10
+#   echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+#
+# UPGRADE PATH (t3.small → t3.medium):
+#   1. Stop instance:    aws ec2 stop-instances --instance-ids ***REMOVED***
+#   2. Change type:      aws ec2 modify-instance-attribute --instance-id ***REMOVED*** --instance-type '{"Value":"t3.medium"}'
+#   3. Start instance:   aws ec2 start-instances --instance-ids ***REMOVED***
+#   4. Elastic IP stays: ***REMOVED*** (no DNS change needed)
+#   Note: ~2 min downtime. t3.medium = 2 vCPU, 4GB RAM, ~$30/mo vs ~$15/mo
+#
+# MONITORING:
+#   ./scripts/check-capacity.sh           — remote capacity report
+#   ./scripts/health-check-prod.sh        — endpoint health check
+# =============================================================================
+
 services:
   nginx:
     image: nginx:alpine
@@ -20,7 +54,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 64M
 
   backend:
     build:
@@ -93,7 +127,7 @@ services:
     image: redis:7-alpine
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    command: redis-server --appendonly yes --maxmemory 100mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     expose:
       - "6379"
     restart: unless-stopped
@@ -110,7 +144,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 128M
 
 volumes:
   postgres-data:

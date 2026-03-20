@@ -133,6 +133,11 @@ class Settings(BaseSettings):
     moltbook_auto_import_enabled: bool = False
     moltbook_import_batch_size: int = 10
 
+    # Email rate limiting & retry
+    email_rate_limit_per_minute: int = 30
+    email_retry_max_attempts: int = 3
+    email_retry_base_delay: float = 1.0  # seconds, doubles each retry
+
     # Error tracking
     sentry_dsn: str | None = None
 
