@@ -15,62 +15,50 @@
     </linearGradient>
   </defs>
 
-  <!-- Broadcast waves (right side) -->
-  <g stroke="url(#waveGrad)" fill="none" stroke-linecap="round">
-    <path d="M330 210 C360 230, 360 280, 330 300" stroke-width="6" opacity="0.9"/>
-    <path d="M350 190 C395 220, 395 290, 350 320" stroke-width="5" opacity="0.6"/>
-    <path d="M370 170 C430 210, 430 300, 370 340" stroke-width="4" opacity="0.35"/>
-    <path d="M388 152 C460 200, 460 310, 388 358" stroke-width="3" opacity="0.18"/>
-  </g>
+  <!-- Scale everything up to fill the circle -->
+  <g transform="translate(256,256) scale(1.35) translate(-256,-246)">
+    <!-- Broadcast waves (right side) -->
+    <g stroke="url(#waveGrad)" fill="none" stroke-linecap="round">
+      <path d="M330 210 C360 230, 360 280, 330 300" stroke-width="6" opacity="0.9"/>
+      <path d="M350 190 C395 220, 395 290, 350 320" stroke-width="5" opacity="0.6"/>
+      <path d="M370 170 C430 210, 430 300, 370 340" stroke-width="4" opacity="0.35"/>
+      <path d="M388 152 C460 200, 460 310, 388 358" stroke-width="3" opacity="0.18"/>
+    </g>
 
-  <!-- Signal dots floating outward -->
-  <circle cx="400" cy="200" r="4" fill="#2dd4bf" opacity="0.5"/>
-  <circle cx="420" cy="256" r="3" fill="#e879f9" opacity="0.4"/>
-  <circle cx="395" cy="310" r="3.5" fill="#2dd4bf" opacity="0.45"/>
-  <circle cx="440" cy="230" r="2.5" fill="#818cf8" opacity="0.35"/>
-  <circle cx="435" cy="290" r="2" fill="#e879f9" opacity="0.3"/>
+    <!-- Signal dots floating outward -->
+    <circle cx="400" cy="200" r="4" fill="#2dd4bf" opacity="0.5"/>
+    <circle cx="420" cy="256" r="3" fill="#e879f9" opacity="0.4"/>
+    <circle cx="395" cy="310" r="3.5" fill="#2dd4bf" opacity="0.45"/>
+    <circle cx="440" cy="230" r="2.5" fill="#818cf8" opacity="0.35"/>
+    <circle cx="435" cy="290" r="2" fill="#e879f9" opacity="0.3"/>
 
-  <!-- Megaphone body -->
-  <path d="M160 220 L310 180 L310 330 L160 290 Z" fill="url(#megaGrad)" stroke="#818cf8" stroke-width="2"/>
+    <!-- Megaphone body -->
+    <path d="M160 220 L310 180 L310 330 L160 290 Z" fill="url(#megaGrad)" stroke="#818cf8" stroke-width="2"/>
 
-  <!-- Megaphone bell (opening) -->
-  <ellipse cx="310" cy="255" rx="12" ry="78" fill="#4f46e5" stroke="#818cf8" stroke-width="2"/>
+    <!-- Megaphone bell (opening) -->
+    <ellipse cx="310" cy="255" rx="12" ry="78" fill="#4f46e5" stroke="#818cf8" stroke-width="2"/>
 
-  <!-- Megaphone back cap -->
-  <ellipse cx="160" cy="255" rx="8" ry="38" fill="#4338ca" stroke="#6366f1" stroke-width="2"/>
+    <!-- Megaphone back cap -->
+    <ellipse cx="160" cy="255" rx="8" ry="38" fill="#4338ca" stroke="#6366f1" stroke-width="2"/>
 
-  <!-- Handle grip -->
-  <rect x="145" y="295" width="30" height="65" rx="8" fill="url(#handleGrad)" stroke="#818cf8" stroke-width="2"/>
+    <!-- Handle grip -->
+    <rect x="145" y="295" width="30" height="65" rx="8" fill="url(#handleGrad)" stroke="#818cf8" stroke-width="2"/>
 
-  <!-- Network node cluster on megaphone (brand element) -->
-  <g transform="translate(235, 248)">
-    <!-- Mini graph nodes -->
-    <circle cx="0" cy="-18" r="5" fill="#2dd4bf"/>
-    <circle cx="16" cy="-9" r="4" fill="#e879f9"/>
-    <circle cx="16" cy="9" r="5" fill="#2dd4bf"/>
-    <circle cx="0" cy="18" r="4" fill="#e879f9"/>
-    <circle cx="-16" cy="9" r="5" fill="#2dd4bf"/>
-    <circle cx="-16" cy="-9" r="4" fill="#e879f9"/>
-    <!-- Center hub -->
-    <circle cx="0" cy="0" r="7" fill="white" opacity="0.9"/>
-    <!-- Connections -->
-    <line x1="0" y1="-18" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-    <line x1="16" y1="-9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-    <line x1="16" y1="9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-    <line x1="0" y1="18" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-    <line x1="-16" y1="9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-    <line x1="-16" y1="-9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
-  </g>
-
-  <!-- Small platform icons scattered (representing multi-platform) -->
-  <g opacity="0.25" fill="#94a3b8">
-    <!-- Twitter/X icon tiny -->
-    <path transform="translate(100, 160) scale(0.5)" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/>
-    <!-- GitHub icon tiny -->
-    <circle cx="120" cy="350" r="8" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
-    <circle cx="120" cy="347" r="3" fill="#94a3b8"/>
-    <!-- Chat bubble tiny -->
-    <rect x="80" y="370" width="16" height="12" rx="3" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
-    <path d="M88 382 L88 388 L93 382" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+    <!-- Network node cluster on megaphone (brand element) -->
+    <g transform="translate(235, 248)">
+      <circle cx="0" cy="-18" r="5" fill="#2dd4bf"/>
+      <circle cx="16" cy="-9" r="4" fill="#e879f9"/>
+      <circle cx="16" cy="9" r="5" fill="#2dd4bf"/>
+      <circle cx="0" cy="18" r="4" fill="#e879f9"/>
+      <circle cx="-16" cy="9" r="5" fill="#2dd4bf"/>
+      <circle cx="-16" cy="-9" r="4" fill="#e879f9"/>
+      <circle cx="0" cy="0" r="7" fill="white" opacity="0.9"/>
+      <line x1="0" y1="-18" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+      <line x1="16" y1="-9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+      <line x1="16" y1="9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+      <line x1="0" y1="18" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+      <line x1="-16" y1="9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+      <line x1="-16" y1="-9" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.5"/>
+    </g>
   </g>
 </svg>
