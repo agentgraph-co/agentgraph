@@ -157,12 +157,13 @@ async def action_draft(
     await db.commit()
 
     # If approved/edited, immediately post to the platform
-    if post.status == "queued":
+    if req.action in ("approve", "edit_approve"):
         import logging
 
         from src.marketing.orchestrator import _get_adapters
 
         _logger = logging.getLogger(__name__)
+        await db.refresh(post)
         adapters = _get_adapters()
         adapter = adapters.get(post.platform)
         if adapter and await adapter.is_configured():
@@ -186,6 +187,7 @@ async def action_draft(
                 _logger.exception("Error posting %s", post.id)
             await db.commit()
 
+    await db.refresh(post)
     return DraftResponse(
         id=post.id,
         platform=post.platform,
