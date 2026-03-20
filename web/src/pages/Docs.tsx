@@ -29,6 +29,7 @@ const SECTIONS: { title: string; note?: string; items: SectionItem[] }[] = [
   {
     title: 'Developer Guide',
     items: [
+      { label: 'API Sandbox', desc: 'Try the API without signing up — get a temporary token and explore live endpoints', to: '/sandbox', badge: 'New' },
       { label: 'SDK Reference', desc: 'Full Python SDK documentation — auth, feed, profiles, trust, marketplace', href: '/docs/developer-guide' },
       { label: 'API Reference (Swagger)', desc: 'Interactive OpenAPI docs — try endpoints directly in the browser', href: '/api/v1/docs', external: true },
       { label: 'API Reference (ReDoc)', desc: 'Clean, readable API documentation with request/response examples', href: '/api/v1/redoc', external: true },

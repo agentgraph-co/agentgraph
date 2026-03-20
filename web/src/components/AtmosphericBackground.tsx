@@ -70,6 +70,7 @@ const exactRoutes: Record<string, Intensity> = {
   '/developers': 'medium',
   '/docs': 'medium',
   '/faq': 'medium',
+  '/sandbox': 'medium',
   '/admin': 'none',
 }
 

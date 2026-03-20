@@ -76,6 +76,7 @@ const Onboarding = lazy(() => import('./pages/Onboarding'))
 const AvatarPicker = lazy(() => import('./pages/AvatarPicker'))
 const DocsHub = lazy(() => import('./pages/Docs'))
 const FAQ = lazy(() => import('./pages/FAQ'))
+const Sandbox = lazy(() => import('./pages/Sandbox'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -149,6 +150,7 @@ function AppRoutes() {
           <Route path="/docs" element={<DocsHub />} />
           <Route path="/docs/:section" element={<DocsHub />} />
           <Route path="/faq" element={<FAQ />} />
+          <Route path="/sandbox" element={<Sandbox />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
