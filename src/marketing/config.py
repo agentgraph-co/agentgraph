@@ -32,11 +32,12 @@ class MarketingSettings(BaseSettings):
     # --- Platform API keys (all optional — skip if missing) ---
 
     # Twitter/X (Free tier: write-only, 1500 tweets/mo)
+    # Labels match Twitter Developer Portal exactly
     twitter_bearer_token: str | None = None
-    twitter_api_key: str | None = None
-    twitter_api_secret: str | None = None
+    twitter_consumer_key: str | None = None
+    twitter_consumer_secret: str | None = None
     twitter_access_token: str | None = None
-    twitter_access_secret: str | None = None
+    twitter_access_token_secret: str | None = None
 
     # Reddit (via asyncpraw)
     reddit_client_id: str | None = None
