@@ -55,6 +55,8 @@ CONTENT_TYPE_TIERS: dict[str, ContentTier] = {
     "hackernews_draft": ContentTier.HIGH_STAKES,
     "producthunt_draft": ContentTier.HIGH_STAKES,
     "launch_announcement": ContentTier.HIGH_STAKES,
+    # Reddit scout drafts — Sonnet (quality matters, manual posting)
+    "reddit_scout_draft": ContentTier.STANDARD,
     # High-volume / boosts — Haiku
     "boost_reply": ContentTier.VOLUME,
     "thread_continuation": ContentTier.VOLUME,

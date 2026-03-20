@@ -135,6 +135,27 @@ interface CampaignDetail {
   posts: { id: string; platform: string; topic: string; status: string; content: string; posted_at: string | null }[]
 }
 
+interface RedditThread {
+  title: string
+  url: string
+  permalink: string
+  subreddit: string
+  score: number
+  num_comments: number
+  created_utc: number
+  selftext_preview: string
+  author: string
+  keywords_matched: string[]
+}
+
+interface RedditDraftResult {
+  thread_url: string
+  thread_title: string
+  draft_content: string
+  llm_model: string | null
+  llm_cost_usd: number
+}
+
 interface IssueItem {
   id: string
   post_id: string
@@ -214,6 +235,9 @@ export default function Admin() {
   const [campaignDeselected, setCampaignDeselected] = useState<Set<number>>(new Set())
   const [rejectFeedback, setRejectFeedback] = useState('')
   const [rejectingCampaignId, setRejectingCampaignId] = useState<string | null>(null)
+  const [redditDraft, setRedditDraft] = useState<RedditDraftResult | null>(null)
+  const [redditDraftContext, setRedditDraftContext] = useState('')
+  const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
@@ -777,6 +801,34 @@ export default function Admin() {
       refetchCampaigns()
     },
     onError: () => { addToast('Failed to reject campaign', 'error') },
+  })
+
+  // ─── Reddit Scout queries ───
+
+  const { data: redditThreads, isLoading: redditLoading, refetch: refetchReddit } = useQuery<RedditThread[]>({
+    queryKey: ['admin-reddit-threads'],
+    queryFn: async () => (await api.get('/admin/marketing/reddit/threads')).data,
+    enabled: !!user?.is_admin && tab === 'marketing',
+    staleTime: 5 * 60_000,
+  })
+
+  const generateRedditDraftMutation = useMutation({
+    mutationFn: async ({ threadUrl, context }: { threadUrl: string; context?: string }) => {
+      return (await api.post('/admin/marketing/reddit/generate-draft', {
+        thread_url: threadUrl,
+        context: context || undefined,
+      })).data as RedditDraftResult
+    },
+    onSuccess: (data) => {
+      setRedditDraft(data)
+      setGeneratingDraftFor(null)
+      setRedditDraftContext('')
+      addToast('Reddit draft generated', 'success')
+    },
+    onError: () => {
+      setGeneratingDraftFor(null)
+      addToast('Failed to generate draft', 'error')
+    },
   })
 
   // ─── Issues tab queries ───
@@ -2653,6 +2705,144 @@ export default function Admin() {
                 ) : (
                   <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
                     No proposed campaigns. Generate a weekly plan to get started.
+                  </div>
+                )}
+              </div>
+
+              {/* Reddit Scout */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Reddit Scout</h2>
+                  <button
+                    onClick={() => refetchReddit()}
+                    disabled={redditLoading}
+                    className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                  >
+                    {redditLoading ? 'Scanning...' : 'Refresh Scan'}
+                  </button>
+                </div>
+                <p className="text-xs text-text-muted mb-3">
+                  Read-only scan of public Reddit feeds. Generate a draft reply, then copy/paste to Reddit manually.
+                </p>
+
+                {redditLoading ? (
+                  <div className="py-6"><InlineSkeleton /></div>
+                ) : redditThreads && redditThreads.length > 0 ? (
+                  <div className="space-y-2">
+                    {redditThreads.map((thread) => (
+                      <div key={thread.url} className="bg-surface border border-border rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <a
+                              href={thread.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:underline leading-snug"
+                            >
+                              {thread.title}
+                            </a>
+                            <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
+                              <span className="font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">r/{thread.subreddit}</span>
+                              <span>{thread.score} pts</span>
+                              <span>{thread.num_comments} comments</span>
+                              <span>u/{thread.author}</span>
+                            </div>
+                            {thread.selftext_preview && (
+                              <div className="text-xs text-text-muted mt-1.5 line-clamp-2">{thread.selftext_preview}</div>
+                            )}
+                            {thread.keywords_matched.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {thread.keywords_matched.map((kw) => (
+                                  <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded bg-success/10 text-success">{kw}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0">
+                            {generatingDraftFor === thread.url ? (
+                              <div className="space-y-2 w-48">
+                                <input
+                                  type="text"
+                                  value={redditDraftContext}
+                                  onChange={e => setRedditDraftContext(e.target.value)}
+                                  placeholder="Extra context (optional)"
+                                  className="w-full text-[10px] bg-surface-hover border border-border rounded px-2 py-1"
+                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => generateRedditDraftMutation.mutate({ threadUrl: thread.url, context: redditDraftContext })}
+                                    disabled={generateRedditDraftMutation.isPending}
+                                    className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                  >
+                                    {generateRedditDraftMutation.isPending ? 'Generating...' : 'Generate'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setGeneratingDraftFor(null); setRedditDraftContext('') }}
+                                    className="text-[10px] text-text-muted hover:text-text px-2 py-1 cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setGeneratingDraftFor(thread.url)}
+                                className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded cursor-pointer whitespace-nowrap"
+                              >
+                                Generate Draft
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
+                    No relevant threads found. Try refreshing the scan.
+                  </div>
+                )}
+
+                {/* Reddit Draft Modal */}
+                {redditDraft && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setRedditDraft(null)}>
+                    <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between p-4 border-b border-border">
+                        <div>
+                          <h3 className="text-sm font-semibold">Reddit Draft Reply</h3>
+                          <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">{redditDraft.thread_title}</div>
+                        </div>
+                        <button onClick={() => setRedditDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
+                      </div>
+                      <div className="p-4">
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{redditDraft.draft_content}</pre>
+                      </div>
+                      <div className="flex items-center justify-between p-4 border-t border-border">
+                        <div className="text-[10px] text-text-muted">
+                          {redditDraft.llm_model && <span>Model: {redditDraft.llm_model}</span>}
+                          {redditDraft.llm_cost_usd > 0 && <span className="ml-2">Cost: ${redditDraft.llm_cost_usd.toFixed(4)}</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(redditDraft.draft_content)
+                              addToast('Draft copied to clipboard', 'success')
+                            }}
+                            className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded cursor-pointer"
+                          >
+                            Copy to Clipboard
+                          </button>
+                          <a
+                            href={redditDraft.thread_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded inline-flex items-center"
+                          >
+                            Open Thread
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

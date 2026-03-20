@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 
 import httpx
@@ -18,6 +19,26 @@ logger = logging.getLogger(__name__)
 
 _API_BASE = "https://dev.to/api"
 _TIMEOUT = 30.0
+
+# Match the first Markdown heading (# or ##) to extract a title
+_HEADING_RE = re.compile(r"^#{1,2}\s+(.+)", re.MULTILINE)
+
+
+def _extract_title(content: str) -> tuple[str, str]:
+    """Extract a title from Markdown content.
+
+    If the content starts with a heading, use it as the title and strip
+    it from the body (Dev.to renders its own title separately).
+    Returns (title, body).
+    """
+    match = _HEADING_RE.search(content)
+    if match:
+        title = match.group(1).strip()
+        # Remove the heading line from the body
+        body = content[:match.start()] + content[match.end():]
+        body = body.lstrip("\n")
+        return title, body
+    return "", content
 
 
 class DevtoAdapter(AbstractPlatformAdapter):
@@ -38,14 +59,22 @@ class DevtoAdapter(AbstractPlatformAdapter):
 
     async def post(self, content: str, metadata: dict | None = None) -> ExternalPostResult:
         meta = metadata or {}
-        title = meta.get("title", "AgentGraph Update")
         tags = meta.get("tags", ["ai", "agents", "security", "webdev"])
         published = meta.get("published", True)
+
+        # Extract title from content if not provided in metadata
+        explicit_title = meta.get("title", "")
+        if explicit_title:
+            title = explicit_title
+            body_markdown = content
+        else:
+            extracted, body_markdown = _extract_title(content)
+            title = extracted or "AgentGraph Update"
 
         body = {
             "article": {
                 "title": title,
-                "body_markdown": content,
+                "body_markdown": body_markdown,
                 "tags": tags[:4],  # Dev.to max 4 tags
                 "published": published,
                 "canonical_url": meta.get("canonical_url"),

@@ -224,6 +224,29 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing watchdog checks failed")
 
+        # Job 12: Marketing recap to feed (Monday + Thursday)
+        try:
+            from src.config import settings as _recap_settings
+
+            if _recap_settings.marketing_enabled:
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.marketing.recap import maybe_post_recap
+
+                        recap_result = await maybe_post_recap(session)
+                        if recap_result.get("status") == "posted":
+                            logger.info(
+                                "Marketing recap posted: %s",
+                                recap_result,
+                            )
+                        else:
+                            logger.debug(
+                                "Marketing recap: %s",
+                                recap_result.get("status", "skipped"),
+                            )
+        except Exception:
+            logger.exception("Marketing recap job failed")
+
         # Job 9: Moltbook auto-import flywheel
         try:
             from src.config import settings as _mkt_settings
