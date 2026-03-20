@@ -99,8 +99,11 @@ async def _fetch_subreddit_json(
             params={"limit": limit, "raw_json": 1},
             headers={"User-Agent": _USER_AGENT},
         )
-        if resp.status_code == 429:
-            logger.warning("Rate limited by Reddit for r/%s", subreddit)
+        if resp.status_code in (403, 429):
+            logger.info(
+                "Reddit returned %s for r/%s (datacenter IP likely blocked)",
+                resp.status_code, subreddit,
+            )
             return []
         resp.raise_for_status()
         data = resp.json()
