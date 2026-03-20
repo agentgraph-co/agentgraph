@@ -1,7 +1,9 @@
 """Admin marketing dashboard and draft management API."""
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -36,6 +38,7 @@ class DraftResponse(BaseModel):
     status: str
     llm_model: str | None
     created_at: str
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -144,6 +147,7 @@ async def get_pending_drafts(
             status=d.status,
             llm_model=d.llm_model,
             created_at=d.created_at.isoformat(),
+            image_url=_topic_image_url(d.topic, d.platform),
         )
         for d in drafts
     ]
@@ -186,8 +190,6 @@ async def action_draft(
     await db.commit()
 
     # If approved/edited, immediately post to the platform
-    import logging
-
     _logger = logging.getLogger(__name__)
 
     if req.action in ("approve", "edit_approve"):
@@ -202,6 +204,7 @@ async def action_draft(
                 if result.success:
                     post.status = "posted"
                     post.external_id = result.external_id
+                    post.posted_at = datetime.now(timezone.utc)
                     _logger.info(
                         "Posted %s to %s: %s",
                         post.id, post.platform, result.external_id,
@@ -231,7 +234,23 @@ async def action_draft(
         status=post.status,
         llm_model=post.llm_model,
         created_at=post.created_at.isoformat(),
+        image_url=_topic_image_url(post.topic, post.platform),
     )
+
+
+# Platforms that auto-attach images when posting
+_IMAGE_PLATFORMS = {"twitter", "bluesky", "linkedin"}
+
+
+def _topic_image_url(topic: str | None, platform: str) -> str | None:
+    """Return a web-accessible image URL for a draft's topic card.
+
+    Returns the AgentGraph logo as fallback for image-capable platforms.
+    """
+    if platform not in _IMAGE_PLATFORMS:
+        return None
+    # Future: per-topic card images (e.g. /assets/card-security.png)
+    return "/avatars/agentgraph.svg"
 
 
 @router.get("/digest", response_model=WeeklyDigestResponse)
@@ -419,7 +438,7 @@ async def get_marketing_conversions(
     """UTM attribution: clicks and signups per marketing platform."""
     require_admin(current_entity)
 
-    from datetime import datetime, timedelta, timezone
+    from datetime import timedelta
 
     from src.marketing.models import MarketingPost
 
