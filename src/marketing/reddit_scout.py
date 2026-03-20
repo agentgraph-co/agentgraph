@@ -185,6 +185,13 @@ async def scan_subreddits(
 
     # Sort by score descending
     threads.sort(key=lambda t: t.score, reverse=True)
+
+    # Cache results in Redis so EC2 (blocked by Reddit) can read them
+    try:
+        await _cache_threads(threads)
+    except Exception:
+        logger.debug("Failed to cache Reddit threads in Redis")
+
     return threads
 
 
@@ -254,3 +261,55 @@ async def fetch_thread_detail(thread_url: str) -> dict | None:
     except Exception:
         logger.exception("Failed to fetch thread detail: %s", thread_url)
         return None
+
+
+# Redis cache key for scout results
+_CACHE_KEY = "ag:mktg:reddit_scout"
+_CACHE_TTL = 86400  # 24 hours
+
+
+async def _cache_threads(threads: list[RedditThread]) -> None:
+    """Cache thread results in Redis for cross-machine access."""
+    import json
+
+    from src.redis_client import get_redis
+
+    r = get_redis()
+    data = json.dumps([t.to_dict() for t in threads[:20]])
+    await r.set(_CACHE_KEY, data, ex=_CACHE_TTL)
+
+
+async def get_cached_threads() -> list[RedditThread]:
+    """Read cached Reddit threads from Redis.
+
+    Use this on EC2 where Reddit blocks datacenter IPs.
+    The Mac Mini runs scan_subreddits() which writes to this cache.
+    """
+    import json
+
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        data = await r.get(_CACHE_KEY)
+        if not data:
+            return []
+        items = json.loads(data)
+        return [
+            RedditThread(
+                title=t["title"],
+                url=t["url"],
+                permalink=t["permalink"],
+                subreddit=t["subreddit"],
+                score=t["score"],
+                num_comments=t["num_comments"],
+                created_utc=t["created_utc"],
+                selftext_preview=t.get("selftext_preview", ""),
+                author=t.get("author", "[deleted]"),
+                keywords_matched=t.get("keywords_matched", []),
+            )
+            for t in items
+        ]
+    except Exception:
+        logger.debug("Failed to read cached Reddit threads")
+        return []
