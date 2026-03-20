@@ -67,3 +67,13 @@ DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Project instructions (contains sensitive operational details)
+CLAUDE.md
+
+# Security / credentials
+*.pem
+nginx/htpasswd
+
+# Generated data
+digest_history.json
