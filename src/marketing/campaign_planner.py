@@ -424,7 +424,7 @@ async def send_campaign_proposal_email(
     )
 
     return await send_email(
-        to="***REMOVED***",
+        to=marketing_settings.marketing_notify_email,
         subject=subject,
         html_body=html,
     )
