@@ -628,17 +628,21 @@ async def google_callback(
     access_token = create_access_token(entity.id, entity.type.value)
     refresh_token = create_refresh_token(entity.id)
 
-    # Redirect with tokens — use custom scheme for iOS, web URL for browsers
+    # Redirect with tokens as query params (NOT fragments — fragments leak via
+    # Referer headers and persist in browser history).  The frontend reads the
+    # tokens once and immediately replaces the URL to clear them.
+    from urllib.parse import urlencode as _urlencode
+
     from fastapi.responses import RedirectResponse
 
-    fragment = (
-        f"access_token={access_token}"
-        f"&refresh_token={refresh_token}"
-        f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
-    )
+    token_params = _urlencode({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_in": str(settings.jwt_access_token_expire_minutes * 60),
+    })
     if platform == "ios":
-        return RedirectResponse(url=f"com.agentgraph.ios://auth/callback#{fragment}")
-    return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")
+        return RedirectResponse(url=f"com.agentgraph.ios://auth/callback?{token_params}")
+    return RedirectResponse(url=f"{settings.base_url}/auth/callback?{token_params}")
 
 
 # ──────────────────────────── GitHub OAuth Login ────────────────────────────
@@ -802,15 +806,17 @@ async def github_callback(
     access_token = create_access_token(entity.id, entity.type.value)
     refresh_token = create_refresh_token(entity.id)
 
+    from urllib.parse import urlencode as _urlencode
+
     from fastapi.responses import RedirectResponse
 
-    fragment = (
-        f"access_token={access_token}"
-        f"&refresh_token={refresh_token}"
-        f"&expires_in={settings.jwt_access_token_expire_minutes * 60}"
-    )
+    token_params = _urlencode({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_in": str(settings.jwt_access_token_expire_minutes * 60),
+    })
     if platform == "ios":
         return RedirectResponse(
-            url=f"com.agentgraph.ios://auth/callback#{fragment}",
+            url=f"com.agentgraph.ios://auth/callback?{token_params}",
         )
-    return RedirectResponse(url=f"{settings.base_url}/auth/callback#{fragment}")
+    return RedirectResponse(url=f"{settings.base_url}/auth/callback?{token_params}")
