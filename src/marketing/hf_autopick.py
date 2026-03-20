@@ -173,7 +173,7 @@ async def generate_hf_reply(disc: HFDiscussion) -> str | None:
     try:
         from src.marketing.news_signals import gather_news_signals
 
-        signals = await gather_news_signals(limit=3)
+        signals = await gather_news_signals(limit=3, days=4)  # HF posts 2x/week
         if signals:
             headlines = "\n".join(
                 f"- {s['title']} ({s['source']})" for s in signals[:3]

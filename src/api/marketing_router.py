@@ -904,14 +904,38 @@ async def generate_reddit_draft(
     response_model=list[HFDiscussionResponse],
 )
 async def get_hf_discussions(
+    refresh: bool = Query(False, description="Force refresh (bypass cache)"),
     current_entity: Entity = Depends(get_current_entity),
 ) -> list[HFDiscussionResponse]:
-    """Scan HuggingFace for relevant model discussions to engage with."""
+    """Scan HuggingFace for relevant model discussions to engage with.
+
+    Results are cached in Redis for 2 hours to avoid rate limiting.
+    Pass ?refresh=true to force a fresh scan.
+    """
     require_admin(current_entity)
+
+    import json as _json
+
+    _cache_key = "ag:mktg:hf_discussions_cache"
+    _cache_ttl = 7200  # 2 hours
+
+    # Try cache first (unless refresh requested)
+    if not refresh:
+        try:
+            from src.redis_client import get_redis
+
+            _r = get_redis()
+            cached = await _r.get(_cache_key)
+            if cached:
+                data = _json.loads(cached)
+                return [HFDiscussionResponse(**d) for d in data]
+        except Exception:
+            pass  # Cache miss or Redis down — fetch live
+
     from src.marketing.hf_scout import scan_hf_discussions
 
     discussions = await scan_hf_discussions()
-    return [
+    result = [
         HFDiscussionResponse(
             title=d.title,
             url=d.url,
@@ -926,6 +950,21 @@ async def get_hf_discussions(
         )
         for d in discussions
     ]
+
+    # Cache results
+    try:
+        from src.redis_client import get_redis
+
+        _r = get_redis()
+        await _r.set(
+            _cache_key,
+            _json.dumps([r.model_dump() for r in result]),
+            ex=_cache_ttl,
+        )
+    except Exception:
+        pass
+
+    return result
 
 
 @router.post(
