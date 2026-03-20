@@ -89,11 +89,15 @@ async def generate_proactive(
     utm_link = build_utm_link(platform=platform, campaign=topic.key)
 
     # Gather news signals for topical relevance
+    # Lookback = days between posts for this platform (7 / posts_per_week)
     news_context = ""
     try:
+        from src.marketing.config import PLATFORM_SCHEDULE
         from src.marketing.news_signals import gather_news_signals
 
-        signals = await gather_news_signals(limit=5, days=2)
+        ppw = PLATFORM_SCHEDULE.get(platform, {}).get("posts_per_week", 3)
+        lookback_days = max(2, 7 // ppw)  # e.g. 2x/week → 3 days, 1x/week → 7 days
+        signals = await gather_news_signals(limit=5, days=lookback_days)
         if signals:
             lines: list[str] = []
             for s in signals[:5]:

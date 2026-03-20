@@ -901,9 +901,15 @@ export default function Admin() {
 
   // ─── HuggingFace Scout queries ───
 
-  const { data: hfDiscussions, isLoading: hfLoading, refetch: refetchHf } = useQuery<HFDiscussion[]>({
-    queryKey: ['admin-hf-discussions'],
-    queryFn: async () => (await api.get('/admin/marketing/huggingface/discussions')).data,
+  const [hfForceRefresh, setHfForceRefresh] = useState(false)
+  const { data: hfDiscussions, isLoading: hfLoading } = useQuery<HFDiscussion[]>({
+    queryKey: ['admin-hf-discussions', hfForceRefresh],
+    queryFn: async () => {
+      const params = hfForceRefresh ? { refresh: 'true' } : {}
+      const res = await api.get('/admin/marketing/huggingface/discussions', { params })
+      setHfForceRefresh(false)
+      return res.data
+    },
     enabled: !!user?.is_admin && tab === 'marketing',
     staleTime: 5 * 60_000,
   })
@@ -2821,7 +2827,7 @@ export default function Admin() {
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Discovery — Threads to Engage</h2>
                   <button
-                    onClick={() => { refetchReddit(); refetchHf() }}
+                    onClick={() => { refetchReddit(); setHfForceRefresh(true) }}
                     disabled={redditLoading || hfLoading}
                     className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
                   >
