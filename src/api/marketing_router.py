@@ -89,14 +89,22 @@ async def get_marketing_dashboard(
 @router.get("/drafts", response_model=list[DraftResponse])
 async def get_pending_drafts(
     platform: str | None = None,
+    status_filter: str | None = Query(
+        None, alias="status",
+        description="Comma-separated statuses (default: human_review,draft)",
+    ),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ) -> list[DraftResponse]:
-    """Get drafts awaiting human review."""
+    """Get drafts awaiting human review or in draft status."""
     require_admin(current_entity)
     from src.marketing.draft_queue import get_pending_drafts as _get_drafts
 
-    drafts = await _get_drafts(db, platform=platform)
+    statuses: list[str] | None = None
+    if status_filter:
+        statuses = [s.strip() for s in status_filter.split(",") if s.strip()]
+
+    drafts = await _get_drafts(db, platform=platform, statuses=statuses)
     return [
         DraftResponse(
             id=d.id,
@@ -210,12 +218,39 @@ async def trigger_platform_tick(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Manually trigger a marketing post for a specific platform."""
+    """Manually trigger a marketing post for a specific platform.
+
+    Returns the generated draft content so the admin can preview it
+    before approving.
+    """
     require_admin(current_entity)
     from src.marketing.orchestrator import generate_and_post_for_platform
 
     result = await generate_and_post_for_platform(db, platform)
     await db.commit()
+
+    # If a draft was created, fetch it so we can return the content
+    if result.get("status") == "draft_created" and result.get("draft_id"):
+        from src.marketing.models import MarketingPost
+
+        draft_q = await db.execute(
+            select(MarketingPost).where(
+                MarketingPost.id == result["draft_id"],
+            ),
+        )
+        draft = draft_q.scalar_one_or_none()
+        if draft:
+            result["draft"] = {
+                "id": str(draft.id),
+                "platform": draft.platform,
+                "content": draft.content,
+                "topic": draft.topic,
+                "post_type": draft.post_type,
+                "status": draft.status,
+                "llm_model": draft.llm_model,
+                "created_at": draft.created_at.isoformat(),
+            }
+
     return result
 
 

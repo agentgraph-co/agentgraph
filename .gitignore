@@ -75,5 +75,9 @@ CLAUDE.md
 *.pem
 nginx/htpasswd
 
+# Backup scripts (contain local path info)
+scripts/backup-secrets.sh
+scripts/com.agentgraph.backup.plist
+
 # Generated data
 digest_history.json

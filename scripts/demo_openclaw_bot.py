@@ -12,14 +12,14 @@ Usage:
     python3 scripts/demo_openclaw_bot.py --base-url http://localhost:8001
 
 Requires:
-    - Admin account (***REMOVED*** / ***REMOVED***)
+    - Admin account credentials via ADMIN_EMAIL / ADMIN_PASSWORD env vars
     - Backend running on the specified base URL
     - pip install httpx (already in deps)
 """
 from __future__ import annotations
 
 import argparse
-import json
+import os
 import sys
 
 import httpx
@@ -38,9 +38,14 @@ def main():
 
     # Step 0: Login as admin
     print("\n=== Step 0: Login as admin ===")
+    admin_email = os.environ.get("ADMIN_EMAIL", "***REMOVED***")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    if not admin_password:
+        print("ERROR: Set ADMIN_PASSWORD env var")
+        sys.exit(1)
     r = client.post("/auth/login", json={
-        "email": "***REMOVED***",
-        "password": "***REMOVED***",
+        "email": admin_email,
+        "password": admin_password,
     })
     if r.status_code != 200:
         print(f"Login failed: {r.status_code} {r.text}")

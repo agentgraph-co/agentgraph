@@ -164,7 +164,7 @@ You can test npm/PyPI/HuggingFace linking without setting up GitHub OAuth:
 # Login first
 TOKEN=$(curl -s http://localhost:8001/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"***REMOVED***","password":"***REMOVED***"}' \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 # Claim an npm package

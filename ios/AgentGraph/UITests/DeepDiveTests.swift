@@ -88,11 +88,14 @@ final class DeepDiveTests: XCTestCase {
         let emailField = app.textFields.firstMatch
         guard emailField.waitForExistence(timeout: 3) else { return }
         emailField.tap()
-        emailField.typeText("***REMOVED***")
+        let testEmail = ProcessInfo.processInfo.environment["ADMIN_EMAIL"] ?? "***REMOVED***"
+        emailField.typeText(testEmail)
 
         let passwordField = app.secureTextFields.firstMatch
         passwordField.tap()
-        passwordField.typeText("***REMOVED***")
+        let testPassword = ProcessInfo.processInfo.environment["ADMIN_PASSWORD"] ?? ""
+        XCTAssertFalse(testPassword.isEmpty, "Set ADMIN_PASSWORD env var for UI tests")
+        passwordField.typeText(testPassword)
 
         app.buttons["Sign In"].tap()
         sleep(2)

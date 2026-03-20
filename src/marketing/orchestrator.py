@@ -415,7 +415,7 @@ async def generate_and_post_for_platform(
         return {"status": "skipped", "reason": "duplicate"}
 
     # Always go through human approval for manual triggers
-    await enqueue_draft(
+    draft = await enqueue_draft(
         db, platform=platform, content=content.text,
         topic=content.topic, llm_model=content.llm_model,
         llm_tokens_in=content.llm_tokens_in,
@@ -427,6 +427,7 @@ async def generate_and_post_for_platform(
         "status": "draft_created",
         "platform": platform,
         "topic": content.topic,
+        "draft_id": str(draft.id),
     }
 
 

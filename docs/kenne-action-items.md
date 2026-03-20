@@ -240,7 +240,7 @@ BACKUP_DIR="/home/ec2-user/backups"
 CONTAINER="agentgraph-postgres-1"
 TIMESTAMP="$(date +%Y-%m-%d)"
 mkdir -p "$BACKUP_DIR"
-docker exec -e PGPASSWORD="a074530b62af56f0e480ebbda7412e92" "$CONTAINER" \
+docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$CONTAINER" \
     pg_dump -U agentgraph -d agentgraph --no-owner --no-acl \
     | gzip > "$BACKUP_DIR/agentgraph-${TIMESTAMP}.sql.gz"
 # Keep last 7 days
