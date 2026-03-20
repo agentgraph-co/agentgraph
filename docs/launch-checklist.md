@@ -14,14 +14,14 @@ Point `agentgraph.co` to your Elastic IP.
 
 ```
 Type    Name    Value               TTL
-A       @       ***REMOVED***        300
-A       www     ***REMOVED***        300
+A       @       YOUR_ELASTIC_IP        300
+A       www     YOUR_ELASTIC_IP        300
 ```
 
 4. Verify propagation:
 ```bash
 dig agentgraph.co +short
-# Should return: ***REMOVED***
+# Should return: YOUR_ELASTIC_IP
 ```
 
 DNS can take 5-60 minutes to propagate globally.
@@ -34,7 +34,7 @@ Once DNS is pointing to your server:
 
 ```bash
 # SSH into EC2
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # Pull latest (includes setup-ssl.sh)
 cd ~/agentgraph && git pull
@@ -67,7 +67,7 @@ curl -I https://agentgraph.co/api/v1/trust/methodology
 4. SSH into EC2 and add to your environment:
 
 ```bash
-ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED***
+ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP
 
 # Add to your .env.secrets file
 echo 'SENTRY_DSN=https://your-dsn-here@sentry.io/project-id' >> ~/agentgraph/.env.secrets

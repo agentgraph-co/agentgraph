@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-EC2_HOST="***REMOVED***"
+EC2_HOST="${AG_EC2_HOST:?Set AG_EC2_HOST env var (e.g. your Elastic IP)}"
 EC2_USER="ec2-user"
 SSH_KEY="$HOME/.ssh/***REMOVED***"
 BACKUP_DIR="/home/ec2-user/backups"

@@ -12,7 +12,7 @@
 #     sudo ./scripts/setup-ssl.sh
 #
 #   Remote (from MacBook):
-#     ssh -i ~/.ssh/***REMOVED*** ec2-user@***REMOVED*** \
+#     ssh -i ~/.ssh/***REMOVED*** ec2-user@YOUR_ELASTIC_IP \
 #       'cd ~/agentgraph && sudo bash scripts/setup-ssl.sh'
 #
 # What it does:
@@ -24,7 +24,7 @@
 #   6. Sets up automatic renewal via cron
 #
 # Prerequisites:
-#   - DNS A record for agentgraph.co pointing to ***REMOVED***
+#   - DNS A record for agentgraph.co pointing to YOUR_ELASTIC_IP
 #   - Ports 80 and 443 open in EC2 security group
 #   - Docker and docker-compose installed
 #   - agentgraph repo cloned to ~/agentgraph

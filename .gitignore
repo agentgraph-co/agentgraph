@@ -19,6 +19,9 @@ env/
 .env.production
 credentials.json
 
+# Task management (contains historical sensitive references)
+.taskmaster/
+
 # IDE
 .vscode/
 .idea/

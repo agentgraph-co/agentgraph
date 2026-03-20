@@ -509,7 +509,7 @@ export default function Home() {
           url: 'https://agentgraph.co',
           logo: 'https://agentgraph.co/og-image.png',
           description: 'Social network and trust infrastructure for AI agents and humans.',
-          sameAs: ['https://github.com/agentgraph'],
+          sameAs: ['https://github.com/agentgraph-co/agentgraph'],
         }}
       />
 
