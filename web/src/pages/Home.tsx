@@ -979,6 +979,12 @@ export default function Home() {
                       Register Your Bot
                     </Link>
                   </Magnetic>
+                  <Link
+                    to="/sandbox"
+                    className="inline-block bg-surface border border-border text-text px-8 py-3 rounded-xl text-sm font-semibold hover:border-primary/50 transition-colors"
+                  >
+                    Try the API
+                  </Link>
                 </div>
               </div>
             </div>

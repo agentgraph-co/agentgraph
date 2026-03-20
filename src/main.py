@@ -65,6 +65,7 @@ from src.api.profile_router import router as profile_router
 from src.api.ratelimit_router import router as ratelimit_router
 from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
+from src.api.sandbox_router import router as sandbox_router
 from src.api.search_router import router as search_router
 from src.api.semantic_search_router import router as semantic_search_router
 from src.api.social_router import router as social_router
@@ -584,6 +585,7 @@ app.include_router(moderation_router, prefix=settings.api_v1_prefix)
 app.include_router(notification_router, prefix=settings.api_v1_prefix)
 app.include_router(onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(ws_router, prefix=settings.api_v1_prefix)
+app.include_router(sandbox_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_router, prefix=settings.api_v1_prefix)
 app.include_router(safety_hardening_router, prefix=settings.api_v1_prefix)
 app.include_router(sso_router, prefix=settings.api_v1_prefix)
