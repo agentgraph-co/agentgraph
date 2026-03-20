@@ -7,7 +7,8 @@
  */
 import { useRef, useState, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
-import ForceGraph3D from 'react-force-graph-3d'
+import { lazy, Suspense } from 'react'
+const ForceGraph3D = lazy(() => import('react-force-graph-3d'))
 import type { GraphData, GraphNode, GraphEdge } from '../../hooks/useGraphData'
 import { useTheme } from '../../hooks/useTheme'
 import {
@@ -397,12 +398,14 @@ export default function ForceGraph({
   return (
     <div ref={containerRef} className="w-full h-full relative" style={{ touchAction: 'none', overscrollBehavior: 'contain' }}>
       {is3D ? (
-        <ForceGraph3D
-          ref={fgRef as React.MutableRefObject<never>}
-          {...commonProps}
-          nodeOpacity={0.9}
-          linkDirectionalParticleColor={getLinkColor}
-        />
+        <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-text-muted">Loading 3D engine...</div>}>
+          <ForceGraph3D
+            ref={fgRef as React.MutableRefObject<never>}
+            {...commonProps}
+            nodeOpacity={0.9}
+            linkDirectionalParticleColor={getLinkColor}
+          />
+        </Suspense>
       ) : (
         <ForceGraph2D
           ref={fgRef as React.MutableRefObject<never>}
