@@ -17,29 +17,9 @@ function SiteFooter() {
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="absolute inset-x-0 -top-4 h-8 bg-gradient-to-t from-surface/80 to-transparent pointer-events-none" aria-hidden="true" />
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
-                <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
-                <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
-                <circle cx="23.8" cy="20.5" r="1.8" fill="#2DD4BF"/>
-                <circle cx="16" cy="25" r="1.5" fill="#E879F9"/>
-                <circle cx="8.2" cy="20.5" r="1.8" fill="#2DD4BF"/>
-                <circle cx="8.2" cy="11.5" r="1.5" fill="#E879F9"/>
-              </svg>
-            </div>
-            <span className="text-xs text-text-muted">
-              &copy; {new Date().getFullYear()} AgentGraph. Trust infrastructure for AI agents and humans.
-            </span>
-          </div>
-          <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-text-muted">
-            <Link to="/legal/terms" className="hover:text-text transition-colors">Terms</Link>
-            <Link to="/legal/privacy" className="hover:text-text transition-colors">Privacy</Link>
-            <Link to="/legal/dmca" className="hover:text-text transition-colors">DMCA</Link>
-            <Link to="/legal/moderation-policy" className="hover:text-text transition-colors">Policy</Link>
-            <span className="text-border">|</span>
+        <div className="flex flex-col items-center gap-5">
+          {/* Nav links — two groups */}
+          <nav aria-label="Footer navigation" className="flex items-center gap-4 text-xs text-text-muted">
             <Link to="/feed" className="hover:text-text transition-colors">Feed</Link>
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
@@ -48,20 +28,48 @@ function SiteFooter() {
             <Link to="/docs" className="hover:text-text transition-colors">Developers</Link>
             <Link to="/faq" className="hover:text-text transition-colors">FAQ</Link>
             <a href="/api/v1/docs" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors">API</a>
-            <span className="text-border">|</span>
-            <a href="https://x.com/agentgraph_real" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors" aria-label="Twitter/X">
-              <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </a>
-            <a href="https://bsky.app/profile/agentgraph.bsky.social" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors" aria-label="Bluesky">
-              <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.785 2.627 3.6 3.476 6.18 3.232-4.165.712-8.232 2.625-4.412 8.51C5.777 26.373 11.268 21.248 12 17.04c.732 4.208 6.13 9.282 9.608 4.95 3.82-5.886-.247-7.799-4.412-8.511 2.58.244 5.395-.605 6.18-3.232.246-.828.624-5.79.624-6.479 0-.688-.139-1.86-.902-2.203-.659-.299-1.664-.621-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8z"/></svg>
-            </a>
-            <a href="https://dev.to/agentgraph" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors" aria-label="Dev.to">
-              <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="currentColor"><path d="M7.42 10.05c-.18-.16-.46-.23-.84-.23H6v4.36h.58c.37 0 .67-.08.84-.23.2-.18.3-.46.3-.94v-2.02c0-.48-.1-.76-.3-.94zM0 4.94v14.12h24V4.94H0zM8.56 15.3c-.44.58-1.06.77-1.94.77H4.84V8.1h1.86c.84 0 1.44.2 1.86.62.46.46.62 1.12.62 2.12v2.36c0 1-.2 1.66-.62 2.1zm5.02-5.36H11.3v1.98h1.5v1.28H11.3v1.98h2.28v1.28H10.5c-.46 0-.84-.34-.84-.78V8.92c0-.44.38-.78.84-.78h3.08v1.28zm4.22 5.9c-.6 1.46-1.38 1.1-1.78 0L14.1 8.12h1.5l1.38 6.64 1.38-6.64h1.5l-2.06 7.68z"/></svg>
-            </a>
-            <a href="https://github.com/kenneives/agentgraph" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors" aria-label="GitHub">
-              <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-            </a>
           </nav>
+
+          {/* Social icons */}
+          <div className="flex items-center gap-5">
+            <a href="https://x.com/agentgraph_real" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-text transition-colors" aria-label="Twitter/X">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+            <a href="https://bsky.app/profile/agentgraph.bsky.social" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-text transition-colors" aria-label="Bluesky">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.785 2.627 3.6 3.476 6.18 3.232-4.165.712-8.232 2.625-4.412 8.51C5.777 26.373 11.268 21.248 12 17.04c.732 4.208 6.13 9.282 9.608 4.95 3.82-5.886-.247-7.799-4.412-8.511 2.58.244 5.395-.605 6.18-3.232.246-.828.624-5.79.624-6.479 0-.688-.139-1.86-.902-2.203-.659-.299-1.664-.621-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8z"/></svg>
+            </a>
+            <a href="https://dev.to/agentgraph" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-text transition-colors" aria-label="Dev.to">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7.42 10.05c-.18-.16-.46-.23-.84-.23H6v4.36h.58c.37 0 .67-.08.84-.23.2-.18.3-.46.3-.94v-2.02c0-.48-.1-.76-.3-.94zM0 4.94v14.12h24V4.94H0zM8.56 15.3c-.44.58-1.06.77-1.94.77H4.84V8.1h1.86c.84 0 1.44.2 1.86.62.46.46.62 1.12.62 2.12v2.36c0 1-.2 1.66-.62 2.1zm5.02-5.36H11.3v1.98h1.5v1.28H11.3v1.98h2.28v1.28H10.5c-.46 0-.84-.34-.84-.78V8.92c0-.44.38-.78.84-.78h3.08v1.28zm4.22 5.9c-.6 1.46-1.38 1.1-1.78 0L14.1 8.12h1.5l1.38 6.64 1.38-6.64h1.5l-2.06 7.68z"/></svg>
+            </a>
+            <a href="https://github.com/kenneives/agentgraph" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-text transition-colors" aria-label="GitHub">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            </a>
+          </div>
+
+          {/* Copyright + legal */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-xs text-text-muted">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <svg className="w-2.5 h-2.5" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                  <circle cx="16" cy="16" r="3.5" fill="#2DD4BF"/>
+                  <circle cx="16" cy="7" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="23.8" cy="11.5" r="1.5" fill="#E879F9"/>
+                  <circle cx="23.8" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="16" cy="25" r="1.5" fill="#E879F9"/>
+                  <circle cx="8.2" cy="20.5" r="1.8" fill="#2DD4BF"/>
+                  <circle cx="8.2" cy="11.5" r="1.5" fill="#E879F9"/>
+                </svg>
+              </div>
+              <span>&copy; {new Date().getFullYear()} AgentGraph</span>
+            </div>
+            <span className="hidden sm:inline text-border">&middot;</span>
+            <div className="flex items-center gap-3">
+              <Link to="/legal/terms" className="hover:text-text transition-colors">Terms</Link>
+              <Link to="/legal/privacy" className="hover:text-text transition-colors">Privacy</Link>
+              <Link to="/legal/dmca" className="hover:text-text transition-colors">DMCA</Link>
+              <Link to="/legal/moderation-policy" className="hover:text-text transition-colors">Policy</Link>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
