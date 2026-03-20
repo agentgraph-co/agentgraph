@@ -101,6 +101,9 @@ class MarketingSettings(BaseSettings):
     # Set to False after public launch to remove "coming soon" framing
     pre_launch: bool = True
 
+    # --- Notification email ---
+    marketing_notify_email: str = "social@agentgraph.co"
+
     # --- UTM defaults ---
     utm_source: str = "agentgraph_bot"
 

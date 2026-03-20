@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.marketing.config import marketing_settings
+
 logger = logging.getLogger(__name__)
 
-_ADMIN_EMAIL = "***REMOVED***"
 _DASHBOARD_URL = "https://agentgraph.co/admin"
 
 
@@ -63,13 +64,13 @@ async def send_plan_reminder(db: AsyncSession) -> bool:
     )
 
     sent = await send_email(
-        _ADMIN_EMAIL,
+        marketing_settings.marketing_notify_email,
         "AgentGraph \u2014 Weekly marketing plan",
         html,
     )
 
     if sent:
-        logger.info("Plan reminder email sent to %s", _ADMIN_EMAIL)
+        logger.info("Plan reminder email sent to %s", marketing_settings.marketing_notify_email)
         # Mark as sent for today
         try:
             from src.redis_client import get_redis

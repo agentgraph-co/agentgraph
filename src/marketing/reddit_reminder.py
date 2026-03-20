@@ -11,14 +11,13 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.marketing.config import marketing_settings
 from src.marketing.models import MarketingPost
 
 logger = logging.getLogger(__name__)
 
 # Reddit posting days: Tuesday (1) and Thursday (3)
 _REDDIT_DAYS = {1, 3}
-
-_ADMIN_EMAIL = "***REMOVED***"
 
 
 def _is_reddit_posting_day() -> bool:
@@ -142,13 +141,13 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
     from src.email import send_email
 
     sent = await send_email(
-        _ADMIN_EMAIL,
+        marketing_settings.marketing_notify_email,
         "AgentGraph \u2014 Reddit posting day",
         html,
     )
 
     if sent:
-        logger.info("Reddit reminder email sent to %s", _ADMIN_EMAIL)
+        logger.info("Reddit reminder email sent to %s", marketing_settings.marketing_notify_email)
         # Mark as sent for today
         try:
             from src.redis_client import get_redis

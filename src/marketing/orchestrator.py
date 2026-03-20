@@ -494,6 +494,16 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
     proactive_results = await run_proactive_cycle(db)
     results["proactive"] = proactive_results
 
+    # 2b. Notify admin if new drafts were created for human review
+    new_drafts = proactive_results.get("drafts", [])
+    if new_drafts:
+        try:
+            from src.marketing.draft_notify import notify_pending_drafts
+
+            await notify_pending_drafts(new_drafts)
+        except Exception:
+            logger.exception("Draft notification failed")
+
     # 3. Run HF auto-pick cycle on posting days (Wed/Sat)
     try:
         from datetime import date as _date
