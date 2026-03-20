@@ -8,8 +8,8 @@
 # Usage:
 #   ./scripts/backup-prod.sh
 #
-# Cron (daily at 3:00 AM — add to MacBook crontab):
-#   0 3 * * * /Users/kserver/projects/agentgraph/scripts/backup-prod.sh >> /tmp/agentgraph-backup.log 2>&1
+# Cron (daily at 3:00 AM — add to your crontab):
+#   0 3 * * * /path/to/agentgraph/scripts/backup-prod.sh >> /tmp/agentgraph-backup.log 2>&1
 #
 # ============================================================================
 

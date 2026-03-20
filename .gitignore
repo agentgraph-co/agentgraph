@@ -53,8 +53,8 @@ logs/
 .task-master/
 .taskmaster/
 
-# Claude Code worktrees and MCP logs
-.claude/worktrees/
+# Claude Code (settings may contain sensitive operational details)
+.claude/
 .playwright-mcp/
 
 # Root-level screenshots (audit artifacts, not source)

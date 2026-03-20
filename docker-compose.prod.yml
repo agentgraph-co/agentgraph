@@ -1,35 +1,8 @@
 # =============================================================================
 # AgentGraph Production — Docker Compose
 # =============================================================================
-# Instance: t3.small (2 vCPU, 2GB RAM)
-#
-# Memory budget (2048 MB total):
-#   nginx:     64 MB
-#   backend:  768 MB  (2 uvicorn workers)
-#   postgres: 512 MB
-#   redis:    128 MB
-#   ─────────────────
-#   Total:   1472 MB  → ~576 MB free for OS + buffers
-#
-# SWAP SETUP (run once on EC2 before first deploy under load):
-#   sudo fallocate -l 2G /swapfile
-#   sudo chmod 600 /swapfile
-#   sudo mkswap /swapfile
-#   sudo swapon /swapfile
-#   echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
-#   sudo sysctl vm.swappiness=10
-#   echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-#
-# UPGRADE PATH (t3.small → t3.medium):
-#   1. Stop instance:    aws ec2 stop-instances --instance-ids YOUR_INSTANCE_ID
-#   2. Change type:      aws ec2 modify-instance-attribute --instance-id YOUR_INSTANCE_ID --instance-type '{"Value":"t3.medium"}'
-#   3. Start instance:   aws ec2 start-instances --instance-ids YOUR_INSTANCE_ID
-#   4. Elastic IP stays: YOUR_ELASTIC_IP (no DNS change needed)
-#   Note: ~2 min downtime. t3.medium = 2 vCPU, 4GB RAM, ~$30/mo vs ~$15/mo
-#
-# MONITORING:
-#   ./scripts/check-capacity.sh           — remote capacity report
-#   ./scripts/health-check-prod.sh        — endpoint health check
+# See docs/deployment.md for instance sizing, swap setup, and upgrade path.
+# Monitoring: ./scripts/check-capacity.sh, ./scripts/health-check-prod.sh
 # =============================================================================
 
 services:

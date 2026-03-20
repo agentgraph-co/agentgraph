@@ -414,31 +414,40 @@ async def cache_headers_middleware(request: Request, call_next) -> Response:
 
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:
-    """Add standard security headers to all responses."""
+    """Add security headers to API responses.
+
+    In production, nginx sets these headers for static assets and proxied
+    requests.  This middleware ensures they are present in dev (no nginx)
+    and adds the dynamic docs-page CSP variant that nginx cannot do.
+    Headers use setdefault so nginx values win when present.
+    """
     response: Response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "0"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
-    # Docs pages load Swagger UI / ReDoc from cdn.jsdelivr.net
+    h = response.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("X-XSS-Protection", "0")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    h.setdefault("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+    # Docs pages need cdn.jsdelivr.net for Swagger UI / ReDoc
     _path = request.url.path
     _is_docs = _path in ("/api/v1/docs", "/api/v1/redoc")
     _cdn = " https://cdn.jsdelivr.net" if _is_docs else ""
-    response.headers["Content-Security-Policy"] = (
+    h.setdefault(
+        "Content-Security-Policy",
         "default-src 'self'; "
-        f"script-src 'self' 'unsafe-inline' https://accounts.google.com{_cdn}; "
+        f"script-src 'self' https://accounts.google.com{_cdn}; "
         f"style-src 'self' 'unsafe-inline'{_cdn}; "
         f"img-src 'self' data: blob:; "
         f"font-src 'self'{_cdn}; "
         "connect-src 'self' wss: https://accounts.google.com; "
         "frame-ancestors 'none'; "
         "form-action 'self'; "
-        "base-uri 'self'"
+        "base-uri 'self'",
     )
     if request.url.scheme == "https":
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=63072000; includeSubDomains; preload"
+        h.setdefault(
+            "Strict-Transport-Security",
+            "max-age=63072000; includeSubDomains; preload",
         )
     return response
 

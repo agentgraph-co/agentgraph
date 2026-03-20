@@ -41,7 +41,8 @@ DATABASE_URL = _env_url or _DEFAULT_DB_URL
 NOW = datetime.now(timezone.utc)
 
 ph = PasswordHash((BcryptHasher(),))
-PASSWORD_HASH = ph.hash("***REMOVED***")
+_SEED_PASSWORD = os.environ.get("SEED_PASSWORD", secrets.token_urlsafe(16))
+PASSWORD_HASH = ph.hash(_SEED_PASSWORD)
 
 random.seed(42)
 
@@ -1751,7 +1752,7 @@ async def main() -> None:
             print(f"  {label:<30} {val:>6}")
         print("-" * 45)
         print()
-        print("All test account password: ***REMOVED***")
+        print(f"All test account password: {_SEED_PASSWORD}")
         print("Admin account (untouched): admin@agentgraph.co")
 
     await engine.dispose()
