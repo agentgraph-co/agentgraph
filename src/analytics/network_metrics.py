@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import (
@@ -172,12 +172,15 @@ async def get_framework_adoption(db: AsyncSession) -> dict:
 
 async def get_network_health(db: AsyncSession) -> dict:
     """Overall network health metrics."""
+    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     total_entities = await db.scalar(
-        select(func.count()).select_from(Entity).where(Entity.is_active.is_(True))
+        select(func.count()).select_from(Entity).where(
+            Entity.is_active.is_(True), _not_moltbook,
+        )
     ) or 0
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.is_active.is_(True), Entity.type == EntityType.AGENT
+            Entity.is_active.is_(True), Entity.type == EntityType.AGENT, _not_moltbook,
         )
     ) or 0
     total_humans = total_entities - total_agents

@@ -141,7 +141,7 @@ async def detect_communities(db: AsyncSession) -> dict[str, Any]:
     }
 
     # 7. Cache result
-    await cache.set(CACHE_KEY, result, ttl=cache.TTL_MEDIUM)
+    await cache.set(CACHE_KEY, result, ttl=cache.TTL_LONG)
 
     return result
 

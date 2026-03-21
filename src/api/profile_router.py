@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
@@ -270,8 +270,6 @@ async def browse_profiles(
     db: AsyncSession = Depends(get_db),
 ):
     """Browse entity profiles with optional filters."""
-    from sqlalchemy import or_
-
     # By default, exclude bulk-imported Moltbook entities unless
     # the caller explicitly filters by source_type=moltbook.
     _exclude_moltbook = source_type != "moltbook"
@@ -651,11 +649,14 @@ async def get_operated_bots(
     db: AsyncSession = Depends(get_db),
 ):
     """Get bots operated by a given entity."""
+    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
+
     result = await db.execute(
         select(Entity).where(
             Entity.operator_id == entity_id,
             Entity.type == EntityType.AGENT,
             Entity.is_active.is_(True),
+            _not_moltbook,
         ).order_by(Entity.display_name)
     )
     bots = result.scalars().all()
