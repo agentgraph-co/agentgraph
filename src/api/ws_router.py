@@ -31,7 +31,7 @@ async def _safe_close(ws: WebSocket, code: int = 1000, reason: str = "") -> None
     """Close WebSocket, ignoring errors if already closed."""
     try:
         await ws.close(code=code, reason=reason)
-    except (RuntimeError, WebSocketDisconnect):
+    except (RuntimeError, WebSocketDisconnect, AttributeError):
         pass
 
 

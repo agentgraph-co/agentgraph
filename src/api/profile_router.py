@@ -272,10 +272,22 @@ async def browse_profiles(
     """Browse entity profiles with optional filters."""
     from sqlalchemy import or_
 
+    # By default, exclude bulk-imported Moltbook entities unless
+    # the caller explicitly filters by source_type=moltbook.
+    _exclude_moltbook = source_type != "moltbook"
+
     query = select(Entity).where(
         Entity.is_active.is_(True),
         Entity.privacy_tier != PrivacyTier.PRIVATE,
     )
+
+    if _exclude_moltbook:
+        query = query.where(
+            or_(
+                Entity.source_type.is_(None),
+                Entity.source_type != "moltbook",
+            )
+        )
 
     if q:
         pattern = like_pattern(q)
@@ -297,13 +309,16 @@ async def browse_profiles(
     if source_type:
         query = query.where(Entity.source_type == source_type.lower())
 
+    # Cap offset to prevent deep scans on large tables
+    capped_offset = min(offset, 5000)
+
     total = await db.scalar(
         select(func.count()).select_from(query.subquery())
     ) or 0
 
     result = await db.execute(
         query.order_by(Entity.created_at.desc())
-        .offset(offset)
+        .offset(capped_offset)
         .limit(min(limit, 100))
     )
     entities = result.scalars().all()

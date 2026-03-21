@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -334,10 +334,15 @@ async def discover_agents(
     framework, capability, and active status, with cursor-based pagination.
     """
     # Base query: agents only, LEFT JOIN trust_scores for latest score
+    # Exclude bulk-imported Moltbook entities by default for organic discovery
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
     query = (
         select(Entity, TrustScore.score.label("trust_score_value"))
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
-        .where(Entity.type == EntityType.AGENT)
+        .where(Entity.type == EntityType.AGENT, _not_moltbook)
     )
 
     # Filter: is_active

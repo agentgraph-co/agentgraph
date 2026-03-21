@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
@@ -106,7 +106,6 @@ class ClusterDetailResponse(BaseModel):
 
 def _build_privacy_filter(current_entity):
     """Build an SQLAlchemy privacy filter clause."""
-    from sqlalchemy import or_
 
     if current_entity is None:
         return Entity.privacy_tier == PrivacyTier.PUBLIC
@@ -150,11 +149,16 @@ async def get_full_graph(
     Supports filtering by entity type and minimum trust score.
     Excludes PRIVATE-tier entities unless the viewer follows them.
     """
-    from sqlalchemy import or_
 
     # Build entity query — exclude PRIVATE entities unless viewer follows them
+    # Exclude bulk-imported Moltbook entities to keep graph meaningful
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
     entity_query = select(Entity).where(
         Entity.is_active.is_(True),
+        _not_moltbook,
     )
     if current_entity is None:
         entity_query = entity_query.where(
@@ -184,7 +188,13 @@ async def get_full_graph(
     if entity_type:
         entity_query = entity_query.where(Entity.type == entity_type)
 
-    entity_query = entity_query.limit(limit)
+    # Order by trust score so LIMIT returns the most connected entities
+    entity_query = (
+        entity_query
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .order_by(TrustScore.score.desc().nullslast(), Entity.created_at.desc())
+        .limit(limit)
+    )
     result = await db.execute(entity_query)
     entities = result.scalars().all()
     entity_ids = {e.id for e in entities}
@@ -299,7 +309,6 @@ async def get_ego_graph(
         visited |= frontier
 
     # Fetch all entities, filtering out PRIVATE-tier unless viewer has access
-    from sqlalchemy import or_
 
     entity_fetch_query = select(Entity).where(
         Entity.id.in_(visited),
@@ -660,12 +669,22 @@ async def get_rich_graph(
     db: AsyncSession = Depends(get_db),
 ):
     """Full graph with multi-edge types, cluster IDs, and avatar_url."""
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
     entity_query = select(Entity).where(
         Entity.is_active.is_(True),
+        _not_moltbook,
     ).where(_build_privacy_filter(current_entity))
     if entity_type:
         entity_query = entity_query.where(Entity.type == entity_type)
-    entity_query = entity_query.limit(limit)
+    entity_query = (
+        entity_query
+        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .order_by(TrustScore.score.desc().nullslast(), Entity.created_at.desc())
+        .limit(limit)
+    )
     result = await db.execute(entity_query)
     entities = result.scalars().all()
     entity_ids = {e.id for e in entities}

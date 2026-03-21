@@ -406,6 +406,22 @@ async def leaderboard(
     """
     from src.models import EntityRelationship, RelationshipType
 
+    # Cap offset to avoid deep scans on large tables
+    if offset > 200:
+        offset = 200
+
+    # Cache leaderboard results (short TTL — changes frequently)
+    cache_key = f"search_leaderboard:{metric}:{entity_type}:{limit}:{offset}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Exclude bulk-imported Moltbook entities for organic rankings
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
+
     if metric == "framework_diversity":
         # Count distinct framework_source values among an entity's
         # followers and following (interaction partners).
@@ -456,6 +472,7 @@ async def leaderboard(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
+                _not_moltbook,
             )
             .group_by(Entity.id, TrustScore.score, diversity_sub.c.diversity)
             .order_by(
@@ -486,6 +503,7 @@ async def leaderboard(
                 framework_source=entity.framework_source,
                 framework_diversity_score=div,
             ))
+        await cache.set(cache_key, [e.model_dump(mode="json") for e in entries], ttl=TTL_SHORT)
         return entries
 
     query = (
@@ -499,6 +517,7 @@ async def leaderboard(
         .where(
             Entity.is_active.is_(True),
             Entity.privacy_tier == PrivacyTier.PUBLIC,
+            _not_moltbook,
         )
         .group_by(Entity.id, TrustScore.score)
     )
@@ -536,6 +555,7 @@ async def leaderboard(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
+                _not_moltbook,
             )
             .group_by(Entity.id, TrustScore.score, follower_sub.c.fc)
             .order_by(func.coalesce(follower_sub.c.fc, 0).desc())
@@ -565,6 +585,7 @@ async def leaderboard(
             framework_source=entity.framework_source,
         ))
 
+    await cache.set(cache_key, [e.model_dump(mode="json") for e in entries], ttl=TTL_SHORT)
     return entries
 
 
