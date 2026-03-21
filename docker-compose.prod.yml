@@ -94,13 +94,16 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1536M
 
   redis:
     image: redis:7-alpine
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 100mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    command: >
+      redis-server --appendonly yes --maxmemory 100mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     expose:
       - "6379"
     restart: unless-stopped

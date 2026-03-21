@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
@@ -507,8 +507,9 @@ async def get_leaderboard(
     """Get the top token holders, ranked by total balance."""
     # Fetch all active entities — filter/sort in Python because
     # JSONB extraction ordering is not trivially indexed.
+    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     result = await db.execute(
-        select(Entity).where(Entity.is_active.is_(True))
+        select(Entity).where(Entity.is_active.is_(True), _not_moltbook)
     )
     entities = result.scalars().all()
 

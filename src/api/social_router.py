@@ -358,6 +358,8 @@ async def get_following(
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that this entity follows."""
+    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
+
     base_filter = [
         EntityRelationship.source_entity_id == entity_id,
         EntityRelationship.type == RelationshipType.FOLLOW,
@@ -375,6 +377,7 @@ async def get_following(
         .where(
             *base_filter,
             Entity.is_active.is_(True),
+            _not_moltbook,
         )
         .order_by(EntityRelationship.created_at.desc())
         .offset(offset)
@@ -408,6 +411,8 @@ async def get_followers(
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that follow this entity."""
+    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
+
     base_filter = [
         EntityRelationship.target_entity_id == entity_id,
         EntityRelationship.type == RelationshipType.FOLLOW,
@@ -425,6 +430,7 @@ async def get_followers(
         .where(
             *base_filter,
             Entity.is_active.is_(True),
+            _not_moltbook,
         )
         .order_by(EntityRelationship.created_at.desc())
         .offset(offset)
