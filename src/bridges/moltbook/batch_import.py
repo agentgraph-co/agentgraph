@@ -175,6 +175,10 @@ async def run_batch_import(
 
     summary["agents"] = imported_agents
 
+    # Flush so newly imported entities are visible to subsequent queries
+    if imported_agents and not dry_run:
+        await db.flush()
+
     # Announce imports if any
     if imported_agents and not dry_run:
         try:
