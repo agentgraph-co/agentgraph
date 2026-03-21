@@ -775,10 +775,16 @@ async def batch_recompute(
     cutoff_30d = datetime.now(timezone.utc) - timedelta(days=30)
 
     # Count total active entities for logging
+    # Skip bulk-imported Moltbook entities — they have static trust scores
+    # and no activity to decay. Recomputing 700K+ static scores wastes resources.
+    _recompute_filter = (
+        Entity.is_active.is_(True),
+        Entity.framework_source != "moltbook",
+    )
     total_entities = await db.scalar(
         select(func.count())
         .select_from(Entity)
-        .where(Entity.is_active.is_(True))
+        .where(*_recompute_filter)
     ) or 0
     if total_entities == 0:
         return 0
@@ -801,7 +807,7 @@ async def batch_recompute(
         # Fetch one chunk of entities via keyset pagination
         q = (
             select(Entity)
-            .where(Entity.is_active.is_(True))
+            .where(*_recompute_filter)
             .order_by(Entity.id)
             .limit(chunk_size)
         )

@@ -102,10 +102,11 @@ async def _apply_recency_chunked(
 
     while True:
         # Fetch a chunk of trust scores via keyset pagination
+        # Skip Moltbook bulk-imported entities (static scores, no activity)
         q = (
             select(TrustScore)
             .join(Entity, TrustScore.entity_id == Entity.id)
-            .where(Entity.is_active.is_(True))
+            .where(Entity.is_active.is_(True), Entity.framework_source != "moltbook")
             .order_by(TrustScore.entity_id)
             .limit(chunk_size)
         )
