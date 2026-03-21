@@ -29,6 +29,8 @@ async def sync_stale_source_imports(session: AsyncSession) -> dict:
             (Entity.source_verified_at.is_(None))
             | (Entity.source_verified_at < cutoff)
         )
+        # Skip bulk-imported Moltbook agents — they have generated URLs, not real ones
+        .where(Entity.framework_source != "moltbook")
         .limit(MAX_PER_RUN)
     )
     result = await session.execute(stmt)

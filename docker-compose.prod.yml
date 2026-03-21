@@ -90,10 +90,11 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    shm_size: '256mb'
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1024M
 
   redis:
     image: redis:7-alpine
