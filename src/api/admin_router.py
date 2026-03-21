@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
@@ -122,20 +122,38 @@ async def platform_stats(
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get platform-wide statistics. Admin only."""
+    """Get platform-wide statistics. Admin only.
+
+    Excludes bulk-imported Moltbook entities from counts to reflect
+    organic platform activity.
+    """
     require_admin(current_entity)
 
+    from src import cache
+
+    cached = await cache.get("admin:stats")
+    if cached is not None:
+        return cached
+
+    # Exclude Moltbook bulk-imports for meaningful stats
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
+
     total_entities = await db.scalar(
-        select(func.count()).select_from(Entity)
+        select(func.count()).select_from(Entity).where(_not_moltbook)
     ) or 0
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.HUMAN
+            Entity.type == EntityType.HUMAN,
+            _not_moltbook,
         )
     ) or 0
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.AGENT
+            Entity.type == EntityType.AGENT,
+            _not_moltbook,
         )
     ) or 0
     total_posts = await db.scalar(
@@ -196,12 +214,13 @@ async def platform_stats(
     ) or 0
 
     # Framework distribution: count of entities per framework_source
+    # (excluding Moltbook bulk imports)
     fw_label = func.coalesce(
         Entity.framework_source, "unknown",
     ).label("fw")
     fw_result = await db.execute(
         select(fw_label, func.count().label("cnt"))
-        .where(Entity.is_active.is_(True))
+        .where(Entity.is_active.is_(True), _not_moltbook)
         .group_by(fw_label)
         .order_by(func.count().desc())
     )
@@ -216,7 +235,7 @@ async def platform_stats(
         )
     ) or 0
 
-    return PlatformStats(
+    result = PlatformStats(
         total_entities=total_entities,
         total_humans=total_humans,
         total_agents=total_agents,
@@ -237,6 +256,8 @@ async def platform_stats(
         population_alerts_unresolved=pop_alerts_unresolved,
         framework_distribution=framework_distribution,
     )
+    await cache.set("admin:stats", result.model_dump(mode="json"), ttl=cache.TTL_SHORT)
+    return result
 
 
 @router.get(

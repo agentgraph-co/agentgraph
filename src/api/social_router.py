@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, require_not_quarantined
@@ -691,12 +691,19 @@ async def get_suggested_follows(
     blocked_ids = {row[0] for row in blocked.all()}
     exclude_ids = followed_ids | blocked_ids
 
+    # Exclude bulk-imported Moltbook entities from suggestions
+    _not_moltbook = or_(
+        Entity.source_type.is_(None),
+        Entity.source_type != "moltbook",
+    )
+
     # Find top entities by trust score that aren't followed
     query = (
         select(Entity, TrustScore.score)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(
             Entity.is_active.is_(True),
+            _not_moltbook,
             Entity.id.notin_(exclude_ids) if exclude_ids else True,
         )
         .order_by(
