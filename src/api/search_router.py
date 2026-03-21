@@ -22,8 +22,8 @@ class SearchEntityResult(BaseModel):
     id: uuid.UUID
     type: str
     display_name: str
-    did_web: str
-    bio_markdown: str
+    did_web: str = ""
+    bio_markdown: str = ""
     avatar_url: str | None = None
     trust_score: float | None = None
     trust_components: dict | None = None

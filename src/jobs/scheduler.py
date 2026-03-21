@@ -40,8 +40,6 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
     )
 
     while True:
-        await asyncio.sleep(interval)
-
         # Job 1: Trust recomputation
         try:
             async with async_session() as session:
@@ -354,6 +352,8 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
                             )
         except Exception:
             logger.exception("Moltbook auto-import failed")
+
+        await asyncio.sleep(interval)
 
 
 def start_scheduler(interval: int | None = None) -> asyncio.Task:

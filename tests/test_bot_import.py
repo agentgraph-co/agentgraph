@@ -112,8 +112,15 @@ class TestBootstrapAutoOwn:
 
 @pytest.mark.asyncio
 class TestA2AImport:
-    async def test_a2a_import_invalid_url(self, client: AsyncClient):
+    async def test_a2a_import_requires_auth(self, client: AsyncClient):
+        """Unauthenticated import should be rejected."""
         resp = await client.post("/api/v1/a2a/agent-card/import", json={
+            "card_url": "not-a-url",
+        })
+        assert resp.status_code == 401
+
+    async def test_a2a_import_invalid_url(self, auth_client: AsyncClient):
+        resp = await auth_client.post("/api/v1/a2a/agent-card/import", json={
             "card_url": "not-a-url",
         })
         assert resp.status_code == 400

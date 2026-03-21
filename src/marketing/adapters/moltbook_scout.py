@@ -72,7 +72,7 @@ class MoltbookScoutAdapter(AbstractPlatformAdapter):
                     )
                 )
                 imported_ids: set[str] = set()
-                for (data,) in result.all():
+                for data in result.scalars().all():
                     if data and isinstance(data, dict):
                         src = data.get("import_source", {})
                         mb_id = src.get("moltbook_id") or data.get("moltbook_id")

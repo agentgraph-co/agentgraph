@@ -198,6 +198,7 @@ class Entity(Base):
         Index("ix_entities_framework_source", "framework_source"),
         Index("ix_entities_type_active", "type", "is_active"),
         Index("ix_entities_source_url", "source_url"),
+        Index("ix_entities_source_type", "source_type"),
     )
 
 

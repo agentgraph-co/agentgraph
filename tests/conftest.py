@@ -28,6 +28,7 @@ _TABLES = [
     "capability_endorsements", "post_edits", "bookmarks",
     "webhook_delivery_logs",
     "webhook_subscriptions", "notification_preferences", "notifications",
+    "marketing_campaigns", "marketing_posts",
     "disputes", "transactions", "listing_reviews", "listings",
     "token_blacklist", "password_reset_tokens", "email_verifications",
     "audit_logs", "evolution_records", "moderation_flags",
@@ -561,6 +562,78 @@ async def _clean_db_once():
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_linked_accounts_provider "
             "ON linked_accounts (provider)"
+        ))
+        # Ensure marketing_campaigns table exists (marketing system)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS marketing_campaigns ("
+            "  id UUID PRIMARY KEY,"
+            "  name VARCHAR(200) NOT NULL,"
+            "  topic VARCHAR(100) NOT NULL,"
+            "  platforms VARCHAR(50)[] NOT NULL DEFAULT '{}',"
+            "  status VARCHAR(20) NOT NULL DEFAULT 'draft',"
+            "  schedule_config JSONB,"
+            "  start_date DATE,"
+            "  end_date DATE,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_campaign_status "
+            "ON marketing_campaigns (status)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_campaign_topic "
+            "ON marketing_campaigns (topic)"
+        ))
+        # Ensure marketing_posts table exists (marketing system)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS marketing_posts ("
+            "  id UUID PRIMARY KEY,"
+            "  campaign_id UUID REFERENCES marketing_campaigns(id) ON DELETE SET NULL,"
+            "  platform VARCHAR(50) NOT NULL,"
+            "  external_id VARCHAR(255),"
+            "  content TEXT NOT NULL,"
+            "  content_hash VARCHAR(64) NOT NULL,"
+            "  post_type VARCHAR(20) NOT NULL,"
+            "  topic VARCHAR(100),"
+            "  status VARCHAR(20) NOT NULL DEFAULT 'draft',"
+            "  parent_external_id VARCHAR(255),"
+            "  llm_model VARCHAR(50),"
+            "  llm_tokens_in INTEGER,"
+            "  llm_tokens_out INTEGER,"
+            "  llm_cost_usd DOUBLE PRECISION,"
+            "  metrics_json JSONB,"
+            "  utm_params JSONB,"
+            "  error_message TEXT,"
+            "  retry_count INTEGER NOT NULL DEFAULT 0,"
+            "  posted_at TIMESTAMPTZ,"
+            "  metrics_updated_at TIMESTAMPTZ,"
+            "  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+            "  CONSTRAINT uq_mktg_platform_external UNIQUE (platform, external_id)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_post_platform "
+            "ON marketing_posts (platform)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_post_status "
+            "ON marketing_posts (status)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_post_type "
+            "ON marketing_posts (post_type)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mktg_post_posted_at "
+            "ON marketing_posts (posted_at)"
+        ))
+        # Ensure source_type index exists on entities (deep dive audit)
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_entities_source_type "
+            "ON entities (source_type)"
         ))
         await conn.execute(
             text("TRUNCATE " + ", ".join(_TABLES) + " CASCADE")

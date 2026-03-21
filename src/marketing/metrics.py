@@ -21,7 +21,13 @@ def _get_all_adapters() -> dict[str, AbstractPlatformAdapter]:
     """Load all adapters for metric fetching."""
     from src.marketing.adapters.bluesky import BlueskyAdapter
     from src.marketing.adapters.devto import DevtoAdapter
+    from src.marketing.adapters.discord_bot import DiscordAdapter
+    from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
+    from src.marketing.adapters.hashnode import HashnodeAdapter
+    from src.marketing.adapters.huggingface import HuggingFaceAdapter
+    from src.marketing.adapters.linkedin import LinkedInAdapter
     from src.marketing.adapters.reddit import RedditAdapter
+    from src.marketing.adapters.telegram_bot import TelegramAdapter
     from src.marketing.adapters.twitter import TwitterAdapter
 
     return {
@@ -29,6 +35,12 @@ def _get_all_adapters() -> dict[str, AbstractPlatformAdapter]:
         "reddit": RedditAdapter(),
         "bluesky": BlueskyAdapter(),
         "devto": DevtoAdapter(),
+        "linkedin": LinkedInAdapter(),
+        "hashnode": HashnodeAdapter(),
+        "discord": DiscordAdapter(),
+        "telegram": TelegramAdapter(),
+        "github_discussions": GitHubDiscussionsAdapter(),
+        "huggingface": HuggingFaceAdapter(),
     }
 
 
