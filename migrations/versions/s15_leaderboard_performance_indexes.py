@@ -22,13 +22,13 @@ depends_on = None
 def upgrade() -> None:
     # Descending trust score index for leaderboard ORDER BY score DESC
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_trust_scores_score_desc "
+        "CREATE INDEX IF NOT EXISTS ix_trust_scores_score_desc "
         "ON trust_scores (score DESC NULLS LAST)"
     )
 
     # Expression index for token count sorting from JSONB
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_entities_token_count "
+        "CREATE INDEX IF NOT EXISTS ix_entities_token_count "
         "ON entities ((cast(extra_metadata->>'token_count' AS integer))) "
         "WHERE extra_metadata->>'token_count' IS NOT NULL"
     )
