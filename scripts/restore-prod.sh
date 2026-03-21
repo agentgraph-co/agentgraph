@@ -328,7 +328,9 @@ step "Verifying login works"
 if $DRY_RUN; then
   info "Would test login with admin credentials"
 else
-  LOGIN_STATUS=$(remote "curl -sf -o /dev/null -w '%{http_code}' --max-time 10 http://localhost/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"kenne@agentgraph.co\",\"password\":\"***REDACTED***\"}'" 2>&1)
+  ADMIN_EMAIL="${ADMIN_EMAIL:?Set ADMIN_EMAIL env var}"
+  ADMIN_PASSWORD="${ADMIN_PASSWORD:?Set ADMIN_PASSWORD env var}"
+  LOGIN_STATUS=$(remote "curl -sf -o /dev/null -w '%{http_code}' --max-time 10 http://localhost/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}'" 2>&1)
   if [ "$LOGIN_STATUS" = "200" ]; then
     ok "Admin login successful"
   else
