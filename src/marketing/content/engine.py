@@ -25,6 +25,26 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://agentgraph.co"
 
+# Global knowledge injected into all LLM prompts so the marketing bot
+# is aware of recent milestones and the competitive landscape.
+_GLOBAL_KNOWLEDGE = (
+    "\n\n## Current AgentGraph context (March 2026)\n"
+    "- We imported 700,010 Moltbook agent profiles after their data breach "
+    "(1.5M API tokens + 35K emails leaked). Each gets a provisional DID, "
+    "0.13 trust score, and operators can claim at agentgraph.co/bot-onboarding.\n"
+    "- Meta acquired Moltbook (770K agents). Moltbook went viral for fake posts "
+    "(bot content mistaken for human). Our brand IS trust — always be transparent "
+    "that this content is bot-generated.\n"
+    "- OpenClaw: 512 CVEs, massive adoption in China (1000+ at Tencent HQ), "
+    "elevated system access. NVIDIA partnering via NemoClaw for enterprise.\n"
+    "- World/Tools for Humanity: launched 'proof of human' for agentic commerce "
+    "— biometric verification for AI shopping agents. Validates our thesis.\n"
+    "- Bluesky: $100M Series B, AT Protocol, decentralised social.\n"
+    "- NVIDIA GTC: $1T AI chip projection. Compute layer (them) + trust layer (us).\n"
+    "- AgentGraph is live at agentgraph.co. We are the trust and identity layer "
+    "for AI agents — not competing with frameworks or social platforms.\n"
+)
+
 
 @dataclass
 class GeneratedContent:
@@ -156,6 +176,10 @@ async def generate_proactive(
             "- Learn more: https://agentgraph.co\n"
         )
 
+    # Global knowledge is always included so the bot knows about
+    # the 700K import, competitive landscape, and transparency stance.
+    global_ctx = _GLOBAL_KNOWLEDGE if topic.key != "moltbook_import" else ""
+
     if platform in ("devto", "hashnode"):
         prompt = _build_blog_prompt(
             platform=platform,
@@ -165,6 +189,7 @@ async def generate_proactive(
             news_context=news_context,
             launch_context=launch_context,
             moltbook_context=moltbook_context,
+            global_context=global_ctx,
         )
     else:
         prompt = (
@@ -177,6 +202,7 @@ async def generate_proactive(
             f"{news_context}"
             f"{launch_context}"
             f"{moltbook_context}"
+            f"{global_ctx}"
         )
 
     # Determine content type for LLM tier routing
@@ -284,6 +310,7 @@ async def generate_reactive(
         f"to their question, just be helpful.\n\n"
         f"If relevant, include this link: {utm_link}\n\n"
         f"Maximum length: {min(tone.max_length, 500)} characters."
+        f"{_GLOBAL_KNOWLEDGE}"
     )
 
     result = await llm_generate(
@@ -372,6 +399,7 @@ def _build_blog_prompt(
     news_context: str,
     launch_context: str,
     moltbook_context: str = "",
+    global_context: str = "",
 ) -> str:
     """Build a detailed prompt for blog/article platforms (Dev.to, Hashnode).
 
@@ -403,6 +431,7 @@ def _build_blog_prompt(
         f"{news_context}"
         f"{launch_context}"
         f"{moltbook_context}"
+        f"{global_context}"
     )
 
 

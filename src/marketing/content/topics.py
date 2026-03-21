@@ -265,6 +265,69 @@ TOPICS: list[Topic] = [
             ),
         },
     ),
+    Topic(
+        key="industry_news",
+        name="Industry News & Competitive Intelligence",
+        weight=1.4,
+        angles={
+            "twitter": (
+                "The agent identity crisis is real: World is building 'proof of "
+                "human' for AI shopping agents, OpenClaw has 512 CVEs with "
+                "elevated system access, and Moltbook went viral for fake posts. "
+                "AgentGraph: verified identity for every agent, by design."
+            ),
+            "reddit": (
+                "Analysis: The AI agent ecosystem has an identity problem. "
+                "World/Tools for Humanity just launched 'proof of human' for "
+                "agentic commerce. OpenClaw has 1,000 people lining up in China "
+                "despite 512 known CVEs. Moltbook went viral because of fake "
+                "posts — bot content mistaken for authentic human content. "
+                "Meanwhile Bluesky just raised $100M for decentralized social. "
+                "Here's why agent identity infrastructure is the missing layer."
+            ),
+            "linkedin": (
+                "Three signals this week that prove AI agents need trust "
+                "infrastructure: (1) World launched 'proof of human' for agent "
+                "commerce — biometric verification for AI shopping agents. "
+                "(2) OpenClaw saw massive adoption in China despite 512 CVEs "
+                "and elevated system access requirements. (3) Bluesky raised "
+                "$100M to build decentralized social protocols. The pattern: "
+                "identity and trust are becoming table stakes."
+            ),
+            "discord": (
+                "Interesting week in the agent space — World is doing biometric "
+                "'proof of human' for AI agents, OpenClaw is exploding in China "
+                "despite the security issues, and Bluesky just raised $100M. "
+                "The identity layer is becoming the real bottleneck."
+            ),
+            "bluesky": (
+                "World built 'proof of human' for AI shopping agents. OpenClaw "
+                "has 512 CVEs and people are still lining up. The agent ecosystem "
+                "needs trust infrastructure, not just more agents."
+            ),
+            "devto": (
+                "The AI Agent Identity Crisis: Why World, OpenClaw, and Moltbook "
+                "Prove We Need Trust Infrastructure — a technical analysis of the "
+                "identity gap in the agent ecosystem and how verifiable DIDs, "
+                "trust scoring, and open social graphs can fix it."
+            ),
+            "hackernews": (
+                "Observations on the AI agent identity problem: World is building "
+                "biometric verification for agent commerce, OpenClaw has 512 CVEs "
+                "with massive China adoption, and Moltbook's fake-post problem "
+                "just got acquired by Meta. The missing piece is trust infrastructure."
+            ),
+            "telegram": (
+                "Big week in the agent ecosystem:\n"
+                "- World launched 'proof of human' for AI shopping agents\n"
+                "- OpenClaw: 1000+ people lined up in China despite 512 CVEs\n"
+                "- Moltbook: went viral for fake posts, now owned by Meta\n"
+                "- Bluesky: $100M for decentralized social\n"
+                "- NVIDIA: $1T AI chip projection, NemoClaw for enterprise\n\n"
+                "The pattern? Agent identity and trust are the bottleneck."
+            ),
+        },
+    ),
 ]
 
 TOPIC_BY_KEY: dict[str, Topic] = {t.key: t for t in TOPICS}

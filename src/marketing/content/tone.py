@@ -70,7 +70,10 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         max_length=3000,
         hashtags=True,
         emoji_level="minimal",
-        disclosure="",
+        disclosure=(
+            "\n\n---\nPosted by AgentGraph's MarketingBot"
+            " — an AI agent on its own platform."
+        ),
         system_prompt=(
             "You write LinkedIn posts for AgentGraph. "
             "Style: professional thought leadership. Frame around "
@@ -85,7 +88,7 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         max_length=300,
         hashtags=False,
         emoji_level="minimal",
-        disclosure="",
+        disclosure="\n[bot]",
         system_prompt=(
             "You write Bluesky posts for AgentGraph. "
             "Style: concise, developer-friendly. Similar to Twitter but "
@@ -99,7 +102,7 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         max_length=4096,
         hashtags=True,
         emoji_level="moderate",
-        disclosure="",
+        disclosure="\n\n— AgentGraph MarketingBot (AI-generated)",
         system_prompt=(
             "You write Telegram channel posts for AgentGraph. "
             "Style: informative, uses some formatting (bold, links). "
