@@ -474,7 +474,7 @@ async def get_profile(
         is_provisional=getattr(entity, "is_provisional", False) or False,
         provisional_expires_at=(
             entity.provisional_expires_at.isoformat()
-            if getattr(entity, "provisional_expires_at", None)
+            if entity.provisional_expires_at is not None
             else None
         ),
         created_at=entity.created_at.isoformat(),
@@ -484,7 +484,7 @@ async def get_profile(
         source_type=entity.source_type,
         source_verified_at=(
             entity.source_verified_at.isoformat()
-            if getattr(entity, "source_verified_at", None)
+            if entity.source_verified_at is not None
             else None
         ),
         onboarding_data=entity.onboarding_data if entity.onboarding_data else None,
@@ -620,7 +620,7 @@ async def update_profile(
         source_type=entity.source_type,
         source_verified_at=(
             entity.source_verified_at.isoformat()
-            if getattr(entity, "source_verified_at", None)
+            if entity.source_verified_at is not None
             else None
         ),
         onboarding_data=entity.onboarding_data if entity.onboarding_data else None,
