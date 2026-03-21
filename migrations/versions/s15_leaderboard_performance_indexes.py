@@ -2,7 +2,6 @@
 
 Adds indexes to support leaderboard queries after removing _not_moltbook filters:
 - Descending trust score index for leaderboard sorting
-- Token count expression index for token leaderboard
 - Drops Moltbook source_type partial indexes (no longer used)
 
 Revision ID: s15_lb_perf
@@ -26,17 +25,9 @@ def upgrade() -> None:
         "ON trust_scores (score DESC NULLS LAST)"
     )
 
-    # Expression index for token count sorting from JSONB
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_entities_token_count "
-        "ON entities ((cast(extra_metadata->>'token_count' AS integer))) "
-        "WHERE extra_metadata->>'token_count' IS NOT NULL"
-    )
-
     # Drop Moltbook-specific indexes that are no longer needed
     op.execute("DROP INDEX IF EXISTS ix_entities_not_moltbook")
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS ix_entities_token_count")
     op.execute("DROP INDEX IF EXISTS ix_trust_scores_score_desc")
