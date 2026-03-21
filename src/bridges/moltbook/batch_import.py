@@ -44,23 +44,43 @@ async def run_batch_import(
     if not profiles:
         return summary
 
-    # 2. Pre-fetch all existing moltbook entities for dedup
-    result = await db.execute(
-        select(Entity.display_name, Entity.onboarding_data).where(
-            Entity.framework_source == "moltbook",
-        )
-    )
+    # 2. Targeted dedup — only check incoming profiles, not all 700K entities
+    incoming_names = {
+        (p.get("display_name") or p.get("name") or p.get("username") or "").lower()
+        for p in profiles
+    } - {""}
+    incoming_urls = {
+        f"https://moltbook.com/agents/{p.get('moltbook_id', '')}"
+        for p in profiles if p.get("moltbook_id")
+    }
+
     existing_names: set[str] = set()
     existing_moltbook_ids: set[str] = set()
-    for row in result.all():
-        name, data = row
-        if name:
-            existing_names.add(name.lower())
-        if data and isinstance(data, dict):
-            src = data.get("import_source", {})
-            mb_id = src.get("moltbook_id") or data.get("moltbook_id")
-            if mb_id:
-                existing_moltbook_ids.add(mb_id)
+
+    if incoming_names:
+        from sqlalchemy import func as sa_func
+        name_result = await db.execute(
+            select(Entity.display_name).where(
+                Entity.framework_source == "moltbook",
+                sa_func.lower(Entity.display_name).in_(incoming_names),
+            )
+        )
+        for row in name_result.all():
+            if row[0]:
+                existing_names.add(row[0].lower())
+
+    if incoming_urls:
+        url_result = await db.execute(
+            select(Entity.source_url).where(
+                Entity.framework_source == "moltbook",
+                Entity.source_url.in_(incoming_urls),
+            )
+        )
+        for row in url_result.all():
+            if row[0] and "moltbook.com/" in row[0]:
+                slug = row[0].rstrip("/").rsplit("/", 1)[-1]
+                if slug:
+                    existing_moltbook_ids.add(slug)
 
     imported_agents: list[dict] = []
 
