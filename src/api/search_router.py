@@ -112,12 +112,6 @@ async def search(
     posts: list[SearchPostResult] = []
     submolts: list[SearchSubmoltResult] = []
 
-    # Exclude bulk-imported Moltbook entities from search results
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     # Search entities
     if search_type in ("all", "human", "agent"):
         entity_query = (
@@ -126,7 +120,6 @@ async def search(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
-                _not_moltbook,
             )
         )
 
@@ -311,18 +304,12 @@ async def search_entities(
     tsquery_str = _make_tsquery(q)
     use_fts = len(q.strip()) >= 2 and tsquery_str
 
-    _not_moltbook_se = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     query = (
         select(Entity, TrustScore.score, TrustScore.components)
         .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
         .where(
             Entity.is_active.is_(True),
             Entity.privacy_tier == PrivacyTier.PUBLIC,
-            _not_moltbook_se,
         )
     )
 

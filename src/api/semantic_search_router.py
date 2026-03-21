@@ -6,7 +6,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import bindparam, func, literal_column, or_, select, text, union_all
+from sqlalchemy import bindparam, func, literal_column, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import cache
@@ -148,7 +148,6 @@ async def semantic_search(
             text("'MaxFragments=1, MaxWords=30, MinWords=5'"),
         )
 
-        _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
         entity_q = (
             select(
                 literal_column("'entity'").label("source_type"),
@@ -163,7 +162,6 @@ async def semantic_search(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
                 entity_ts.op("@@")(entity_tsq),
-                _not_moltbook,
             )
         )
         subqueries.append(entity_q)
@@ -252,13 +250,11 @@ async def semantic_search(
             text("'english'"),
             bindparam("eq_cnt", tsquery_str),
         )
-        _not_moltbook_cnt = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
         count_subqueries.append(
             select(func.count()).select_from(Entity).where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
                 e_ts.op("@@")(e_tsq),
-                _not_moltbook_cnt,
             )
         )
     if scope in ("all", "posts"):
