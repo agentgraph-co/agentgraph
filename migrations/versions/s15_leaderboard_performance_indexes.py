@@ -1,0 +1,42 @@
+"""Add leaderboard performance indexes.
+
+Adds indexes to support leaderboard queries after removing _not_moltbook filters:
+- Descending trust score index for leaderboard sorting
+- Token count expression index for token leaderboard
+- Drops Moltbook source_type partial indexes (no longer used)
+
+Revision ID: s15_lb_perf
+Revises: s14_search_perf
+Create Date: 2026-03-21
+"""
+from __future__ import annotations
+
+from alembic import op
+
+revision = "s15_lb_perf"
+down_revision = "s14_search_perf"
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    # Descending trust score index for leaderboard ORDER BY score DESC
+    op.execute(
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_trust_scores_score_desc "
+        "ON trust_scores (score DESC NULLS LAST)"
+    )
+
+    # Expression index for token count sorting from JSONB
+    op.execute(
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_entities_token_count "
+        "ON entities ((cast(extra_metadata->>'token_count' AS integer))) "
+        "WHERE extra_metadata->>'token_count' IS NOT NULL"
+    )
+
+    # Drop Moltbook-specific indexes that are no longer needed
+    op.execute("DROP INDEX IF EXISTS ix_entities_not_moltbook")
+
+
+def downgrade() -> None:
+    op.execute("DROP INDEX IF EXISTS ix_entities_token_count")
+    op.execute("DROP INDEX IF EXISTS ix_trust_scores_score_desc")

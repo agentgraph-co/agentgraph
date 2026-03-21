@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, require_not_quarantined
@@ -358,8 +358,6 @@ async def get_following(
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that this entity follows."""
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     base_filter = [
         EntityRelationship.source_entity_id == entity_id,
         EntityRelationship.type == RelationshipType.FOLLOW,
@@ -377,7 +375,6 @@ async def get_following(
         .where(
             *base_filter,
             Entity.is_active.is_(True),
-            _not_moltbook,
         )
         .order_by(EntityRelationship.created_at.desc())
         .offset(offset)
@@ -411,8 +408,6 @@ async def get_followers(
     db: AsyncSession = Depends(get_db),
 ):
     """Get entities that follow this entity."""
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     base_filter = [
         EntityRelationship.target_entity_id == entity_id,
         EntityRelationship.type == RelationshipType.FOLLOW,
@@ -430,7 +425,6 @@ async def get_followers(
         .where(
             *base_filter,
             Entity.is_active.is_(True),
-            _not_moltbook,
         )
         .order_by(EntityRelationship.created_at.desc())
         .offset(offset)
@@ -697,23 +691,17 @@ async def get_suggested_follows(
     blocked_ids = {row[0] for row in blocked.all()}
     exclude_ids = followed_ids | blocked_ids
 
-    # Exclude bulk-imported Moltbook entities from suggestions
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     # Find top entities by trust score that aren't followed
+    # INNER JOIN to TrustScore limits candidate pool to scored entities only
     query = (
         select(Entity, TrustScore.score)
-        .outerjoin(TrustScore, TrustScore.entity_id == Entity.id)
+        .join(TrustScore, TrustScore.entity_id == Entity.id)
         .where(
             Entity.is_active.is_(True),
-            _not_moltbook,
             Entity.id.notin_(exclude_ids) if exclude_ids else True,
         )
         .order_by(
-            func.coalesce(TrustScore.score, 0).desc(),
+            TrustScore.score.desc(),
             Entity.created_at.desc(),
         )
         .limit(limit)

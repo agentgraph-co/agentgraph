@@ -649,14 +649,11 @@ async def get_operated_bots(
     db: AsyncSession = Depends(get_db),
 ):
     """Get bots operated by a given entity."""
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     result = await db.execute(
         select(Entity).where(
             Entity.operator_id == entity_id,
             Entity.type == EntityType.AGENT,
             Entity.is_active.is_(True),
-            _not_moltbook,
         ).order_by(Entity.display_name)
     )
     bots = result.scalars().all()

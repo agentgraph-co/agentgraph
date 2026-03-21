@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
@@ -505,28 +505,44 @@ async def get_leaderboard(
     _rate: None = Depends(rate_limit_reads),
 ):
     """Get the top token holders, ranked by total balance."""
-    # Fetch all active entities — filter/sort in Python because
-    # JSONB extraction ordering is not trivially indexed.
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
+    # First, fetch entities with explicit token_data (non-default balances).
+    # These are the interesting leaderboard entries — entities who staked,
+    # transacted, or earned rewards.  Falls back to default-balance entities
+    # to fill the requested limit.
     result = await db.execute(
-        select(Entity).where(Entity.is_active.is_(True), _not_moltbook)
+        select(Entity).where(
+            Entity.is_active.is_(True),
+            Entity.onboarding_data.isnot(None),
+            Entity.onboarding_data["token_data"].isnot(None),
+        )
     )
-    entities = result.scalars().all()
+    explicit = result.scalars().all()
 
     scored: list[dict] = []
-    for ent in entities:
+    explicit_ids: set = set()
+    for ent in explicit:
         td = _get_token_data(ent)
-        bal = td["balance"]
-        staked = td["staked"]
-        # Include entities that have a non-default balance or any stake
-        scored.append({
-            "entity": ent,
-            "balance": bal,
-            "staked": staked,
-        })
+        scored.append({"entity": ent, "balance": td["balance"], "staked": td["staked"]})
+        explicit_ids.add(ent.id)
 
     # Sort by total balance descending
     scored.sort(key=lambda x: x["balance"], reverse=True)
+
+    # If we don't have enough, backfill with default-balance entities
+    if len(scored) < limit:
+        backfill_limit = limit - len(scored)
+        backfill_result = await db.execute(
+            select(Entity).where(
+                Entity.is_active.is_(True),
+                Entity.id.notin_(explicit_ids) if explicit_ids else True,
+            )
+            .order_by(Entity.created_at.desc())
+            .limit(backfill_limit)
+        )
+        for ent in backfill_result.scalars().all():
+            td = _get_token_data(ent)
+            scored.append({"entity": ent, "balance": td["balance"], "staked": td["staked"]})
+
     top = scored[:limit]
 
     # Fetch trust scores for the top entries

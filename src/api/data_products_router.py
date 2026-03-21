@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity
@@ -136,23 +136,22 @@ async def get_network_health(
     db: AsyncSession = Depends(get_db),
 ):
     """Get overall network health metrics."""
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     total = await db.scalar(
-        select(func.count()).select_from(Entity).where(_not_moltbook)
+        select(func.count()).select_from(Entity)
     ) or 0
     active = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.is_active.is_(True), _not_moltbook,
+            Entity.is_active.is_(True),
         )
     ) or 0
     humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == "human", Entity.is_active.is_(True), _not_moltbook,
+            Entity.type == "human", Entity.is_active.is_(True),
         )
     ) or 0
     agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == "agent", Entity.is_active.is_(True), _not_moltbook,
+            Entity.type == "agent", Entity.is_active.is_(True),
         )
     ) or 0
     posts = await db.scalar(
