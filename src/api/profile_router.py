@@ -270,22 +270,10 @@ async def browse_profiles(
     db: AsyncSession = Depends(get_db),
 ):
     """Browse entity profiles with optional filters."""
-    # By default, exclude bulk-imported Moltbook entities unless
-    # the caller explicitly filters by source_type=moltbook.
-    _exclude_moltbook = source_type != "moltbook"
-
     query = select(Entity).where(
         Entity.is_active.is_(True),
         Entity.privacy_tier != PrivacyTier.PRIVATE,
     )
-
-    if _exclude_moltbook:
-        query = query.where(
-            or_(
-                Entity.source_type.is_(None),
-                Entity.source_type != "moltbook",
-            )
-        )
 
     if q:
         pattern = like_pattern(q)
