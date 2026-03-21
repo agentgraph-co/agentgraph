@@ -138,15 +138,39 @@ def _normalize_profile(raw: dict[str, Any]) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # Data source loaders
 # ---------------------------------------------------------------------------
-def load_from_json(filepath: str) -> list[dict[str, Any]]:
-    """Load profiles from a JSON file (array of objects)."""
+def load_from_json(filepath: str, offset: int = 0, limit: int | None = None) -> list[dict[str, Any]]:
+    """Load profiles from a JSON file (array of objects).
+
+    Supports offset/limit to avoid loading unnecessary profiles into memory.
+    Normalizes in-place to halve memory usage.
+    """
+    import gc
+
     logger.info("Loading profiles from %s ...", filepath)
     with open(filepath) as f:
         data = json.load(f)
     if not isinstance(data, list):
         raise ValueError(f"Expected JSON array, got {type(data).__name__}")
-    logger.info("Loaded %d raw profiles from file", len(data))
-    return data
+    total = len(data)
+    logger.info("Loaded %d raw profiles from file", total)
+
+    # Slice before normalization to reduce memory
+    if offset > 0 or limit is not None:
+        end = offset + limit if limit is not None else total
+        data = data[offset:end]
+        logger.info("Sliced to %d profiles (offset=%d)", len(data), offset)
+        gc.collect()
+
+    # Normalize in-place: overwrite each raw dict with its normalized form
+    valid = []
+    for raw in data:
+        p = _normalize_profile(raw)
+        if p is not None:
+            valid.append(p)
+    del data
+    gc.collect()
+    logger.info("Normalized %d valid profiles (discarded %d invalid)", len(valid), total - len(valid))
+    return valid
 
 
 def load_from_seed() -> list[dict[str, Any]]:
@@ -326,7 +350,7 @@ async def run_import(
 
     stats = {
         "total_input": len(profiles),
-        "normalized": 0,
+        "normalized": len(profiles),
         "skipped_invalid": 0,
         "skipped_existing": 0,
         "inserted_entities": 0,
@@ -338,20 +362,9 @@ async def run_import(
 
     t_start = time.monotonic()
 
-    # Normalize all profiles
-    normalized: list[dict[str, Any]] = []
-    for raw in profiles:
-        p = _normalize_profile(raw)
-        if p is None:
-            stats["skipped_invalid"] += 1
-        else:
-            normalized.append(p)
-    stats["normalized"] = len(normalized)
-    logger.info(
-        "Normalized %d profiles (%d invalid, skipped)",
-        len(normalized),
-        stats["skipped_invalid"],
-    )
+    # Profiles are already normalized by the loader
+    normalized = profiles
+    logger.info("Ready to import %d profiles", len(normalized))
 
     if not normalized:
         logger.warning("No valid profiles to import")
@@ -568,6 +581,12 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of profiles to import (for testing)",
     )
     parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip first N profiles in the JSON file (for chunked imports)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and count profiles without inserting",
@@ -602,17 +621,15 @@ async def main() -> None:
 
     # Load profiles
     if args.input_file:
-        profiles = load_from_json(args.input_file)
+        profiles = load_from_json(args.input_file, offset=args.offset, limit=args.limit)
     elif args.seed:
         profiles = load_from_seed()
+        if args.limit is not None:
+            profiles = profiles[: args.limit]
+            logger.info("Limited to %d profiles", len(profiles))
     else:
         logger.error("Must specify --input-file or --seed")
         sys.exit(1)
-
-    # Apply limit
-    if args.limit is not None:
-        profiles = profiles[: args.limit]
-        logger.info("Limited to %d profiles", len(profiles))
 
     if not profiles:
         logger.error("No profiles to import")
