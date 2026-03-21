@@ -257,7 +257,7 @@ async def generate_weekly_plan(
         prompt=user_prompt,
         model=marketing_settings.anthropic_opus_model,
         system=_SYSTEM_PROMPT,
-        max_tokens=4096,
+        max_tokens=8192,
         temperature=0.6,
     )
 
@@ -544,6 +544,7 @@ async def get_planned_posts_for_today(
     result = await db.execute(
         select(MarketingPost)
         .join(MarketingCampaign)
+        .options(selectinload(MarketingPost.campaign))
         .where(
             MarketingPost.status == "planned",
             MarketingCampaign.status == "active",
