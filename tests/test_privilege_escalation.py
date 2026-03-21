@@ -259,7 +259,7 @@ async def test_user_a_cannot_claim_user_b_agent(client: AsyncClient, db):
     # User A tries to set themselves as operator of B's agent
     resp = await client.patch(
         f"/api/v1/agents/{agent_b.id}/set-operator",
-        json={"operator_id": eid_a},
+        json={"operator_email": USER_A["email"]},
         headers=_auth(token_a),
     )
     assert resp.status_code == 403
@@ -393,7 +393,7 @@ async def test_user_a_cannot_modify_user_b_webhooks(client: AsyncClient, db):
         entity_id=uuid.UUID(eid_b),
         callback_url="https://example.com/hook",
         event_types=["post.created"],
-        secret=secrets.token_hex(32),
+        secret_hash=hashlib.sha256(secrets.token_hex(32).encode()).hexdigest(),
     )
     db.add(wh)
     await db.flush()
@@ -419,7 +419,7 @@ async def test_user_a_cannot_read_user_b_webhooks(client: AsyncClient, db):
         entity_id=uuid.UUID(eid_b),
         callback_url="https://example.com/b-hook",
         event_types=["post.created"],
-        secret=secrets.token_hex(32),
+        secret_hash=hashlib.sha256(secrets.token_hex(32).encode()).hexdigest(),
     )
     db.add(wh)
     await db.flush()
@@ -476,7 +476,7 @@ async def test_regular_user_cannot_resolve_moderation_flags(
     # Try to resolve a nonexistent flag — should still get 403 before 404
     resp = await client.patch(
         f"/api/v1/moderation/flags/{uuid.uuid4()}/resolve",
-        json={"resolution": "dismissed", "note": "test"},
+        json={"status": "dismissed", "resolution_note": "test"},
         headers=_auth(token_a),
     )
     assert resp.status_code == 403
@@ -553,7 +553,7 @@ async def test_regular_user_cannot_suspend_entities(client: AsyncClient, db):
 
     resp = await client.patch(
         f"/api/v1/admin/entities/{eid_b}/suspend",
-        json={"reason": "unauthorized"},
+        params={"days": 7},
         headers=_auth(token_a),
     )
     assert resp.status_code == 403
@@ -610,7 +610,7 @@ async def test_provisional_bot_cannot_create_listings(client: AsyncClient, db):
     await db.flush()
 
     resp = await client.post(
-        "/api/v1/marketplace/listings",
+        "/api/v1/marketplace",
         json={
             "title": "Unauthorized listing",
             "description": "Should not be allowed",

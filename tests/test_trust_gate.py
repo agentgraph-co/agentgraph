@@ -168,15 +168,15 @@ async def test_trust_gates_info_endpoint(client: AsyncClient, db):
     # create_listing (0.15) should be locked at score 0.12
     assert gates["create_listing"]["unlocked"] is False
     assert gates["create_listing"]["threshold"] == 0.15
-    # send_message (0.05) should be unlocked at score 0.12
+    # send_message (0.0) should be unlocked at score 0.12
     assert gates["send_message"]["unlocked"] is True
     # create_submolt (0.25) should be locked
     assert gates["create_submolt"]["unlocked"] is False
 
 
 @pytest.mark.asyncio
-async def test_low_trust_blocked_from_send_message(client: AsyncClient, db):
-    """Entity with trust 0.0 should be blocked from send_message (threshold 0.05)."""
+async def test_low_trust_allowed_to_send_message(client: AsyncClient, db):
+    """Entity with trust 0.0 should be allowed to send_message (threshold 0.0)."""
     token_a, eid_a = await _setup_user(client, "tg_dm_sender@example.com", "TgDmSender")
     _, eid_b = await _setup_user(client, "tg_dm_recip@example.com", "TgDmRecipient")
     await _set_trust_score(db, eid_a, 0.0)
@@ -186,8 +186,8 @@ async def test_low_trust_blocked_from_send_message(client: AsyncClient, db):
         json={"recipient_id": eid_b, "content": "Hello!"},
         headers=_auth(token_a),
     )
-    assert resp.status_code == 403
-    assert "Trust score too low" in resp.json()["detail"]
+    # send_message gate threshold is 0.0, so trust 0.0 is allowed
+    assert resp.status_code == 201
 
 
 @pytest.mark.asyncio

@@ -277,6 +277,8 @@ async def test_all_tables_exist(db: AsyncSession):
         "linked_accounts",
         "listing_reviews",
         "listings",
+        "marketing_campaigns",
+        "marketing_posts",
         "moderation_appeals",
         "moderation_flags",
         "notification_preferences",

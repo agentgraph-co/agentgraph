@@ -753,7 +753,7 @@ def _compute_external_from_accounts(
 
 
 # Default chunk size for batch_recompute; callers may override.
-BATCH_CHUNK_SIZE = 500
+BATCH_CHUNK_SIZE = 1000
 
 
 async def batch_recompute(
@@ -761,9 +761,11 @@ async def batch_recompute(
 ) -> int:
     """Recompute trust scores for all active entities.
 
-    Processes entities in chunks of *chunk_size* to bound memory usage,
-    and bulk-loads attestations, linked accounts, and existing trust
-    scores per chunk to avoid N+1 query patterns.
+    Processes entities in chunks of *chunk_size* (default 1000) to bound
+    memory usage at scale (tested target: 700K+ entities).  Each chunk
+    bulk-loads attestations, linked accounts, and existing trust scores
+    to avoid N+1 query patterns, then flushes and expunges objects to
+    release memory before moving to the next chunk.
 
     Also refreshes attestation weights before recomputing.
     """
@@ -784,6 +786,11 @@ async def batch_recompute(
     total_chunks = (total_entities + chunk_size - 1) // chunk_size
     processed = 0
     chunk_num = 0
+
+    logger.info(
+        "Batch recompute starting: %d entities in ~%d chunks of %d",
+        total_entities, total_chunks, chunk_size,
+    )
 
     # Keyset pagination: order by id, fetch chunk_size at a time
     last_id: uuid.UUID | None = None
@@ -1003,9 +1010,23 @@ async def batch_recompute(
         await db.flush()
         processed += len(entity_ids)
 
-        # Expire loaded entities to free memory before next chunk
+        # Expunge loaded objects from session to release memory before next chunk.
+        # expire() keeps objects in the identity map; expunge() fully detaches them
+        # so the garbage collector can reclaim memory — critical at 700K+ entities.
         for entity in entities:
-            db.expire(entity)
+            db.expunge(entity)
+        for ts in existing_scores.values():
+            db.expunge(ts)
+        for att in all_attestations:
+            db.expunge(att)
+        for acct in all_accounts:
+            db.expunge(acct)
+
+        # Clear local references to allow GC within this iteration
+        del entities, entity_ids, entity_map
+        del post_counts, vote_counts, review_avgs, endorse_counts
+        del att_map, all_attestations, acct_map, all_accounts
+        del existing_scores, upsert_rows, history_rows
 
     logger.info(
         "Batch recompute complete: %d entities processed in %d chunks",

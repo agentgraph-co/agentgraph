@@ -38,6 +38,7 @@ dev = [
 ]
 prod = [
     "sentry-sdk[fastapi]>=1.40,<3.0",
+    "prometheus-fastapi-instrumentator>=6.0,<8.0",
 ]
 
 [build-system]

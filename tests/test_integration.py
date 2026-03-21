@@ -31,7 +31,7 @@ def _auth(token: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_full_platform_flow(client: AsyncClient):
+async def test_full_platform_flow(client: AsyncClient, db):
     """End-to-end test exercising the core user journey."""
 
     # --- 1. Register two users ---
@@ -200,6 +200,23 @@ async def test_full_platform_flow(client: AsyncClient):
     assert resp.json()["tier"] == "public"
 
     # --- 16. Create marketplace listing ---
+    # Set trust score high enough to pass the create_listing gate (0.15)
+    import uuid
+
+    from sqlalchemy import select
+
+    from src.models import TrustScore
+
+    result = await db.execute(
+        select(TrustScore).where(TrustScore.entity_id == uuid.UUID(alice_id))
+    )
+    ts = result.scalar_one_or_none()
+    if ts:
+        ts.score = 0.5
+    else:
+        db.add(TrustScore(entity_id=uuid.UUID(alice_id), score=0.5))
+    await db.commit()
+
     resp = await client.post(
         "/api/v1/marketplace",
         json={

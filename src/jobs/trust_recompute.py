@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Entity, Post, TrustScore, Vote
-from src.trust.score import compute_trust_score
+from src.trust.score import BATCH_CHUNK_SIZE, batch_recompute
 
 logger = logging.getLogger(__name__)
 
@@ -57,27 +57,6 @@ def apply_attestation_decay(
     return original_weight
 
 
-async def get_last_activity_date(
-    db: AsyncSession, entity_id: uuid.UUID,
-) -> datetime | None:
-    """Get the most recent activity date for an entity (post or vote)."""
-    last_post = await db.scalar(
-        select(func.max(Post.created_at)).where(
-            Post.author_entity_id == entity_id,
-        )
-    )
-    last_vote = await db.scalar(
-        select(func.max(Vote.created_at)).where(
-            Vote.entity_id == entity_id,
-        )
-    )
-
-    dates = [d for d in [last_post, last_vote] if d is not None]
-    if not dates:
-        return None
-    return max(dates)
-
-
 def apply_activity_recency(
     last_activity: datetime | None,
     now: datetime | None = None,
@@ -107,12 +86,88 @@ def apply_activity_recency(
     return RECENCY_FACTOR_STALE
 
 
+async def _apply_recency_chunked(
+    db: AsyncSession,
+    chunk_size: int = BATCH_CHUNK_SIZE,
+) -> tuple[int, float]:
+    """Apply activity recency weighting in chunks.
+
+    Iterates over all trust scores using keyset pagination, bulk-loads
+    the most recent post/vote dates per chunk, and applies the recency
+    multiplier.  Returns (scores_adjusted, total_score_sum).
+    """
+    last_id: uuid.UUID | None = None
+    adjusted = 0
+    total_score = 0.0
+
+    while True:
+        # Fetch a chunk of trust scores via keyset pagination
+        q = (
+            select(TrustScore)
+            .join(Entity, TrustScore.entity_id == Entity.id)
+            .where(Entity.is_active.is_(True))
+            .order_by(TrustScore.entity_id)
+            .limit(chunk_size)
+        )
+        if last_id is not None:
+            q = q.where(TrustScore.entity_id > last_id)
+
+        result = await db.execute(q)
+        scores = result.scalars().all()
+        if not scores:
+            break
+
+        entity_ids = [ts.entity_id for ts in scores]
+        last_id = entity_ids[-1]
+
+        # Bulk-load last post date per entity
+        post_result = await db.execute(
+            select(Post.author_entity_id, func.max(Post.created_at))
+            .where(Post.author_entity_id.in_(entity_ids))
+            .group_by(Post.author_entity_id)
+        )
+        last_post_map = dict(post_result.all())
+
+        # Bulk-load last vote date per entity
+        vote_result = await db.execute(
+            select(Vote.entity_id, func.max(Vote.created_at))
+            .where(Vote.entity_id.in_(entity_ids))
+            .group_by(Vote.entity_id)
+        )
+        last_vote_map = dict(vote_result.all())
+
+        for ts in scores:
+            eid = ts.entity_id
+            last_post = last_post_map.get(eid)
+            last_vote = last_vote_map.get(eid)
+            dates = [d for d in [last_post, last_vote] if d is not None]
+            last_activity = max(dates) if dates else None
+
+            recency = apply_activity_recency(last_activity)
+            if recency < 1.0:
+                ts.score = round(ts.score * (0.5 + 0.5 * recency), 4)
+                adjusted += 1
+
+            total_score += ts.score
+
+        await db.flush()
+
+        # Expunge to release memory
+        for ts in scores:
+            db.expunge(ts)
+        del scores, entity_ids, last_post_map, last_vote_map
+
+    return adjusted, total_score
+
+
 async def run_trust_recompute(
     db: AsyncSession,
 ) -> dict:
     """Batch recompute trust scores for all active entities.
 
-    Applies attestation decay and activity recency weighting.
+    Delegates the heavy lifting to ``batch_recompute()`` (which processes
+    entities in chunks of 1000 with bulk queries), then applies activity
+    recency weighting in a second chunked pass.
 
     Returns a summary dict:
         entities_processed: int
@@ -122,47 +177,34 @@ async def run_trust_recompute(
     """
     start = time.monotonic()
 
-    # Fetch all active entity IDs
-    result = await db.execute(
-        select(Entity.id).where(Entity.is_active.is_(True))
+    # Snapshot old scores for change-detection (lightweight: id + score only)
+    old_result = await db.execute(
+        select(TrustScore.entity_id, TrustScore.score)
     )
-    entity_ids = [row[0] for row in result.fetchall()]
+    old_scores: dict[uuid.UUID, float] = dict(old_result.all())
 
-    entities_processed = 0
+    # Phase 1: chunked batch recompute (handles OOM prevention internally)
+    entities_processed = await batch_recompute(db)
+
+    # Phase 2: apply activity recency weighting in chunks
+    _, total_score = await _apply_recency_chunked(db)
+
+    # Phase 3: count significant changes
+    new_result = await db.execute(
+        select(TrustScore.entity_id, TrustScore.score)
+    )
     scores_changed = 0
-    total_score = 0.0
-
-    for eid in entity_ids:
-        # Get old score for comparison
-        old_ts = await db.scalar(
-            select(TrustScore).where(TrustScore.entity_id == eid)
-        )
-        old_score = old_ts.score if old_ts else 0.0
-
-        # Compute new score (this uses the existing trust computation which
-        # already applies attestation decay internally in _community_factor)
-        new_ts = await compute_trust_score(db, eid)
-
-        # Apply activity recency weighting as a post-processing multiplier
-        last_activity = await get_last_activity_date(db, eid)
-        recency = apply_activity_recency(last_activity)
-
-        # Blend: recency affects the score as a soft multiplier
-        # We scale between the raw score and a recency-weighted score
-        # to avoid zeroing out scores for inactive but well-attested entities
-        if recency < 1.0:
-            adjusted_score = new_ts.score * (0.5 + 0.5 * recency)
-            new_ts.score = round(adjusted_score, 4)
-            await db.flush()
-
-        entities_processed += 1
-        total_score += new_ts.score
-
-        if abs(new_ts.score - old_score) > 0.1:
+    new_total = 0.0
+    new_count = 0
+    for eid, new_score in new_result.all():
+        new_total += new_score
+        new_count += 1
+        old = old_scores.get(eid, 0.0)
+        if abs(new_score - old) > 0.1:
             scores_changed += 1
 
     duration = time.monotonic() - start
-    avg_score = total_score / entities_processed if entities_processed > 0 else 0.0
+    avg_score = new_total / new_count if new_count > 0 else 0.0
 
     summary = {
         "entities_processed": entities_processed,
