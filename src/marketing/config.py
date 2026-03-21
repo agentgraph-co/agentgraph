@@ -99,7 +99,7 @@ class MarketingSettings(BaseSettings):
 
     # --- Launch phase ---
     # Set to False after public launch to remove "coming soon" framing
-    pre_launch: bool = True
+    pre_launch: bool = False
 
     # --- Notification email ---
     marketing_notify_email: str = "social@agentgraph.co"

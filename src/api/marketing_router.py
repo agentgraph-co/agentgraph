@@ -1081,3 +1081,56 @@ async def generate_hf_draft(
         llm_model=result.model,
         llm_cost_usd=round(cost, 6),
     )
+
+
+class ClearFailedResponse(BaseModel):
+    deleted: int
+    platforms: dict[str, int]
+
+
+@router.delete(
+    "/posts/failed",
+    response_model=ClearFailedResponse,
+)
+async def clear_failed_posts(
+    platform: str | None = Query(None, description="Filter by platform"),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> ClearFailedResponse:
+    """Delete all failed and permanently_failed marketing posts.
+
+    Optionally filter by platform name.
+    """
+    require_admin(current_entity)
+
+    from sqlalchemy import delete as sa_delete
+
+    from src.marketing.models import MarketingPost
+
+    where_clauses = [
+        MarketingPost.status.in_(["failed", "permanently_failed"]),
+    ]
+    if platform:
+        where_clauses.append(MarketingPost.platform == platform)
+
+    # Count by platform first
+    count_q = select(
+        MarketingPost.platform,
+        func.count().label("cnt"),
+    ).where(*where_clauses).group_by(MarketingPost.platform)
+    count_result = await db.execute(count_q)
+    platform_counts: dict[str, int] = {
+        row[0]: row[1] for row in count_result.all()
+    }
+
+    total = sum(platform_counts.values())
+
+    if total > 0:
+        del_q = sa_delete(MarketingPost).where(*where_clauses)
+        await db.execute(del_q)
+        await db.flush()
+
+    return ClearFailedResponse(
+        deleted=total,
+        platforms=platform_counts,
+    )
