@@ -87,5 +87,8 @@ async def call_tool(
             error={"code": e.code, "message": e.message},
             is_error=True,
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e!s}")
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).exception("Tool execution failed")
+        raise HTTPException(status_code=500, detail="Tool execution failed")

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -81,6 +81,7 @@ async def register_human(
     registration_ip: str | None = None,
 ) -> Entity:
     entity_id = uuid.uuid4()
+    email = email.lower()
     entity = Entity(
         id=entity_id,
         type=EntityType.HUMAN,
@@ -96,7 +97,9 @@ async def register_human(
 
 
 async def get_entity_by_email(db: AsyncSession, email: str) -> Entity | None:
-    result = await db.execute(select(Entity).where(Entity.email == email))
+    result = await db.execute(
+        select(Entity).where(func.lower(Entity.email) == email.lower())
+    )
     return result.scalar_one_or_none()
 
 
@@ -159,6 +162,7 @@ async def verify_email_token(db: AsyncSession, token: str) -> Entity | None:
 async def authenticate_human(
     db: AsyncSession, email: str, password: str
 ) -> Entity | None:
+    email = email.lower()
     entity = await get_entity_by_email(db, email)
     if entity is None:
         # Prevent timing attacks — hash a dummy to consume same time as real verify

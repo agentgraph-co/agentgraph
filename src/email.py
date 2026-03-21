@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as html_mod
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -21,7 +22,7 @@ def _load_template(name: str, **kwargs: str) -> str:
         return kwargs.get("fallback", "")
     content = path.read_text()
     for key, value in kwargs.items():
-        content = content.replace(f"{{{{{key}}}}}", value)
+        content = content.replace(f"{{{{{key}}}}}", html_mod.escape(str(value)))
     return content
 
 

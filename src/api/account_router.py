@@ -259,7 +259,7 @@ async def get_audit_log(
                 resource_id=e.resource_id,
                 details=e.details or {},
                 ip_address=e.ip_address,
-                created_at=e.created_at.isoformat(),
+                created_at=e.created_at.isoformat() if e.created_at else None,
             )
             for e in entries
         ],
