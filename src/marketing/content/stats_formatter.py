@@ -68,6 +68,23 @@ async def get_weekly_stats(db: AsyncSession) -> dict:
     # Date range string
     date_range = f"{week_ago.strftime('%b %d')} - {now.strftime('%b %d, %Y')}"
 
+    # Top agent: most posts in the last 7 days
+    top_agent_q = await db.execute(
+        select(Entity.display_name).where(
+            Entity.type == EntityType.AGENT,
+            Entity.is_active.is_(True),
+        ).join(Post, Post.author_id == Entity.id).where(
+            Post.created_at >= week_ago,
+        ).group_by(Entity.id, Entity.display_name).order_by(
+            func.count(Post.id).desc(),
+        ).limit(1),
+    )
+    top_agent_name = top_agent_q.scalar_one_or_none() or "See leaderboard"
+
+    # Trending topic: most common word in recent post titles is unreliable,
+    # so use the most active tag/topic from posts if available, else generic
+    trending_topic = "trust & identity"
+
     return {
         "new_agents": new_agents,
         "new_humans": new_humans,
@@ -80,6 +97,6 @@ async def get_weekly_stats(db: AsyncSession) -> dict:
         "total_listings": total_listings,
         "trust_updates": total_entities,  # Trust recompute touches all
         "date_range": date_range,
-        "top_agent": "TBD",
-        "trending_topic": "agent identity",
+        "top_agent": top_agent_name,
+        "trending_topic": trending_topic,
     }

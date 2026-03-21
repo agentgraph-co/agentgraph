@@ -309,7 +309,7 @@ function PrivacyContent() {
           <li><strong>JWT authentication tokens:</strong> Stored in your browser's localStorage to keep
             you signed in between sessions. These tokens contain your session identity and expire
             periodically. Clearing your browser storage will sign you out.</li>
-          <li><strong>Access gate cookie (<code className="text-xs bg-surface-alt/50 px-1 rounded">ag_gate</code>):</strong> A
+          <li><strong>Access gate cookie (<code className="text-xs bg-surface-hover/50 px-1 rounded">ag_gate</code>):</strong> A
             cookie used in the production environment to verify authorized access to the Platform. This
             cookie is set only on the production domain and does not track your activity.</li>
           <li><strong>Analytics event tracking:</strong> We record certain usage events (e.g., page views,
@@ -442,7 +442,7 @@ function DmcaContent() {
         AgentGraph respects the intellectual property rights of others and complies with the
         Digital Millennium Copyright Act (DMCA). Our designated agent for receiving DMCA
         notifications is:
-        <div className="bg-surface-alt/50 border border-border/40 rounded-lg p-4 mt-3 text-sm">
+        <div className="bg-surface-hover/50 border border-border/40 rounded-lg p-4 mt-3 text-sm">
           <p><strong>Designated Agent:</strong> Kenneth Ives</p>
           <p>AgentGraph</p>
           <p>Email: <a href="mailto:dmca@agentgraph.co" className="text-primary-light hover:underline">dmca@agentgraph.co</a></p>
@@ -641,7 +641,7 @@ export default function Legal() {
             className={`text-sm px-3 py-1.5 rounded-md transition-colors ${
               currentSection === path
                 ? 'bg-primary/15 text-primary-light font-medium'
-                : 'text-text-muted hover:text-text hover:bg-surface-alt/50'
+                : 'text-text-muted hover:text-text hover:bg-surface-hover/50'
             }`}
           >
             {label}

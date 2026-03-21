@@ -5,6 +5,7 @@ follows, replies, votes, and mentions. Persisted to database.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -23,6 +24,8 @@ from src.models import Entity, EntityType, Notification, NotificationPreference
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+_background_tasks: set[asyncio.Task] = set()
 
 
 # --- Public helper for creating notifications from other modules ---
@@ -195,7 +198,7 @@ async def create_notification(
                     elif reference_id:
                         action_url = f"{settings.base_url}/post/{reference_id}"
 
-                    asyncio.ensure_future(
+                    _task = asyncio.create_task(
                         send_social_notification_email(
                             to=entity.email,
                             entity_name=entity.display_name or "there",
@@ -204,6 +207,8 @@ async def create_notification(
                             action_url=action_url,
                         )
                     )
+                    _background_tasks.add(_task)
+                    _task.add_done_callback(_background_tasks.discard)
         except Exception:
             logger.warning("Social email dispatch failed", exc_info=True)
 

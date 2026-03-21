@@ -15,7 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import cache
-from src.api.rate_limit import rate_limit_reads
+from src.api.deps import get_current_entity
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.database import get_db
 from src.models import (
     Entity,
@@ -273,12 +274,13 @@ class A2AImportRequest(BaseModel):
 @router.post(
     "/agent-card/import",
     status_code=201,
-    dependencies=[Depends(rate_limit_reads)],
+    dependencies=[Depends(rate_limit_writes)],
 )
 async def import_a2a_agent_card(
     body: A2AImportRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    current_entity: Entity = Depends(get_current_entity),
 ):
     """Import an agent from an A2A Agent Card URL.
 

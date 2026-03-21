@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.marketing.adapters.base import AbstractPlatformAdapter
 from src.marketing.content.engine import generate_reactive
 from src.marketing.models import MarketingPost
-from src.marketing.orchestrator import _save_post
+from src.marketing.orchestrator import HUMAN_APPROVAL_PLATFORMS, _save_post
 
 logger = logging.getLogger(__name__)
 
@@ -89,23 +89,15 @@ async def run_monitoring_cycle(db: AsyncSession) -> dict:
                     results["errors"] += 1
                     continue
 
-                # For human-approval platforms, just save as draft
-                if adapter.requires_human_approval:
+                # All platforms require human approval for reactive replies
+                # (checked against orchestrator's HUMAN_APPROVAL_PLATFORMS)
+                if platform_name in HUMAN_APPROVAL_PLATFORMS:
                     await _save_post(
                         db, content, status="human_review",
                     )
                 else:
-                    # Auto-reply (for platforms that support it)
-                    if adapter.supports_replies:
-                        result = await adapter.reply(mention.external_id, content.text)
-                        status = "posted" if result.success else "failed"
-                        await _save_post(
-                            db, content, status=status,
-                            external_id=result.external_id if result.success else None,
-                            error=result.error if not result.success else None,
-                        )
-                    else:
-                        await _save_post(db, content, status="human_review")
+                    # Fallback: still require human review for safety
+                    await _save_post(db, content, status="human_review")
 
                 results["replies_generated"] += 1
 

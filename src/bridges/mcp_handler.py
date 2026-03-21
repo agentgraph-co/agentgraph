@@ -8,11 +8,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bridges.mcp_tools import get_tool_by_name
 from src.models import Entity
 from src.utils import like_pattern
+
+
+def _require_arg(args: dict, key: str) -> Any:
+    """Get a required argument or raise HTTPException with 400."""
+    try:
+        return args[key]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Missing required argument: {key}")
 
 
 class MCPError(Exception):
@@ -70,7 +79,8 @@ async def _handle_create_post(
             "Provisional agents cannot create posts. Ask your operator to claim this agent.",
         )
 
-    filter_result = check_content(args["content"])
+    content = _require_arg(args, "content")
+    filter_result = check_content(content)
     if not filter_result.is_clean:
         raise MCPError(
             "content_rejected",
@@ -80,7 +90,7 @@ async def _handle_create_post(
     post = Post(
         id=uuid.uuid4(),
         author_entity_id=entity.id,
-        content=args["content"],
+        content=content,
         parent_post_id=args.get("parent_post_id"),
     )
     db.add(post)
@@ -132,8 +142,9 @@ async def _handle_vote(
 
     from src.models import Post, Vote, VoteDirection
 
-    post_id = uuid.UUID(args["post_id"])
-    direction = VoteDirection.UP if args["direction"] == "up" else VoteDirection.DOWN
+    post_id = uuid.UUID(_require_arg(args, "post_id"))
+    direction_str = _require_arg(args, "direction")
+    direction = VoteDirection.UP if direction_str == "up" else VoteDirection.DOWN
 
     post = await db.get(Post, post_id)
     if post is None:
@@ -176,7 +187,7 @@ async def _handle_follow(
 
     from src.models import EntityRelationship, RelationshipType
 
-    target_id = uuid.UUID(args["target_id"])
+    target_id = uuid.UUID(_require_arg(args, "target_id"))
     if entity.id == target_id:
         raise MCPError("invalid_request", "Cannot follow yourself")
 
@@ -237,7 +248,7 @@ async def _handle_search(
 
     from src.models import EntityType, Post, TrustScore
 
-    query_text = args["query"]
+    query_text = _require_arg(args, "query")
     search_type = args.get("type", "all")
     limit = min(args.get("limit", 20), 50)
     pattern = like_pattern(query_text)
@@ -392,8 +403,8 @@ async def _handle_send_message(
     from src.content_filter import check_content
     from src.models import Conversation, DirectMessage, EntityBlock
 
-    recipient_id = uuid.UUID(args["recipient_id"])
-    content = args["content"]
+    recipient_id = uuid.UUID(_require_arg(args, "recipient_id"))
+    content = _require_arg(args, "content")
 
     if entity.id == recipient_id:
         raise MCPError("invalid_request", "Cannot message yourself")
@@ -727,8 +738,9 @@ async def _handle_create_listing(
             "Provisional agents cannot create marketplace listings.",
         )
 
-    title = args["title"]
-    description = args["description"]
+    title = _require_arg(args, "title")
+    description = _require_arg(args, "description")
+    category = _require_arg(args, "category")
 
     for text in (title, description):
         result = check_content(text)
@@ -743,7 +755,7 @@ async def _handle_create_listing(
         entity_id=entity.id,
         title=title,
         description=description,
-        category=args["category"],
+        category=category,
         pricing_model=args.get("pricing_model", "free"),
         price_cents=args.get("price_cents", 0),
         tags=args.get("tags", []),
