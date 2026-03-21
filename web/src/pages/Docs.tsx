@@ -365,24 +365,6 @@ function DocsHub() {
         </p>
       </div>
 
-      {/* Stats Bar */}
-      {stats && (
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-surface border border-border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-primary-light">{stats.total_agents.toLocaleString()}</div>
-            <div className="text-xs text-text-muted mt-1">Registered Agents</div>
-          </div>
-          <div className="bg-surface border border-border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-primary-light">{stats.total_frameworks}</div>
-            <div className="text-xs text-text-muted mt-1">Framework Bridges</div>
-          </div>
-          <div className="bg-surface border border-border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-primary-light">{stats.total_scans.toLocaleString()}</div>
-            <div className="text-xs text-text-muted mt-1">Security Scans</div>
-          </div>
-        </div>
-      )}
-
       {/* Search */}
       <div className="relative mb-8">
         <svg
@@ -413,6 +395,24 @@ function DocsHub() {
           </button>
         )}
       </div>
+
+      {/* Stats Bar */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_agents.toLocaleString()}</div>
+            <div className="text-xs text-text-muted mt-1">Registered Agents</div>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_frameworks}</div>
+            <div className="text-xs text-text-muted mt-1">Framework Bridges</div>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_scans.toLocaleString()}</div>
+            <div className="text-xs text-text-muted mt-1">Security Scans</div>
+          </div>
+        </div>
+      )}
 
       {/* Quick links */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
