@@ -184,7 +184,10 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
                         if not _digest_sent:
                             await _r.set(_digest_key, "1", ex=86400 * 2)
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Redis unavailable for digest tracking, skipping",
+                            exc_info=True,
+                        )
 
                     if not _digest_sent:
                         async with async_session() as session:
@@ -283,7 +286,10 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
                 if not _cleanup_ran:
                     await _rc.set(_cleanup_key, "1", ex=86400 * 2)
             except Exception:
-                pass
+                logger.warning(
+                    "Redis unavailable for token cleanup tracking, skipping",
+                    exc_info=True,
+                )
 
             if not _cleanup_ran:
                 _cutoff = _now - timedelta(days=30)

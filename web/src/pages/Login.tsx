@@ -23,7 +23,8 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate(returnTo || '/feed')
+      const safeReturn = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/feed'
+      navigate(safeReturn)
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Login failed'))
     } finally {

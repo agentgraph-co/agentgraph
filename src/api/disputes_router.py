@@ -92,8 +92,8 @@ def _dispute_response(dispute: Dispute) -> DisputeResponse:
         resolution_amount_cents=dispute.resolution_amount_cents,
         resolved_by=dispute.resolved_by,
         admin_note=dispute.admin_note,
-        deadline=dispute.deadline.isoformat(),
-        created_at=dispute.created_at.isoformat(),
+        deadline=dispute.deadline.isoformat() if dispute.deadline else None,
+        created_at=dispute.created_at.isoformat() if dispute.created_at else None,
         resolved_at=dispute.resolved_at.isoformat() if dispute.resolved_at else None,
     )
 

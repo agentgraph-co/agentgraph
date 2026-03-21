@@ -54,6 +54,17 @@ def _get_monitoring_adapters() -> dict[str, AbstractPlatformAdapter]:
 
 async def run_monitoring_cycle(db: AsyncSession) -> dict:
     """Scan platforms for keyword mentions and generate responses."""
+    from src.marketing.config import marketing_settings
+    from src.marketing.llm.cost_tracker import get_daily_spend
+
+    daily_spend = await get_daily_spend()
+    if daily_spend >= marketing_settings.marketing_llm_daily_budget:
+        logger.info(
+            "Daily LLM budget exhausted ($%.2f/$%.2f), skipping reactive cycle",
+            daily_spend, marketing_settings.marketing_llm_daily_budget,
+        )
+        return {"skipped": True, "reason": "budget_exhausted"}
+
     adapters = _get_monitoring_adapters()
     since = datetime.now(timezone.utc) - timedelta(hours=6)
 
@@ -87,6 +98,17 @@ async def run_monitoring_cycle(db: AsyncSession) -> dict:
 
                 if content.error:
                     results["errors"] += 1
+                    continue
+
+                # Content safety filter
+                from src.content_filter import check_content
+
+                filter_result = check_content(content.text)
+                if not filter_result.is_clean:
+                    logger.warning(
+                        "Reactive reply failed content filter: %s",
+                        filter_result.flags,
+                    )
                     continue
 
                 # All platforms require human approval for reactive replies

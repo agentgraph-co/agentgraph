@@ -234,13 +234,24 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
     """Run one proactive posting cycle across all platforms.
 
     For each platform:
-    0. Check for planned campaign posts first
-    1. Check if it's time to post (respecting cadence)
-    2. Pick a topic (respecting cooldowns)
-    3. Generate content
-    4. Post (or enqueue for human review)
-    5. Record in DB
+    0. Budget pre-check (skip entire cycle if daily LLM budget exhausted)
+    1. Check for planned campaign posts first
+    2. Check if it's time to post (respecting cadence)
+    3. Pick a topic (respecting cooldowns)
+    4. Generate content
+    5. Post (or enqueue for human review)
+    6. Record in DB
     """
+    from src.marketing.llm.cost_tracker import get_daily_spend
+
+    daily_spend = await get_daily_spend()
+    if daily_spend >= marketing_settings.marketing_llm_daily_budget:
+        logger.info(
+            "Daily LLM budget exhausted ($%.2f/$%.2f), skipping proactive cycle",
+            daily_spend, marketing_settings.marketing_llm_daily_budget,
+        )
+        return {"skipped": True, "reason": "budget_exhausted"}
+
     campaign_results = await _post_planned_campaign_posts(db)
     campaign_platforms = {
         p["platform"]

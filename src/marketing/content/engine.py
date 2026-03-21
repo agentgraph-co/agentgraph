@@ -269,7 +269,9 @@ async def generate_reactive(
 ) -> GeneratedContent:
     """Generate a reply to a mention or keyword match.
 
-    Uses the local model (Qwen 3.5 9B) for replies to keep costs at $0.
+    Routes through the LLM router, which maps ``reply`` content type to
+    the STANDARD tier (Sonnet by default).  Falls back to Ollama when
+    the daily budget is exceeded.
     """
     tone = get_tone(platform)
     utm_link = build_utm_link(platform=platform, campaign="reactive")

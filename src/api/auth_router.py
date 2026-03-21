@@ -73,6 +73,7 @@ async def register(
         )
     body.display_name = sanitize_text(body.display_name)
 
+    body.email = body.email.lower()
     existing = await get_entity_by_email(db, body.email)
     if existing is not None:
         # Don't reveal whether email exists — return same shape as success
@@ -143,6 +144,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     # Progressive delay after failed login attempts (per-IP + per-email)
+    body.email = body.email.lower()
 
     from src import cache
 
@@ -327,12 +329,26 @@ async def forgot_password(
     Always returns success to prevent email enumeration.
     In production, the token would be emailed rather than returned.
     """
+    body.email = body.email.lower()
+
     entity = await get_entity_by_email(db, body.email)
     if entity is None or not entity.is_active:
         # Don't reveal whether account exists
         return MessageResponse(
             message="If an account with that email exists, a reset token has been generated.",
         )
+
+    # Per-email rate limiting: max 3 reset requests per hour
+    from src import cache
+
+    reset_key = f"password_reset:{body.email}"
+    reset_count = int(await cache.get(reset_key) or 0)
+    if reset_count >= 3:
+        # Don't reveal whether account exists — return same message
+        return MessageResponse(
+            message="If an account with that email exists, a reset link has been sent.",
+        )
+    await cache.set(reset_key, reset_count + 1, ttl=3600)  # 1 hour window
 
     token = await create_password_reset_token(db, entity.id)
 
@@ -410,6 +426,8 @@ async def change_email(
     db: AsyncSession = Depends(get_db),
 ):
     """Change email address. Requires current password. Sends verification."""
+    body.new_email = body.new_email.lower()
+
     # Verify current password
     authed = await authenticate_human(
         db, current_entity.email, body.current_password,
