@@ -269,7 +269,18 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
         "campaign_posts": len(campaign_results["posted"]),
     }
 
+    # Platforms that require external context (repo_id, etc.) and don't
+    # support standalone proactive posts
+    proactive_skip = {"huggingface", "hackernews", "producthunt"}
+
     for platform_name, adapter in adapters.items():
+        # Skip platforms that need external context for posting
+        if platform_name in proactive_skip:
+            results["skipped"].append(
+                {"platform": platform_name, "reason": "requires_context"},
+            )
+            continue
+
         # Skip platforms that already got a campaign post
         if platform_name in campaign_platforms:
             results["skipped"].append(
