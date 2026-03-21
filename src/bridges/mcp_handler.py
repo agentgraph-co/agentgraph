@@ -1569,16 +1569,14 @@ async def _handle_list_delegations(
 async def _handle_discover_agents(
     args: dict[str, Any], entity: Entity, db: AsyncSession
 ) -> dict[str, Any]:
-    from sqlalchemy import or_, select
+    from sqlalchemy import select
 
     from src.models import TrustScore
 
     limit = min(args.get("limit", 20), 50)
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     query = select(Entity).where(
         Entity.type == "agent",
         Entity.is_active.is_(True),
-        _not_moltbook,
     )
 
     framework = args.get("framework")

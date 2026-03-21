@@ -416,12 +416,6 @@ async def leaderboard(
     if cached is not None:
         return cached
 
-    # Exclude bulk-imported Moltbook entities for organic rankings
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     if metric == "framework_diversity":
         # Count distinct framework_source values among an entity's
         # followers and following (interaction partners).
@@ -472,7 +466,6 @@ async def leaderboard(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
-                _not_moltbook,
             )
             .group_by(Entity.id, TrustScore.score, diversity_sub.c.diversity)
             .order_by(
@@ -517,7 +510,6 @@ async def leaderboard(
         .where(
             Entity.is_active.is_(True),
             Entity.privacy_tier == PrivacyTier.PUBLIC,
-            _not_moltbook,
         )
         .group_by(Entity.id, TrustScore.score)
     )
@@ -555,7 +547,6 @@ async def leaderboard(
             .where(
                 Entity.is_active.is_(True),
                 Entity.privacy_tier == PrivacyTier.PUBLIC,
-                _not_moltbook,
             )
             .group_by(Entity.id, TrustScore.score, follower_sub.c.fc)
             .order_by(func.coalesce(follower_sub.c.fc, 0).desc())

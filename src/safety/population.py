@@ -16,7 +16,7 @@ import logging
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Entity, EntityType, PopulationAlert
@@ -92,15 +92,11 @@ async def detect_framework_monoculture(
     if await _has_unresolved_alert(db, "framework_monoculture"):
         return []
 
-    # Exclude bulk-imported Moltbook entities from monoculture analysis
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     # Count total active agents
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.type == EntityType.AGENT,
             Entity.is_active.is_(True),
-            _not_moltbook,
         )
     ) or 0
 
@@ -114,7 +110,6 @@ async def detect_framework_monoculture(
         .where(
             Entity.type == EntityType.AGENT,
             Entity.is_active.is_(True),
-            _not_moltbook,
         )
         .group_by(fw_label)
         .order_by(func.count().desc())
@@ -246,14 +241,10 @@ async def detect_registration_spike(
     cutoff_24h = now - timedelta(hours=24)
     cutoff_30d = now - timedelta(days=30)
 
-    # Exclude bulk-imported Moltbook entities from spike analysis
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     # Registrations in last 24h
     recent_count = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.created_at >= cutoff_24h,
-            _not_moltbook,
         )
     ) or 0
 
@@ -264,7 +255,6 @@ async def detect_registration_spike(
                 Entity.created_at >= cutoff_30d,
                 Entity.created_at < cutoff_24h,
             ),
-            _not_moltbook,
         )
     ) or 0
 

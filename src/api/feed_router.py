@@ -433,16 +433,9 @@ async def get_feed(
     """
     trust_score_col = func.coalesce(TrustScore.score, literal(0.0))
 
-    # Exclude bulk-imported Moltbook entities from feed
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     base_filters = [
         Post.is_hidden.is_(False),
         Entity.is_active.is_(True),
-        _not_moltbook,
     ]
     # When viewing a specific author's profile with include_replies,
     # show both top-level posts and replies

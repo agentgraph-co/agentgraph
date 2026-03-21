@@ -11,7 +11,7 @@ from typing import Any
 
 import community as community_louvain
 import networkx as nx
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import cache
@@ -35,15 +35,20 @@ async def detect_communities(db: AsyncSession) -> dict[str, Any]:
             "total_clusters": int,
         }
     """
-    # 1. Load active entities (exclude bulk-imported Moltbook entities)
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
+    # 1. Load connected entities only (entities with at least one relationship)
+    connected_ids_q = (
+        select(EntityRelationship.source_entity_id.label("eid"))
+        .where(EntityRelationship.type == RelationshipType.FOLLOW)
+        .union(
+            select(EntityRelationship.target_entity_id.label("eid"))
+            .where(EntityRelationship.type == RelationshipType.FOLLOW)
+        )
+    ).subquery()
+
     entity_result = await db.execute(
         select(Entity.id, Entity.type, Entity.display_name).where(
             Entity.is_active.is_(True),
-            _not_moltbook,
+            Entity.id.in_(select(connected_ids_q.c.eid)),
         )
     )
     entities = entity_result.all()

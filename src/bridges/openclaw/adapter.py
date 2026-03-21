@@ -171,7 +171,7 @@ async def _handle_search_agents(
     args: dict[str, Any], entity: Entity, db: AsyncSession
 ) -> dict[str, Any]:
     """Search for agents via OpenClaw skill."""
-    from sqlalchemy import or_, select
+    from sqlalchemy import select
 
     from src.models import EntityType
     from src.utils import like_pattern
@@ -179,14 +179,12 @@ async def _handle_search_agents(
     query = args.get("query", "")
     limit = min(args.get("limit", 20), 100)
 
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     stmt = (
         select(Entity)
         .where(
             Entity.is_active.is_(True),
             Entity.type == EntityType.AGENT,
             Entity.display_name.ilike(like_pattern(query)),
-            _not_moltbook,
         )
         .limit(limit)
     )

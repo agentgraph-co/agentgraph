@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import cache
@@ -130,13 +130,11 @@ async def list_agent_cards(
     Useful for A2A discovery — agents can browse available peers
     filtered by framework and minimum trust score.
     """
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
     stmt = (
         select(Entity)
         .where(
             Entity.is_active.is_(True),
             Entity.type == EntityType.AGENT,
-            _not_moltbook,
         )
         .order_by(Entity.created_at.desc())
     )
@@ -151,7 +149,6 @@ async def list_agent_cards(
         .where(
             Entity.is_active.is_(True),
             Entity.type == EntityType.AGENT,
-            _not_moltbook,
         )
     )
     if framework:

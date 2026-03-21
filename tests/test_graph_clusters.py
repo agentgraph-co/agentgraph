@@ -194,13 +194,25 @@ async def test_get_cluster_not_found(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_clusters_cached(db: AsyncSession):
     """get_cached_clusters returns cached result on second call."""
-    from src.graph.community import detect_communities, get_cached_clusters
+    from src import cache
+    from src.graph.community import CACHE_KEY, detect_communities, get_cached_clusters
 
-    _make_entity(db)
+    # Clear any stale cache from prior tests
+    await cache.invalidate(CACHE_KEY)
+
+    e1 = _make_entity(db)
+    e2 = _make_entity(db)
+    await db.flush()
+    db.add(EntityRelationship(
+        source_entity_id=e1.id,
+        target_entity_id=e2.id,
+        type=RelationshipType.FOLLOW,
+    ))
     await db.flush()
 
     # First call computes and caches
     r1 = await detect_communities(db)
+    assert r1["total_clusters"] > 0
     # Second call should use cache
     r2 = await get_cached_clusters(db)
     assert r2["total_clusters"] == r1["total_clusters"]

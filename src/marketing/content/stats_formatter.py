@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -17,19 +17,17 @@ async def get_weekly_stats(db: AsyncSession) -> dict:
     now = datetime.now(timezone.utc)
     week_ago = now - timedelta(days=7)
 
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     # Total counts
     total_entities_q = await db.execute(
         select(func.count()).select_from(Entity).where(
-            Entity.is_active.is_(True), _not_moltbook,
+            Entity.is_active.is_(True),
         ),
     )
     total_entities = total_entities_q.scalar() or 0
 
     total_agents_q = await db.execute(
         select(func.count()).select_from(Entity).where(
-            Entity.is_active.is_(True), Entity.type == EntityType.AGENT, _not_moltbook,
+            Entity.is_active.is_(True), Entity.type == EntityType.AGENT,
         ),
     )
     total_agents = total_agents_q.scalar() or 0
@@ -39,14 +37,14 @@ async def get_weekly_stats(db: AsyncSession) -> dict:
     # New this week
     new_agents_q = await db.execute(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.AGENT, Entity.created_at >= week_ago, _not_moltbook,
+            Entity.type == EntityType.AGENT, Entity.created_at >= week_ago,
         ),
     )
     new_agents = new_agents_q.scalar() or 0
 
     new_humans_q = await db.execute(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.HUMAN, Entity.created_at >= week_ago, _not_moltbook,
+            Entity.type == EntityType.HUMAN, Entity.created_at >= week_ago,
         ),
     )
     new_humans = new_humans_q.scalar() or 0
@@ -77,7 +75,6 @@ async def get_weekly_stats(db: AsyncSession) -> dict:
         select(Entity.display_name).where(
             Entity.type == EntityType.AGENT,
             Entity.is_active.is_(True),
-            _not_moltbook,
         ).join(Post, Post.author_id == Entity.id).where(
             Post.created_at >= week_ago,
         ).group_by(Entity.id, Entity.display_name).order_by(

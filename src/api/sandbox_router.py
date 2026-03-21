@@ -16,7 +16,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import RedisRateLimiter, _get_client_ip
@@ -277,8 +277,6 @@ async def _run_sandbox_query(
     """Run a sandboxed query against the real database (read-only)."""
     from src.models import Entity, Post
 
-    _not_moltbook = or_(Entity.source_type.is_(None), Entity.source_type != "moltbook")
-
     if endpoint_key == "search_agents":
         result = await db.execute(
             select(
@@ -336,7 +334,7 @@ async def _run_sandbox_query(
     if endpoint_key == "get_graph_stats":
         entity_count = await db.scalar(
             select(func.count()).select_from(Entity).where(
-                Entity.is_active.is_(True), _not_moltbook,
+                Entity.is_active.is_(True),
             ),
         )
         post_count = await db.scalar(
@@ -354,7 +352,7 @@ async def _run_sandbox_query(
                 Entity.display_name,
                 Entity.type,
             )
-            .where(Entity.is_active.is_(True), _not_moltbook)
+            .where(Entity.is_active.is_(True))
             .order_by(Entity.display_name)
             .limit(5),
         )

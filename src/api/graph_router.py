@@ -151,14 +151,8 @@ async def get_full_graph(
     """
 
     # Build entity query — exclude PRIVATE entities unless viewer follows them
-    # Exclude bulk-imported Moltbook entities to keep graph meaningful
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
     entity_query = select(Entity).where(
         Entity.is_active.is_(True),
-        _not_moltbook,
     )
     if current_entity is None:
         entity_query = entity_query.where(
@@ -669,13 +663,8 @@ async def get_rich_graph(
     db: AsyncSession = Depends(get_db),
 ):
     """Full graph with multi-edge types, cluster IDs, and avatar_url."""
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
     entity_query = select(Entity).where(
         Entity.is_active.is_(True),
-        _not_moltbook,
     ).where(_build_privacy_filter(current_entity))
     if entity_type:
         entity_query = entity_query.where(Entity.type == entity_type)
@@ -875,18 +864,12 @@ async def get_network_stats(
 ):
     """Get network-level statistics for the social graph.
 
-    Excludes PRIVATE-tier entities and bulk-imported Moltbook entities from counts.
+    Excludes PRIVATE-tier entities from counts.
     """
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     total_entities = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
             Entity.privacy_tier != PrivacyTier.PRIVATE,
-            _not_moltbook,
         )
     ) or 0
 
@@ -895,7 +878,6 @@ async def get_network_stats(
             Entity.is_active.is_(True),
             Entity.type == EntityType.HUMAN,
             Entity.privacy_tier != PrivacyTier.PRIVATE,
-            _not_moltbook,
         )
     ) or 0
 
@@ -904,7 +886,6 @@ async def get_network_stats(
             Entity.is_active.is_(True),
             Entity.type == EntityType.AGENT,
             Entity.privacy_tier != PrivacyTier.PRIVATE,
-            _not_moltbook,
         )
     ) or 0
 
@@ -924,7 +905,7 @@ async def get_network_stats(
         total_follows / total_entities if total_entities > 0 else 0.0
     )
 
-    # Most followed entities (exclude PRIVATE and Moltbook)
+    # Most followed entities (exclude PRIVATE)
     most_followed_q = (
         select(
             Entity.id,
@@ -940,7 +921,6 @@ async def get_network_stats(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
             Entity.privacy_tier != PrivacyTier.PRIVATE,
-            _not_moltbook,
         )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
@@ -957,7 +937,7 @@ async def get_network_stats(
         for row in most_followed_result.fetchall()
     ]
 
-    # Most connected (followers + following, exclude PRIVATE and Moltbook)
+    # Most connected (followers + following, exclude PRIVATE)
     most_connected_q = (
         select(
             Entity.id,
@@ -974,7 +954,6 @@ async def get_network_stats(
             EntityRelationship.type == RelationshipType.FOLLOW,
             Entity.is_active.is_(True),
             Entity.privacy_tier != PrivacyTier.PRIVATE,
-            _not_moltbook,
         )
         .group_by(Entity.id, Entity.display_name, Entity.type)
         .order_by(func.count(EntityRelationship.id).desc())
@@ -1015,17 +994,10 @@ async def get_public_stats(
     if cached is not None:
         return cached
 
-    # Exclude bulk-imported Moltbook entities from public counts
-    _not_moltbook_ps = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
             Entity.type == EntityType.HUMAN,
-            _not_moltbook_ps,
         )
     ) or 0
 
@@ -1033,7 +1005,6 @@ async def get_public_stats(
         select(func.count()).select_from(Entity).where(
             Entity.is_active.is_(True),
             Entity.type == EntityType.AGENT,
-            _not_moltbook_ps,
         )
     ) or 0
 
