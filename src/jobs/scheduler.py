@@ -1,9 +1,19 @@
 """Production-ready scheduler for periodic jobs.
 
-Runs three jobs on the same interval (default 6 hours):
+Runs multiple jobs on the same interval (default 6 hours):
 1. Trust recomputation — recalculate all trust scores with attestation decay
 2. Provisional agent expiry — deactivate expired provisional agents and revoke keys
-3. Bot scheduled posts — official platform bots post content on a cycle
+3. External reputation sync (linked accounts)
+4. Bot scheduled posts — official platform bots post content on a cycle
+5. Token blacklist cleanup (expired entries)
+6. Source import verification sync
+7. Marketing bot orchestrator (after 18:00 UTC)
+8. Weekly marketing digest email (Sunday)
+9. Moltbook auto-import flywheel
+10. Marketing metrics refresh
+11. Marketing watchdog checks
+12. Marketing recap to feed (Monday + Thursday)
+13. Expired token cleanup — email verifications + password reset tokens (daily)
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -257,9 +267,11 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Marketing recap job failed")
 
-        # Job 13: Expired email verification token cleanup (daily)
+        # Job 13: Expired token cleanup — email verifications + password reset tokens (daily)
         try:
             from datetime import datetime, timedelta, timezone
+
+            from sqlalchemy import text
 
             _now = datetime.now(timezone.utc)
             # Run once per day — use Redis flag to avoid re-running each tick
@@ -276,36 +288,48 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
                 pass
 
             if not _cleanup_ran:
-                from sqlalchemy import delete as sa_delete
-
-                from src.models import EmailVerification
+                _cutoff = _now - timedelta(days=30)
 
                 async with async_session() as session:
                     async with session.begin():
-                        # Remove used tokens older than 30 days
-                        cutoff = _now - timedelta(days=30)
+                        # 1. Remove used email verifications older than 30 days
                         r1 = await session.execute(
-                            sa_delete(EmailVerification).where(
-                                EmailVerification.is_used.is_(True),
-                                EmailVerification.created_at < cutoff,
-                            )
+                            text(
+                                "DELETE FROM email_verifications "
+                                "WHERE is_used = true AND created_at < :cutoff"
+                            ),
+                            {"cutoff": _cutoff},
                         )
-                        # Remove expired tokens
+                        # 2. Remove expired email verifications
                         r2 = await session.execute(
-                            sa_delete(EmailVerification).where(
-                                EmailVerification.expires_at < _now,
-                            )
+                            text(
+                                "DELETE FROM email_verifications "
+                                "WHERE expires_at < :now"
+                            ),
+                            {"now": _now},
                         )
-                        total = r1.rowcount + r2.rowcount
+                        # 3. Remove password reset tokens older than 30 days
+                        r3 = await session.execute(
+                            text(
+                                "DELETE FROM password_reset_tokens "
+                                "WHERE created_at < :cutoff"
+                            ),
+                            {"cutoff": _cutoff},
+                        )
+                        ev_total = r1.rowcount + r2.rowcount
+                        prt_total = r3.rowcount
+                        total = ev_total + prt_total
                         if total > 0:
                             logger.info(
-                                "Token cleanup: removed %d expired/used email verifications",
-                                total,
+                                "Token cleanup: removed %d email verifications, "
+                                "%d password reset tokens",
+                                ev_total,
+                                prt_total,
                             )
                         else:
                             logger.debug("Token cleanup: nothing to remove")
         except Exception:
-            logger.exception("Email verification token cleanup failed")
+            logger.exception("Token cleanup failed")
 
         # Job 9: Moltbook auto-import flywheel
         try:

@@ -224,6 +224,19 @@ app = FastAPI(
 )
 
 
+# --- Prometheus metrics (optional — only in prod) ---
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        excluded_handlers=["/health", "/metrics"],
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+except ImportError:
+    pass  # prometheus-fastapi-instrumentator not installed (dev/test)
+
+
 # --- Custom Swagger / ReDoc endpoints (pinned CDN, loading indicator) ---
 
 from fastapi.responses import HTMLResponse  # noqa: E402
@@ -432,10 +445,11 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
     _path = request.url.path
     _is_docs = _path in ("/api/v1/docs", "/api/v1/redoc")
     _cdn = " https://cdn.jsdelivr.net" if _is_docs else ""
+    _inline = " 'unsafe-inline'" if _is_docs else ""
     h.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; "
-        f"script-src 'self' https://accounts.google.com{_cdn}; "
+        f"script-src 'self' https://accounts.google.com{_cdn}{_inline}; "
         f"style-src 'self' 'unsafe-inline'{_cdn}; "
         f"img-src 'self' data: blob:; "
         f"font-src 'self'{_cdn}; "

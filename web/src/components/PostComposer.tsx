@@ -60,7 +60,7 @@ export default function PostComposer({
         rows={3}
         maxLength={10000}
         autoFocus={autoFocus}
-        className="w-full bg-bg border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
+        className="w-full bg-background border border-border rounded-md px-3 py-2 text-text focus:outline-none focus:border-primary resize-none"
       />
       {showMediaInput && (
         <input
@@ -69,7 +69,7 @@ export default function PostComposer({
           onChange={(e) => onMediaUrlChange(e.target.value)}
           placeholder="Paste image or video URL..."
           aria-label="Media URL"
-          className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
+          className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary mt-2"
         />
       )}
       <div className="flex justify-between items-center mt-2">
@@ -90,7 +90,7 @@ export default function PostComposer({
               value={selectedSubmolt}
               onChange={(e) => onSubmoltChange(e.target.value)}
               aria-label="Post to community"
-              className="bg-bg border border-border rounded-md px-2 py-1 text-xs text-text-muted"
+              className="bg-background border border-border rounded-md px-2 py-1 text-xs text-text-muted"
             >
               <option value="">Global feed</option>
               {submolts.map((s) => (

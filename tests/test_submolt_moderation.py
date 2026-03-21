@@ -349,7 +349,7 @@ async def test_moderator_can_remove_post(client: AsyncClient, db):
 @pytest.mark.asyncio
 async def test_openapi_tags_present(client: AsyncClient):
     """OpenAPI schema includes tag metadata."""
-    resp = await client.get("/openapi.json")
+    resp = await client.get("/api/v1/openapi.json")
     assert resp.status_code == 200
     schema = resp.json()
     tags = schema.get("tags", [])

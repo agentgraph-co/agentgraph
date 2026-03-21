@@ -267,7 +267,7 @@ function LinkedAccountsSection() {
           {accounts && accounts.length > 0 && (
             <div className="space-y-3 mb-4">
               {accounts.map(acct => (
-                <div key={acct.id} className="flex items-center justify-between p-3 bg-bg rounded-lg border border-border">
+                <div key={acct.id} className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-text">
                       {PROVIDER_LABELS[acct.provider] || acct.provider}

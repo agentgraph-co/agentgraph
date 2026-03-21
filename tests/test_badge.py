@@ -49,6 +49,7 @@ async def _setup_user(client: AsyncClient) -> tuple:
 
 async def _set_trust_score(db, entity_id: str, score: float) -> None:
     from sqlalchemy import update
+
     from src.models import TrustScore
 
     await db.execute(

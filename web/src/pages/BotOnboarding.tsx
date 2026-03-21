@@ -679,7 +679,7 @@ export default function BotOnboarding() {
         <>
           {/* Sticky tab bar (condensed) — shown when full cards scroll out of view */}
           {isSticky && (
-            <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-bg/80 py-2 animate-slide-down relative before:absolute before:top-0 before:left-0 before:right-0 before:-bottom-10 before:-z-10 before:backdrop-blur-md before:[mask-image:linear-gradient(to_bottom,black_40%,transparent)] before:pointer-events-none after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-bg/50 after:to-transparent after:pointer-events-none">
+            <div className="sticky top-[56px] z-30 -mx-4 px-4 bg-background/80 py-2 animate-slide-down relative after:absolute after:left-0 after:right-0 after:bottom-0 after:translate-y-full after:h-4 after:bg-gradient-to-b after:from-background/50 after:to-transparent after:pointer-events-none">
               <div className="grid grid-cols-3 gap-4">
                 <button
                   onClick={() => selectPath('import')}
@@ -1305,7 +1305,7 @@ export default function BotOnboarding() {
                   </div>
                   <p className="text-xs text-text-muted mb-2">{fw.tagline}</p>
                   {FRAMEWORK_SDK_INSTALL[fw.key] && (
-                    <code className="block text-[11px] font-mono text-primary-light/80 bg-bg/60 rounded px-2 py-1 mb-2 select-all">
+                    <code className="block text-[11px] font-mono text-primary-light/80 bg-background/60 rounded px-2 py-1 mb-2 select-all">
                       {FRAMEWORK_SDK_INSTALL[fw.key]}
                     </code>
                   )}
