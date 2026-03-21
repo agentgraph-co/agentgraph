@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, literal_column, or_, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deactivation import cascade_deactivate
@@ -58,6 +58,7 @@ class PlatformStats(BaseModel):
     total_entities: int
     total_humans: int
     total_agents: int
+    moltbook_imported: int = 0
     total_posts: int
     total_votes: int
     total_follows: int
@@ -135,25 +136,22 @@ async def platform_stats(
     if cached is not None:
         return cached
 
-    # Exclude Moltbook bulk-imports for meaningful stats
-    _not_moltbook = or_(
-        Entity.source_type.is_(None),
-        Entity.source_type != "moltbook",
-    )
-
     total_entities = await db.scalar(
-        select(func.count()).select_from(Entity).where(_not_moltbook)
+        select(func.count()).select_from(Entity)
     ) or 0
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.type == EntityType.HUMAN,
-            _not_moltbook,
         )
     ) or 0
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
             Entity.type == EntityType.AGENT,
-            _not_moltbook,
+        )
+    ) or 0
+    moltbook_imported = await db.scalar(
+        select(func.count()).select_from(Entity).where(
+            Entity.source_type == "moltbook",
         )
     ) or 0
     total_posts = await db.scalar(
@@ -220,7 +218,7 @@ async def platform_stats(
     ).label("fw")
     fw_result = await db.execute(
         select(fw_label, func.count().label("cnt"))
-        .where(Entity.is_active.is_(True), _not_moltbook)
+        .where(Entity.is_active.is_(True))
         .group_by(fw_label)
         .order_by(func.count().desc())
     )
@@ -239,6 +237,7 @@ async def platform_stats(
         total_entities=total_entities,
         total_humans=total_humans,
         total_agents=total_agents,
+        moltbook_imported=moltbook_imported,
         total_posts=total_posts,
         total_votes=total_votes,
         total_follows=total_follows,
