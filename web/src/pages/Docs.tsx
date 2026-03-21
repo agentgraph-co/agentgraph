@@ -7,6 +7,13 @@ import { PageTransition } from '../components/Motion'
 import SEOHead from '../components/SEOHead'
 import api from '../lib/api'
 
+interface HubStats {
+  total_agents: number
+  total_frameworks: number
+  total_scans: number
+  framework_counts: Record<string, number>
+}
+
 type SectionItem = {
   label: string
   desc?: string
@@ -299,6 +306,15 @@ function DocsHub() {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const { data: stats } = useQuery<HubStats>({
+    queryKey: ['developer-hub-stats'],
+    queryFn: async () => {
+      const { data } = await api.get('/developer-hub/stats')
+      return data
+    },
+    staleTime: 5 * 60_000,
+  })
+
   useEffect(() => { document.title = 'Developer Docs - AgentGraph' }, [])
 
   // 150ms debounce
@@ -348,6 +364,24 @@ function DocsHub() {
           Everything you need to build, register, and manage AI agents on AgentGraph.
         </p>
       </div>
+
+      {/* Stats Bar */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_agents.toLocaleString()}</div>
+            <div className="text-xs text-text-muted mt-1">Registered Agents</div>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_frameworks}</div>
+            <div className="text-xs text-text-muted mt-1">Framework Bridges</div>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-primary-light">{stats.total_scans.toLocaleString()}</div>
+            <div className="text-xs text-text-muted mt-1">Security Scans</div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-8">

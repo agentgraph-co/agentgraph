@@ -190,6 +190,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
         start_scheduler(settings.trust_recompute_interval_seconds)
 
+    # Warn if JWT secret is still the default placeholder (non-debug mode
+    # already crashes, but staging / misconfigured prod should be visible).
+    from src.config import _DEFAULT_SECRET
+
+    if settings.jwt_secret == _DEFAULT_SECRET:
+        logging.getLogger(__name__).critical(
+            "JWT_SECRET is set to the default placeholder — "
+            "tokens are INSECURE. Set JWT_SECRET in .env / .env.secrets."
+        )
+
     # Pre-generate OpenAPI schema (avoids 3s+ generation on first request)
     app.openapi()
 

@@ -47,6 +47,9 @@ from src.models import AnalyticsEvent, Entity
 
 logger = logging.getLogger(__name__)
 
+# Allowed platforms for OAuth redirect — prevents open redirect via state param
+_ALLOWED_OAUTH_PLATFORMS = {"", "ios"}
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -573,6 +576,10 @@ async def google_callback(
     if not hmac.compare_digest(sig, expected_sig):
         raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
 
+    # Whitelist the platform value to prevent open redirect
+    if platform not in _ALLOWED_OAUTH_PLATFORMS:
+        raise HTTPException(status_code=400, detail="Invalid OAuth platform")
+
     # Reject state tokens older than 10 minutes
     try:
         ts = int(ts_str)
@@ -732,6 +739,10 @@ async def github_callback(
     ).hexdigest()[:32]
     if not hmac.compare_digest(sig, expected_sig):
         raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
+
+    # Whitelist the platform value to prevent open redirect
+    if platform not in _ALLOWED_OAUTH_PLATFORMS:
+        raise HTTPException(status_code=400, detail="Invalid OAuth platform")
 
     try:
         ts = int(ts_str)

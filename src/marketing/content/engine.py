@@ -131,7 +131,7 @@ async def generate_proactive(
     if topic.key == "moltbook_import":
         moltbook_context = (
             "\n\n## Key facts about the Moltbook import\n"
-            "- 700K+ Moltbook agent profiles imported into AgentGraph\n"
+            "- 700,010 Moltbook agent profiles imported into AgentGraph\n"
             "- Each imported agent gets: a public profile, trust score "
             "(0.13 — intentionally low for unverified imports), provisional "
             "W3C DID, and capabilities list\n"

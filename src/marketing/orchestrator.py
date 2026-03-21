@@ -491,6 +491,101 @@ async def generate_and_post_for_platform(
     }
 
 
+async def generate_milestone_drafts(
+    db: AsyncSession,
+    topic_key: str,
+    platforms: list[str] | None = None,
+) -> dict:
+    """Generate drafts for a specific topic across all (or selected) platforms.
+
+    All drafts go to ``human_review`` status — no auto-posting.
+    Bypasses cadence and schedule checks (this is a manual milestone trigger).
+
+    Returns a summary dict with lists of created drafts and any errors.
+    """
+    from src.marketing.content.topics import TOPIC_BY_KEY
+
+    topic = TOPIC_BY_KEY.get(topic_key)
+    if not topic:
+        return {"status": "error", "error": f"Unknown topic: {topic_key}"}
+
+    adapters = _get_adapters()
+    target_platforms = platforms or list(adapters.keys())
+
+    results: dict = {"status": "ok", "drafts": [], "errors": [], "skipped": []}
+
+    for platform_name in target_platforms:
+        adapter = adapters.get(platform_name)
+        if adapter is None:
+            results["skipped"].append(
+                {"platform": platform_name, "reason": "unknown_platform"},
+            )
+            continue
+
+        if not await adapter.is_configured():
+            results["skipped"].append(
+                {"platform": platform_name, "reason": "not_configured"},
+            )
+            continue
+
+        # Check if the topic has an angle for this platform
+        if platform_name not in topic.angles:
+            results["skipped"].append(
+                {"platform": platform_name, "reason": "no_angle_for_platform"},
+            )
+            continue
+
+        try:
+            content = await generate_proactive(
+                platform_name,
+                recent_topics=None,  # bypass cooldown
+                topic_override=topic,
+            )
+            if content.error:
+                results["errors"].append(
+                    {"platform": platform_name, "error": content.error},
+                )
+                continue
+
+            # Dedup check — skip if already generated for this platform
+            if await _is_duplicate(db, content.content_hash, platform_name):
+                results["skipped"].append(
+                    {"platform": platform_name, "reason": "duplicate"},
+                )
+                continue
+
+            draft = await enqueue_draft(
+                db,
+                platform=platform_name,
+                content=content.text,
+                topic=content.topic,
+                llm_model=content.llm_model,
+                llm_tokens_in=content.llm_tokens_in,
+                llm_tokens_out=content.llm_tokens_out,
+                llm_cost_usd=content.llm_cost_usd,
+                utm_params=content.utm_params,
+            )
+            results["drafts"].append({
+                "platform": platform_name,
+                "topic": content.topic,
+                "draft_id": str(draft.id),
+            })
+            logger.info(
+                "Milestone draft created for %s: %s (topic=%s)",
+                platform_name, draft.id, topic_key,
+            )
+
+        except Exception:
+            logger.exception(
+                "Milestone draft generation failed for %s", platform_name,
+            )
+            results["errors"].append(
+                {"platform": platform_name, "error": "unexpected_exception"},
+            )
+
+    return results
+
+
 async def run_marketing_tick(db: AsyncSession) -> dict:
     """Main entry point — called by the scheduler every 30 minutes.
 

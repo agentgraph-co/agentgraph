@@ -18,8 +18,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://localhost:5432/agentgraph"
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

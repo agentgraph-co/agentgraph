@@ -301,6 +301,7 @@ _TOPIC_CARDS: dict[str, str] = {
     "ecosystem": "/cards/card-ecosystem.svg",
     "features": "/cards/card-features.svg",
     "community": "/cards/card-community.svg",
+    "moltbook_import": "/cards/card-moltbook-import.svg",
 }
 _DEFAULT_CARD = "/cards/card-features.svg"
 
@@ -354,6 +355,51 @@ async def trigger_marketing_tick(
 
     results = await run_marketing_tick(db)
     await db.commit()
+    return results
+
+
+class MilestoneTriggerRequest(BaseModel):
+    topic: str = Field(
+        "moltbook_import",
+        description="Topic key to generate drafts for (default: moltbook_import)",
+    )
+    platforms: list[str] | None = Field(
+        None,
+        description=(
+            "Platforms to target. Omit or null for all configured platforms."
+        ),
+    )
+
+
+@router.post("/trigger/milestone")
+async def trigger_milestone_drafts(
+    req: MilestoneTriggerRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Generate drafts for a milestone event across all platforms.
+
+    All drafts go to human_review status — nothing is auto-posted.
+    Default topic is ``moltbook_import`` (the 700K import milestone).
+    """
+    require_admin(current_entity)
+    from src.marketing.orchestrator import generate_milestone_drafts
+
+    results = await generate_milestone_drafts(
+        db, topic_key=req.topic, platforms=req.platforms,
+    )
+    await db.commit()
+
+    # Notify admin about new drafts
+    new_drafts = results.get("drafts", [])
+    if new_drafts:
+        try:
+            from src.marketing.draft_notify import notify_pending_drafts
+
+            await notify_pending_drafts(new_drafts)
+        except Exception:
+            pass  # notification is best-effort
+
     return results
 
 

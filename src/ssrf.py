@@ -1,12 +1,18 @@
 """Centralized SSRF validation for all URL-accepting endpoints.
 
 Uses Python's ipaddress module for proper IP range checking instead
-of fragile startswith() string matching.
+of fragile startswith() string matching.  Includes DNS rebinding
+protection: hostnames are resolved and their IPs checked against
+blocked ranges before any HTTP request is made.
 """
 from __future__ import annotations
 
 import ipaddress
+import logging
+import socket
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 # Hostnames that always resolve to loopback/internal
 _BLOCKED_HOSTNAMES = frozenset({
@@ -75,7 +81,42 @@ def validate_url(url: str, *, field_name: str = "url") -> str:
     if _is_blocked_ip(hostname):
         raise ValueError(f"{field_name} cannot point to internal addresses")
 
+    # DNS rebinding protection: resolve the hostname and verify the resolved
+    # IPs are not in blocked ranges.  This prevents an attacker from pointing
+    # a DNS name at 127.0.0.1 or an internal service.
+    if not _is_blocked_ip(hostname):  # skip if already checked as IP literal
+        _check_resolved_ips(hostname, field_name)
+
     return url
+
+
+def _check_resolved_ips(hostname: str, field_name: str) -> None:
+    """Resolve a hostname via DNS and reject if any address is blocked."""
+    try:
+        results = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except socket.gaierror:
+        # DNS resolution failed — let the downstream HTTP client handle it
+        logger.debug("DNS resolution failed for %s, skipping rebind check", hostname)
+        return
+
+    for family, _type, _proto, _canonname, sockaddr in results:
+        ip_str = sockaddr[0]
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+            or _in_cgnat(addr)
+        ):
+            raise ValueError(
+                f"{field_name} resolves to a blocked internal address"
+            )
 
 
 def validate_url_https(url: str, *, field_name: str = "url") -> str:
@@ -94,6 +135,10 @@ def validate_url_https(url: str, *, field_name: str = "url") -> str:
 
     if _is_blocked_ip(hostname):
         raise ValueError(f"{field_name} cannot point to internal addresses")
+
+    # DNS rebinding protection
+    if not _is_blocked_ip(hostname):
+        _check_resolved_ips(hostname, field_name)
 
     return url
 
