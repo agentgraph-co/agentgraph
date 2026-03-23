@@ -542,17 +542,25 @@ async def trust_distribution_stats(
         ("0.8-1.0", 0.8, 1.01),  # include 1.0
     ]
 
+    # Only count trust scores for active entities
+    _active_trust = (
+        select(TrustScore.score, TrustScore.id, TrustScore.entity_id)
+        .join(Entity, TrustScore.entity_id == Entity.id)
+        .where(Entity.is_active.is_(True))
+        .subquery()
+    )
+
     distribution = []
     for label, lo, hi in buckets:
         count = await db.scalar(
-            select(func.count()).select_from(TrustScore).where(
-                TrustScore.score >= lo,
-                TrustScore.score < hi,
+            select(func.count()).select_from(_active_trust).where(
+                _active_trust.c.score >= lo,
+                _active_trust.c.score < hi,
             )
         ) or 0
         distribution.append(TrustDistributionBucket(range=label, count=count))
 
-    # Average by entity type
+    # Average by entity type (active entities only)
     avg_by_type = []
     for etype in [EntityType.HUMAN, EntityType.AGENT]:
         row = await db.execute(
@@ -561,7 +569,7 @@ async def trust_distribution_stats(
                 func.count(TrustScore.id),
             )
             .join(Entity, TrustScore.entity_id == Entity.id)
-            .where(Entity.type == etype)
+            .where(Entity.type == etype, Entity.is_active.is_(True))
         )
         avg_val, cnt = row.one()
         avg_by_type.append(TrustEntityTypeAvg(
@@ -571,7 +579,7 @@ async def trust_distribution_stats(
         ))
 
     total_with_scores = await db.scalar(
-        select(func.count()).select_from(TrustScore)
+        select(func.count()).select_from(_active_trust)
     ) or 0
 
     return TrustStatsResponse(
