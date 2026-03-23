@@ -92,6 +92,34 @@ query SearchDiscussions($query: String!, $first: Int!) {
 }
 """
 
+# GraphQL: fetch discussion categories for a repo (needed to create discussions)
+_REPO_CATEGORIES_QUERY = """
+query RepoCategories($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+        id
+        discussionCategories(first: 20) {
+            nodes {
+                id
+                name
+                isAnswerable
+            }
+        }
+    }
+}
+"""
+
+# GraphQL: create a new discussion
+_CREATE_DISCUSSION_MUTATION = """
+mutation CreateDiscussion($input: CreateDiscussionInput!) {
+    createDiscussion(input: $input) {
+        discussion {
+            id
+            url
+        }
+    }
+}
+"""
+
 # GraphQL: add a comment to a discussion
 _ADD_COMMENT_MUTATION = """
 mutation AddComment($input: AddDiscussionCommentInput!) {
@@ -215,20 +243,109 @@ class GitHubDiscussionsAdapter(AbstractPlatformAdapter):
     async def post(
         self, content: str, metadata: dict | None = None,
     ) -> ExternalPostResult:
-        """Create a discussion comment.
+        """Post to GitHub Discussions.
 
-        We never create new discussions (too intrusive for external repos).
-        Instead, ``post()`` requires a ``discussion_id`` in metadata and
-        delegates to ``reply()``.
+        If ``discussion_id`` is provided in metadata, reply to that discussion.
+        Otherwise, create a new discussion on the agentgraph-co/agentgraph repo.
         """
         meta = metadata or {}
         discussion_id = meta.get("discussion_id")
-        if not discussion_id:
+        if discussion_id:
+            return await self.reply(discussion_id, content, metadata)
+
+        # Create a new discussion on our own repo
+        return await self._create_discussion(content, meta)
+
+    async def _create_discussion(
+        self, content: str, meta: dict,
+    ) -> ExternalPostResult:
+        """Create a new discussion on the agentgraph-co/agentgraph repo."""
+        if not await self.is_configured():
+            return ExternalPostResult(success=False, error="GitHub token not configured")
+
+        owner, name = "agentgraph-co", "agentgraph"
+        try:
+            # Fetch repo ID and discussion categories
+            cat_data = await self._graphql(
+                _REPO_CATEGORIES_QUERY,
+                {"owner": owner, "name": name},
+            )
+            repo_node = cat_data.get("data", {}).get("repository", {})
+            repo_id = repo_node.get("id")
+            categories = repo_node.get("discussionCategories", {}).get("nodes", [])
+
+            if not repo_id or not categories:
+                return ExternalPostResult(
+                    success=False,
+                    error="Could not fetch repo categories",
+                )
+
+            # Prefer "General" or "Ideas" category; fall back to first non-answerable
+            category_id = None
+            for cat in categories:
+                if cat["name"].lower() in ("general", "ideas"):
+                    category_id = cat["id"]
+                    break
+            if not category_id:
+                for cat in categories:
+                    if not cat.get("isAnswerable"):
+                        category_id = cat["id"]
+                        break
+            if not category_id:
+                category_id = categories[0]["id"]
+
+            # Extract title from first line or metadata
+            title = meta.get("title", "")
+            body = content
+            if not title:
+                lines = content.strip().split("\n", 1)
+                first_line = lines[0].lstrip("#").strip()
+                title = first_line[:128] if first_line else "AgentGraph Update"
+                body = lines[1].strip() if len(lines) > 1 else content
+
+            data = await self._graphql(
+                _CREATE_DISCUSSION_MUTATION,
+                {"input": {
+                    "repositoryId": repo_id,
+                    "categoryId": category_id,
+                    "title": title,
+                    "body": self.truncate(body),
+                }},
+            )
+
+            errors = data.get("errors")
+            if errors:
+                msg = errors[0].get("message", "Unknown GraphQL error")
+                logger.warning("GitHub Discussions create error: %s", msg)
+                return ExternalPostResult(success=False, error=msg)
+
+            discussion = (
+                data.get("data", {})
+                .get("createDiscussion", {})
+                .get("discussion", {})
+            )
+            logger.info(
+                "GitHub Discussion created: %s", discussion.get("url"),
+            )
+            return ExternalPostResult(
+                success=True,
+                external_id=discussion.get("id", ""),
+                url=discussion.get("url"),
+            )
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "GitHub Discussions create HTTP %s: %s",
+                exc.response.status_code,
+                exc.response.text[:200],
+            )
             return ExternalPostResult(
                 success=False,
-                error="No discussion_id in metadata — use reply() or provide discussion_id",
+                error=f"HTTP {exc.response.status_code}",
+                rate_limited=exc.response.status_code in (403, 429),
             )
-        return await self.reply(discussion_id, content, metadata)
+        except Exception as exc:
+            logger.exception("GitHub Discussions create failed")
+            return ExternalPostResult(success=False, error=str(exc))
 
     async def reply(
         self,

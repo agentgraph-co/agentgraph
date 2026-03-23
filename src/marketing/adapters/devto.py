@@ -94,6 +94,14 @@ class DevtoAdapter(AbstractPlatformAdapter):
                 external_id=str(data.get("id", "")),
                 url=data.get("url"),
             )
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text[:500]
+            logger.error(
+                "Dev.to post failed: HTTP %s — %s",
+                exc.response.status_code,
+                body,
+            )
+            return ExternalPostResult(success=False, error=f"{exc}: {body}")
         except Exception as exc:
             logger.exception("Dev.to post failed")
             return ExternalPostResult(success=False, error=str(exc))
