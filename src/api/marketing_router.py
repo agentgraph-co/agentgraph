@@ -42,6 +42,7 @@ class DraftResponse(BaseModel):
     image_url: str | None = None
     destination: str | None = None
     parent_external_id: str | None = None
+    scheduled_day: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -203,6 +204,7 @@ async def get_pending_drafts(
             created_at=d.created_at.isoformat(),
             image_url=_topic_image_url(d.topic, d.platform),
             parent_external_id=d.parent_external_id,
+            scheduled_day=_get_scheduled_day(d),
         )
         for d in drafts
     ]
@@ -311,6 +313,22 @@ def _topic_image_url(topic: str | None, platform: str) -> str | None:
     if topic and topic in _TOPIC_CARDS:
         return _TOPIC_CARDS[topic]
     return _DEFAULT_CARD
+
+
+def _get_scheduled_day(post: object) -> str | None:
+    """Extract the scheduled day from a planned post's campaign config."""
+    campaign = getattr(post, "campaign", None)
+    if not campaign:
+        return None
+    cfg = campaign.schedule_config or {}
+    for spec in cfg.get("posts", []):
+        if (
+            spec.get("platform") == post.platform
+            and spec.get("topic") == post.topic
+        ):
+            day = spec.get("day", "")
+            return day.capitalize() if day else None
+    return None
 
 
 @router.get("/digest", response_model=WeeklyDigestResponse)

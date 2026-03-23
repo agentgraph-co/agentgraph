@@ -10,6 +10,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.marketing.content.engine import content_hash
 from src.marketing.models import MarketingPost
@@ -60,9 +61,13 @@ async def get_pending_drafts(
 ) -> list[MarketingPost]:
     """Get drafts awaiting human review (or matching given statuses)."""
     allowed = statuses or ["human_review"]
-    q = select(MarketingPost).where(
-        MarketingPost.status.in_(allowed),
-    ).order_by(MarketingPost.created_at.desc()).limit(limit)
+    q = (
+        select(MarketingPost)
+        .options(selectinload(MarketingPost.campaign))
+        .where(MarketingPost.status.in_(allowed))
+        .order_by(MarketingPost.created_at.desc())
+        .limit(limit)
+    )
 
     if platform:
         q = q.where(MarketingPost.platform == platform)

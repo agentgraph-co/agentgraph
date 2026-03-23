@@ -103,6 +103,7 @@ export interface MarketingDraft {
   image_url: string | null
   destination: string | null
   parent_external_id: string | null
+  scheduled_day: string | null
 }
 
 export interface MarketingHealth {
