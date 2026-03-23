@@ -153,17 +153,6 @@ export default function Discover() {
                       }`}>
                         {p.type}
                       </span>
-                      {p.source_type === 'moltbook' && (
-                        <span
-                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                          title="Imported from Moltbook"
-                        >
-                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          Moltbook
-                        </span>
-                      )}
                       <TrustTierBadge
                         components={p.trust_components}
                         score={p.trust_score}

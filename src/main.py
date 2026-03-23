@@ -54,7 +54,6 @@ from src.api.interaction_router import router as interaction_router
 from src.api.langchain_router import router as langchain_router
 from src.api.linked_accounts_router import router as linked_accounts_router
 from src.api.marketing_router import router as marketing_router
-from src.api.recruitment_router import router as recruitment_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
@@ -64,6 +63,7 @@ from src.api.onboarding_router import router as onboarding_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.ratelimit_router import router as ratelimit_router
+from src.api.recruitment_router import router as recruitment_router
 from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.sandbox_router import router as sandbox_router

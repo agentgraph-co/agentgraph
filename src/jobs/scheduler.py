@@ -9,7 +9,7 @@ Runs multiple jobs on the same interval (default 6 hours):
 6. Source import verification sync
 7. Marketing bot orchestrator (after 18:00 UTC)
 8. Weekly marketing digest email (Sunday)
-9. Moltbook auto-import flywheel
+9. [REMOVED] Moltbook auto-import — synthetic data removed March 2026
 10. Marketing metrics refresh
 11. Marketing watchdog checks
 12. Marketing recap to feed (Monday + Thursday)
