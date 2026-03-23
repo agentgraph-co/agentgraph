@@ -190,6 +190,15 @@ async def generate_proactive(
             recruitment_context=recruitment_context,
             global_context=global_ctx,
         )
+    elif platform == "github_discussions":
+        prompt = _build_github_discussions_prompt(
+            angle=angle,
+            utm_link=utm_link,
+            news_context=news_context,
+            launch_context=launch_context,
+            recruitment_context=recruitment_context,
+            global_context=global_ctx,
+        )
     else:
         prompt = (
             f"Write a {platform} post about AgentGraph "
@@ -225,6 +234,26 @@ async def generate_proactive(
         return GeneratedContent(
             text="", topic=topic.key, platform=platform, post_type="proactive",
             error="LLM returned empty content",
+        )
+
+    # Guard against LLM instruction leakage (meta-instructions in output)
+    _leakage_markers = (
+        "post in a relevant",
+        "post this to",
+        "share in",
+        "publish this",
+        "submit to",
+        "create a discussion",
+    )
+    first_line = result.text.strip().split("\n", 1)[0].lower()
+    if any(marker in first_line for marker in _leakage_markers):
+        logger.warning(
+            "LLM instruction leakage detected for %s/%s: %s",
+            platform, topic.key, first_line[:100],
+        )
+        return GeneratedContent(
+            text="", topic=topic.key, platform=platform, post_type="proactive",
+            error="LLM instruction leakage detected — content rejected",
         )
 
     # Apply disclosure footer
@@ -386,6 +415,46 @@ async def generate_data_driven(
             "medium": platform,
             "campaign": template_key,
         },
+    )
+
+
+def _build_github_discussions_prompt(
+    *,
+    angle: str,
+    utm_link: str,
+    news_context: str,
+    launch_context: str,
+    recruitment_context: str = "",
+    global_context: str = "",
+) -> str:
+    """Build a prompt for GitHub Discussions posts on our repo.
+
+    GitHub Discussions need a thoughtful, developer-oriented tone.
+    The LLM must output ONLY the discussion body — no meta-instructions.
+    """
+    return (
+        f"Write a GitHub Discussion post for the AgentGraph repository.\n\n"
+        f"## Topic / angle\n"
+        f"{angle}\n\n"
+        f"## Requirements\n"
+        f"- Output ONLY the discussion body text in Markdown\n"
+        f"- Do NOT include a title line (it is set separately)\n"
+        f"- Do NOT include instructions like 'post this to' or 'share in'\n"
+        f"- Length: 300-800 words\n"
+        f"- Format: Markdown with ## headings, bullet points, code examples\n"
+        f"- Tone: developer sharing technical insights, not marketing copy\n"
+        f"- Include honest trade-offs and open questions to spark discussion\n"
+        f"- End with a question to encourage replies\n"
+        f"- Include this link naturally: {utm_link}\n\n"
+        f"## About AgentGraph\n"
+        f"AgentGraph is trust infrastructure for AI agents: "
+        f"verifiable identity (W3C DIDs), trust scoring, "
+        f"social graph, and a marketplace. Open source at "
+        f"github.com/agentgraph-co/agentgraph.\n"
+        f"{news_context}"
+        f"{launch_context}"
+        f"{recruitment_context}"
+        f"{global_context}"
     )
 
 
