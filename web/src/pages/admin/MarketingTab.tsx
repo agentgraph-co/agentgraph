@@ -130,7 +130,7 @@ export default function MarketingTab() {
   })
 
   const generateCampaignMutation = useMutation({
-    mutationFn: async () => (await api.post('/admin/marketing/campaigns/generate')).data,
+    mutationFn: async () => (await api.post('/admin/marketing/campaigns/generate', {}, { timeout: 120_000 })).data,
     onSuccess: () => {
       addToast('Campaign plan generated', 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-campaigns-proposed'] })
