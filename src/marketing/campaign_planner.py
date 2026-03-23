@@ -584,8 +584,4 @@ async def get_planned_posts_for_today(
             ):
                 matched.append(post)
                 break
-        else:
-            # If no day match found but post exists, include
-            # it anyway — better to post than skip
-            matched.append(post)
     return matched
