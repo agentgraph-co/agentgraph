@@ -197,6 +197,11 @@ async def _post_planned_campaign_posts(
                 post.status = "posted"
                 post.external_id = result.external_id
                 post.posted_at = datetime.now(timezone.utc)
+                if result.url:
+                    post.utm_params = {
+                        **(post.utm_params or {}),
+                        "external_url": result.url,
+                    }
                 await record_post(post.platform)
                 if post.topic:
                     await record_topic(
@@ -430,6 +435,11 @@ async def post_approved_drafts(db: AsyncSession) -> dict:
                 post.status = "posted"
                 post.external_id = result.external_id
                 post.posted_at = datetime.now(timezone.utc)
+                if result.url:
+                    post.utm_params = {
+                        **(post.utm_params or {}),
+                        "external_url": result.url,
+                    }
                 await record_post(post.platform)
                 if post.topic:
                     await record_topic(post.platform, post.topic)

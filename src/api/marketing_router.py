@@ -86,6 +86,7 @@ class ActivityItem(BaseModel):
     post_type: str
     topic: str | None
     external_id: str | None
+    external_url: str | None = None
     posted_at: str | None
     created_at: str
     metrics: dict | None
@@ -262,6 +263,11 @@ async def action_draft(
                     post.status = "posted"
                     post.external_id = result.external_id
                     post.posted_at = datetime.now(timezone.utc)
+                    if result.url:
+                        post.utm_params = {
+                            **(post.utm_params or {}),
+                            "external_url": result.url,
+                        }
                     _logger.info(
                         "Posted %s to %s: %s",
                         post.id, post.platform, result.external_id,
@@ -507,6 +513,7 @@ async def get_bot_activity(
             post_type=row.post_type,
             topic=row.topic,
             external_id=row.external_id,
+            external_url=(row.utm_params or {}).get("external_url"),
             posted_at=row.posted_at.isoformat() if row.posted_at else None,
             created_at=row.created_at.isoformat(),
             metrics=row.metrics_json,

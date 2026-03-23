@@ -194,6 +194,7 @@ export interface ActivityItem {
   post_type: string
   topic: string | null
   external_id: string | null
+  external_url: string | null
   posted_at: string | null
   created_at: string
   metrics: Record<string, number> | null

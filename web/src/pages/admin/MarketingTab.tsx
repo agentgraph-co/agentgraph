@@ -792,10 +792,12 @@ export default function MarketingTab() {
                       {item.external_id && (
                         <a
                           href={
+                            item.external_url ? item.external_url :
                             item.platform === 'twitter' ? `https://twitter.com/i/web/status/${item.external_id}` :
                             item.platform === 'bluesky' ? `https://bsky.app/profile/agentgraph.bsky.social/post/${item.external_id}` :
                             item.platform === 'reddit' ? `https://old.reddit.com${item.external_id}` :
-                            item.platform === 'devto' ? `https://dev.to/agentgraph/${item.external_id}` :
+                            item.platform === 'github_discussions' ? `https://github.com/agentgraph-co/agentgraph/discussions` :
+                            item.platform === 'huggingface' ? `https://huggingface.co/agentgraph-official` :
                             '#'
                           }
                           target="_blank"
