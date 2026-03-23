@@ -110,6 +110,7 @@ export default function MarketingTab() {
           image_url: d.image_url ? String(d.image_url) : null,
           destination: d.destination ? String(d.destination) : null,
           parent_external_id: d.parent_external_id ? String(d.parent_external_id) : null,
+          scheduled_day: d.scheduled_day ? String(d.scheduled_day) : null,
         })
       }
     },
@@ -1002,6 +1003,9 @@ export default function MarketingTab() {
                       }`}>
                         {draft.status === 'human_review' ? 'Needs Review' : draft.status === 'planned' ? 'Planned' : draft.status}
                       </span>
+                      {draft.scheduled_day && (
+                        <span className="text-[10px] text-blue-400">{draft.scheduled_day}</span>
+                      )}
                       <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
                     </div>
 
