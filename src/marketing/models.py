@@ -29,7 +29,7 @@ class MarketingCampaign(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(200), nullable=False)
-    topic = Column(String(100), nullable=False)
+    topic = Column(String(200), nullable=False)
     platforms = Column(ARRAY(String(50)), nullable=False, server_default="{}")
     status = Column(String(20), nullable=False, server_default="draft")
     schedule_config = Column(JSONB, nullable=True)
@@ -66,7 +66,7 @@ class MarketingPost(Base):
     content = Column(Text, nullable=False)
     content_hash = Column(String(64), nullable=False)
     post_type = Column(String(20), nullable=False)
-    topic = Column(String(100), nullable=True)
+    topic = Column(String(200), nullable=True)
     status = Column(String(20), nullable=False, server_default="draft")
     parent_external_id = Column(String(255), nullable=True)
 
