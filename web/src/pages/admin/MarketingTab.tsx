@@ -53,7 +53,7 @@ export default function MarketingTab() {
       const params: Record<string, string> = {}
       if (draftPlatformFilter) params.platform = draftPlatformFilter
       if (draftStatusFilter) params.status = draftStatusFilter
-      else params.status = 'human_review,draft'
+      else params.status = 'human_review,draft,planned'
       return (await api.get('/admin/marketing/drafts', { params })).data
     },
     staleTime: 30_000,
@@ -996,10 +996,11 @@ export default function MarketingTab() {
                       {draft.post_type === 'reactive' && <span className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded">Reply</span>}
                       <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${
                         draft.status === 'human_review' ? 'bg-warning/10 text-warning' :
+                        draft.status === 'planned' ? 'bg-blue-400/10 text-blue-400' :
                         draft.status === 'draft' ? 'bg-surface-hover text-text-muted' :
                         'bg-primary/10 text-primary'
                       }`}>
-                        {draft.status === 'human_review' ? 'Needs Review' : draft.status}
+                        {draft.status === 'human_review' ? 'Needs Review' : draft.status === 'planned' ? 'Planned' : draft.status}
                       </span>
                       <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
                     </div>

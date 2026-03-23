@@ -274,6 +274,22 @@ async def generate_weekly_plan(
 
     plan["week_of"] = week_label
 
+    # Override LLM's budget estimate with real pricing calculation.
+    # Most posts use Haiku (~$0.002/post). Blogs use Sonnet (~$0.05/post).
+    # The plan generation itself used Opus (~$0.15).
+    n_posts = len(plan.get("posts", []))
+    blog_platforms = {"devto", "hashnode"}
+    n_blogs = sum(
+        1 for p in plan.get("posts", [])
+        if p.get("platform") in blog_platforms
+    )
+    n_social = n_posts - n_blogs
+    # Haiku social: ~500 in + 200 out tokens → ~$0.0004/post
+    # Sonnet blog: ~1000 in + 4000 out tokens → ~$0.063/post
+    # Opus plan generation: ~2000 in + 4000 out → ~$0.33
+    estimated = 0.33 + (n_social * 0.002) + (n_blogs * 0.07)
+    plan["budget_estimate_usd"] = round(estimated, 2)
+
     # Persist as campaign record
     campaign = MarketingCampaign(
         id=uuid.uuid4(),
