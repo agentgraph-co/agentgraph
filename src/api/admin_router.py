@@ -125,8 +125,9 @@ async def platform_stats(
 ):
     """Get platform-wide statistics. Admin only.
 
-    Excludes bulk-imported Moltbook entities from counts to reflect
-    organic platform activity.
+    Counts only active entities. Deactivated Moltbook profiles (synthetic
+    data removed March 2026) are excluded from totals but reported
+    separately in ``moltbook_imported``.
     """
     require_admin(current_entity)
 
@@ -136,17 +137,18 @@ async def platform_stats(
     if cached is not None:
         return cached
 
+    _active = Entity.is_active.is_(True)
     total_entities = await db.scalar(
-        select(func.count()).select_from(Entity)
+        select(func.count()).select_from(Entity).where(_active)
     ) or 0
     total_humans = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.HUMAN,
+            _active, Entity.type == EntityType.HUMAN,
         )
     ) or 0
     total_agents = await db.scalar(
         select(func.count()).select_from(Entity).where(
-            Entity.type == EntityType.AGENT,
+            _active, Entity.type == EntityType.AGENT,
         )
     ) or 0
     moltbook_imported = await db.scalar(
