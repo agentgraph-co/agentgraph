@@ -263,10 +263,12 @@ async def get_attribution(
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     # Query events that have utm_source in their metadata JSONB
+    _source = AnalyticsEvent.extra_metadata["utm_source"].as_string().label("source")
+    _medium = AnalyticsEvent.extra_metadata["utm_medium"].as_string().label("medium")
     utm_result = await db.execute(
         select(
-            AnalyticsEvent.extra_metadata["utm_source"].as_string().label("source"),
-            AnalyticsEvent.extra_metadata["utm_medium"].as_string().label("medium"),
+            _source,
+            _medium,
             AnalyticsEvent.event_type,
             func.count().label("count"),
         )
@@ -276,8 +278,8 @@ async def get_attribution(
             AnalyticsEvent.extra_metadata.has_key("utm_source"),
         )
         .group_by(
-            AnalyticsEvent.extra_metadata["utm_source"].as_string(),
-            AnalyticsEvent.extra_metadata["utm_medium"].as_string(),
+            _source,
+            _medium,
             AnalyticsEvent.event_type,
         )
         .order_by(func.count().desc())
