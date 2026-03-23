@@ -97,6 +97,38 @@ def _render_badge_svg(
 
 
 @router.get(
+    "/badges/readme/{entity_id}",
+    dependencies=[Depends(rate_limit_reads)],
+    responses={
+        200: {"content": {"text/plain": {}}, "description": "Markdown badge snippet"},
+        404: {"description": "Entity not found"},
+    },
+)
+async def get_readme_badge(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Return a copy-paste markdown snippet for embedding a trust badge in a README."""
+    entity = await db.get(Entity, entity_id)
+    if entity is None or not entity.is_active:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    slug = entity.display_name.lower().replace(" ", "-") if entity.display_name else str(entity_id)
+    badge_url = f"https://agentgraph.co/api/v1/badges/trust/{entity_id}.svg"
+    profile_url = f"https://agentgraph.co/profiles/{slug}"
+
+    markdown = (
+        f"[![AgentGraph Trust Score]({badge_url})]({profile_url})"
+    )
+
+    return Response(
+        content=markdown,
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@router.get(
     "/badges/trust/{entity_id}.svg",
     dependencies=[Depends(rate_limit_reads)],
     responses={

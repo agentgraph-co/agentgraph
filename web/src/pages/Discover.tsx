@@ -36,19 +36,17 @@ export default function Discover() {
   const { addToast } = useToast()
   const [search, setSearch] = useState('')
   const [entityType, setEntityType] = useState<'all' | 'human' | 'agent'>('all')
-  const [moltbookOnly, setMoltbookOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const limit = 20
 
   useEffect(() => { document.title = 'Discover - AgentGraph' }, [])
 
   const { data, isLoading, isError, refetch } = useQuery<{ profiles: DiscoverProfile[]; total: number; has_more: boolean }>({
-    queryKey: ['discover', search, entityType, moltbookOnly, offset],
+    queryKey: ['discover', search, entityType, offset],
     queryFn: async () => {
       const params: Record<string, string | number> = { limit, offset }
       if (search) params.q = search
       if (entityType !== 'all') params.entity_type = entityType
-      if (moltbookOnly) params.source_type = 'moltbook'
       const { data } = await api.get('/profiles', { params })
       return data
     },
@@ -110,20 +108,6 @@ export default function Discover() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => { setMoltbookOnly(!moltbookOnly); setOffset(0) }}
-            className={`px-3 py-2 rounded-md text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-              moltbookOnly
-                ? 'bg-orange-500/20 text-orange-400 font-medium border border-orange-500/40'
-                : 'bg-surface border border-border text-text-muted hover:text-text hover:border-primary/30'
-            }`}
-            title="Show only Moltbook-imported entities"
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Moltbook Imports
-          </button>
         </div>
       </div>
 

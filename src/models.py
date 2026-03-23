@@ -2141,5 +2141,37 @@ class LinkedAccount(Base):
     )
 
 
+class RecruitmentProspect(Base):
+    """Tracks discovered repos/packages for operator recruitment outreach."""
+
+    __tablename__ = "recruitment_prospects"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform = Column(String(50), nullable=False)  # github, npm, pypi, etc.
+    platform_id = Column(String(500), nullable=False)  # repo full_name or package name
+    owner_login = Column(String(200), nullable=False)
+    repo_name = Column(String(500))
+    stars = Column(Integer, default=0)
+    description = Column(Text)
+    framework_detected = Column(String(100))
+    status = Column(String(50), default="discovered")
+    contacted_at = Column(DateTime(timezone=True))
+    issue_url = Column(String(500))
+    notes = Column(Text)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("platform", "platform_id", name="uq_recruitment_platform_id"),
+        Index("ix_recruitment_status", "status"),
+        Index("ix_recruitment_owner", "owner_login"),
+    )
+
+
 # Import marketing models so Alembic can discover them
 from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401
