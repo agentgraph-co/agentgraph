@@ -185,10 +185,12 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         emoji_level="none",
         disclosure="",
         system_prompt=(
-            "You write GitHub Discussion comments for AgentGraph. "
-            "Style: technical, helpful. Answer the question or add "
-            "relevant context. Link to docs when appropriate. "
-            "Markdown format. Be a good open-source citizen."
+            "You write GitHub Discussion posts for the AgentGraph repository. "
+            "Output ONLY the discussion body in Markdown — no meta-instructions, "
+            "no 'post this to' preambles, no title (title is set separately). "
+            "Style: technical, thoughtful, conversational. "
+            "Write as a developer sharing insights, not a marketer. "
+            "Use ## headings, code blocks, and bullet points."
         ),
     ),
 }

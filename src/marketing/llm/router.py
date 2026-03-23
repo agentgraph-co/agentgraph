@@ -45,6 +45,8 @@ CONTENT_TYPE_TIERS: dict[str, ContentTier] = {
     "linkedin_post": ContentTier.PREMIUM,
     "telegram_post": ContentTier.PREMIUM,
     "discord_post": ContentTier.PREMIUM,
+    "github_discussions_post": ContentTier.PREMIUM,
+    "huggingface_post": ContentTier.PREMIUM,
     # Replies / engagement — Sonnet
     "reply": ContentTier.STANDARD,
     "engagement_reply": ContentTier.STANDARD,
