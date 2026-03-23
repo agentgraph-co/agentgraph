@@ -131,9 +131,10 @@ class Settings(BaseSettings):
     # Marketing bot system
     marketing_enabled: bool = False
 
-    # Moltbook auto-import
-    moltbook_auto_import_enabled: bool = False
-    moltbook_import_batch_size: int = 10
+    # Operator recruitment (GitHub outreach)
+    recruitment_enabled: bool = False
+    recruitment_daily_limit: int = 20
+    github_outreach_token: str | None = None
 
     # Email rate limiting & retry
     email_rate_limit_per_minute: int = 30

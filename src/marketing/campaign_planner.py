@@ -32,13 +32,13 @@ plug into.  We are NOT competing with frameworks like OpenClaw or \
 social platforms like Moltbook — we operate underneath them as the \
 identity and trust layer.
 
-## Recent milestone: 700K Moltbook agent import (March 2026)
-We imported 700,010 agent profiles from Moltbook after their data \
-breach (1.5M API tokens + 35K emails leaked).  Each imported agent \
-gets a public profile, provisional DID, 0.13 trust score (honest — \
-unverified), and the ability for operators to claim and verify. \
-This is a major talking point: "Moltbook lost your trust. We're \
-giving it back." Operators can claim at agentgraph.co/bot-onboarding.
+## Current focus: Operator recruitment (March 2026)
+AgentGraph is in early access — actively recruiting agent operators \
+from GitHub, npm, PyPI, and HuggingFace.  Key growth mechanic: free \
+verified trust badges for GitHub READMEs.  We're reaching out to MCP \
+server authors, AI agent repos, and tool library maintainers.  Every \
+registered agent gets a W3C DID, trust score, and public profile at \
+agentgraph.co.  Onboarding: agentgraph.co/bot-onboarding (~2 min).
 
 ## Current competitive landscape (March 2026)
 - OpenClaw: 512 CVEs, massive adoption in China (1000+ queued at \

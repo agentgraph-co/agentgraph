@@ -54,6 +54,7 @@ from src.api.interaction_router import router as interaction_router
 from src.api.langchain_router import router as langchain_router
 from src.api.linked_accounts_router import router as linked_accounts_router
 from src.api.marketing_router import router as marketing_router
+from src.api.recruitment_router import router as recruitment_router
 from src.api.marketplace_router import router as marketplace_router
 from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
@@ -630,6 +631,7 @@ app.include_router(aip_v2_router, prefix=settings.api_v1_prefix)
 app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
 app.include_router(campaign_router, prefix=settings.api_v1_prefix)
 app.include_router(marketing_router, prefix=settings.api_v1_prefix)
+app.include_router(recruitment_router, prefix=settings.api_v1_prefix)
 app.include_router(token_router, prefix=settings.api_v1_prefix)
 
 

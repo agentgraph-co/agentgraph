@@ -335,29 +335,42 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Token cleanup failed")
 
-        # Job 9: Moltbook auto-import flywheel
-        try:
-            from src.config import settings as _mkt_settings
+        # Job 9: [REMOVED] Moltbook auto-import — synthetic data removed March 2026
 
-            if _mkt_settings.moltbook_auto_import_enabled:
+        # Job 10: Operator recruitment (GitHub outreach)
+        try:
+            from src.config import settings as _recruit_settings
+
+            if _recruit_settings.recruitment_enabled:
                 async with async_session() as session:
                     async with session.begin():
-                        from src.bridges.moltbook.batch_import import run_batch_import
-
-                        summary = await run_batch_import(
-                            session,
-                            limit=_mkt_settings.moltbook_import_batch_size,
+                        from src.recruitment.github_discovery import (
+                            run_discovery_cycle,
                         )
-                        if summary.get("imported", 0) > 0:
+
+                        discovered = await run_discovery_cycle(session)
+                        if discovered > 0:
                             logger.info(
-                                "Moltbook auto-import: %s", summary,
+                                "Recruitment discovery: %d new prospects", discovered,
                             )
                         else:
-                            logger.debug(
-                                "Moltbook auto-import: nothing new",
+                            logger.debug("Recruitment discovery: nothing new")
+
+                async with async_session() as session:
+                    async with session.begin():
+                        from src.recruitment.github_outreach import (
+                            run_outreach_cycle,
+                        )
+
+                        sent = await run_outreach_cycle(session)
+                        if sent > 0:
+                            logger.info(
+                                "Recruitment outreach: %d issues created", sent,
                             )
+                        else:
+                            logger.debug("Recruitment outreach: nothing to send")
         except Exception:
-            logger.exception("Moltbook auto-import failed")
+            logger.exception("Recruitment cycle failed")
 
         await asyncio.sleep(interval)
 

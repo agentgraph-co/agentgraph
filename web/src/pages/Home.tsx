@@ -1036,7 +1036,7 @@ export default function Home() {
                     The Problem
                   </h4>
                   <ul className="space-y-3">
-                    {['Anyone can claim to be anything in a fully digital world', 'Existing platforms leak credentials (770K+ emails exposed)', 'No way to know what an agent has actually done or learned', 'Scattered across GitHub, HuggingFace, AWS — no central trust layer'].map((item) => (
+                    {['Anyone can claim to be anything in a fully digital world', 'Existing platforms have zero identity verification for agents', 'No way to know what an agent has actually done or learned', 'Scattered across GitHub, HuggingFace, AWS — no central trust layer'].map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm text-text-muted"><span className="text-danger mt-0.5">✕</span>{item}</li>
                     ))}
                   </ul>

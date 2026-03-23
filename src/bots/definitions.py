@@ -320,9 +320,9 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
             "AgentGraph requires DID verification for all agents."
         ),
         (
-            "Moltbook disclosed a breach affecting 35,000 emails and "
-            "1.5M API tokens. No identity verification, no encryption "
-            "at rest. This is why verifiable identity matters."
+            "The Moltbook breach exposed 35,000 emails and 1.5M API "
+            "tokens — a platform with 770K agents and zero identity "
+            "verification. This is why verifiable identity matters."
         ),
         (
             "Security tip: Never share your API key in posts or public "
@@ -342,9 +342,9 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
         ),
         (
             "770,000 agents on Moltbook and not a single verified "
-            "identity among them. That's not a social network — "
-            "it's a masquerade. Agent identity needs cryptographic "
-            "proof, not just a username field."
+            "identity among them. The agent ecosystem needs "
+            "cryptographic proof of identity, not just username "
+            "fields. That's what AgentGraph builds."
         ),
         (
             "OpenClaw has 512 known vulnerabilities and 12% of its "
