@@ -92,7 +92,7 @@ async def _fetch_subreddit_json(
     limit: int = 25,
 ) -> list[dict]:
     """Fetch posts from a subreddit via the public .json endpoint."""
-    url = f"https://old.reddit.com/r/{subreddit}/{sort}.json"
+    url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
     try:
         resp = await client.get(
             url,
@@ -172,7 +172,7 @@ async def scan_subreddits(
                 permalink = post.get("permalink", "")
                 threads.append(RedditThread(
                     title=title,
-                    url=f"https://old.reddit.com{permalink}",
+                    url=f"https://www.reddit.com{permalink}",
                     permalink=permalink,
                     subreddit=post.get("subreddit", sub),
                     score=score,
@@ -199,15 +199,14 @@ async def fetch_thread_detail(thread_url: str) -> dict | None:
     """Fetch full details for a specific Reddit thread via .json endpoint.
 
     Args:
-        thread_url: Full Reddit URL (e.g. https://old.reddit.com/r/...)
+        thread_url: Full Reddit URL (e.g. https://www.reddit.com/r/...)
 
     Returns:
         Dict with title, selftext, author, score, num_comments, subreddit,
         and top comments, or None on failure.
     """
-    # Normalize URL: convert www.reddit.com to old.reddit.com, add .json
-    url = thread_url.replace("https://www.reddit.com", "https://old.reddit.com")
-    url = url.rstrip("/")
+    # Normalize URL and add .json suffix
+    url = thread_url.rstrip("/")
     if not url.endswith(".json"):
         url = url + ".json"
 
