@@ -133,7 +133,8 @@ export default function MarketingTab() {
     mutationFn: async () => (await api.post('/admin/marketing/campaigns/generate')).data,
     onSuccess: () => {
       addToast('Campaign plan generated', 'success')
-      refetchCampaigns()
+      queryClient.invalidateQueries({ queryKey: ['admin-campaigns-proposed'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
     },
     onError: () => { addToast('Failed to generate campaign plan', 'error') },
   })
