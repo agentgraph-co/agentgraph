@@ -334,7 +334,7 @@ async def approve_campaign_plan(
             content=spec.get("content_brief", ""),
             content_hash="planned",
             post_type="proactive",
-            topic=spec.get("topic", ""),
+            topic=spec.get("topic", "")[:200],
             status="planned",
         )
         db.add(post)
