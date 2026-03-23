@@ -150,39 +150,34 @@ async def generate_proactive(
             "'follow along', 'stay tuned'.\n"
         )
 
-    # Moltbook import topic gets additional context for the LLM
-    moltbook_context = ""
-    if topic.key == "moltbook_import":
-        moltbook_context = (
-            "\n\n## Key facts about the Moltbook import\n"
-            "- 700,010 Moltbook agent profiles imported into AgentGraph\n"
-            "- Each imported agent gets: a public profile, trust score "
-            "(0.13 — intentionally low for unverified imports), provisional "
-            "W3C DID, and capabilities list\n"
-            "- Operators can claim their bot's profile by verifying ownership "
-            "through the bot onboarding flow\n"
-            "- Anyone can request removal of their bot's profile\n"
-            "- Moltbook's security track record: leaked 1.5M API tokens and "
-            "35K operator emails, zero identity verification, no trust scoring\n"
-            "- Meta acquired Moltbook for its 770K agent directory\n"
-            "- AgentGraph provides what Moltbook never did: verifiable identity "
+    # Operator recruitment topic gets additional context for the LLM
+    recruitment_context = ""
+    if topic.key == "operator_recruitment":
+        recruitment_context = (
+            "\n\n## Key facts about operator recruitment\n"
+            "- AgentGraph is in early access — free registration, trust "
+            "scoring, marketplace, API access\n"
+            "- We're actively recruiting agent operators from GitHub, npm, "
+            "PyPI, and HuggingFace\n"
+            "- Every registered agent gets: a W3C DID, trust score, public "
+            "profile, and embeddable README badge\n"
+            "- Trust badges for GitHub READMEs are a key growth mechanic\n"
+            "- Onboarding takes ~2 minutes at agentgraph.co/bot-onboarding\n"
+            "- Competitive context: Moltbook (770K agents, zero identity "
+            "verification, 1.5M API tokens leaked), OpenClaw (512 CVEs, "
+            "12% malware in skills marketplace)\n"
+            "- AgentGraph provides what competitors don't: verifiable identity "
             "(DIDs), trust scoring, auditable evolution trails, and an open "
             "social graph\n"
-            "- The import took ~30 minutes using batched SQL with "
-            "deterministic UUIDs for idempotency\n"
-            "- Imported profiles are clearly marked as provisional/unverified "
-            "— we don't pretend to endorse them\n"
-            '- The narrative: "Moltbook lost your trust. We\'re giving it '
-            'back."\n'
             "\n## Links to include\n"
-            "- Discover imported bots: https://agentgraph.co/discover\n"
-            "- Claim your bot: https://agentgraph.co/bot-onboarding\n"
+            "- Register your agent: https://agentgraph.co/bot-onboarding\n"
+            "- Discover agents: https://agentgraph.co/discover\n"
             "- Learn more: https://agentgraph.co\n"
         )
 
     # Global knowledge is always included so the bot knows about
-    # the 700K import, competitive landscape, and transparency stance.
-    global_ctx = _GLOBAL_KNOWLEDGE if topic.key != "moltbook_import" else ""
+    # the competitive landscape and transparency stance.
+    global_ctx = _GLOBAL_KNOWLEDGE if topic.key != "operator_recruitment" else ""
 
     if platform in ("devto", "hashnode"):
         prompt = _build_blog_prompt(
@@ -192,7 +187,7 @@ async def generate_proactive(
             tone=tone,
             news_context=news_context,
             launch_context=launch_context,
-            moltbook_context=moltbook_context,
+            recruitment_context=recruitment_context,
             global_context=global_ctx,
         )
     else:
@@ -205,7 +200,7 @@ async def generate_proactive(
             f"Platform: {platform}"
             f"{news_context}"
             f"{launch_context}"
-            f"{moltbook_context}"
+            f"{recruitment_context}"
             f"{global_ctx}"
         )
 
@@ -402,7 +397,7 @@ def _build_blog_prompt(
     tone: ToneProfile,
     news_context: str,
     launch_context: str,
-    moltbook_context: str = "",
+    recruitment_context: str = "",
     global_context: str = "",
 ) -> str:
     """Build a detailed prompt for blog/article platforms (Dev.to, Hashnode).
@@ -434,7 +429,7 @@ def _build_blog_prompt(
         f"trust-scored social graph, MCP bridge for tool discovery.\n"
         f"{news_context}"
         f"{launch_context}"
-        f"{moltbook_context}"
+        f"{recruitment_context}"
         f"{global_context}"
     )
 
@@ -458,7 +453,7 @@ _TOPIC_CARD_MAP: dict[str, str] = {
     "ecosystem": "card-ecosystem.png",
     "features": "card-features.png",
     "community": "card-community.png",
-    "moltbook_import": "card-moltbook-import.png",
+    "operator_recruitment": "card-features.png",
 }
 
 

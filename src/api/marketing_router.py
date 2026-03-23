@@ -360,8 +360,8 @@ async def trigger_marketing_tick(
 
 class MilestoneTriggerRequest(BaseModel):
     topic: str = Field(
-        "moltbook_import",
-        description="Topic key to generate drafts for (default: moltbook_import)",
+        "operator_recruitment",
+        description="Topic key to generate drafts for (default: operator_recruitment)",
     )
     platforms: list[str] | None = Field(
         None,
@@ -380,7 +380,7 @@ async def trigger_milestone_drafts(
     """Generate drafts for a milestone event across all platforms.
 
     All drafts go to human_review status — nothing is auto-posted.
-    Default topic is ``moltbook_import`` (the 700K import milestone).
+    Default topic is ``operator_recruitment``.
     """
     require_admin(current_entity)
     from src.marketing.orchestrator import generate_milestone_drafts
