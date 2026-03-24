@@ -56,6 +56,7 @@ ignore = ["UP007"]  # We handle union types with __future__ annotations
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["E501"]  # Scripts have long string literals (SVG paths, seed data)
+"src/api/badge_router.py" = ["E501"]  # SVG templates have long inline XML
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

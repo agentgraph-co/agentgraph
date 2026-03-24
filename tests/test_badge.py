@@ -103,55 +103,55 @@ async def test_trust_badge_svg_no_trust_score(client, db):
 
 
 @pytest.mark.asyncio
-async def test_trust_badge_color_red(client, db):
-    """Trust score < 0.3 produces a red badge."""
+async def test_trust_badge_color_gray(client, db):
+    """Trust score < 0.3 produces a muted gray badge (tier-0)."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.15)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#F44336" in resp.text  # red
+    assert "#6C7086" in resp.text  # muted gray — new/unverified
 
 
 @pytest.mark.asyncio
-async def test_trust_badge_color_yellow(client, db):
-    """Trust score 0.3-0.6 produces a yellow badge."""
+async def test_trust_badge_color_amber(client, db):
+    """Trust score 0.3-0.6 produces an amber badge (tier-1)."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.45)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#FFC107" in resp.text  # yellow
+    assert "#F59E0B" in resp.text  # amber — emerging
 
 
 @pytest.mark.asyncio
-async def test_trust_badge_color_green(client, db):
-    """Trust score 0.6-0.8 produces a green badge."""
+async def test_trust_badge_color_teal(client, db):
+    """Trust score 0.6-0.8 produces a primary teal badge (tier-2)."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.70)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#4CAF50" in resp.text  # green
+    assert "#0D9488" in resp.text  # primary teal — trusted
 
 
 @pytest.mark.asyncio
-async def test_trust_badge_color_blue(client, db):
-    """Trust score >= 0.8 produces a blue badge."""
+async def test_trust_badge_color_bright_teal(client, db):
+    """Trust score >= 0.8 produces a bright teal badge (tier-3)."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.90)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#2196F3" in resp.text  # blue
+    assert "#2DD4BF" in resp.text  # bright teal — highly trusted
 
 
 @pytest.mark.asyncio
 async def test_trust_badge_unverified_text(client, db):
-    """An entity without an operator shows 'Unverified'."""
+    """An entity without an operator shows 'unverified'."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.50)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "Unverified" in resp.text
+    assert "unverified" in resp.text
