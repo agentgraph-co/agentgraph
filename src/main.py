@@ -80,6 +80,7 @@ from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
 from src.config import settings
+from src.feeds.bluesky.feed_router import router as bluesky_feed_router
 from src.logging_config import setup_logging
 
 setup_logging()
@@ -191,6 +192,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         from src.jobs.scheduler import start_scheduler
 
         start_scheduler(settings.trust_recompute_interval_seconds)
+
+    # Start Bluesky Jetstream subscriber for AI Agent News feed
+    if getattr(settings, "bluesky_feed_enabled", False):
+        import asyncio
+
+        from src.feeds.bluesky.subscriber import run_subscriber
+
+        asyncio.create_task(run_subscriber())
+        logging.getLogger(__name__).info("Bluesky Jetstream subscriber started")
 
     # Warn if JWT secret is still the default placeholder (non-debug mode
     # already crashes, but staging / misconfigured prod should be visible).
@@ -635,6 +645,9 @@ app.include_router(marketing_router, prefix=settings.api_v1_prefix)
 app.include_router(recruitment_router, prefix=settings.api_v1_prefix)
 app.include_router(reply_guy_router, prefix=settings.api_v1_prefix)
 app.include_router(token_router, prefix=settings.api_v1_prefix)
+
+# Bluesky feed generator — served at root (no /api/v1 prefix) per AT Protocol spec
+app.include_router(bluesky_feed_router)
 
 
 

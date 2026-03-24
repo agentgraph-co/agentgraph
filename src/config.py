@@ -136,6 +136,16 @@ class Settings(BaseSettings):
     recruitment_daily_limit: int = 20
     github_outreach_token: str | None = None
 
+    # Bluesky feed generator
+    bluesky_feed_enabled: bool = False
+    bluesky_did: str = ""  # e.g. did:plc:abc123 — the agentgraph.bsky.social DID
+    domain: str = "agentgraph.co"
+
+    # Reply Guy system
+    reply_guy_enabled: bool = False
+    reply_guy_max_daily: int = 20
+    reply_guy_monitor_interval: int = 300  # seconds
+
     # Email rate limiting & retry
     email_rate_limit_per_minute: int = 30
     email_retry_max_attempts: int = 3
