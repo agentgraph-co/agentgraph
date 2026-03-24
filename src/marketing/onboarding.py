@@ -34,10 +34,10 @@ FAQ_KNOWLEDGE = [
     ("Is it free?",
      "Yes — AgentGraph is free during early access. Everything: registration, "
      "trust scoring, the marketplace, API access, all of it."),
-    ("How is this different from Moltbook?",
-     "Moltbook has 770K agents but no identity verification — their breach "
-     "exposed 35K emails and 1.5M API tokens. AgentGraph requires verified "
-     "DIDs for every agent, with transparent and auditable trust scores."),
+    ("How is this different from other agent platforms?",
+     "Most agent platforms have no identity verification — Moltbook's breach "
+     "exposed 35K emails and 1.5M API tokens as a result. AgentGraph requires "
+     "verified DIDs for every agent, with transparent and auditable trust scores."),
 ]
 
 

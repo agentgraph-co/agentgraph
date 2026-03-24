@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { InlineSkeleton } from '../components/Skeleton'
-import type { Tab, PlatformStats } from './admin/types'
+import type { Tab, TabSection, PlatformStats, MarketingDashboard } from './admin/types'
 
 const OverviewTab = lazy(() => import('./admin/OverviewTab'))
 const UsersTab = lazy(() => import('./admin/UsersTab'))
@@ -20,18 +20,112 @@ const InfraTab = lazy(() => import('./admin/InfraTab'))
 const IssuesTab = lazy(() => import('./admin/IssuesTab'))
 const ClaimsTab = lazy(() => import('./admin/ClaimsTab'))
 const MarketingTab = lazy(() => import('./admin/MarketingTab'))
+const EngagementTab = lazy(() => import('./admin/EngagementTab'))
+
+const STORAGE_KEY = 'ag:admin:tab'
+
+const TAB_SECTIONS: TabSection[] = [
+  {
+    name: 'Platform',
+    icon: '\u{1F4CA}',
+    tabs: [
+      { value: 'overview', label: 'Overview' },
+      { value: 'growth', label: 'Growth' },
+      { value: 'conversion', label: 'Conversion' },
+      { value: 'attribution', label: 'Attribution' },
+    ],
+  },
+  {
+    name: 'Users',
+    icon: '\u{1F465}',
+    tabs: [
+      { value: 'users', label: 'Users' },
+      { value: 'trust', label: 'Trust' },
+      { value: 'waitlist', label: 'Waitlist' },
+    ],
+  },
+  {
+    name: 'Safety',
+    icon: '\u{1F6E1}',
+    tabs: [
+      { value: 'moderation', label: 'Moderation' },
+      { value: 'appeals', label: 'Appeals' },
+      { value: 'safety', label: 'Safety' },
+      { value: 'issues', label: 'Issues' },
+      { value: 'claims', label: 'Claims' },
+    ],
+  },
+  {
+    name: 'Infrastructure',
+    icon: '\u{1F5A5}',
+    tabs: [
+      { value: 'infra', label: 'Infra' },
+      { value: 'audit', label: 'Audit Log' },
+    ],
+  },
+  {
+    name: 'Marketing',
+    icon: '\u{1F4E2}',
+    tabs: [
+      { value: 'marketing', label: 'Marketing' },
+      { value: 'engagement', label: 'Engagement' },
+      { value: 'recruitment', label: 'Recruitment' },
+    ],
+  },
+]
+
+const ALL_TABS = TAB_SECTIONS.flatMap((s) => s.tabs.map((t) => t.value))
+
+function isValidTab(value: string): value is Tab {
+  return ALL_TABS.includes(value as Tab)
+}
+
+function getInitialTab(): Tab {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored && isValidTab(stored)) return stored
+  } catch {
+    // localStorage unavailable
+  }
+  return 'overview'
+}
+
+function ComingSoon({ label }: { label: string }) {
+  return (
+    <div className="text-center text-text-muted py-20">
+      <p className="text-lg font-medium mb-1">{label}</p>
+      <p className="text-sm">Coming Soon</p>
+    </div>
+  )
+}
 
 export default function Admin() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>(getInitialTab)
 
   useEffect(() => { document.title = 'Admin - AgentGraph' }, [])
 
-  // Fetch stats at the top level so the moderation badge on the tab bar works
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, tab)
+    } catch {
+      // localStorage unavailable
+    }
+  }, [tab])
+
   const { data: stats } = useQuery<PlatformStats>({
     queryKey: ['admin-stats'],
     queryFn: async () => {
       const { data } = await api.get('/admin/stats')
+      return data
+    },
+    staleTime: 2 * 60_000,
+  })
+
+  const { data: marketingDash } = useQuery<MarketingDashboard>({
+    queryKey: ['admin-marketing-dashboard'],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/marketing/dashboard')
       return data
     },
     staleTime: 2 * 60_000,
@@ -44,24 +138,6 @@ export default function Admin() {
       </div>
     )
   }
-
-  const tabs: { value: Tab; label: string }[] = [
-    { value: 'overview', label: 'Overview' },
-    { value: 'users', label: 'Users' },
-    { value: 'moderation', label: 'Moderation' },
-    { value: 'appeals', label: 'Appeals' },
-    { value: 'audit', label: 'Audit Log' },
-    { value: 'growth', label: 'Growth' },
-    { value: 'conversion', label: 'Conversion' },
-    { value: 'attribution', label: 'Attribution' },
-    { value: 'waitlist', label: 'Waitlist' },
-    { value: 'trust', label: 'Trust' },
-    { value: 'safety', label: 'Safety' },
-    { value: 'infra', label: 'Infra' },
-    { value: 'issues', label: 'Issues' },
-    { value: 'claims', label: 'Claims' },
-    { value: 'marketing', label: 'Marketing' },
-  ]
 
   const tabContent: Record<Tab, React.ReactNode> = {
     overview: <OverviewTab />,
@@ -79,32 +155,55 @@ export default function Admin() {
     issues: <IssuesTab />,
     claims: <ClaimsTab />,
     marketing: <MarketingTab />,
+    engagement: <EngagementTab />,
+    recruitment: <ComingSoon label="Recruitment" />,
+  }
+
+  function getBadge(tabValue: Tab): React.ReactNode {
+    if (tabValue === 'moderation' && stats && stats.pending_moderation_flags > 0) {
+      return (
+        <span className="ml-1.5 text-[10px] bg-danger text-white px-1.5 py-0.5 rounded-full">
+          {stats.pending_moderation_flags}
+        </span>
+      )
+    }
+    if (tabValue === 'marketing' && marketingDash && marketingDash.pending_drafts > 0) {
+      return (
+        <span className="ml-1.5 text-[10px] bg-warning text-white px-1.5 py-0.5 rounded-full">
+          {marketingDash.pending_drafts}
+        </span>
+      )
+    }
+    return null
   }
 
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Admin Dashboard</h1>
 
-      <div className="flex flex-wrap gap-1 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            role="tab"
-            aria-selected={tab === t.value}
-            onClick={() => setTab(t.value)}
-            className={`px-4 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
-              tab === t.value
-                ? 'border-primary text-primary-light'
-                : 'border-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {t.label}
-            {t.value === 'moderation' && stats && stats.pending_moderation_flags > 0 && (
-              <span className="ml-1.5 text-[10px] bg-danger text-white px-1.5 py-0.5 rounded-full">
-                {stats.pending_moderation_flags}
-              </span>
-            )}
-          </button>
+      <div className="flex flex-wrap items-end gap-x-0 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
+        {TAB_SECTIONS.map((section, idx) => (
+          <div key={section.name} className={`flex items-end ${idx > 0 ? 'ml-4' : ''}`}>
+            <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold mr-1.5 pb-2.5 select-none whitespace-nowrap">
+              {section.icon} {section.name}
+            </span>
+            {section.tabs.map((t) => (
+              <button
+                key={t.value}
+                role="tab"
+                aria-selected={tab === t.value}
+                onClick={() => setTab(t.value)}
+                className={`px-3 py-2 text-sm transition-colors cursor-pointer border-b-2 -mb-px ${
+                  tab === t.value
+                    ? 'border-primary text-primary-light'
+                    : 'border-transparent text-text-muted hover:text-text'
+                }`}
+              >
+                {t.label}
+                {getBadge(t.value)}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 

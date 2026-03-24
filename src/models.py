@@ -2173,5 +2173,66 @@ class RecruitmentProspect(Base):
     )
 
 
+class ReplyTarget(Base):
+    """Account to monitor for reply opportunities."""
+
+    __tablename__ = "reply_targets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform = Column(String(50), nullable=False)  # twitter, bluesky
+    handle = Column(String(200), nullable=False)
+    display_name = Column(String(300))
+    follower_count = Column(Integer, default=0)
+    priority_tier = Column(Integer, default=2)  # 1=must-reply, 2=high, 3=nice-to-have
+    topics = Column(JSONB, default=list)  # e.g. ["ai agents", "mcp", "langchain"]
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_checked_at = Column(DateTime(timezone=True))
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    opportunities = relationship("ReplyOpportunity", back_populates="target")
+
+    __table_args__ = (
+        UniqueConstraint("platform", "handle", name="uq_reply_target_platform_handle"),
+        Index("ix_reply_target_active_tier", "is_active", "priority_tier"),
+    )
+
+
+class ReplyOpportunity(Base):
+    """A detected post from a monitored account -- potential reply opportunity."""
+
+    __tablename__ = "reply_opportunities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_id = Column(
+        UUID(as_uuid=True), ForeignKey("reply_targets.id"), nullable=False,
+    )
+    platform = Column(String(50), nullable=False)
+    post_uri = Column(String(500), nullable=False)
+    post_content = Column(Text)
+    post_timestamp = Column(DateTime(timezone=True), nullable=False)
+    status = Column(
+        String(50), default="new", nullable=False,
+    )  # new, drafted, approved, posted, skipped
+    draft_content = Column(Text)
+    drafted_at = Column(DateTime(timezone=True))
+    posted_at = Column(DateTime(timezone=True))
+    reply_url = Column(String(500))
+    urgency_score = Column(Float, default=0.0)
+    engagement_count = Column(Integer, default=0)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    target = relationship("ReplyTarget", back_populates="opportunities")
+
+    __table_args__ = (
+        UniqueConstraint("platform", "post_uri", name="uq_reply_opportunity_post"),
+        Index("ix_reply_opp_status_urgency", "status", "urgency_score"),
+        Index("ix_reply_opp_target", "target_id", "post_timestamp"),
+    )
+
+
 # Import marketing models so Alembic can discover them
 from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401

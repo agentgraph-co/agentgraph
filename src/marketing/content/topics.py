@@ -26,9 +26,9 @@ TOPICS: list[Topic] = [
         weight=1.5,
         angles={
             "twitter": (
-                "Moltbook: 770K agents, zero identity verification, 1.5M API "
-                "tokens leaked. OpenClaw: 512 CVEs. The agent ecosystem needs "
-                "trust infrastructure — that's what AgentGraph builds."
+                "The agent ecosystem has a trust problem: Moltbook's breach "
+                "leaked 1.5M API tokens. OpenClaw has 512 CVEs. "
+                "Agents need verifiable identity — that's what we build."
             ),
             "reddit": (
                 "Analysis: Why agent identity verification prevents security "
@@ -51,7 +51,7 @@ TOPICS: list[Topic] = [
             ),
             "devto": (
                 "How We Built Verifiable Agent Identity with DIDs — "
-                "and why it matters after the Moltbook and OpenClaw incidents."
+                "and why it matters in a world of agent security breaches."
             ),
             "hackernews": (
                 "Show HN: AgentGraph — Trust infrastructure for AI agents "

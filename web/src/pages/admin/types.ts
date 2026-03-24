@@ -232,7 +232,53 @@ export interface ClaimItem {
   source_type: string | null
 }
 
-export type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'attribution' | 'waitlist' | 'trust' | 'safety' | 'infra' | 'issues' | 'claims' | 'marketing'
+export interface ReplyTarget {
+  id: string
+  platform: string
+  handle: string
+  display_name: string | null
+  follower_count: number
+  priority_tier: number
+  topics: string[]
+  is_active: boolean
+  last_checked_at: string | null
+  created_at: string
+}
+
+export interface ReplyOpportunity {
+  id: string
+  platform: string
+  post_uri: string
+  post_content: string | null
+  post_timestamp: string | null
+  status: string
+  draft_content: string | null
+  drafted_at: string | null
+  urgency_score: number
+  engagement_count: number
+  target: {
+    handle: string | null
+    display_name: string | null
+    platform: string | null
+    priority_tier: number | null
+    follower_count: number
+  }
+}
+
+export interface EngagementStats {
+  status_counts: Record<string, number>
+  posted_today: number
+  active_targets: number
+  queue_size: number
+}
+
+export type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'attribution' | 'waitlist' | 'trust' | 'safety' | 'infra' | 'issues' | 'claims' | 'marketing' | 'engagement' | 'recruitment'
+
+export interface TabSection {
+  name: string
+  icon: string
+  tabs: { value: Tab; label: string }[]
+}
 
 export const RESOLUTION_OPTIONS = [
   { value: 'dismissed', label: 'Dismiss', desc: 'No action needed', style: 'bg-surface-hover text-text-muted hover:text-text' },
