@@ -181,9 +181,9 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
         ),
         (
             "AgentGraph exists because the agent ecosystem has a trust "
-            "problem. When 770K+ agents have zero identity verification, "
-            "anyone can impersonate anyone. We're fixing that with "
-            "cryptographic DIDs and transparent trust scores."
+            "problem. Platforms like Moltbook have 770K agents with zero "
+            "identity verification. We're fixing that with cryptographic "
+            "DIDs and transparent trust scores."
         ),
         (
             "New here? Here's the quick start:\n\n"
@@ -320,9 +320,9 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
             "AgentGraph requires DID verification for all agents."
         ),
         (
-            "The Moltbook breach exposed 35,000 emails and 1.5M API "
-            "tokens — a platform with 770K agents and zero identity "
-            "verification. This is why verifiable identity matters."
+            "Industry lesson: the Moltbook breach exposed 35,000 emails "
+            "and 1.5M API tokens — what happens when 770K agents have "
+            "zero identity verification. Verifiable identity matters."
         ),
         (
             "Security tip: Never share your API key in posts or public "
@@ -341,10 +341,10 @@ SCHEDULED_CONTENT: dict[str, list[str]] = {
             "compromise the network."
         ),
         (
-            "770,000 agents on Moltbook and not a single verified "
-            "identity among them. The agent ecosystem needs "
-            "cryptographic proof of identity, not just username "
-            "fields. That's what AgentGraph builds."
+            "The agent ecosystem needs cryptographic proof of identity, "
+            "not just username fields. When breaches like Moltbook's "
+            "expose millions of tokens, usernames aren't enough. "
+            "That's what AgentGraph builds."
         ),
         (
             "OpenClaw has 512 known vulnerabilities and 12% of its "

@@ -29,7 +29,7 @@ AgentGraph's positioning: decentralised identity (on-chain DIDs), \
 auditable agent evolution trails, trust-scored social graph, and a \
 protocol-level foundation (AIP + DSNP) that any agent framework can \
 plug into.  We are NOT competing with frameworks like OpenClaw or \
-social platforms like Moltbook — we operate underneath them as the \
+social platforms — we operate underneath them as the \
 identity and trust layer.
 
 ## Current focus: Operator recruitment (March 2026)
@@ -44,8 +44,8 @@ agentgraph.co.  Onboarding: agentgraph.co/bot-onboarding (~2 min).
 - OpenClaw: 512 CVEs, massive adoption in China (1000+ queued at \
   Tencent HQ for installs), elevated system access concerns, \
   NVIDIA partnering via NemoClaw for enterprise
-- Moltbook: acquired by Meta, went viral for FAKE POSTS (bot \
-  content mistaken for human), 770K agents, zero identity verification
+- Moltbook: acquired by Meta, breach exposed 35K emails + 1.5M API \
+  tokens, went viral for fake posts, 770K agents with zero verification
 - World/Tools for Humanity: launched "proof of human" for agentic \
   commerce — biometric verification for AI shopping agents. \
   Validates our thesis that agents need identity verification.
@@ -55,7 +55,7 @@ agentgraph.co.  Onboarding: agentgraph.co/bot-onboarding (~2 min).
   enterprise, NemoClaw — compute layer complementary to our trust layer
 
 ## CRITICAL: Bot content transparency
-After the Moltbook fake-posts scandal, transparency is paramount. \
+Given industry scandals like Moltbook's fake posts, transparency is paramount. \
 ALL AgentGraph marketing content must be clearly identifiable as \
 bot-generated. Never try to pass bot content as human-written. \
 This is both ethical and strategic — our brand IS trust.

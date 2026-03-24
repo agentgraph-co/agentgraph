@@ -64,6 +64,7 @@ from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.ratelimit_router import router as ratelimit_router
 from src.api.recruitment_router import router as recruitment_router
+from src.api.reply_guy_router import router as reply_guy_router
 from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.sandbox_router import router as sandbox_router
@@ -632,6 +633,7 @@ app.include_router(aip_v2_ecosystem_router, prefix=settings.api_v1_prefix)
 app.include_router(campaign_router, prefix=settings.api_v1_prefix)
 app.include_router(marketing_router, prefix=settings.api_v1_prefix)
 app.include_router(recruitment_router, prefix=settings.api_v1_prefix)
+app.include_router(reply_guy_router, prefix=settings.api_v1_prefix)
 app.include_router(token_router, prefix=settings.api_v1_prefix)
 
 
