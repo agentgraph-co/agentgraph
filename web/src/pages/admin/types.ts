@@ -163,6 +163,8 @@ export interface RedditDraftResult {
   draft_content: string
   llm_model: string | null
   llm_cost_usd: number
+  promo_eligible: boolean
+  reddit_post_number: number
 }
 
 export interface HFDiscussion {
