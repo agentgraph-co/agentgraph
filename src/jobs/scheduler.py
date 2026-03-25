@@ -17,6 +17,8 @@ Runs multiple jobs on the same interval (default 6 hours):
 14. Reply Guy monitor — check reply targets for new posts
 15. Reply Guy drafter — generate LLM reply drafts for new opportunities
 16. Bluesky starter pack refresh — recreate starter pack every 30 days
+17. Agent cleanup — hard-delete soft-deleted agents after grace period
+18. Auto-follow — follow active Bluesky reply targets daily
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -35,6 +37,7 @@ _scheduler_task: asyncio.Task | None = None
 _reply_monitor_task: asyncio.Task | None = None
 _reply_drafter_task: asyncio.Task | None = None
 _starter_pack_task: asyncio.Task | None = None
+_auto_follow_task: asyncio.Task | None = None
 
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
@@ -42,6 +45,9 @@ REPLY_DRAFTER_INTERVAL = 30 * 60   # 30 minutes
 
 # Bluesky starter pack refresh interval (30 days in seconds)
 STARTER_PACK_INTERVAL = 30 * 24 * 60 * 60
+
+# Auto-follow interval (24 hours)
+AUTO_FOLLOW_INTERVAL = 24 * 60 * 60
 
 
 async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
@@ -537,13 +543,31 @@ async def _starter_pack_loop(interval: int = STARTER_PACK_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+async def _auto_follow_loop(interval: int = AUTO_FOLLOW_INTERVAL) -> None:
+    """Job 18: Auto-follow active Bluesky reply targets daily."""
+    logger.info("Auto-follow task started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.marketing.auto_follow import run_auto_follow
+
+            stats = await run_auto_follow()
+            if stats.get("followed", 0) > 0:
+                logger.info("Auto-follow: %s", stats)
+            else:
+                logger.debug("Auto-follow: %s", stats)
+        except Exception:
+            logger.exception("Auto-follow failed")
+        await asyncio.sleep(interval)
+
+
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.
 
     Returns the asyncio.Task so it can be cancelled on shutdown.
     Safe to call multiple times -- subsequent calls are no-ops.
     """
-    global _scheduler_task, _reply_monitor_task, _reply_drafter_task, _starter_pack_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _starter_pack_task, _auto_follow_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
@@ -571,6 +595,17 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
                 STARTER_PACK_INTERVAL,
             )
 
+    # Job 18: Auto-follow Bluesky reply targets (daily)
+    if _auto_follow_task is None or _auto_follow_task.done():
+        _auto_follow_task = asyncio.create_task(
+            _auto_follow_loop(),
+            name="auto-follow-bluesky",
+        )
+        logger.info(
+            "Auto-follow task created (interval=%ds)",
+            AUTO_FOLLOW_INTERVAL,
+        )
+
     if _sched_settings.reply_guy_enabled:
         if _reply_monitor_task is None or _reply_monitor_task.done():
             _reply_monitor_task = asyncio.create_task(
@@ -596,7 +631,8 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 
 def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
-    global _scheduler_task, _reply_monitor_task, _reply_drafter_task, _starter_pack_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _starter_pack_task, _auto_follow_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
@@ -617,3 +653,8 @@ def stop_scheduler() -> None:
         _starter_pack_task.cancel()
         logger.info("Bluesky starter pack task cancelled")
     _starter_pack_task = None
+
+    if _auto_follow_task is not None and not _auto_follow_task.done():
+        _auto_follow_task.cancel()
+        logger.info("Auto-follow task cancelled")
+    _auto_follow_task = None
