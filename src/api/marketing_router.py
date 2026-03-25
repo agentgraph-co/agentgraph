@@ -130,6 +130,8 @@ class RedditDraftResponse(BaseModel):
     draft_content: str
     llm_model: str | None
     llm_cost_usd: float
+    promo_eligible: bool = False
+    reddit_post_number: int = 0
 
 
 class HFDiscussionResponse(BaseModel):
@@ -920,6 +922,19 @@ async def generate_reddit_draft(
             f"{c['body'][:200]}"
         )
 
+    # --- Reddit 10% self-promotion rule ---
+    # Track post count in Redis. Only every 10th post may mention AgentGraph.
+    from src.redis_client import get_redis
+
+    reddit_count_key = "ag:reddit:post_count"
+    redis = await get_redis()
+    post_number = 1
+    promo_eligible = False
+    if redis:
+        post_number = await redis.incr(reddit_count_key)
+        promo_eligible = post_number % 10 == 0
+    # --- end 10% rule ---
+
     extra_context = ""
     if req.context:
         extra_context = (
@@ -934,18 +949,36 @@ async def generate_reddit_draft(
     if top_comments_text:
         prompt += f"\nTop comments:{top_comments_text}\n"
     prompt += extra_context
-    prompt += (
-        "\n\nWrite a helpful, insightful reply that adds genuine value "
-        "to the discussion. Rules:\n"
-        "- Be helpful FIRST. Share knowledge or perspectives.\n"
-        "- If AgentGraph is genuinely relevant, mention it naturally — "
-        "but NEVER force it.\n"
-        "- Do NOT be promotional. No 'check out' or 'sign up' language.\n"
-        "- Match the subreddit's tone and culture.\n"
-        "- Keep it concise — 2-4 paragraphs max.\n"
-        "- No emojis, no hashtags, no marketing speak.\n"
-        "- Sound like a knowledgeable person, not a brand account.\n"
-    )
+
+    if promo_eligible:
+        prompt += (
+            "\n\nWrite a helpful, insightful reply that adds genuine "
+            "value to the discussion. Rules:\n"
+            "- Be helpful FIRST. Share knowledge or perspectives.\n"
+            "- This thread is a good fit to naturally mention "
+            "AgentGraph (agentgraph.co) if it's relevant to the "
+            "topic. Work it in organically as something you use or "
+            "built — NOT as an ad.\n"
+            "- Do NOT be promotional. No 'check out' or 'sign up'.\n"
+            "- Match the subreddit's tone and culture.\n"
+            "- Keep it concise — 2-4 paragraphs max.\n"
+            "- No emojis, no hashtags, no marketing speak.\n"
+            "- Sound like a knowledgeable person, not a brand.\n"
+        )
+    else:
+        prompt += (
+            "\n\nWrite a helpful, insightful reply that adds genuine "
+            "value to the discussion. Rules:\n"
+            "- Be genuinely helpful. Share knowledge, perspectives, "
+            "or experience.\n"
+            "- Do NOT mention AgentGraph, agentgraph.co, or any "
+            "product/project you work on. This is a pure community "
+            "contribution.\n"
+            "- Match the subreddit's tone and culture.\n"
+            "- Keep it concise — 2-4 paragraphs max.\n"
+            "- No emojis, no hashtags, no marketing speak.\n"
+            "- Sound like a knowledgeable person sharing expertise.\n"
+        )
 
     from src.marketing.llm.router import generate as llm_generate
 
@@ -981,6 +1014,8 @@ async def generate_reddit_draft(
         draft_content=result.text,
         llm_model=result.model,
         llm_cost_usd=round(cost, 6),
+        promo_eligible=promo_eligible,
+        reddit_post_number=post_number,
     )
 
 

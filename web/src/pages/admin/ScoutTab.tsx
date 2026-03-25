@@ -275,6 +275,11 @@ export default function ScoutTab() {
               <div>
                 <h3 className="text-sm font-semibold">Reddit Draft Reply</h3>
                 <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">{redditDraft.thread_title}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${redditDraft.promo_eligible ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success'}`}>
+                    {redditDraft.promo_eligible ? 'Promo OK (1-in-10)' : `Pure value (${redditDraft.reddit_post_number}/10)`}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setRedditDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
             </div>
