@@ -218,7 +218,9 @@ export default function BotOnboarding() {
   const [copied, setCopied] = useState(false)
   const [copiedClaim, setCopiedClaim] = useState(false)
   const [copiedBadgeMd, setCopiedBadgeMd] = useState(false)
-  const [copiedBadgeHtml, setCopiedBadgeHtml] = useState(false)
+  const [badgeStyle, setBadgeStyle] = useState<'compact' | 'detailed' | 'minimal' | 'flat-square'>('detailed')
+  const [badgeTheme, setBadgeTheme] = useState<'light' | 'dark'>('light')
+  const [badgeScale, setBadgeScale] = useState<'1' | '1.5' | '2'>('1.5')
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Claim flow state
@@ -1267,76 +1269,120 @@ export default function BotOnboarding() {
             )}
           </div>
 
-          {/* Badge & Share */}
+          {/* Badge Studio */}
           <div className="bg-surface border border-border rounded-lg p-5">
-            <h3 className="font-semibold text-lg mb-4">Add to Your README</h3>
-            <p className="text-sm text-text-muted mb-3">
-              Show your trust score with an embeddable badge:
-            </p>
+            <h3 className="font-semibold text-lg mb-4">Add Trust Badge to Your README</h3>
 
-            {/* Markdown Badge (with blurb) */}
+            {/* Style selector */}
             <div className="mb-4">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Markdown + HTML (recommended for GitHub)</label>
-              <div className="flex items-start gap-2">
-                <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all whitespace-pre-wrap">
-                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
-                </code>
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Style</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {([
+                  { key: 'compact' as const, label: 'Compact', desc: 'Standard shield' },
+                  { key: 'detailed' as const, label: 'Detailed', desc: 'Name + score' },
+                  { key: 'minimal' as const, label: 'Minimal', desc: 'Score only' },
+                  { key: 'flat-square' as const, label: 'Flat Square', desc: 'No rounding' },
+                ]).map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setBadgeStyle(s.key)}
+                    className={`px-3 py-2 rounded-md text-sm text-left transition-colors ${
+                      badgeStyle === s.key
+                        ? 'bg-primary text-white'
+                        : 'bg-surface border border-border text-text-muted hover:text-text'
+                    }`}
+                  >
+                    <div className="font-medium">{s.label}</div>
+                    <div className={`text-xs mt-0.5 ${badgeStyle === s.key ? 'text-white/70' : 'text-text-muted'}`}>{s.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Theme + Scale row */}
+            <div className="flex gap-4 mb-4">
+              <div>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Theme</label>
+                <div className="flex gap-1.5">
+                  {(['light', 'dark'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setBadgeTheme(t)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium capitalize transition-colors ${
+                        badgeTheme === t ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted'
+                      }`}
+                    >{t}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Size</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { key: '1' as const, label: '1x' },
+                    { key: '1.5' as const, label: '1.5x' },
+                    { key: '2' as const, label: '2x' },
+                  ]).map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => setBadgeScale(s.key)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                        badgeScale === s.key ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted'
+                      }`}
+                    >{s.label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="mb-4">
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Preview</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg p-4 flex items-center justify-center bg-white border border-gray-200">
+                  <img
+                    key={`light-${badgeStyle}-${badgeTheme}-${badgeScale}`}
+                    src={`/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=${badgeStyle}&theme=${badgeTheme}&scale=${badgeScale}`}
+                    alt="Badge on light background"
+                  />
+                </div>
+                <div className="rounded-lg p-4 flex items-center justify-center bg-[#0d1117] border border-gray-700">
+                  <img
+                    key={`dark-${badgeStyle}-${badgeTheme}-${badgeScale}`}
+                    src={`/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=${badgeStyle}&theme=${badgeTheme}&scale=${badgeScale}`}
+                    alt="Badge on dark background"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Copy snippet */}
+            <div className="mb-4">
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">README Snippet (copy & paste)</label>
+              <div className="relative">
+                <pre className="bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all whitespace-pre-wrap select-all pr-16">
+{`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">
+  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=${badgeStyle}&scale=${badgeScale}${badgeTheme !== 'light' ? `&theme=${badgeTheme}` : ''}" alt="AgentGraph Trust Score" />
+</a>
+
+<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
+                </pre>
                 <button
                   onClick={() => {
+                    const params = `style=${badgeStyle}&scale=${badgeScale}${badgeTheme !== 'light' ? `&theme=${badgeTheme}` : ''}`
                     navigator.clipboard.writeText(
-                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?${params}" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
                     )
                     setCopiedBadgeMd(true)
                     setTimeout(() => setCopiedBadgeMd(false), 2000)
                   }}
-                  className="bg-surface border border-border hover:border-primary/50 px-3 py-2 rounded text-sm transition-colors cursor-pointer shrink-0"
+                  className="absolute top-2 right-2 px-3 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
                 >
                   {copiedBadgeMd ? 'Copied!' : 'Copy'}
                 </button>
               </div>
-            </div>
-
-            {/* Simple Markdown Badge */}
-            <div className="mb-4">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Simple Markdown</label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all">
-                  {`[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`}
-                </code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`
-                    )
-                    setCopiedBadgeHtml(true)
-                    setTimeout(() => setCopiedBadgeHtml(false), 2000)
-                  }}
-                  className="bg-surface border border-border hover:border-primary/50 px-3 py-2 rounded text-sm transition-colors cursor-pointer shrink-0"
-                >
-                  {copiedBadgeHtml ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            {/* Badge Preview */}
-            <div className="mb-4">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Preview</label>
-              <div className="bg-background border border-border rounded p-3 inline-block">
-                <img
-                  src={`/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed`}
-                  alt="AgentGraph Trust Score"
-                  className="h-7"
-                />
-              </div>
-            </div>
-
-            {/* Explore badge styles */}
-            <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-              <p className="text-sm text-text-muted">
-                Want a different style? Choose from compact, detailed, minimal, or flat-square badges on the{' '}
-                <Link to={`/badges?agent=${bootstrapResult.agent.id}`} className="text-primary hover:text-primary-light underline">
-                  Badge Studio
-                </Link> page.
+              <p className="text-xs text-text-muted mt-1.5">
+                Badge updates automatically as your trust score changes.
               </p>
             </div>
 
