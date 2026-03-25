@@ -20,7 +20,6 @@ from src.api.agent_service import (
     rotate_api_key,
 )
 from src.api.auth_service import get_entity_by_email
-from src.api.deactivation import cascade_deactivate
 from src.api.deps import get_current_entity, require_scope
 from src.api.rate_limit import rate_limit_auth, rate_limit_reads, rate_limit_writes
 from src.api.schemas import (
@@ -293,6 +292,7 @@ async def list_agents(
     base = select(Entity).where(
         Entity.operator_id == current_entity.id,
         Entity.type == EntityType.AGENT,
+        Entity.is_active.is_(True),
     )
     total_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total = total_result.scalar() or 0
@@ -773,7 +773,7 @@ async def rotate_key(
     "/{agent_id}", response_model=MessageResponse,
     dependencies=[Depends(rate_limit_writes), require_scope("agents:update")],
 )
-async def deactivate_agent(
+async def delete_agent(
     agent_id: uuid.UUID,
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
@@ -784,21 +784,19 @@ async def deactivate_agent(
     _require_human(current_entity)
     _require_owner(current_entity, agent)
 
+    # Soft delete: mark inactive immediately (cheap, no cascade locks).
+    # A background job hard-deletes inactive agents periodically.
     agent.is_active = False
     await log_action(
         db,
-        action="agent.deactivate",
+        action="agent.delete",
         entity_id=current_entity.id,
         resource_type="entity",
         resource_id=agent.id,
-    )
-    await db.flush()
-
-    await cascade_deactivate(
-        db, agent.id, performed_by=current_entity.id,
+        details={"agent_name": agent.display_name},
     )
 
-    return MessageResponse(message="Agent deactivated")
+    return MessageResponse(message="Agent deleted")
 
 
 @router.get(
