@@ -348,6 +348,51 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         except Exception:
             logger.exception("Token cleanup failed")
 
+        # Job 17: Hard-delete soft-deleted agents (daily)
+        # Agents are soft-deleted (is_active=false) on user request;
+        # this job does the actual CASCADE delete off the hot path.
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from sqlalchemy import text
+
+            _now_del = datetime.now(timezone.utc)
+            _del_ran = False
+            try:
+                from src.redis_client import get_redis as _get_redis_del
+
+                _rc_del = _get_redis_del()
+                _del_key = f"ag:jobs:agent_cleanup:{_now_del.strftime('%Y-%m-%d')}"
+                _del_ran = bool(await _rc_del.get(_del_key))
+                if not _del_ran:
+                    await _rc_del.set(_del_key, "1", ex=86400 * 2)
+            except Exception:
+                pass
+
+            if not _del_ran:
+                # Delete agents inactive for at least 5 minutes (grace period)
+                _del_cutoff = _now_del - timedelta(minutes=5)
+                async with async_session() as session:
+                    async with session.begin():
+                        r = await session.execute(
+                            text(
+                                "DELETE FROM entities "
+                                "WHERE type = 'AGENT' "
+                                "AND is_active = false "
+                                "AND updated_at < :cutoff"
+                            ),
+                            {"cutoff": _del_cutoff},
+                        )
+                        if r.rowcount > 0:
+                            logger.info(
+                                "Agent cleanup: hard-deleted %d inactive agents",
+                                r.rowcount,
+                            )
+                        else:
+                            logger.debug("Agent cleanup: nothing to remove")
+        except Exception:
+            logger.exception("Agent cleanup failed")
+
         # Job 9: [REMOVED] Moltbook auto-import — synthetic data removed March 2026
 
         # Job 10: Operator recruitment (GitHub outreach)
