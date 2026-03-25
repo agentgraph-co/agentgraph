@@ -47,9 +47,9 @@ function generateSnippet(
 
   switch (format) {
     case 'markdown':
-      return `<a href="${link}">\n  <img src="${imgUrl}" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+      return `<a href="${link}">\n  <img src="${imgUrl}" alt="AgentGraph Trust Score" height="30" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
     case 'html':
-      return `<a href="${link}"><img src="${imgUrl}" alt="AgentGraph Trust Score" height="28" /></a>`
+      return `<a href="${link}"><img src="${imgUrl}" alt="AgentGraph Trust Score" height="30" /></a>`
     case 'rst':
       return `.. image:: ${imgUrl}\n   :target: ${link}\n   :alt: AgentGraph Trust Score\n   :height: 28`
   }

@@ -1279,12 +1279,12 @@ export default function BotOnboarding() {
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Markdown + HTML (recommended for GitHub)</label>
               <div className="flex items-start gap-2">
                 <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all whitespace-pre-wrap">
-                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
+                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
                     )
                     setCopiedBadgeMd(true)
                     setTimeout(() => setCopiedBadgeMd(false), 2000)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re as _re
 import uuid
 from typing import Literal
 
@@ -381,6 +382,24 @@ def _render_flat_square_svg(
 # Dispatcher
 # ---------------------------------------------------------------------------
 
+def _apply_scale(svg: str, scale: float) -> str:
+    """Scale an SVG badge by adjusting width/height and adding viewBox."""
+    m = _re.search(r'width="([\d.]+)" height="([\d.]+)"', svg)
+    if not m:
+        return svg
+    orig_w, orig_h = float(m.group(1)), float(m.group(2))
+    new_w = round(orig_w * scale, 1)
+    new_h = round(orig_h * scale, 1)
+    # Replace first occurrence (the svg element's dimensions)
+    svg = svg.replace(
+        f'width="{m.group(1)}" height="{m.group(2)}"',
+        f'width="{new_w}" height="{new_h}"'
+        f' viewBox="0 0 {m.group(1)} {m.group(2)}"',
+        1,
+    )
+    return svg
+
+
 def _render_badge_svg(
     score: float,
     has_operator: bool,
@@ -444,8 +463,9 @@ async def get_readme_badge(
         params.append(f"style={style}")
     if theme != "light":
         params.append(f"theme={theme}")
-    if params:
-        badge_url += "?" + "&".join(params)
+    # Always add scale=1.5 for README snippets (bigger badge)
+    params.append("scale=1.5")
+    badge_url += "?" + "&".join(params)
 
     profile_url = f"https://agentgraph.co/profile/{entity_id}"
     alt = "AgentGraph Trust Score"
@@ -458,20 +478,19 @@ async def get_readme_badge(
     if fmt == "html":
         snippet = (
             f'<a href="{profile_url}">'
-            f'<img src="{badge_url}" alt="{alt}" height="28" />'
+            f'<img src="{badge_url}" alt="{alt}" />'
             f"</a>"
         )
     elif fmt == "rst":
         snippet = (
             f".. image:: {badge_url}\n"
             f"   :target: {profile_url}\n"
-            f"   :alt: {alt}\n"
-            f"   :height: 28"
+            f"   :alt: {alt}"
         )
     else:
         snippet = (
             f'<a href="{profile_url}">\n'
-            f'  <img src="{badge_url}" alt="{alt}" height="28" />\n'
+            f'  <img src="{badge_url}" alt="{alt}" />\n'
             f"</a>\n\n{blurb}"
         )
 
@@ -499,6 +518,10 @@ async def get_trust_badge_svg(
     theme: Literal["light", "dark"] = Query(
         "light", description="Badge color theme",
     ),
+    scale: float = Query(
+        1.0, ge=1.0, le=3.0,
+        description="Scale factor (1.0-3.0) for larger badges",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Return an embeddable SVG badge showing an entity's trust score and
@@ -523,6 +546,10 @@ async def get_trust_badge_svg(
         theme=theme,
         entity_name=entity.display_name or str(entity_id),
     )
+
+    # Apply scale by wrapping in viewBox if scale > 1
+    if scale > 1.0:
+        svg = _apply_scale(svg, scale)
 
     return Response(
         content=svg,
