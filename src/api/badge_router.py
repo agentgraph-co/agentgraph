@@ -450,20 +450,30 @@ async def get_readme_badge(
     profile_url = f"https://agentgraph.co/profile/{entity_id}"
     alt = "AgentGraph Trust Score"
 
+    blurb = (
+        '<sub>Verified on <a href="https://agentgraph.co">'
+        "AgentGraph</a> \u2014 trust infrastructure for AI agents.</sub>"
+    )
+
     if fmt == "html":
         snippet = (
             f'<a href="{profile_url}">'
-            f'<img src="{badge_url}" alt="{alt}" />'
+            f'<img src="{badge_url}" alt="{alt}" height="28" />'
             f"</a>"
         )
     elif fmt == "rst":
         snippet = (
             f".. image:: {badge_url}\n"
             f"   :target: {profile_url}\n"
-            f"   :alt: {alt}"
+            f"   :alt: {alt}\n"
+            f"   :height: 28"
         )
     else:
-        snippet = f"[![{alt}]({badge_url})]({profile_url})"
+        snippet = (
+            f'<a href="{profile_url}">\n'
+            f'  <img src="{badge_url}" alt="{alt}" height="28" />\n'
+            f"</a>\n\n{blurb}"
+        )
 
     return Response(
         content=snippet,
