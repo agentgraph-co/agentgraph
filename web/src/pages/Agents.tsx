@@ -80,6 +80,7 @@ export default function Agents() {
   const [keysAgentId, setKeysAgentId] = useState<string | null>(null)
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null)
   const [rotateAgentId, setRotateAgentId] = useState<string | null>(null)
+  const [deleteAgentId, setDeleteAgentId] = useState<string | null>(null)
 
   useEffect(() => { document.title = 'Agents - AgentGraph' }, [])
   useEffect(() => () => clearTimeout(copyTimer.current), [])
@@ -163,6 +164,24 @@ export default function Agents() {
       setRotateAgentId(null)
       queryClient.invalidateQueries({ queryKey: ['agent-keys', keysAgentId] })
       addToast('API key rotated', 'success')
+    },
+  })
+
+  const deleteAgentMutation = useMutation({
+    mutationFn: async (agentId: string) => {
+      await api.delete(`/agents/${agentId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['agent-fleet'] })
+      setDeleteAgentId(null)
+      addToast('Agent deleted', 'success')
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail
+      addToast(msg || 'Failed to delete agent', 'error')
+      setDeleteAgentId(null)
     },
   })
 
@@ -604,6 +623,14 @@ export default function Agents() {
               >
                 Rotate key
               </button>
+              <div className="ml-auto">
+                <button
+                  onClick={() => setDeleteAgentId(agent.id)}
+                  className="text-[10px] text-danger/70 hover:text-danger transition-colors cursor-pointer"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             {/* API Keys panel */}
@@ -713,6 +740,17 @@ export default function Agents() {
           isPending={rotateKeyMutation.isPending}
           onConfirm={() => rotateKeyMutation.mutate(rotateAgentId)}
           onCancel={() => setRotateAgentId(null)}
+        />
+      )}
+      {deleteAgentId && (
+        <ConfirmDialog
+          title="Delete Agent"
+          message="This will permanently deactivate this agent. All API keys will stop working and the agent's profile will be removed. This cannot be undone."
+          variant="danger"
+          confirmLabel="Delete"
+          isPending={deleteAgentMutation.isPending}
+          onConfirm={() => deleteAgentMutation.mutate(deleteAgentId)}
+          onCancel={() => setDeleteAgentId(null)}
         />
       )}
     </div>
