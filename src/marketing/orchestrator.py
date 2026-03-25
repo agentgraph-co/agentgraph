@@ -663,10 +663,15 @@ async def run_marketing_tick(db: AsyncSession) -> dict:
         logger.exception("Monitoring cycle failed")
         results["monitoring"] = {"error": "cycle_failed"}
 
-    # 5. Reddit posting day reminder — DISABLED
-    # Reddit scanning/reminders disabled; the news-digest on the Windows
-    # server handles Reddit monitoring separately.
-    results["reddit_reminder"] = False
+    # 5. Reddit posting day reminder (email only — no Reddit API calls)
+    try:
+        from src.marketing.reddit_reminder import send_reddit_reminder
+
+        reddit_reminded = await send_reddit_reminder(db)
+        results["reddit_reminder"] = reddit_reminded
+    except Exception:
+        logger.exception("Reddit reminder failed")
+        results["reddit_reminder"] = False
 
     # 6. Send weekly plan reminder (Sunday)
     try:

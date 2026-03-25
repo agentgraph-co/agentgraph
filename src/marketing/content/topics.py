@@ -322,6 +322,25 @@ TOPICS: list[Topic] = [
             ),
         },
     ),
+    Topic(
+        key="bluesky_feed",
+        name="Bluesky AI Agent News Feed",
+        weight=0.8,
+        angles={
+            "bluesky": (
+                "Subscribe to our AI Agent News custom feed for curated updates "
+                "on MCP servers, agent frameworks, trust infrastructure, and "
+                "multi-agent systems. All signal, no noise.\n\n"
+                "https://bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news"
+            ),
+            "twitter": (
+                "We curate an AI Agent News feed on Bluesky — MCP servers, "
+                "agent frameworks, trust infra, multi-agent systems. If you're "
+                "on Bluesky, subscribe for curated signal:\n\n"
+                "https://bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news"
+            ),
+        },
+    ),
 ]
 
 TOPIC_BY_KEY: dict[str, Topic] = {t.key: t for t in TOPICS}

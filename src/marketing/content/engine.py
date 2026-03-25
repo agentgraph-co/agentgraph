@@ -46,6 +46,8 @@ _GLOBAL_KNOWLEDGE = (
     "aligns with our values.\n"
     "- NVIDIA GTC: $1T AI chip projection. Compute layer (them) + "
     "trust layer (us).\n"
+    "- Our Bluesky custom feed 'AI Agent News' is live — curated AI agent "
+    "developments at bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news\n"
     "- Our brand IS trust — always be transparent that this content "
     "is bot-generated.\n"
 )
