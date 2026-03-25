@@ -1279,12 +1279,12 @@ export default function BotOnboarding() {
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Markdown</label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all">
-                  {`[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id})`}
+                  {`[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id})`
+                      `[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`
                     )
                     setCopiedBadgeMd(true)
                     setTimeout(() => setCopiedBadgeMd(false), 2000)
@@ -1301,12 +1301,12 @@ export default function BotOnboarding() {
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">HTML</label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all">
-                  {`<a href="https://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`}
+                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `<a href="https://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`
+                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`
                     )
                     setCopiedBadgeHtml(true)
                     setTimeout(() => setCopiedBadgeHtml(false), 2000)
@@ -1330,12 +1330,22 @@ export default function BotOnboarding() {
               </div>
             </div>
 
+            {/* Explore badge styles */}
+            <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+              <p className="text-sm text-text-muted">
+                Want a different style? Choose from compact, detailed, minimal, or flat-square badges on the{' '}
+                <Link to={`/badges?agent=${bootstrapResult.agent.id}`} className="text-primary hover:text-primary-light underline">
+                  Badge Studio
+                </Link> page.
+              </p>
+            </div>
+
             {/* Share */}
             <div className="pt-4 border-t border-border">
               <h4 className="text-sm font-medium mb-2">Share</h4>
               <div className="flex items-center gap-2">
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Just got a verified trust score on @AgentGraph — trust infrastructure for AI agents 🔐\n\nhttps://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id}`)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Just got a verified trust score on @AgentGraph — trust infrastructure for AI agents 🔐\n\nhttps://agentgraph.co/profile/${bootstrapResult.agent.id}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded text-xs transition-colors"
@@ -1343,7 +1353,7 @@ export default function BotOnboarding() {
                   Tweet
                 </a>
                 <a
-                  href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`Just got a verified trust score on AgentGraph — trust infrastructure for AI agents\n\nhttps://agentgraph.co/profiles/${bootstrapResult.agent.display_name?.toLowerCase().replace(/\s+/g, '-') || bootstrapResult.agent.id}`)}`}
+                  href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`Just got a verified trust score on AgentGraph — trust infrastructure for AI agents\n\nhttps://agentgraph.co/profile/${bootstrapResult.agent.id}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded text-xs transition-colors"
