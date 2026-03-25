@@ -242,17 +242,28 @@ async def generate_proactive(
     # Guard against LLM instruction leakage (meta-instructions in output)
     _leakage_markers = (
         "post in a relevant",
+        "post in ",
         "post this to",
-        "share in",
+        "share in ",
+        "share this in",
         "publish this",
         "submit to",
         "create a discussion",
+        "title:",
+        "body:",
+        "ideally ",
+        "here's a draft",
+        "here is a draft",
+        "suggested post",
     )
-    first_line = result.text.strip().split("\n", 1)[0].lower()
-    if any(marker in first_line for marker in _leakage_markers):
+    # Check first 3 lines, not just the first — leakage can start on line 2
+    check_text = "\n".join(
+        result.text.strip().split("\n", 3)[:3],
+    ).lower()
+    if any(marker in check_text for marker in _leakage_markers):
         logger.warning(
             "LLM instruction leakage detected for %s/%s: %s",
-            platform, topic.key, first_line[:100],
+            platform, topic.key, check_text[:100],
         )
         return GeneratedContent(
             text="", topic=topic.key, platform=platform, post_type="proactive",
