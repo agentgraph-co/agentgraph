@@ -8,7 +8,6 @@ Returns structured thread data filtered by configurable keywords.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 
@@ -131,67 +130,26 @@ async def scan_subreddits(
     limit_per_sub: int = 25,
     min_score: int = 0,
 ) -> list[RedditThread]:
-    """Scan subreddits for threads matching keywords.
+    """Return cached Reddit threads without making any HTTP requests.
+
+    Live scanning is disabled — the news-digest running on the Windows
+    server handles Reddit monitoring separately and pushes data to Redis.
+    AgentGraph should never make outbound HTTP requests to Reddit.
 
     Args:
-        subreddits: List of subreddit names (defaults to SCOUT_SUBREDDITS).
-        keywords: Keywords to filter by (defaults to SCOUT_KEYWORDS).
-        sort: Sort order — hot, new, top, rising.
-        limit_per_sub: Max posts to fetch per subreddit.
-        min_score: Minimum score threshold.
+        subreddits: Ignored (kept for API compatibility).
+        keywords: Ignored (kept for API compatibility).
+        sort: Ignored (kept for API compatibility).
+        limit_per_sub: Ignored (kept for API compatibility).
+        min_score: Minimum score threshold (still applied to cached data).
 
     Returns:
-        List of RedditThread objects sorted by score descending.
+        Cached RedditThread objects sorted by score descending.
     """
-    subs = subreddits or SCOUT_SUBREDDITS
-    kws = keywords or SCOUT_KEYWORDS
-    threads: list[RedditThread] = []
-
-    async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
-        for i, sub in enumerate(subs):
-            if i > 0:
-                await asyncio.sleep(_DELAY_BETWEEN_REQUESTS)
-
-            posts = await _fetch_subreddit_json(
-                client, sub, sort=sort, limit=limit_per_sub,
-            )
-
-            for post in posts:
-                title = post.get("title", "")
-                selftext = post.get("selftext", "")
-                combined = f"{title} {selftext}"
-
-                matched = _matches_keywords(combined, kws)
-                if not matched:
-                    continue
-
-                score = post.get("score", 0)
-                if score < min_score:
-                    continue
-
-                permalink = post.get("permalink", "")
-                threads.append(RedditThread(
-                    title=title,
-                    url=f"https://www.reddit.com{permalink}",
-                    permalink=permalink,
-                    subreddit=post.get("subreddit", sub),
-                    score=score,
-                    num_comments=post.get("num_comments", 0),
-                    created_utc=post.get("created_utc", 0),
-                    selftext_preview=selftext[:300] if selftext else "",
-                    author=post.get("author", "[deleted]"),
-                    keywords_matched=matched,
-                ))
-
-    # Sort by score descending
-    threads.sort(key=lambda t: t.score, reverse=True)
-
-    # Cache results in Redis so EC2 (blocked by Reddit) can read them
-    try:
-        await _cache_threads(threads)
-    except Exception:
-        logger.debug("Failed to cache Reddit threads in Redis")
-
+    logger.debug("scan_subreddits: returning cached data only (live scanning disabled)")
+    threads = await get_cached_threads()
+    if min_score > 0:
+        threads = [t for t in threads if t.score >= min_score]
     return threads
 
 

@@ -77,3 +77,63 @@ async def notify_pending_drafts(drafts: list[dict]) -> bool:
             pass
 
     return sent
+
+
+async def notify_post_failure(
+    platform: str, content_preview: str, error: str,
+) -> bool:
+    """Send an email when an approved marketing post fails to publish.
+
+    Has a 1-hour per-platform cooldown via Redis to avoid spamming.
+
+    Returns True if the email was sent.
+    """
+    # Cooldown: 1 hour per platform
+    cooldown_key = f"ag:mktg:fail_notify:{platform}"
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        already = await r.get(cooldown_key)
+        if already:
+            logger.debug(
+                "Post-failure notification for %s already sent recently",
+                platform,
+            )
+            return False
+    except Exception:
+        pass
+
+    from src.email import _load_template, send_email
+    from src.marketing.config import marketing_settings
+
+    preview = content_preview[:200]
+    html = _load_template(
+        "marketing_post_failure.html",
+        platform=platform.title(),
+        content_preview=preview,
+        error=error,
+        dashboard_url="https://agentgraph.co/admin",
+        fallback=(
+            f"Marketing post failed on {platform.title()}: {error}. "
+            f"Content: {preview}. Visit https://agentgraph.co/admin"
+        ),
+    )
+
+    sent = await send_email(
+        marketing_settings.marketing_notify_email,
+        f"AgentGraph \u2014 Post failed on {platform.title()}",
+        html,
+    )
+
+    if sent:
+        logger.info("Post-failure notification sent for %s", platform)
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            await r.set(cooldown_key, "1", ex=3600)  # 1hr cooldown
+        except Exception:
+            pass
+
+    return sent

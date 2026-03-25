@@ -16,14 +16,22 @@ from datetime import datetime, timezone
 # Curated list of AI agent builders / MCP authors / framework maintainers on Bluesky
 # Update this list as you discover more accounts
 CURATED_ACCOUNTS = [
-    # Add Bluesky handles here as you find them, e.g.:
-    # "hwchase17.bsky.social",      # Harrison Chase (LangChain)
-    # "anthropic.bsky.social",       # Anthropic
-    # "simonw.net",                  # Simon Willison (datasette, llm tools)
-    # "modelcontextprotocol.bsky.social",
-    #
-    # Research: Search Bluesky for "MCP server", "AI agent", "LangChain"
-    # and add relevant active accounts.
+    # Tier 1 — verified handles, high follower count
+    "simonwillison.net",          # Simon Willison — agent security, LLM tools, MCP
+    "anthropic.com",              # Anthropic — MCP, Claude, agent safety
+    "vickiboykis.com",            # Vicki Boykis — ML infrastructure, engineering
+    "swyx.io",                    # swyx — AI engineering, agent patterns
+    "hamel.bsky.social",          # Hamel Husain — LLM engineering, agent evaluation
+    # Tier 2 — verified, good follower count
+    "philschmid.bsky.social",     # Philipp Schmid — HuggingFace, open-source agents
+    "minimaxir.bsky.social",      # Max Woolf — LLM benchmarking, agent testing
+    "langchain.bsky.social",      # LangChain — agent frameworks
+    "mckaywrigley.bsky.social",   # Mckay Wrigley — AI coding, developer tools
+    "mattshumer.bsky.social",     # Matt Shumer — agent frameworks, OttoDev
+    "teknium.bsky.social",        # Teknium — open-source LLMs, agent fine-tuning
+    "llamaindex.bsky.social",     # LlamaIndex — RAG, agent data
+    "ofirpress.bsky.social",      # Ofir Press — agent research, tool-augmented LLMs
+    "alexalbert.bsky.social",     # Alex Albert — MCP, Anthropic, tool use
 ]
 
 
@@ -57,7 +65,7 @@ def main() -> None:
             record={
                 "$type": "app.bsky.graph.list",
                 "purpose": "app.bsky.graph.defs#curatelist",
-                "name": "AI Agent Builders",
+                "name": "AI Agent Builders & Researchers",
                 "description": (
                     "People building AI agents, MCP servers, agent frameworks, "
                     "and trust infrastructure."

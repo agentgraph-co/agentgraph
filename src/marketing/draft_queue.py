@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,4 +138,32 @@ async def edit_and_approve(
     post.status = "queued"
     await db.flush()
     logger.info("Draft edited and approved: %s (%s)", post.id, post.platform)
+    return post
+
+
+async def mark_manually_posted(
+    db: AsyncSession,
+    post_id: uuid.UUID,
+    posted_url: str | None = None,
+) -> MarketingPost | None:
+    """Mark a draft as manually posted (for platforms like Reddit)."""
+    result = await db.execute(
+        select(MarketingPost).where(
+            MarketingPost.id == post_id,
+            MarketingPost.status.in_(_ACTIONABLE_STATUSES),
+        ),
+    )
+    post = result.scalar_one_or_none()
+    if not post:
+        return None
+
+    post.status = "posted"
+    post.posted_at = datetime.now(timezone.utc)
+    if posted_url:
+        post.utm_params = {
+            **(post.utm_params or {}),
+            "external_url": posted_url,
+        }
+    await db.flush()
+    logger.info("Draft marked as manually posted: %s (%s)", post.id, post.platform)
     return post

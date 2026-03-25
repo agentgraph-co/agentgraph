@@ -48,9 +48,10 @@ class DraftResponse(BaseModel):
 
 
 class DraftActionRequest(BaseModel):
-    action: str = Field(..., pattern="^(approve|reject|edit_approve)$")
+    action: str = Field(..., pattern="^(approve|reject|edit_approve|mark_posted)$")
     content: str | None = None  # Required for edit_approve
     reason: str | None = None   # Optional for reject
+    posted_url: str | None = None  # Optional URL where it was manually posted
 
 
 class WeeklyDigestResponse(BaseModel):
@@ -238,6 +239,12 @@ async def action_draft(
                 detail="content required for edit_approve",
             )
         post = await edit_and_approve(db, post_id, req.content)
+    elif req.action == "mark_posted":
+        from src.marketing.draft_queue import mark_manually_posted
+
+        post = await mark_manually_posted(
+            db, post_id, posted_url=req.posted_url,
+        )
 
     if not post:
         raise HTTPException(
@@ -278,6 +285,11 @@ async def action_draft(
                         "Failed to post %s to %s: %s",
                         post.id, post.platform, result.error,
                     )
+                    from src.marketing.draft_notify import notify_post_failure
+
+                    await notify_post_failure(
+                        post.platform, post.content[:200], result.error or "Unknown error",
+                    )
             else:
                 _logger.warning(
                     "Adapter not available for %s", post.platform,
@@ -285,6 +297,11 @@ async def action_draft(
         except Exception as exc:
             post.error_message = str(exc)
             _logger.exception("Error posting %s", post.id)
+            from src.marketing.draft_notify import notify_post_failure
+
+            await notify_post_failure(
+                post.platform, post.content[:200], str(exc),
+            )
         await db.commit()
 
     await db.refresh(post)

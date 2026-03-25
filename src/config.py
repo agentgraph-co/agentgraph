@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     domain: str = "agentgraph.co"
 
     # Reply Guy system
-    reply_guy_enabled: bool = False
+    reply_guy_enabled: bool = True
     reply_guy_max_daily: int = 20
     reply_guy_monitor_interval: int = 300  # seconds
 
