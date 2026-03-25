@@ -138,6 +138,9 @@ class Settings(BaseSettings):
 
     # Bluesky feed generator
     bluesky_feed_enabled: bool = False
+
+    # Bluesky starter pack — auto-refresh every 30 days
+    starter_pack_refresh_enabled: bool = True
     bluesky_did: str = ""  # e.g. did:plc:abc123 — the agentgraph.bsky.social DID
     domain: str = "agentgraph.co"
 

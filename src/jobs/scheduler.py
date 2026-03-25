@@ -16,6 +16,7 @@ Runs multiple jobs on the same interval (default 6 hours):
 13. Expired token cleanup — email verifications + password reset tokens (daily)
 14. Reply Guy monitor — check reply targets for new posts
 15. Reply Guy drafter — generate LLM reply drafts for new opportunities
+16. Bluesky starter pack refresh — recreate starter pack every 30 days
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -33,10 +34,14 @@ SCHEDULER_INTERVAL = 6 * 60 * 60
 _scheduler_task: asyncio.Task | None = None
 _reply_monitor_task: asyncio.Task | None = None
 _reply_drafter_task: asyncio.Task | None = None
+_starter_pack_task: asyncio.Task | None = None
 
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
 REPLY_DRAFTER_INTERVAL = 30 * 60   # 30 minutes
+
+# Bluesky starter pack refresh interval (30 days in seconds)
+STARTER_PACK_INTERVAL = 30 * 24 * 60 * 60
 
 
 async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
@@ -423,13 +428,70 @@ async def _reply_drafter_loop(interval: int = REPLY_DRAFTER_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+async def _starter_pack_loop(interval: int = STARTER_PACK_INTERVAL) -> None:
+    """Job 16: Refresh the Bluesky starter pack every 30 days."""
+    import os
+
+    from scripts.create_bluesky_starter_pack import CURATED_ACCOUNTS
+    from scripts.create_bluesky_starter_pack import main as _sp_main
+
+    logger.info("Bluesky starter pack refresh started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.config import settings as _sp_settings
+
+            if not _sp_settings.starter_pack_refresh_enabled:
+                logger.debug("Starter pack refresh disabled, sleeping")
+                await asyncio.sleep(interval)
+                continue
+
+            # Get Bluesky credentials from marketing config
+            from src.marketing.config import marketing_settings
+
+            handle = marketing_settings.bluesky_handle
+            password = marketing_settings.bluesky_app_password
+            if not handle or not password:
+                logger.warning(
+                    "Starter pack refresh skipped: BLUESKY_HANDLE or "
+                    "BLUESKY_APP_PASSWORD not set in marketing config"
+                )
+                await asyncio.sleep(interval)
+                continue
+
+            # Inject credentials into env for the script's main()
+            _prev_handle = os.environ.get("BLUESKY_HANDLE")
+            _prev_password = os.environ.get("BLUESKY_PASSWORD")
+            os.environ["BLUESKY_HANDLE"] = handle
+            os.environ["BLUESKY_PASSWORD"] = password
+            try:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, _sp_main)
+                logger.info(
+                    "Bluesky starter pack refreshed (%d curated accounts)",
+                    len(CURATED_ACCOUNTS),
+                )
+            finally:
+                # Restore previous env state
+                if _prev_handle is not None:
+                    os.environ["BLUESKY_HANDLE"] = _prev_handle
+                else:
+                    os.environ.pop("BLUESKY_HANDLE", None)
+                if _prev_password is not None:
+                    os.environ["BLUESKY_PASSWORD"] = _prev_password
+                else:
+                    os.environ.pop("BLUESKY_PASSWORD", None)
+        except Exception:
+            logger.exception("Bluesky starter pack refresh failed")
+        await asyncio.sleep(interval)
+
+
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.
 
     Returns the asyncio.Task so it can be cancelled on shutdown.
     Safe to call multiple times -- subsequent calls are no-ops.
     """
-    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task, _starter_pack_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
@@ -444,6 +506,18 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 
     # Reply Guy fast-loop tasks (gated by reply_guy_enabled inside each loop)
     from src.config import settings as _sched_settings
+
+    # Job 16: Bluesky starter pack refresh (30-day loop)
+    if _sched_settings.starter_pack_refresh_enabled:
+        if _starter_pack_task is None or _starter_pack_task.done():
+            _starter_pack_task = asyncio.create_task(
+                _starter_pack_loop(),
+                name="bluesky-starter-pack-refresh",
+            )
+            logger.info(
+                "Bluesky starter pack task created (interval=%ds)",
+                STARTER_PACK_INTERVAL,
+            )
 
     if _sched_settings.reply_guy_enabled:
         if _reply_monitor_task is None or _reply_monitor_task.done():
@@ -470,7 +544,7 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 
 def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
-    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task, _starter_pack_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
@@ -486,3 +560,8 @@ def stop_scheduler() -> None:
         _reply_drafter_task.cancel()
         logger.info("Reply guy drafter task cancelled")
     _reply_drafter_task = None
+
+    if _starter_pack_task is not None and not _starter_pack_task.done():
+        _starter_pack_task.cancel()
+        logger.info("Bluesky starter pack task cancelled")
+    _starter_pack_task = None

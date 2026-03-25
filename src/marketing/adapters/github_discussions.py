@@ -245,16 +245,22 @@ class GitHubDiscussionsAdapter(AbstractPlatformAdapter):
     ) -> ExternalPostResult:
         """Post to GitHub Discussions.
 
-        If ``discussion_id`` is provided in metadata, reply to that discussion.
-        Otherwise, create a new discussion on the agentgraph-co/agentgraph repo.
+        Requires ``discussion_id`` in metadata to reply to an existing
+        discussion.  Standalone posting (creating new discussions) is
+        disabled — the orchestrator should not call this without context.
         """
         meta = metadata or {}
         discussion_id = meta.get("discussion_id")
         if discussion_id:
             return await self.reply(discussion_id, content, metadata)
 
-        # Create a new discussion on our own repo
-        return await self._create_discussion(content, meta)
+        return ExternalPostResult(
+            success=False,
+            error=(
+                "No discussion_id in metadata — github_discussions"
+                " requires a target discussion to reply to"
+            ),
+        )
 
     async def _create_discussion(
         self, content: str, meta: dict,

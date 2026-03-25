@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["trust-badges"])
 
-_CACHE_HEADERS = {"Cache-Control": "public, max-age=3600, s-maxage=86400"}
+_CACHE_HEADERS = {
+    "Cache-Control": "public, max-age=3600, s-maxage=86400",
+    "Access-Control-Allow-Origin": "*",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+}
 
 # ---------------------------------------------------------------------------
 # Font metrics — Verdana 11px approximate char widths (integer tenths)
@@ -468,8 +472,9 @@ async def get_readme_badge(
     )
 
 
-@router.get(
+@router.api_route(
     "/badges/trust/{entity_id}.svg",
+    methods=["GET", "HEAD"],
     dependencies=[Depends(rate_limit_reads)],
     responses={
         200: {"content": {"image/svg+xml": {}}, "description": "SVG trust badge"},
