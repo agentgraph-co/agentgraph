@@ -276,7 +276,7 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
 
     # Platforms that require external context (repo_id, etc.) and don't
     # support standalone proactive posts
-    proactive_skip = {"huggingface", "hackernews", "producthunt", "github_discussions"}
+    proactive_skip = {"huggingface", "hackernews", "producthunt"}
 
     for platform_name, adapter in adapters.items():
         # Skip platforms that need external context for posting

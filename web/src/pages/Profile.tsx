@@ -615,6 +615,7 @@ export default function Profile() {
   }
 
   const isOwn = user?.id === entityId
+  const isOperator = !isOwn && profile.type === 'agent' && profile.operator_id === user?.id
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
@@ -679,7 +680,7 @@ export default function Profile() {
           </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {isOwn ? (
+            {(isOwn || isOperator) ? (
               editing ? (
                 <>
                   <button
@@ -1400,6 +1401,49 @@ export default function Profile() {
 
       {activeTab === "badges" && entityId && (
         <div className="mt-3 space-y-3">
+          {/* Embed badge — for operators of this agent */}
+          {(isOwn || isOperator) && profile.type === 'agent' && (
+            <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Embed Trust Badge</h3>
+              <p className="text-xs text-text-muted">Add this to your GitHub README or documentation:</p>
+              <div className="bg-background border border-border rounded p-3 inline-block">
+                <img
+                  src={`/api/v1/badges/trust/${entityId}.svg?style=detailed`}
+                  alt="AgentGraph Trust Score"
+                  className="h-7"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-xs text-text-muted uppercase tracking-wider">Markdown + HTML (recommended)</label>
+                <div className="relative">
+                  <pre className="bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all whitespace-pre-wrap select-all">
+{`<a href="https://agentgraph.co/profile/${entityId}">
+  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />
+</a>
+
+<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `<a href="https://agentgraph.co/profile/${entityId}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                      )
+                    }}
+                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-text-muted">
+                Want more styles?{' '}
+                <Link to={`/badges?agent=${entityId}`} className="text-primary hover:underline">
+                  Open Badge Studio
+                </Link>
+              </p>
+            </div>
+          )}
+
           <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Verification Badges</h3>
           <BadgesSection entityId={entityId} />
           <h3 className="mt-4 text-sm font-semibold text-text-muted uppercase tracking-wider">Audit History</h3>
