@@ -436,7 +436,8 @@ async def cache_headers_middleware(request: Request, call_next) -> Response:
         # Slow-changing reference data — long TTL
         elif any(path.startswith(p) for p in [
             "/api/v1/did/", "/api/v1/insights/",
-            "/api/v1/badges/embed/",
+            "/api/v1/badges/embed/", "/api/v1/badges/trust/",
+            "/api/v1/badges/readme/",
         ]):
             response.headers["Cache-Control"] = (
                 "public, max-age=300, stale-while-revalidate=600"
