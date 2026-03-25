@@ -1365,13 +1365,13 @@ export default function BotOnboarding() {
   <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=${badgeStyle}&scale=${badgeScale}${badgeTheme !== 'light' ? `&theme=${badgeTheme}` : ''}" alt="AgentGraph Trust Score" />
 </a>
 
-<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
+<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> · <a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">View profile</a></sub>`}
                 </pre>
                 <button
                   onClick={() => {
                     const params = `style=${badgeStyle}&scale=${badgeScale}${badgeTheme !== 'light' ? `&theme=${badgeTheme}` : ''}`
                     navigator.clipboard.writeText(
-                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?${params}" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?${params}" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> · <a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">View profile</a></sub>`
                     )
                     setCopiedBadgeMd(true)
                     setTimeout(() => setCopiedBadgeMd(false), 2000)

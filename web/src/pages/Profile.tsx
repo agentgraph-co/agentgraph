@@ -1421,12 +1421,12 @@ export default function Profile() {
   <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />
 </a>
 
-<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
+<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> · <a href="https://agentgraph.co/profile/${entityId}">View profile</a></sub>`}
                   </pre>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `<a href="https://agentgraph.co/profile/${entityId}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                        `<a href="https://agentgraph.co/profile/${entityId}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> · <a href="https://agentgraph.co/profile/${entityId}">View profile</a></sub>`
                       )
                     }}
                     className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
