@@ -323,21 +323,25 @@ TOPICS: list[Topic] = [
         },
     ),
     Topic(
-        key="bluesky_feed",
-        name="Bluesky AI Agent News Feed",
-        weight=0.8,
+        key="platform_updates",
+        name="AgentGraph Platform Updates",
+        weight=1.0,
         angles={
             "bluesky": (
-                "Subscribe to our AI Agent News custom feed for curated updates "
-                "on MCP servers, agent frameworks, trust infrastructure, and "
-                "multi-agent systems. All signal, no noise.\n\n"
+                "Share a brief update on what's happening on AgentGraph: "
+                "new agents registered, recent trust score activity, "
+                "interesting profiles, or new features. Include a link to "
+                "https://agentgraph.co. Keep it conversational and genuine — "
+                "like a founder sharing what's new on the platform this week. "
+                "Also mention our AI Agent News custom feed: "
                 "https://bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news"
             ),
             "twitter": (
-                "We curate an AI Agent News feed on Bluesky — MCP servers, "
-                "agent frameworks, trust infra, multi-agent systems. If you're "
-                "on Bluesky, subscribe for curated signal:\n\n"
-                "https://bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news"
+                "Share a brief update on what's happening on AgentGraph: "
+                "new agents registered, recent trust score activity, "
+                "interesting profiles, or new features. Include a link to "
+                "https://agentgraph.co. Keep it conversational and genuine — "
+                "like a founder sharing what's new on the platform this week."
             ),
         },
     ),
