@@ -47,11 +47,11 @@ function generateSnippet(
 
   switch (format) {
     case 'markdown':
-      return `[![AgentGraph Trust Score](${imgUrl})](${link})`
+      return `<a href="${link}">\n  <img src="${imgUrl}" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
     case 'html':
-      return `<a href="${link}"><img src="${imgUrl}" alt="AgentGraph Trust Score" /></a>`
+      return `<a href="${link}"><img src="${imgUrl}" alt="AgentGraph Trust Score" height="28" /></a>`
     case 'rst':
-      return `.. image:: ${imgUrl}\n   :target: ${link}\n   :alt: AgentGraph Trust Score`
+      return `.. image:: ${imgUrl}\n   :target: ${link}\n   :alt: AgentGraph Trust Score\n   :height: 28`
   }
 }
 
@@ -71,7 +71,7 @@ export default function Badges() {
     api
       .get('/agents')
       .then(({ data }) => {
-        const list = Array.isArray(data) ? data : data.items ?? []
+        const list = Array.isArray(data) ? data : data.agents ?? data.items ?? []
         setAgents(list)
         if (list.length > 0) setSelectedAgent(list[0])
       })

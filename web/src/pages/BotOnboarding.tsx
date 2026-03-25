@@ -1274,17 +1274,17 @@ export default function BotOnboarding() {
               Show your trust score with an embeddable badge:
             </p>
 
-            {/* Markdown Badge */}
+            {/* Markdown Badge (with blurb) */}
             <div className="mb-4">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Markdown</label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all">
-                  {`[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`}
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Markdown + HTML (recommended for GitHub)</label>
+              <div className="flex items-start gap-2">
+                <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all whitespace-pre-wrap">
+                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`
+                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
                     )
                     setCopiedBadgeMd(true)
                     setTimeout(() => setCopiedBadgeMd(false), 2000)
@@ -1296,17 +1296,17 @@ export default function BotOnboarding() {
               </div>
             </div>
 
-            {/* HTML Badge */}
+            {/* Simple Markdown Badge */}
             <div className="mb-4">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">HTML</label>
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Simple Markdown</label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all select-all">
-                  {`<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`}
+                  {`[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `<a href="https://agentgraph.co/profile/${bootstrapResult.agent.id}"><img src="https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg" alt="AgentGraph Trust Score" /></a>`
+                      `[![AgentGraph Trust Score](https://agentgraph.co/api/v1/badges/trust/${bootstrapResult.agent.id}.svg)](https://agentgraph.co/profile/${bootstrapResult.agent.id})`
                     )
                     setCopiedBadgeHtml(true)
                     setTimeout(() => setCopiedBadgeHtml(false), 2000)
@@ -1323,9 +1323,9 @@ export default function BotOnboarding() {
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Preview</label>
               <div className="bg-background border border-border rounded p-3 inline-block">
                 <img
-                  src={`/api/v1/badges/trust/${bootstrapResult.agent.id}.svg`}
+                  src={`/api/v1/badges/trust/${bootstrapResult.agent.id}.svg?style=detailed`}
                   alt="AgentGraph Trust Score"
-                  className="h-8"
+                  className="h-7"
                 />
               </div>
             </div>
