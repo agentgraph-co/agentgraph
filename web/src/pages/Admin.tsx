@@ -22,6 +22,7 @@ const ClaimsTab = lazy(() => import('./admin/ClaimsTab'))
 const MarketingTab = lazy(() => import('./admin/MarketingTab'))
 const EngagementTab = lazy(() => import('./admin/EngagementTab'))
 const RecruitmentTab = lazy(() => import('./admin/RecruitmentTab'))
+const ScoutTab = lazy(() => import('./admin/ScoutTab'))
 
 const STORAGE_KEY = 'ag:admin:tab'
 
@@ -70,6 +71,7 @@ const TAB_SECTIONS: TabSection[] = [
     tabs: [
       { value: 'marketing', label: 'Marketing' },
       { value: 'engagement', label: 'Engagement' },
+      { value: 'scout', label: 'Scout' },
       { value: 'recruitment', label: 'Recruitment' },
     ],
   },
@@ -148,6 +150,7 @@ export default function Admin() {
     claims: <ClaimsTab />,
     marketing: <MarketingTab />,
     engagement: <EngagementTab />,
+    scout: <ScoutTab />,
     recruitment: <RecruitmentTab />,
   }
 
