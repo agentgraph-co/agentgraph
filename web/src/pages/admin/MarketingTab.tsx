@@ -12,10 +12,6 @@ import type {
   MarketingHealth,
   CampaignProposal,
   CampaignDetail,
-  RedditThread,
-  RedditDraftResult,
-  HFDiscussion,
-  HFDraftResult,
   ActivityItem,
   BotActivity,
 } from './types'
@@ -32,14 +28,7 @@ export default function MarketingTab() {
   const [campaignDeselected, setCampaignDeselected] = useState<Set<number>>(new Set())
   const [rejectFeedback, setRejectFeedback] = useState('')
   const [rejectingCampaignId, setRejectingCampaignId] = useState<string | null>(null)
-  const [redditDraft, setRedditDraft] = useState<RedditDraftResult | null>(null)
-  const [redditDraftContext, setRedditDraftContext] = useState('')
-  const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null)
-  const [hfDraft, setHfDraft] = useState<HFDraftResult | null>(null)
-  const [hfDraftContext, setHfDraftContext] = useState('')
-  const [generatingHfDraftFor, setGeneratingHfDraftFor] = useState<string | null>(null)
   const [activityFilter, setActivityFilter] = useState<'all' | 'posted' | 'pending' | 'failed'>('all')
-  const [hfForceRefresh, setHfForceRefresh] = useState(false)
   const [markPostedId, setMarkPostedId] = useState<string | null>(null)
   const [markPostedUrl, setMarkPostedUrl] = useState('')
 
@@ -171,67 +160,6 @@ export default function MarketingTab() {
       refetchCampaigns()
     },
     onError: () => { addToast('Failed to reject campaign', 'error') },
-  })
-
-  // ─── Reddit Scout queries ───
-
-  const { data: redditThreads, isLoading: redditLoading, refetch: refetchReddit } = useQuery<RedditThread[]>({
-    queryKey: ['admin-reddit-threads'],
-    queryFn: async () => (await api.get('/admin/marketing/reddit/threads')).data,
-    staleTime: 5 * 60_000,
-  })
-
-  const generateRedditDraftMutation = useMutation({
-    mutationFn: async ({ threadUrl, context }: { threadUrl: string; context?: string }) => {
-      return (await api.post('/admin/marketing/reddit/generate-draft', {
-        thread_url: threadUrl,
-        context: context || undefined,
-      })).data as RedditDraftResult
-    },
-    onSuccess: (data) => {
-      setRedditDraft(data)
-      setGeneratingDraftFor(null)
-      setRedditDraftContext('')
-      addToast('Reddit draft generated', 'success')
-    },
-    onError: () => {
-      setGeneratingDraftFor(null)
-      addToast('Failed to generate draft', 'error')
-    },
-  })
-
-  // ─── HuggingFace Scout queries ───
-
-  const { data: hfDiscussions, isLoading: hfLoading } = useQuery<HFDiscussion[]>({
-    queryKey: ['admin-hf-discussions', hfForceRefresh],
-    queryFn: async () => {
-      const params = hfForceRefresh ? { refresh: 'true' } : {}
-      const res = await api.get('/admin/marketing/huggingface/discussions', { params })
-      setHfForceRefresh(false)
-      return res.data
-    },
-    staleTime: 5 * 60_000,
-  })
-
-  const generateHfDraftMutation = useMutation({
-    mutationFn: async ({ repoId, discussionNum, discussionTitle, context }: { repoId: string; discussionNum: number; discussionTitle: string; context?: string }) => {
-      return (await api.post('/admin/marketing/huggingface/generate-draft', {
-        repo_id: repoId,
-        discussion_num: discussionNum,
-        discussion_title: discussionTitle,
-        context: context || undefined,
-      })).data as HFDraftResult
-    },
-    onSuccess: (data) => {
-      setHfDraft(data)
-      setGeneratingHfDraftFor(null)
-      setHfDraftContext('')
-      addToast('HuggingFace draft generated', 'success')
-    },
-    onError: () => {
-      setGeneratingHfDraftFor(null)
-      addToast('Failed to generate draft', 'error')
-    },
   })
 
   // ─── Bot Activity query ───
@@ -449,276 +377,185 @@ export default function MarketingTab() {
             )}
           </div>
 
-          {/* Discovery — Reddit + HuggingFace threads to engage with */}
+          {/* Drafts Queue */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Discovery — Threads to Engage</h2>
-              <button
-                onClick={() => { refetchReddit(); setHfForceRefresh(true) }}
-                disabled={redditLoading || hfLoading}
-                className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-              >
-                {(redditLoading || hfLoading) ? 'Scanning...' : 'Refresh Scan'}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+                Drafts Queue {mktDrafts ? `(${mktDrafts.length})` : ''}
+              </h2>
+              <div className="flex gap-2">
+                <select
+                  value={draftStatusFilter}
+                  onChange={e => setDraftStatusFilter(e.target.value)}
+                  className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
+                >
+                  <option value="human_review">Needs Review</option>
+                  <option value="human_review,draft">Review + Draft</option>
+                  <option value="draft">Draft Only</option>
+                  <option value="">All</option>
+                </select>
+                <select
+                  value={draftPlatformFilter}
+                  onChange={e => setDraftPlatformFilter(e.target.value)}
+                  className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
+                >
+                  <option value="">All Platforms</option>
+                  {mktHealth && Object.keys(mktHealth.adapters).map(p => (
+                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="text-xs text-text-muted mb-3">
-              Reddit threads and HuggingFace discussions relevant to AI agents, trust, and identity. Generate a draft reply for any thread.
-            </p>
+            {mktDrafts && mktDrafts.length > 0 ? (
+              <div className="space-y-3">
+                {mktDrafts.map((draft) => (
+                  <div key={draft.id} className="bg-surface border border-border rounded-lg p-4">
+                    {/* Header: platform badge + destination + status + time */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="font-medium capitalize text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{draft.platform}</span>
+                      {draft.platform === 'reddit' ? (
+                        <span className="text-[10px] flex gap-1.5">
+                          {['artificial', 'MachineLearning', 'LangChain', 'LocalLLaMA'].map(sub => (
+                            <a key={sub} href={`https://www.reddit.com/r/${sub}/submit`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-light hover:underline">r/{sub}</a>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[draft.platform] ?? draft.platform}</span>
+                      )}
+                      {draft.topic && <span className="text-[10px] bg-surface-hover text-text-muted px-1.5 py-0.5 rounded capitalize">{draft.topic}</span>}
+                      {draft.post_type === 'reactive' && <span className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded">Reply</span>}
+                      <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${
+                        draft.status === 'human_review' ? 'bg-warning/10 text-warning' :
+                        draft.status === 'planned' ? 'bg-blue-400/10 text-blue-400' :
+                        draft.status === 'draft' ? 'bg-surface-hover text-text-muted' :
+                        'bg-primary/10 text-primary'
+                      }`}>
+                        {draft.status === 'human_review' ? 'Needs Review' : draft.status === 'planned' ? 'Planned' : draft.status}
+                      </span>
+                      {draft.scheduled_day && (
+                        <span className="text-[10px] text-blue-400">{draft.scheduled_day}</span>
+                      )}
+                      <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
+                    </div>
 
-            {redditLoading ? (
-              <div className="py-6"><InlineSkeleton /></div>
-            ) : redditThreads && redditThreads.length > 0 ? (
-              <div className="space-y-2">
-                {redditThreads.map((thread) => (
-                  <div key={thread.url} className="bg-surface border border-border rounded-lg p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <a
-                          href={thread.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:underline leading-snug"
-                        >
-                          {thread.title}
-                        </a>
-                        <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
-                          <span className="font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">r/{thread.subreddit}</span>
-                          {thread.ranking_score != null && (
-                            <span className="font-medium text-success bg-success/10 px-1.5 py-0.5 rounded" title="Actionability score">Rank {thread.ranking_score}</span>
-                          )}
-                          <span>{thread.score} pts</span>
-                          <span>{thread.num_comments} comments</span>
-                          <span>u/{thread.author}</span>
-                        </div>
-                        {thread.selftext_preview && (
-                          <div className="text-xs text-text-muted mt-1.5 line-clamp-2">{thread.selftext_preview}</div>
-                        )}
-                        {thread.keywords_matched.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {thread.keywords_matched.map((kw) => (
-                              <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded bg-success/10 text-success">{kw}</span>
-                            ))}
-                          </div>
-                        )}
+                    {/* Card image preview */}
+                    {draft.image_url && (
+                      <div className="mb-3">
+                        <p className="text-[10px] text-text-muted mb-1.5">Post card image:</p>
+                        <img src={draft.image_url} alt="Post card" className="w-full max-w-[400px] rounded-lg border border-border" />
                       </div>
-                      <div className="flex-shrink-0">
-                        {generatingDraftFor === thread.url ? (
-                          <div className="space-y-2 w-48">
-                            <input
-                              type="text"
-                              value={redditDraftContext}
-                              onChange={e => setRedditDraftContext(e.target.value)}
-                              placeholder="Extra context (optional)"
-                              className="w-full text-[10px] bg-surface-hover border border-border rounded px-2 py-1"
-                            />
-                            <div className="flex gap-1">
+                    )}
+
+                    {/* Content preview */}
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+                      {['reddit', 'hackernews', 'producthunt'].includes(draft.platform) ? (
+                        <>
+                          {markPostedId === draft.id ? (
+                            <div className="flex items-center gap-2 w-full">
+                              <input
+                                type="url"
+                                placeholder="Paste the URL where you posted (optional)"
+                                value={markPostedUrl}
+                                onChange={e => setMarkPostedUrl(e.target.value)}
+                                className="flex-1 text-xs bg-surface-hover border border-border rounded px-2 py-1.5 focus:outline-none focus:border-primary"
+                              />
                               <button
-                                onClick={() => generateRedditDraftMutation.mutate({ threadUrl: thread.url, context: redditDraftContext })}
-                                disabled={generateRedditDraftMutation.isPending}
-                                className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
+                                onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'mark_posted', posted_url: markPostedUrl || undefined })}
+                                disabled={draftActionMutation.isPending}
+                                className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50 whitespace-nowrap"
                               >
-                                {generateRedditDraftMutation.isPending ? 'Generating...' : 'Generate'}
+                                Confirm
                               </button>
                               <button
-                                onClick={() => { setGeneratingDraftFor(null); setRedditDraftContext('') }}
-                                className="text-[10px] text-text-muted hover:text-text px-2 py-1 cursor-pointer"
+                                onClick={() => { setMarkPostedId(null); setMarkPostedUrl('') }}
+                                className="text-xs text-text-muted hover:text-text px-2 py-1.5 cursor-pointer"
                               >
                                 Cancel
                               </button>
                             </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setGeneratingDraftFor(thread.url)}
-                            className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded cursor-pointer whitespace-nowrap"
-                          >
-                            Generate Draft
-                          </button>
-                        )}
-                      </div>
+                          ) : (
+                            <button
+                              onClick={() => setMarkPostedId(draft.id)}
+                              className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                            >
+                              Manually Posted
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
+                          disabled={draftActionMutation.isPending}
+                          className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                        >
+                          Approve & Post
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
+                        className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'reject' })}
+                        disabled={draftActionMutation.isPending}
+                        className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
-                No relevant Reddit threads found.
+                No drafts matching the current filter.
               </div>
             )}
 
-            {/* HuggingFace Discussions */}
-            <div className="mt-4">
-              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-yellow-400" />
-                HuggingFace Model Discussions
-              </h3>
-              {hfLoading ? (
-                <div className="py-4"><InlineSkeleton /></div>
-              ) : hfDiscussions && hfDiscussions.length > 0 ? (
-                <div className="space-y-2">
-                  {hfDiscussions.map((disc) => {
-                    const discKey = `${disc.repo_id}/${disc.discussion_num}`
-                    return (
-                      <div key={discKey} className="bg-surface border border-border rounded-lg p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <a
-                              href={disc.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm font-medium text-yellow-400 hover:text-yellow-300 hover:underline leading-snug"
-                            >
-                              {disc.title}
-                            </a>
-                            <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-text-muted">
-                              <span className="font-medium text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded">{disc.repo_id}</span>
-                              <span>{disc.num_comments} comments</span>
-                              <span>{disc.author}</span>
-                            </div>
-                            {disc.content_preview && (
-                              <div className="text-xs text-text-muted mt-1.5 line-clamp-2">{disc.content_preview}</div>
-                            )}
-                            {disc.keywords_matched.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {disc.keywords_matched.map((kw) => (
-                                  <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded bg-success/10 text-success">{kw}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-shrink-0">
-                            {generatingHfDraftFor === discKey ? (
-                              <div className="space-y-2 w-48">
-                                <input
-                                  type="text"
-                                  value={hfDraftContext}
-                                  onChange={e => setHfDraftContext(e.target.value)}
-                                  placeholder="Extra context (optional)"
-                                  className="w-full text-[10px] bg-surface-hover border border-border rounded px-2 py-1"
-                                />
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => generateHfDraftMutation.mutate({
-                                      repoId: disc.repo_id,
-                                      discussionNum: disc.discussion_num,
-                                      discussionTitle: disc.title,
-                                      context: hfDraftContext,
-                                    })}
-                                    disabled={generateHfDraftMutation.isPending}
-                                    className="text-[10px] bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-2 py-1 rounded cursor-pointer disabled:opacity-50"
-                                  >
-                                    {generateHfDraftMutation.isPending ? 'Generating...' : 'Generate'}
-                                  </button>
-                                  <button
-                                    onClick={() => { setGeneratingHfDraftFor(null); setHfDraftContext('') }}
-                                    className="text-[10px] text-text-muted hover:text-text px-2 py-1 cursor-pointer"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setGeneratingHfDraftFor(discKey)}
-                                className="text-[10px] bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-2 py-1 rounded cursor-pointer whitespace-nowrap"
-                              >
-                                Generate Draft
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
-                  No relevant HuggingFace discussions found.
-                </div>
-              )}
-            </div>
-
-            {/* Reddit Draft Modal */}
-            {redditDraft && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setRedditDraft(null)}>
-                <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+            {/* Edit Draft Modal — full-size editor */}
+            {editingDraftId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}>
+                <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-hidden m-4 flex flex-col" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between p-4 border-b border-border">
-                    <div>
-                      <h3 className="text-sm font-semibold">Reddit Draft Reply</h3>
-                      <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">{redditDraft.thread_title}</div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold">Edit Draft</h3>
+                      {(() => { const d = mktDrafts?.find(x => x.id === editingDraftId); return d ? (
+                        <>
+                          <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{d.platform}</span>
+                          <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[d.platform] ?? ''}</span>
+                        </>
+                      ) : null; })()}
                     </div>
-                    <button onClick={() => setRedditDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
+                    <button onClick={() => { setEditingDraftId(null); setDraftEditContent('') }} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
                   </div>
-                  <div className="p-4">
-                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{redditDraft.draft_content}</pre>
+                  <div className="flex-1 p-4 overflow-y-auto">
+                    <textarea
+                      value={draftEditContent}
+                      onChange={e => setDraftEditContent(e.target.value)}
+                      className="w-full text-sm bg-surface-hover border border-border rounded p-3 min-h-[300px] resize-y font-sans leading-relaxed focus:outline-none focus:border-primary"
+                      autoFocus
+                    />
+                    <div className="text-xs text-text-muted mt-2">{draftEditContent.length} characters</div>
                   </div>
-                  <div className="flex items-center justify-between p-4 border-t border-border">
-                    <div className="text-[10px] text-text-muted">
-                      {redditDraft.llm_model && <span>Model: {redditDraft.llm_model}</span>}
-                      {redditDraft.llm_cost_usd > 0 && <span className="ml-2">Cost: ${redditDraft.llm_cost_usd.toFixed(4)}</span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(redditDraft.draft_content)
-                          addToast('Draft copied to clipboard', 'success')
-                        }}
-                        className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded cursor-pointer"
-                      >
-                        Copy to Clipboard
-                      </button>
-                      <a
-                        href={redditDraft.thread_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded inline-flex items-center"
-                      >
-                        Open Thread
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* HuggingFace Draft Modal */}
-            {hfDraft && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setHfDraft(null)}>
-                <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center justify-between p-4 border-b border-border">
-                    <div>
-                      <h3 className="text-sm font-semibold">HuggingFace Draft Reply</h3>
-                      <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">{hfDraft.repo_id} — {hfDraft.discussion_title}</div>
-                    </div>
-                    <button onClick={() => setHfDraft(null)} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
-                  </div>
-                  <div className="p-4">
-                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{hfDraft.draft_content}</pre>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border-t border-border">
-                    <div className="text-[10px] text-text-muted">
-                      {hfDraft.llm_model && <span>Model: {hfDraft.llm_model}</span>}
-                      {hfDraft.llm_cost_usd > 0 && <span className="ml-2">Cost: ${hfDraft.llm_cost_usd.toFixed(4)}</span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(hfDraft.draft_content)
-                          addToast('Draft copied to clipboard', 'success')
-                        }}
-                        className="text-xs bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 px-4 py-2 rounded cursor-pointer"
-                      >
-                        Copy to Clipboard
-                      </button>
-                      <a
-                        href={`https://huggingface.co/${hfDraft.repo_id}/discussions`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded inline-flex items-center"
-                      >
-                        Open Discussion
-                      </a>
-                    </div>
+                  <div className="flex gap-2 p-4 border-t border-border">
+                    <button
+                      onClick={() => { draftActionMutation.mutate({ postId: editingDraftId, action: 'edit_approve', content: draftEditContent }); setEditingDraftId(null); setDraftEditContent('') }}
+                      disabled={draftActionMutation.isPending || !draftEditContent.trim()}
+                      className="text-xs bg-success/10 text-success hover:bg-success/20 px-4 py-2 rounded cursor-pointer disabled:opacity-50"
+                    >
+                      Save & Approve
+                    </button>
+                    <button
+                      onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}
+                      className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded cursor-pointer"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               </div>
@@ -963,191 +800,6 @@ export default function MarketingTab() {
               </div>
             </div>
           )}
-
-          {/* Drafts Queue */}
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-                Drafts Queue {mktDrafts ? `(${mktDrafts.length})` : ''}
-              </h2>
-              <div className="flex gap-2">
-                <select
-                  value={draftStatusFilter}
-                  onChange={e => setDraftStatusFilter(e.target.value)}
-                  className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
-                >
-                  <option value="human_review">Needs Review</option>
-                  <option value="human_review,draft">Review + Draft</option>
-                  <option value="draft">Draft Only</option>
-                  <option value="">All</option>
-                </select>
-                <select
-                  value={draftPlatformFilter}
-                  onChange={e => setDraftPlatformFilter(e.target.value)}
-                  className="text-xs bg-surface-hover border border-border rounded px-2 py-1"
-                >
-                  <option value="">All Platforms</option>
-                  {mktHealth && Object.keys(mktHealth.adapters).map(p => (
-                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {mktDrafts && mktDrafts.length > 0 ? (
-              <div className="space-y-3">
-                {mktDrafts.map((draft) => (
-                  <div key={draft.id} className="bg-surface border border-border rounded-lg p-4">
-                    {/* Header: platform badge + destination + status + time */}
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="font-medium capitalize text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{draft.platform}</span>
-                      {draft.platform === 'reddit' ? (
-                        <span className="text-[10px] flex gap-1.5">
-                          {['artificial', 'MachineLearning', 'LangChain', 'LocalLLaMA'].map(sub => (
-                            <a key={sub} href={`https://www.reddit.com/r/${sub}/submit`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-light hover:underline">r/{sub}</a>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[draft.platform] ?? draft.platform}</span>
-                      )}
-                      {draft.topic && <span className="text-[10px] bg-surface-hover text-text-muted px-1.5 py-0.5 rounded capitalize">{draft.topic}</span>}
-                      {draft.post_type === 'reactive' && <span className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded">Reply</span>}
-                      <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${
-                        draft.status === 'human_review' ? 'bg-warning/10 text-warning' :
-                        draft.status === 'planned' ? 'bg-blue-400/10 text-blue-400' :
-                        draft.status === 'draft' ? 'bg-surface-hover text-text-muted' :
-                        'bg-primary/10 text-primary'
-                      }`}>
-                        {draft.status === 'human_review' ? 'Needs Review' : draft.status === 'planned' ? 'Planned' : draft.status}
-                      </span>
-                      {draft.scheduled_day && (
-                        <span className="text-[10px] text-blue-400">{draft.scheduled_day}</span>
-                      )}
-                      <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
-                    </div>
-
-                    {/* Card image preview */}
-                    {draft.image_url && (
-                      <div className="mb-3">
-                        <p className="text-[10px] text-text-muted mb-1.5">Post card image:</p>
-                        <img src={draft.image_url} alt="Post card" className="w-full max-w-[400px] rounded-lg border border-border" />
-                      </div>
-                    )}
-
-                    {/* Content preview */}
-                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
-
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
-                      {['reddit', 'hackernews', 'producthunt'].includes(draft.platform) ? (
-                        <>
-                          {markPostedId === draft.id ? (
-                            <div className="flex items-center gap-2 w-full">
-                              <input
-                                type="url"
-                                placeholder="Paste the URL where you posted (optional)"
-                                value={markPostedUrl}
-                                onChange={e => setMarkPostedUrl(e.target.value)}
-                                className="flex-1 text-xs bg-surface-hover border border-border rounded px-2 py-1.5 focus:outline-none focus:border-primary"
-                              />
-                              <button
-                                onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'mark_posted', posted_url: markPostedUrl || undefined })}
-                                disabled={draftActionMutation.isPending}
-                                className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                onClick={() => { setMarkPostedId(null); setMarkPostedUrl('') }}
-                                className="text-xs text-text-muted hover:text-text px-2 py-1.5 cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setMarkPostedId(draft.id)}
-                              className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                            >
-                              Manually Posted
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
-                          disabled={draftActionMutation.isPending}
-                          className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                        >
-                          Approve & Post
-                        </button>
-                      )}
-                      <button
-                        onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
-                        className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'reject' })}
-                        disabled={draftActionMutation.isPending}
-                        className="text-xs bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-text-muted bg-surface border border-border rounded-lg p-4 text-center">
-                No drafts matching the current filter.
-              </div>
-            )}
-
-            {/* Edit Draft Modal — full-size editor */}
-            {editingDraftId && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}>
-                <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-hidden m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center justify-between p-4 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold">Edit Draft</h3>
-                      {(() => { const d = mktDrafts?.find(x => x.id === editingDraftId); return d ? (
-                        <>
-                          <span className="text-xs font-medium capitalize bg-primary/10 text-primary px-2 py-0.5 rounded">{d.platform}</span>
-                          <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[d.platform] ?? ''}</span>
-                        </>
-                      ) : null; })()}
-                    </div>
-                    <button onClick={() => { setEditingDraftId(null); setDraftEditContent('') }} className="text-text-muted hover:text-text text-lg cursor-pointer">&times;</button>
-                  </div>
-                  <div className="flex-1 p-4 overflow-y-auto">
-                    <textarea
-                      value={draftEditContent}
-                      onChange={e => setDraftEditContent(e.target.value)}
-                      className="w-full text-sm bg-surface-hover border border-border rounded p-3 min-h-[300px] resize-y font-sans leading-relaxed focus:outline-none focus:border-primary"
-                      autoFocus
-                    />
-                    <div className="text-xs text-text-muted mt-2">{draftEditContent.length} characters</div>
-                  </div>
-                  <div className="flex gap-2 p-4 border-t border-border">
-                    <button
-                      onClick={() => { draftActionMutation.mutate({ postId: editingDraftId, action: 'edit_approve', content: draftEditContent }); setEditingDraftId(null); setDraftEditContent('') }}
-                      disabled={draftActionMutation.isPending || !draftEditContent.trim()}
-                      className="text-xs bg-success/10 text-success hover:bg-success/20 px-4 py-2 rounded cursor-pointer disabled:opacity-50"
-                    >
-                      Save & Approve
-                    </button>
-                    <button
-                      onClick={() => { setEditingDraftId(null); setDraftEditContent('') }}
-                      className="text-xs bg-surface-hover text-text-muted hover:text-text px-4 py-2 rounded cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Recent Posts */}
           {mktDashboard && mktDashboard.recent_posts.length > 0 && (
