@@ -587,6 +587,111 @@ async def check_rate_limit_accumulation(
     )
 
 
+_CREDENTIAL_KEY = "ag:mktg:credential_alert"
+
+
+async def check_system_credentials(db: AsyncSession) -> None:
+    """Alert #6: Check non-marketing system credentials.
+
+    Validates GitHub outreach token and Bluesky app password used by
+    the auto-follow and recruitment systems.  Daily cooldown.
+    """
+    if await _redis_cooldown_check(
+        _CREDENTIAL_KEY, _DAILY_COOLDOWN,
+    ):
+        return
+
+    import httpx
+
+    from src.config import settings as _cred_settings
+
+    failures: list[str] = []
+
+    # Check GitHub outreach token
+    if _cred_settings.recruitment_enabled:
+        token = _cred_settings.github_outreach_token
+        if not token:
+            failures.append(
+                "GitHub outreach: GITHUB_OUTREACH_TOKEN not set"
+            )
+        else:
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    resp = await c.get(
+                        "https://api.github.com/rate_limit",
+                        headers={
+                            "Authorization": f"Bearer {token}",
+                            "Accept": "application/vnd.github+json",
+                        },
+                    )
+                    if resp.status_code in (401, 403):
+                        failures.append(
+                            "GitHub outreach: token expired or "
+                            f"invalid (HTTP {resp.status_code})"
+                        )
+            except Exception as exc:
+                failures.append(
+                    f"GitHub outreach: connection error ({exc})"
+                )
+
+    # Check Bluesky app password (used by auto-follow)
+    from src.marketing.config import marketing_settings
+
+    bsky_handle = marketing_settings.bluesky_handle
+    bsky_password = marketing_settings.bluesky_app_password
+    if bsky_handle and bsky_password:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                resp = await c.post(
+                    "https://bsky.social/xrpc/"
+                    "com.atproto.server.createSession",
+                    json={
+                        "identifier": bsky_handle,
+                        "password": bsky_password,
+                    },
+                )
+                if resp.status_code != 200:
+                    failures.append(
+                        "Bluesky: app password invalid or "
+                        f"expired (HTTP {resp.status_code})"
+                    )
+        except Exception as exc:
+            failures.append(
+                f"Bluesky: connection error ({exc})"
+            )
+    elif bsky_handle:
+        failures.append(
+            "Bluesky: BLUESKY_APP_PASSWORD not set"
+        )
+
+    if not failures:
+        # Reset cooldown for tomorrow
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            await r.delete(_CREDENTIAL_KEY)
+        except Exception:
+            pass
+        return
+
+    detail_list = "\n".join(f"• {f}" for f in failures)
+    await _notify_admin(
+        db,
+        kind="credential_failure",
+        title=(
+            f"AgentGraph: {len(failures)} credential "
+            f"failure{'s' if len(failures) != 1 else ''}"
+        ),
+        body=(
+            f"The following credentials need attention:"
+            f"\n\n{detail_list}\n\n"
+            f"Update tokens in .env.secrets on production "
+            f"and restart the backend."
+        ),
+    )
+
+
 async def run_watchdog_checks(db: AsyncSession) -> dict:
     """Run all watchdog checks.  Called once per scheduler tick.
 
@@ -595,6 +700,7 @@ async def run_watchdog_checks(db: AsyncSession) -> dict:
     results: dict = {}
     checks = [
         ("auth_health", check_auth_health),
+        ("system_credentials", check_system_credentials),
         ("zero_post_day", check_zero_post_day),
         ("campaign_proposal", check_campaign_proposal_delivery),
         ("news_staleness", check_news_signal_staleness),
