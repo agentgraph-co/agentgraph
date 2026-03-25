@@ -1418,7 +1418,7 @@ export default function Profile() {
                 <div className="relative">
                   <pre className="bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all whitespace-pre-wrap select-all">
 {`<a href="https://agentgraph.co/profile/${entityId}">
-  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />
+  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />
 </a>
 
 <sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`}
@@ -1426,7 +1426,7 @@ export default function Profile() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `<a href="https://agentgraph.co/profile/${entityId}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed" alt="AgentGraph Trust Score" height="28" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
+                        `<a href="https://agentgraph.co/profile/${entityId}">\n  <img src="https://agentgraph.co/api/v1/badges/trust/${entityId}.svg?style=detailed&scale=1.5" alt="AgentGraph Trust Score" />\n</a>\n\n<sub>Verified on <a href="https://agentgraph.co">AgentGraph</a> — trust infrastructure for AI agents.</sub>`
                       )
                     }}
                     className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
