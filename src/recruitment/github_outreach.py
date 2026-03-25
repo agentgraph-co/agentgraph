@@ -66,18 +66,18 @@ async def _create_issue(
 
         if resp.status_code == 403:
             logger.warning(
-                "GitHub rate limit or permission denied for %s/%s", owner, repo,
+                "GitHub 403 for %s/%s: %s", owner, repo, resp.text[:200],
             )
-            return None
+            return "403"
 
         if resp.status_code == 410:
             # Issues disabled on this repo
             logger.info("Issues disabled on %s/%s — skipping", owner, repo)
-            return None
+            return "skip"
 
         if resp.status_code == 404:
             logger.info("Repo %s/%s not found — may be deleted", owner, repo)
-            return None
+            return "skip"
 
         logger.warning(
             "GitHub issue creation returned %d for %s/%s: %s",
@@ -137,15 +137,20 @@ async def run_outreach_cycle(db: AsyncSession) -> int:
         owner = prospect.owner_login
         issue_url = await _create_issue(owner, repo_name, title, body)
 
-        if issue_url:
+        if issue_url and issue_url.startswith("http"):
             prospect.status = "contacted"
             prospect.contacted_at = datetime.now(timezone.utc)
             prospect.issue_url = issue_url
             sent += 1
-        elif issue_url is None:
-            # Rate limit or other transient issue — leave as discovered for retry
-            # But if issues are disabled (410) or repo gone (404), skip
-            pass
+        elif issue_url == "skip":
+            # 410 (issues disabled) or 404 (repo gone) — permanent skip
+            prospect.status = "skipped"
+            prospect.notes = "Issues disabled or repo not found"
+        elif issue_url == "403":
+            # Could be repo-level restriction or rate limit — skip
+            prospect.status = "skipped"
+            prospect.notes = "GitHub 403 — issues may be restricted on this repo"
+        # None = token missing, leave as discovered for retry
 
     await db.flush()
     return sent
