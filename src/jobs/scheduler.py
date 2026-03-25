@@ -477,8 +477,15 @@ async def _starter_pack_loop(interval: int = STARTER_PACK_INTERVAL) -> None:
     """Job 16: Refresh the Bluesky starter pack every 30 days."""
     import os
 
-    from scripts.create_bluesky_starter_pack import CURATED_ACCOUNTS
-    from scripts.create_bluesky_starter_pack import main as _sp_main
+    try:
+        from scripts.create_bluesky_starter_pack import CURATED_ACCOUNTS
+        from scripts.create_bluesky_starter_pack import main as _sp_main
+    except ImportError:
+        logger.warning(
+            "Starter pack script not available (scripts/ not in path), "
+            "disabling Job 16",
+        )
+        return
 
     logger.info("Bluesky starter pack refresh started (interval=%ds)", interval)
     while True:

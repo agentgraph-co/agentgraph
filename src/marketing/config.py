@@ -123,9 +123,9 @@ PLATFORM_SCHEDULE: dict[str, dict] = {
     "bluesky": {"posts_per_week": 3, "auto_post": True, "days": ["tue", "thu", "sat"]},
     "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},
     "huggingface": {"posts_per_week": 2, "auto_post": True, "days": ["wed", "sat"]},
-    "devto": {"posts_per_week": 1, "auto_post": False, "days": ["mon"]},
+    "devto": {"posts_per_week": 1, "auto_post": True, "days": ["mon"]},
     "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["wed"]},
     "hashnode": {"posts_per_week": 1, "auto_post": False, "days": ["tue"]},
-    "github_discussions": {"posts_per_week": 2, "auto_post": False, "days": ["mon", "thu"]},
+    "github_discussions": {"posts_per_week": 2, "auto_post": True, "days": ["mon", "thu"]},
     "telegram": {"posts_per_week": 3, "auto_post": True, "days": ["mon", "wed", "fri"]},
 }
