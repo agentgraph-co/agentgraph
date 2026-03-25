@@ -67,8 +67,7 @@ HUMAN_APPROVAL_PLATFORMS = {
     if not cfg.get("auto_post", False)
 } | {
     # Platforms not in PLATFORM_SCHEDULE that should always need approval
-    "discord", "telegram", "github_discussions",
-    "hackernews", "producthunt",
+    "discord", "hackernews", "producthunt",
 }
 
 
@@ -168,6 +167,16 @@ async def _post_planned_campaign_posts(
                 "id": str(post.id),
                 "platform": post.platform,
                 "reason": "not_configured",
+            })
+            continue
+
+        # HuggingFace campaign posts can't auto-post (need repo_id context).
+        # The autopick pipeline handles HF separately.
+        if post.platform == "huggingface":
+            results["skipped"].append({
+                "id": str(post.id),
+                "platform": post.platform,
+                "reason": "hf_uses_autopick",
             })
             continue
 
@@ -274,11 +283,41 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
         "campaign_posts": len(campaign_results["posted"]),
     }
 
-    # Platforms that require external context (repo_id, etc.) and don't
-    # support standalone proactive posts
-    proactive_skip = {"huggingface", "hackernews", "producthunt"}
+    # Platforms that require external context and can't do standalone posts
+    proactive_skip = {"hackernews", "producthunt"}
+
+    # HuggingFace uses its own autopick pipeline (scout → pick → reply)
+    if "huggingface" not in campaign_platforms and _is_platform_scheduled_today("huggingface"):
+        try:
+            from src.marketing.hf_autopick import run_hf_autopick_cycle
+
+            hf_result = await run_hf_autopick_cycle()
+            if hf_result.get("posted"):
+                results["posted"].append({
+                    "platform": "huggingface",
+                    "topic": "huggingface_discussion",
+                    "external_id": hf_result.get("discussion", {}).get("url"),
+                })
+            elif hf_result.get("status") != "no_action":
+                results["errors"].append({
+                    "platform": "huggingface",
+                    "error": hf_result.get("status", "unknown"),
+                })
+            else:
+                results["skipped"].append(
+                    {"platform": "huggingface", "reason": "no_discussions_found"},
+                )
+        except Exception:
+            logger.exception("HuggingFace autopick failed")
+            results["errors"].append(
+                {"platform": "huggingface", "error": "autopick_exception"},
+            )
 
     for platform_name, adapter in adapters.items():
+        # HuggingFace handled above via autopick pipeline
+        if platform_name == "huggingface":
+            continue
+
         # Skip platforms that need external context for posting
         if platform_name in proactive_skip:
             results["skipped"].append(
