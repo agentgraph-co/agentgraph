@@ -121,7 +121,7 @@ marketing_settings = MarketingSettings()
 PLATFORM_SCHEDULE: dict[str, dict] = {
     "twitter": {"posts_per_week": 3, "auto_post": True, "days": ["mon", "wed", "fri"]},
     "bluesky": {"posts_per_week": 3, "auto_post": True, "days": ["tue", "thu", "sat"]},
-    "reddit": {"posts_per_week": 2, "auto_post": False, "days": ["tue", "thu"]},
+    "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},
     "huggingface": {"posts_per_week": 2, "auto_post": True, "days": ["wed", "sat"]},
     "devto": {"posts_per_week": 1, "auto_post": False, "days": ["mon"]},
     "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["wed"]},

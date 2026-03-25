@@ -88,18 +88,17 @@ async def get_digest_data(db: AsyncSession) -> dict:
 
     failures = await get_failure_summary(db, hours=7 * 24)
 
-    # Reddit scout — try live scan first, fall back to Redis cache
-    # (Reddit blocks AWS IPs, so EC2 relies on cached results from Mac Mini)
+    # Reddit scout — cached data only (no live HTTP requests to Reddit).
+    # The news-digest on the Windows server handles Reddit scanning and
+    # pushes results to Redis.
     reddit_threads: list[dict] = []
     try:
-        from src.marketing.reddit_scout import get_cached_threads, scan_subreddits
+        from src.marketing.reddit_scout import get_cached_threads
 
-        threads = await scan_subreddits(min_score=3, limit_per_sub=15)
-        if not threads:
-            threads = await get_cached_threads()
+        threads = await get_cached_threads()
         reddit_threads = [t.to_dict() for t in threads[:15]]
     except Exception:
-        logger.debug("Reddit scout failed", exc_info=True)
+        logger.debug("Reddit scout cache read failed", exc_info=True)
 
     return {
         "week_start": week_start.strftime("%B %d, %Y"),

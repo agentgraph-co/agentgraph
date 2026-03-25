@@ -272,6 +272,35 @@ export interface EngagementStats {
   queue_size: number
 }
 
+export interface RecruitmentProspectItem {
+  id: string
+  platform: string
+  platform_id: string
+  owner_login: string
+  repo_name: string | null
+  stars: number | null
+  description: string | null
+  framework_detected: string | null
+  status: string
+  contacted_at: string | null
+  issue_url: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RecruitmentStatsData {
+  total: number
+  discovered: number
+  contacted: number
+  visited: number
+  registered: number
+  onboarded: number
+  active: number
+  skipped: number
+  declined: number
+}
+
 export type Tab = 'overview' | 'users' | 'moderation' | 'appeals' | 'audit' | 'growth' | 'conversion' | 'attribution' | 'waitlist' | 'trust' | 'safety' | 'infra' | 'issues' | 'claims' | 'marketing' | 'engagement' | 'recruitment'
 
 export interface TabSection {

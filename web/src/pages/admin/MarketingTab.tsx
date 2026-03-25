@@ -40,6 +40,8 @@ export default function MarketingTab() {
   const [generatingHfDraftFor, setGeneratingHfDraftFor] = useState<string | null>(null)
   const [activityFilter, setActivityFilter] = useState<'all' | 'posted' | 'pending' | 'failed'>('all')
   const [hfForceRefresh, setHfForceRefresh] = useState(false)
+  const [markPostedId, setMarkPostedId] = useState<string | null>(null)
+  const [markPostedUrl, setMarkPostedUrl] = useState('')
 
   const { data: mktDashboard, isLoading: mktLoading } = useQuery<MarketingDashboard>({
     queryKey: ['admin-marketing-dashboard'],
@@ -66,13 +68,16 @@ export default function MarketingTab() {
   })
 
   const draftActionMutation = useMutation({
-    mutationFn: async ({ postId, action, content }: { postId: string; action: string; content?: string }) => {
-      return (await api.post(`/admin/marketing/drafts/${postId}`, { action, content })).data
+    mutationFn: async ({ postId, action, content, posted_url }: { postId: string; action: string; content?: string; posted_url?: string }) => {
+      return (await api.post(`/admin/marketing/drafts/${postId}`, { action, content, posted_url })).data
     },
     onSuccess: (_data, vars) => {
-      addToast(`Draft ${vars.action === 'approve' ? 'approved' : vars.action === 'reject' ? 'rejected' : 'edited & approved'}`, 'success')
+      const msg = vars.action === 'approve' ? 'approved' : vars.action === 'reject' ? 'rejected' : vars.action === 'mark_posted' ? 'marked as posted' : 'edited & approved'
+      addToast(`Draft ${msg}`, 'success')
       setEditingDraftId(null)
       setDraftEditContent('')
+      setMarkPostedId(null)
+      setMarkPostedUrl('')
       queryClient.invalidateQueries({ queryKey: ['admin-marketing-drafts'] })
       queryClient.invalidateQueries({ queryKey: ['admin-marketing-dashboard'] })
     },
@@ -995,7 +1000,15 @@ export default function MarketingTab() {
                     {/* Header: platform badge + destination + status + time */}
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span className="font-medium capitalize text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{draft.platform}</span>
-                      <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[draft.platform] ?? draft.platform}</span>
+                      {draft.platform === 'reddit' ? (
+                        <span className="text-[10px] flex gap-1.5">
+                          {['artificial', 'MachineLearning', 'LangChain', 'LocalLLaMA'].map(sub => (
+                            <a key={sub} href={`https://www.reddit.com/r/${sub}/submit`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-light hover:underline">r/{sub}</a>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-text-muted">{PLATFORM_DESTINATIONS[draft.platform] ?? draft.platform}</span>
+                      )}
                       {draft.topic && <span className="text-[10px] bg-surface-hover text-text-muted px-1.5 py-0.5 rounded capitalize">{draft.topic}</span>}
                       {draft.post_type === 'reactive' && <span className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded">Reply</span>}
                       <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${
@@ -1024,14 +1037,50 @@ export default function MarketingTab() {
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
 
                     {/* Actions */}
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
-                      <button
-                        onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
-                        disabled={draftActionMutation.isPending}
-                        className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
-                      >
-                        Approve & Post
-                      </button>
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+                      {['reddit', 'hackernews', 'producthunt'].includes(draft.platform) ? (
+                        <>
+                          {markPostedId === draft.id ? (
+                            <div className="flex items-center gap-2 w-full">
+                              <input
+                                type="url"
+                                placeholder="Paste the URL where you posted (optional)"
+                                value={markPostedUrl}
+                                onChange={e => setMarkPostedUrl(e.target.value)}
+                                className="flex-1 text-xs bg-surface-hover border border-border rounded px-2 py-1.5 focus:outline-none focus:border-primary"
+                              />
+                              <button
+                                onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'mark_posted', posted_url: markPostedUrl || undefined })}
+                                disabled={draftActionMutation.isPending}
+                                className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => { setMarkPostedId(null); setMarkPostedUrl('') }}
+                                className="text-xs text-text-muted hover:text-text px-2 py-1.5 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setMarkPostedId(draft.id)}
+                              className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                            >
+                              Manually Posted
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => draftActionMutation.mutate({ postId: draft.id, action: 'approve' })}
+                          disabled={draftActionMutation.isPending}
+                          className="text-xs bg-success/10 text-success hover:bg-success/20 px-3 py-1.5 rounded cursor-pointer disabled:opacity-50"
+                        >
+                          Approve & Post
+                        </button>
+                      )}
                       <button
                         onClick={() => { setEditingDraftId(draft.id); setDraftEditContent(draft.content) }}
                         className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded cursor-pointer"

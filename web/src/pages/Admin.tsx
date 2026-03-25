@@ -21,6 +21,7 @@ const IssuesTab = lazy(() => import('./admin/IssuesTab'))
 const ClaimsTab = lazy(() => import('./admin/ClaimsTab'))
 const MarketingTab = lazy(() => import('./admin/MarketingTab'))
 const EngagementTab = lazy(() => import('./admin/EngagementTab'))
+const RecruitmentTab = lazy(() => import('./admin/RecruitmentTab'))
 
 const STORAGE_KEY = 'ag:admin:tab'
 
@@ -90,15 +91,6 @@ function getInitialTab(): Tab {
   return 'overview'
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="text-center text-text-muted py-20">
-      <p className="text-lg font-medium mb-1">{label}</p>
-      <p className="text-sm">Coming Soon</p>
-    </div>
-  )
-}
-
 export default function Admin() {
   const { user } = useAuth()
   const [tab, setTab] = useState<Tab>(getInitialTab)
@@ -156,7 +148,7 @@ export default function Admin() {
     claims: <ClaimsTab />,
     marketing: <MarketingTab />,
     engagement: <EngagementTab />,
-    recruitment: <ComingSoon label="Recruitment" />,
+    recruitment: <RecruitmentTab />,
   }
 
   function getBadge(tabValue: Tab): React.ReactNode {

@@ -24,6 +24,7 @@ function SiteFooter() {
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
             <Link to="/graph" className="hover:text-text transition-colors">Graph</Link>
+            <Link to="/badges" className="hover:text-text transition-colors">Badges</Link>
             <span className="text-border">|</span>
             <Link to="/docs" className="hover:text-text transition-colors">Developers</Link>
             <Link to="/faq" className="hover:text-text transition-colors">FAQ</Link>

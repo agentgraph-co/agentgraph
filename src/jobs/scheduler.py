@@ -14,6 +14,8 @@ Runs multiple jobs on the same interval (default 6 hours):
 11. Marketing watchdog checks
 12. Marketing recap to feed (Monday + Thursday)
 13. Expired token cleanup — email verifications + password reset tokens (daily)
+14. Reply Guy monitor — check reply targets for new posts
+15. Reply Guy drafter — generate LLM reply drafts for new opportunities
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -29,6 +31,12 @@ logger = logging.getLogger(__name__)
 SCHEDULER_INTERVAL = 6 * 60 * 60
 
 _scheduler_task: asyncio.Task | None = None
+_reply_monitor_task: asyncio.Task | None = None
+_reply_drafter_task: asyncio.Task | None = None
+
+# Reply Guy intervals (in seconds)
+REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
+REPLY_DRAFTER_INTERVAL = 30 * 60   # 30 minutes
 
 
 async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
@@ -375,13 +383,53 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+async def _reply_monitor_loop(interval: int = REPLY_MONITOR_INTERVAL) -> None:
+    """Job 14: Check reply targets for new posts on a fast loop."""
+    logger.info("Reply guy monitor started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.config import settings as _rg_settings
+
+            if _rg_settings.reply_guy_enabled:
+                from src.marketing.reply_guy.monitor import monitor_all_targets
+
+                stats = await monitor_all_targets()
+                if stats.get("new_opportunities", 0) > 0:
+                    logger.info("Reply guy monitor: %s", stats)
+                else:
+                    logger.debug("Reply guy monitor: %s", stats)
+        except Exception:
+            logger.exception("Reply guy monitor failed")
+        await asyncio.sleep(interval)
+
+
+async def _reply_drafter_loop(interval: int = REPLY_DRAFTER_INTERVAL) -> None:
+    """Job 15: Generate LLM reply drafts for new opportunities on a fast loop."""
+    logger.info("Reply guy drafter started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.config import settings as _rg_settings
+
+            if _rg_settings.reply_guy_enabled:
+                from src.marketing.reply_guy.drafter import generate_drafts
+
+                stats = await generate_drafts(limit=20)
+                if stats.get("drafted", 0) > 0:
+                    logger.info("Reply guy drafter: %s", stats)
+                else:
+                    logger.debug("Reply guy drafter: %s", stats)
+        except Exception:
+            logger.exception("Reply guy drafter failed")
+        await asyncio.sleep(interval)
+
+
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.
 
     Returns the asyncio.Task so it can be cancelled on shutdown.
     Safe to call multiple times -- subsequent calls are no-ops.
     """
-    global _scheduler_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
@@ -393,14 +441,48 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
         name="background-scheduler",
     )
     logger.info("Scheduler task created (interval=%ds)", effective_interval)
+
+    # Reply Guy fast-loop tasks (gated by reply_guy_enabled inside each loop)
+    from src.config import settings as _sched_settings
+
+    if _sched_settings.reply_guy_enabled:
+        if _reply_monitor_task is None or _reply_monitor_task.done():
+            _reply_monitor_task = asyncio.create_task(
+                _reply_monitor_loop(),
+                name="reply-guy-monitor",
+            )
+            logger.info(
+                "Reply guy monitor task created (interval=%ds)",
+                REPLY_MONITOR_INTERVAL,
+            )
+        if _reply_drafter_task is None or _reply_drafter_task.done():
+            _reply_drafter_task = asyncio.create_task(
+                _reply_drafter_loop(),
+                name="reply-guy-drafter",
+            )
+            logger.info(
+                "Reply guy drafter task created (interval=%ds)",
+                REPLY_DRAFTER_INTERVAL,
+            )
+
     return _scheduler_task
 
 
 def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
-    global _scheduler_task
+    global _scheduler_task, _reply_monitor_task, _reply_drafter_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
         logger.info("Scheduler task cancelled")
     _scheduler_task = None
+
+    if _reply_monitor_task is not None and not _reply_monitor_task.done():
+        _reply_monitor_task.cancel()
+        logger.info("Reply guy monitor task cancelled")
+    _reply_monitor_task = None
+
+    if _reply_drafter_task is not None and not _reply_drafter_task.done():
+        _reply_drafter_task.cancel()
+        logger.info("Reply guy drafter task cancelled")
+    _reply_drafter_task = None

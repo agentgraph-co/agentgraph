@@ -38,13 +38,16 @@ MONITOR_KEYWORDS = [
 
 
 def _get_monitoring_adapters() -> dict[str, AbstractPlatformAdapter]:
-    """Get adapters that support keyword monitoring."""
+    """Get adapters that support keyword monitoring.
+
+    Reddit is excluded — the news-digest on the Windows server handles
+    Reddit scanning separately and sends data to the admin.  AgentGraph
+    should never make outbound HTTP requests to Reddit.
+    """
     from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
     from src.marketing.adapters.hackernews import HackerNewsAdapter
-    from src.marketing.adapters.reddit import RedditAdapter
 
     adapters: dict[str, AbstractPlatformAdapter] = {
-        "reddit": RedditAdapter(),
         "hackernews": HackerNewsAdapter(),
         "github_discussions": GitHubDiscussionsAdapter(),
     }
