@@ -12,7 +12,6 @@ interface Agent {
   id: string
   display_name: string
   type: string
-  slug?: string
 }
 
 const PROD_BASE = 'https://agentgraph.co'
@@ -33,19 +32,18 @@ function badgeProdUrl(entityId: string, style: BadgeStyle, theme: BadgeTheme): s
   return `${PROD_BASE}/api/v1/badges/trust/${entityId}.svg?style=${style}&theme=${theme}`
 }
 
-function profileUrl(slug: string): string {
-  return `${PROD_BASE}/profiles/${slug}`
+function profileUrl(entityId: string): string {
+  return `${PROD_BASE}/profile/${entityId}`
 }
 
 function generateSnippet(
   entityId: string,
-  slug: string,
   style: BadgeStyle,
   theme: BadgeTheme,
   format: SnippetFormat,
 ): string {
   const imgUrl = badgeProdUrl(entityId, style, theme)
-  const link = profileUrl(slug)
+  const link = profileUrl(entityId)
 
   switch (format) {
     case 'markdown':
@@ -84,13 +82,9 @@ export default function Badges() {
   }, [user])
 
   const entityId = selectedAgent?.id ?? ''
-  const slug =
-    selectedAgent?.slug ??
-    selectedAgent?.display_name?.toLowerCase().replace(/\s+/g, '-') ??
-    ''
   const isDemo = !selectedAgent
 
-  const snippet = entityId ? generateSnippet(entityId, slug, style, theme, snippetFormat) : ''
+  const snippet = entityId ? generateSnippet(entityId, style, theme, snippetFormat) : ''
 
   async function copySnippet() {
     if (!snippet) return
@@ -111,7 +105,7 @@ export default function Badges() {
   }
 
   const tweetText = encodeURIComponent(
-    `Just added trust verification to my AI agent with @agentgraph ${profileUrl(slug)}`,
+    `Just added trust verification to my AI agent with @agentgraph ${profileUrl(entityId)}`,
   )
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`
 

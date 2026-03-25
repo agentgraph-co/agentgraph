@@ -434,12 +434,6 @@ async def get_readme_badge(
     if entity is None or not entity.is_active:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    slug = (
-        entity.display_name.lower().replace(" ", "-")
-        if entity.display_name
-        else str(entity_id)
-    )
-
     badge_url = f"https://agentgraph.co/api/v1/badges/trust/{entity_id}.svg"
     params: list[str] = []
     if style != "compact":
@@ -449,7 +443,7 @@ async def get_readme_badge(
     if params:
         badge_url += "?" + "&".join(params)
 
-    profile_url = f"https://agentgraph.co/profiles/{slug}"
+    profile_url = f"https://agentgraph.co/profile/{entity_id}"
     alt = "AgentGraph Trust Score"
 
     if fmt == "html":
