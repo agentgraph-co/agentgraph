@@ -472,7 +472,7 @@ async def get_readme_badge(
 
     blurb = (
         '<sub>Verified on <a href="https://agentgraph.co">'
-        "AgentGraph</a> \u2014 trust infrastructure for AI agents.</sub>"
+        f'AgentGraph</a> \u00b7 <a href="{profile_url}">View profile</a></sub>'
     )
 
     if fmt == "html":
