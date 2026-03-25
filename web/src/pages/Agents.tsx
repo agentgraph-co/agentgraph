@@ -171,8 +171,12 @@ export default function Agents() {
     mutationFn: async (agentId: string) => {
       await api.delete(`/agents/${agentId}`)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+    onSuccess: (_data, agentId) => {
+      // Optimistically remove from cached list so it disappears immediately
+      queryClient.setQueriesData<{ agents: Agent[]; total: number }>(
+        { queryKey: ['agents'] },
+        (old) => old ? { agents: old.agents.filter((a) => a.id !== agentId), total: old.total - 1 } : old,
+      )
       queryClient.invalidateQueries({ queryKey: ['agent-fleet'] })
       setDeleteAgentId(null)
       addToast('Agent deleted', 'success')
