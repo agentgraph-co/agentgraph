@@ -39,7 +39,7 @@ def _pick_template(prospect: RecruitmentProspect) -> str:
         return "mcp_server"
     if fw in ("langchain", "crewai", "autogen", "semantic_kernel"):
         return "ai_agent"
-    return "ai_tool"
+    return "ai_agent"
 
 
 async def _create_issue(
