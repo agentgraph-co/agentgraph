@@ -401,40 +401,10 @@ async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
 
         # Job 9: [REMOVED] Moltbook auto-import — synthetic data removed March 2026
 
-        # Job 10: Operator recruitment (GitHub outreach)
-        try:
-            from src.config import settings as _recruit_settings
-
-            if _recruit_settings.recruitment_enabled:
-                async with async_session() as session:
-                    async with session.begin():
-                        from src.recruitment.github_discovery import (
-                            run_discovery_cycle,
-                        )
-
-                        discovered = await run_discovery_cycle(session)
-                        if discovered > 0:
-                            logger.info(
-                                "Recruitment discovery: %d new prospects", discovered,
-                            )
-                        else:
-                            logger.debug("Recruitment discovery: nothing new")
-
-                async with async_session() as session:
-                    async with session.begin():
-                        from src.recruitment.github_outreach import (
-                            run_outreach_cycle,
-                        )
-
-                        sent = await run_outreach_cycle(session)
-                        if sent > 0:
-                            logger.info(
-                                "Recruitment outreach: %d issues created", sent,
-                            )
-                        else:
-                            logger.debug("Recruitment outreach: nothing to send")
-        except Exception:
-            logger.exception("Recruitment cycle failed")
+        # Job 10: [DISABLED] GitHub issue outreach — killed March 2026.
+        # Issue-based outreach was perceived as spam by maintainers.
+        # Discovery code kept in src/recruitment/ for potential future
+        # reuse with a different channel (email, discussions, etc.).
 
         await asyncio.sleep(interval)
 
