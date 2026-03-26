@@ -5,6 +5,8 @@ import { useToast } from '../../components/Toasts'
 import { StatCard } from './StatCard'
 import type { RecruitmentProspectItem, RecruitmentStatsData } from './types'
 
+type SubTab = 'overview' | 'outreach'
+
 const STATUSES = ['all', 'discovered', 'contacted', 'visited', 'registered', 'onboarded', 'active', 'skipped', 'declined'] as const
 const FUNNEL_STAGES = ['discovered', 'contacted', 'visited', 'registered', 'onboarded'] as const
 
@@ -203,13 +205,148 @@ function ProspectRow({
   )
 }
 
+/* ───────── Outreach History ───────── */
+function OutreachSection() {
+  const [offset, setOffset] = useState(0)
+  const limit = 30
+
+  const { data, isLoading } = useQuery<{
+    prospects: RecruitmentProspectItem[]
+    total: number
+    has_more: boolean
+  }>({
+    queryKey: ['admin-recruitment-outreach', offset],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/recruitment/prospects', {
+        params: { status: 'contacted', limit, offset, sort: 'contacted_at_desc' },
+      })
+      return data
+    },
+    staleTime: 30_000,
+  })
+
+  const prospects = data?.prospects || []
+  const total = data?.total || 0
+  const hasMore = data?.has_more || false
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">GitHub Issues Created</h3>
+        <span className="text-xs text-text-muted">{total} contacted</span>
+      </div>
+
+      {isLoading && <div className="text-text-muted text-sm py-10 text-center">Loading outreach history...</div>}
+
+      {!isLoading && prospects.length === 0 && (
+        <div className="text-center text-text-muted py-16">
+          <p className="text-lg font-medium mb-1">No outreach yet</p>
+          <p className="text-sm">Contacted prospects and their GitHub issues will appear here.</p>
+        </div>
+      )}
+
+      {prospects.map((p) => {
+        const ghUrl = `https://github.com/${p.platform_id}`
+        const fwStyle = FRAMEWORK_STYLES[(p.framework_detected || '').toLowerCase()] || 'bg-surface-hover text-text-muted'
+        return (
+          <div key={p.id} className="bg-surface border border-border rounded-lg p-4">
+            <div className="flex gap-3 items-start">
+              {/* Left: repo info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <a
+                    href={ghUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-mono text-primary-light hover:underline truncate"
+                  >
+                    {p.platform_id}
+                  </a>
+                  {p.stars != null && (
+                    <span className="text-[10px] text-text-muted shrink-0">{p.stars.toLocaleString()} stars</span>
+                  )}
+                  {p.framework_detected && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${fwStyle}`}>
+                      {p.framework_detected}
+                    </span>
+                  )}
+                </div>
+                {p.description && (
+                  <p className="text-xs text-text-muted/70 line-clamp-2 mb-2">{p.description}</p>
+                )}
+                <div className="flex items-center gap-3 text-xs text-text-muted">
+                  <span>by {p.owner_login}</span>
+                  {p.contacted_at && <span>Contacted {formatDate(p.contacted_at)}</span>}
+                </div>
+              </div>
+
+              {/* Right: issue link */}
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                {p.issue_url ? (
+                  <a
+                    href={p.issue_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded inline-flex items-center gap-1"
+                  >
+                    View Issue
+                  </a>
+                ) : (
+                  <span className="text-[10px] text-text-muted">No issue link</span>
+                )}
+                <a
+                  href={ghUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded inline-flex items-center gap-1"
+                >
+                  View Repo
+                </a>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Pagination */}
+      {(offset > 0 || hasMore) && (
+        <div className="flex items-center justify-center gap-3">
+          <button
+            className="px-3 py-1 text-xs bg-surface border border-border rounded hover:bg-surface-hover disabled:opacity-40 transition-colors"
+            disabled={offset === 0}
+            onClick={() => setOffset(Math.max(0, offset - limit))}
+          >
+            Previous
+          </button>
+          <span className="text-xs text-text-muted">
+            {offset + 1}-{Math.min(offset + limit, total)} of {total}
+          </span>
+          <button
+            className="px-3 py-1 text-xs bg-surface border border-border rounded hover:bg-surface-hover disabled:opacity-40 transition-colors"
+            disabled={!hasMore}
+            onClick={() => setOffset(offset + limit)}
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function RecruitmentTab() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
+  const [subTab, setSubTab] = useState<SubTab>('overview')
   const [statusFilter, setStatusFilter] = useState('all')
   const [offset, setOffset] = useState(0)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const limit = 50
+
+  const subTabs: { value: SubTab; label: string }[] = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'outreach', label: 'Outreach History' },
+  ]
 
   const { data: stats, isLoading: statsLoading } = useQuery<RecruitmentStatsData>({
     queryKey: ['admin-recruitment-stats'],
@@ -264,6 +401,24 @@ export default function RecruitmentTab() {
         Operator Recruitment
       </h2>
 
+      {/* Sub-tab toggle */}
+      <div className="flex gap-1 mb-5 bg-surface-hover/50 rounded-lg p-1 w-fit">
+        {subTabs.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setSubTab(t.value)}
+            className={`px-4 py-1.5 rounded text-sm cursor-pointer transition-colors ${
+              subTab === t.value ? 'bg-surface text-text font-medium shadow-sm' : 'text-text-muted hover:text-text'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'outreach' && <OutreachSection />}
+
+      {subTab === 'overview' && <>
       {/* Stats cards */}
       {statsLoading ? (
         <div className="grid grid-cols-4 gap-3 mb-4">
@@ -360,6 +515,7 @@ export default function RecruitmentTab() {
           </button>
         </div>
       )}
+      </>}
     </div>
   )
 }

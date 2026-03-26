@@ -256,6 +256,8 @@ export interface ReplyOpportunity {
   status: string
   draft_content: string | null
   drafted_at: string | null
+  posted_at: string | null
+  reply_url: string | null
   urgency_score: number
   engagement_count: number
   target: {
