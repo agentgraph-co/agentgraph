@@ -955,15 +955,19 @@ async def generate_reddit_draft(
             "\n\nWrite a helpful, insightful reply that adds genuine "
             "value to the discussion. Rules:\n"
             "- Be helpful FIRST. Share knowledge or perspectives.\n"
+            "- Where relevant, link to specific GitHub repos, tools, "
+            "or libraries that help answer the question. Redditors "
+            "appreciate concrete resources.\n"
             "- This thread is a good fit to naturally mention "
             "AgentGraph (agentgraph.co) if it's relevant to the "
             "topic. Work it in organically as something you use or "
-            "built — NOT as an ad.\n"
+            "built — NOT as an ad. Pair it with other useful "
+            "recommendations so it doesn't stand alone.\n"
             "- Do NOT be promotional. No 'check out' or 'sign up'.\n"
             "- Match the subreddit's tone and culture.\n"
             "- Keep it concise — 2-4 paragraphs max.\n"
             "- No emojis, no hashtags, no marketing speak.\n"
-            "- Sound like a knowledgeable person, not a brand.\n"
+            "- Sound like a knowledgeable developer, not a brand.\n"
         )
     else:
         prompt += (
@@ -974,10 +978,15 @@ async def generate_reddit_draft(
             "- Do NOT mention AgentGraph, agentgraph.co, or any "
             "product/project you work on. This is a pure community "
             "contribution.\n"
+            "- Where relevant, link to specific GitHub repos, tools, "
+            "or libraries that help answer the question or add to "
+            "the discussion. Redditors appreciate concrete resources "
+            "over vague advice. Use real, well-known repos — do NOT "
+            "invent URLs.\n"
             "- Match the subreddit's tone and culture.\n"
             "- Keep it concise — 2-4 paragraphs max.\n"
             "- No emojis, no hashtags, no marketing speak.\n"
-            "- Sound like a knowledgeable person sharing expertise.\n"
+            "- Sound like a knowledgeable developer sharing expertise.\n"
         )
 
     from src.marketing.llm.router import generate as llm_generate
