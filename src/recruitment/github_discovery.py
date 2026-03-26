@@ -9,6 +9,7 @@ import logging
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -175,7 +176,18 @@ async def run_discovery_cycle(db: AsyncSession) -> int:
             known_ids.add(full_name)
             added += 1
 
+    # Flush in batches to handle any remaining duplicates gracefully.
+    # The pre-loaded known_ids should catch most, but edge cases
+    # (concurrent cycles, stale cache) can still produce duplicates.
     if added > 0:
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            logger.info(
+                "Bulk flush hit duplicate — skipping cycle, "
+                "duplicates will be filtered next run",
+            )
+            return 0
 
     return added
