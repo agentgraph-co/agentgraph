@@ -40,7 +40,7 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         max_length=10000,
         hashtags=False,
         emoji_level="none",
-        disclosure="\n\n^(I'm a bot — built on [AgentGraph](https://agentgraph.co))",
+        disclosure="",  # Posted manually by human — no bot disclosure needed
         system_prompt=(
             "You write Reddit posts for AgentGraph. "
             "Style: value-first, detailed, genuine. Lead with an insight "
