@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toasts'
 import { StatCard } from './StatCard'
 import type { ReplyTarget, ReplyOpportunity, EngagementStats } from './types'
 
-type SubTab = 'queue' | 'targets' | 'stats'
+type SubTab = 'queue' | 'history' | 'targets' | 'stats'
 
 function urgencyColor(postTimestamp: string | null): string {
   if (!postTimestamp) return 'text-text-muted'
@@ -180,6 +180,125 @@ function QueueSection() {
       })}
 
       {/* Load more */}
+      {items.length > 0 && offset + limit < total && (
+        <button
+          onClick={() => setOffset((o) => o + limit)}
+          className="bg-primary text-white px-3 py-1.5 rounded text-sm cursor-pointer w-full"
+        >
+          Load more ({total - offset - limit} remaining)
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* ───────── History Section ───────── */
+function HistorySection() {
+  const [platformFilter, setPlatformFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('posted')
+  const [offset, setOffset] = useState(0)
+  const limit = 20
+
+  const { data, isLoading } = useQuery<{ items: ReplyOpportunity[]; total: number }>({
+    queryKey: ['engagement-history', platformFilter, statusFilter, offset],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { limit, offset, status: statusFilter }
+      if (platformFilter) params.platform = platformFilter
+      return (await api.get('/admin/engagement/queue', { params })).data
+    },
+    staleTime: 30_000,
+  })
+
+  const items = data?.items || []
+  const total = data?.total || 0
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-3 items-center flex-wrap">
+        <select
+          value={platformFilter}
+          onChange={(e) => { setPlatformFilter(e.target.value); setOffset(0) }}
+          className="bg-background border border-border rounded px-3 py-2 text-sm"
+        >
+          <option value="">All Platforms</option>
+          <option value="bluesky">Bluesky</option>
+          <option value="twitter">Twitter</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setOffset(0) }}
+          className="bg-background border border-border rounded px-3 py-2 text-sm"
+        >
+          <option value="posted">Posted</option>
+          <option value="skipped">Skipped</option>
+        </select>
+        <span className="text-text-muted text-sm ml-auto">{total} total</span>
+      </div>
+
+      {isLoading && <div className="text-text-muted text-sm py-10 text-center">Loading history...</div>}
+
+      {!isLoading && items.length === 0 && (
+        <div className="text-center text-text-muted py-16">
+          <p className="text-lg font-medium mb-1">No reply history yet</p>
+          <p className="text-sm">Approved replies will appear here.</p>
+        </div>
+      )}
+
+      {items.map((opp) => (
+        <div key={opp.id} className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex gap-3 items-start">
+            <div className="flex flex-col items-center gap-1 min-w-[80px]">
+              <AvatarCircle handle={opp.target.handle} platform={opp.target.platform} />
+              <span className="text-xs font-medium truncate max-w-[80px]">{opp.target.handle || 'unknown'}</span>
+              <span className="text-[10px] text-text-muted capitalize">{opp.platform}</span>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {/* Original post */}
+              <p className="text-xs text-text-muted mb-2 line-clamp-2">
+                {opp.post_content ? (opp.post_content.length > 150 ? opp.post_content.slice(0, 150) + '...' : opp.post_content) : <span className="italic">No content preview</span>}
+              </p>
+
+              {/* Reply content */}
+              {opp.draft_content && (
+                <div className="bg-background border border-border/50 rounded p-3 mb-2">
+                  <p className="text-sm whitespace-pre-wrap">{opp.draft_content}</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 text-xs text-text-muted">
+                {opp.posted_at && <span>{relativeTime(opp.posted_at)}</span>}
+                {opp.status === 'posted' && <span className="text-success font-medium">Posted</span>}
+                {opp.status === 'skipped' && <span className="text-text-muted font-medium">Skipped</span>}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {opp.reply_url && (
+                <a
+                  href={opp.reply_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded inline-flex items-center gap-1"
+                >
+                  View Reply
+                </a>
+              )}
+              {opp.post_uri && (
+                <a
+                  href={opp.post_uri.startsWith('http') ? opp.post_uri : `https://bsky.app/profile/${opp.target.handle}/post/${opp.post_uri.split('/').pop()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-surface-hover text-text-muted hover:text-text px-3 py-1.5 rounded inline-flex items-center gap-1"
+                >
+                  Original Post
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+
       {items.length > 0 && offset + limit < total && (
         <button
           onClick={() => setOffset((o) => o + limit)}
@@ -454,6 +573,7 @@ export default function EngagementTab() {
 
   const subTabs: { value: SubTab; label: string }[] = [
     { value: 'queue', label: 'Queue' },
+    { value: 'history', label: 'History' },
     { value: 'targets', label: 'Targets' },
     { value: 'stats', label: 'Stats' },
   ]
@@ -476,6 +596,7 @@ export default function EngagementTab() {
       </div>
 
       {subTab === 'queue' && <QueueSection />}
+      {subTab === 'history' && <HistorySection />}
       {subTab === 'targets' && <TargetsSection />}
       {subTab === 'stats' && <StatsSection />}
     </div>
