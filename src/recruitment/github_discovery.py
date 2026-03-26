@@ -132,9 +132,15 @@ async def _search_github(
 async def run_discovery_cycle(db: AsyncSession) -> int:
     """Run one discovery cycle, storing new prospects. Returns count added."""
     added = 0
-    # Track platform_ids we've already queued this cycle to avoid
-    # autoflush-triggered unique constraint violations.
-    seen_this_cycle: set[str] = set()
+
+    # Pre-load all known platform_ids to avoid per-row SELECTs and
+    # autoflush issues with AsyncSession on Python 3.9.
+    existing_rows = await db.execute(
+        select(RecruitmentProspect.platform_id).where(
+            RecruitmentProspect.platform == "github",
+        )
+    )
+    known_ids: set[str] = {row[0] for row in existing_rows}
 
     for query, min_stars, template_key in _SEARCH_QUERIES:
         try:
@@ -147,20 +153,7 @@ async def run_discovery_cycle(db: AsyncSession) -> int:
             full_name = repo["full_name"]
             owner = repo["owner"]["login"]
 
-            if full_name in seen_this_cycle:
-                continue
-
-            # Check if already tracked — use no_autoflush to prevent
-            # premature INSERT of pending objects during SELECT.
-            with db.no_autoflush:
-                existing = await db.scalar(
-                    select(RecruitmentProspect.id).where(
-                        RecruitmentProspect.platform == "github",
-                        RecruitmentProspect.platform_id == full_name,
-                    )
-                )
-            if existing:
-                seen_this_cycle.add(full_name)
+            if full_name in known_ids:
                 continue
 
             topics = repo.get("topics", [])
@@ -179,7 +172,7 @@ async def run_discovery_cycle(db: AsyncSession) -> int:
                 status="discovered",
             )
             db.add(prospect)
-            seen_this_cycle.add(full_name)
+            known_ids.add(full_name)
             added += 1
 
     if added > 0:
