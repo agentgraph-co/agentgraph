@@ -1274,7 +1274,7 @@ export default function BotOnboarding() {
           {bootstrapResult.agent?.id && (
             <SecurityScanCard
               entityId={bootstrapResult.agent.id}
-              canRescan
+              canManage
               waitForScan
             />
           )}

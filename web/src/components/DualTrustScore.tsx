@@ -245,6 +245,56 @@ export function TrustScoreStandard({ components, score, entityId, className = ''
   return inner
 }
 
+// ─── Overall Trust Hero (profile page) ───
+// Full-width card with large score, progress bar, and explainer text
+
+interface OverallTrustHeroProps {
+  components?: TrustComponents | null
+  score?: number | null
+  className?: string
+}
+
+function overallScoreColor(pct: number): string {
+  if (pct < 50) return 'text-danger'
+  if (pct < 80) return 'text-fuchsia-400'
+  return 'text-accent'
+}
+
+function overallBarColor(pct: number): string {
+  if (pct < 50) return 'bg-danger'
+  if (pct < 80) return 'bg-fuchsia-500'
+  return 'bg-accent'
+}
+
+export function OverallTrustHero({ components, score, className = '' }: OverallTrustHeroProps) {
+  const dual = computeDualTrust(components) ?? estimateFromOverall(score)
+  if (!dual) return null
+
+  return (
+    <div className={`bg-surface border border-border rounded-lg px-4 py-3 ${className}`}>
+      <div className="flex items-center gap-3 mb-2">
+        <ShieldIcon className="w-6 h-6 text-accent shrink-0" />
+        <span className={`text-3xl font-bold ${overallScoreColor(dual.overall)}`}>
+          {dual.overall}
+        </span>
+        <span className="text-xs text-text-muted uppercase tracking-wider font-semibold">
+          Overall Trust
+        </span>
+      </div>
+      <div className="bg-background rounded-full h-2 overflow-hidden mb-2">
+        <div
+          className={`h-full rounded-full transition-all ${overallBarColor(dual.overall)}`}
+          style={{ width: `${dual.overall}%` }}
+        />
+      </div>
+      <p className="text-xs text-text-muted leading-relaxed">
+        Combines verified credentials, community endorsements, and platform activity.
+        This is the score shown in your GitHub badge.
+      </p>
+    </div>
+  )
+}
+
 // ─── Badge Mode (single inline pill for tight spaces) ───
 // Shows overall score with dual tooltip
 
