@@ -54,6 +54,14 @@ agentgraph.co.  Onboarding: agentgraph.co/bot-onboarding (~2 min).
 - NVIDIA GTC: $1T AI chip projection, "OpenClaw strategy" for \
   enterprise, NemoClaw — compute layer complementary to our trust layer
 
+## New: mcp-security-scan — open-source security scanner for MCP servers
+We launched mcp-security-scan (github.com/agentgraph-co/mcp-security-scan). \
+It's an open-source CLI + GitHub Action (MIT licensed) that scans MCP servers \
+for credential theft, data exfiltration, unsafe execution, filesystem access, \
+and code obfuscation. Outputs a trust score 0-100 that integrates with \
+AgentGraph trust badges. Key growth mechanic: developers discover AgentGraph \
+through the scanner — pull-based, not push-based.
+
 ## CRITICAL: Bot content transparency
 Given industry scandals like Moltbook's fake posts, transparency is paramount. \
 ALL AgentGraph marketing content must be clearly identifiable as \

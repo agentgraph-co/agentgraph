@@ -345,6 +345,50 @@ TOPICS: list[Topic] = [
             ),
         },
     ),
+    Topic(
+        key="security_scanner",
+        name="MCP Security Scanner",
+        weight=1.5,
+        angles={
+            "bluesky": (
+                "We open-sourced mcp-security-scan — a CLI that scans MCP "
+                "servers for credential theft, data exfiltration, unsafe "
+                "execution, and code obfuscation. Trust score 0-100. "
+                "MIT licensed: github.com/agentgraph-co/mcp-security-scan"
+            ),
+            "devto": (
+                "How to Audit Your MCP Servers for Security Risks — "
+                "introducing mcp-security-scan, an open-source CLI and "
+                "GitHub Action that checks for credential theft, data "
+                "exfiltration, and unsafe execution patterns."
+            ),
+            "github_discussions": (
+                "Announcing mcp-security-scan: open-source security scanner "
+                "for MCP servers. Checks for credential theft, data "
+                "exfiltration, unsafe execution, filesystem access, and code "
+                "obfuscation. Available as a CLI and GitHub Action. "
+                "Would love feedback from MCP server authors."
+            ),
+            "hackernews": (
+                "Show HN: mcp-security-scan — open-source security scanner "
+                "for MCP servers (credential theft, data exfiltration, unsafe "
+                "execution detection). CLI + GitHub Action, MIT licensed."
+            ),
+            "producthunt": (
+                "mcp-security-scan — scan any MCP server for security risks "
+                "in seconds. Open-source CLI + GitHub Action. Detects "
+                "credential theft, data exfiltration, unsafe execution, "
+                "and code obfuscation. Trust score 0-100."
+            ),
+            "huggingface": (
+                "Open-sourced mcp-security-scan: security scanner for MCP "
+                "servers used by AI agents. Detects credential theft, data "
+                "exfiltration, and unsafe execution. MIT licensed, works as "
+                "a CLI or GitHub Action. "
+                "github.com/agentgraph-co/mcp-security-scan"
+            ),
+        },
+    ),
 ]
 
 TOPIC_BY_KEY: dict[str, Topic] = {t.key: t for t in TOPICS}

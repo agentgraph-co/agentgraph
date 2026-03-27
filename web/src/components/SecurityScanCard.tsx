@@ -39,6 +39,84 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Code Obfuscation': '\uD83D\uDD75\uFE0F',
 }
 
+const SCAN_CATEGORIES = [
+  'Credential Theft',
+  'Data Exfiltration',
+  'Unsafe Execution',
+  'Filesystem Access',
+  'Code Obfuscation',
+]
+
+const PULSE_DELAYS = [
+  'animate-scan-pulse',
+  'animate-scan-pulse-d1',
+  'animate-scan-pulse-d2',
+  'animate-scan-pulse-d3',
+  'animate-scan-pulse-d4',
+]
+
+function ScanningAnimation() {
+  return (
+    <div className="bg-surface border border-primary/30 rounded-lg p-4 relative overflow-hidden">
+      {/* Sweep line */}
+      <div
+        className="absolute left-0 right-0 h-px animate-scan-sweep pointer-events-none"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, var(--color-primary) 30%, var(--color-primary) 70%, transparent 100%)',
+          boxShadow: '0 0 8px var(--color-primary-glow), 0 0 2px var(--color-primary)',
+        }}
+      />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+          Security Scan
+        </h3>
+        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary-light animate-scan-counter">
+          Scanning...
+        </span>
+      </div>
+
+      {/* File counter */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="font-mono text-xs text-text-muted flex items-center gap-1.5">
+          <span className="text-primary-light animate-scan-counter">&gt;</span>
+          <span>Analyzing source files</span>
+          <span className="animate-scan-pulse">...</span>
+        </div>
+      </div>
+
+      {/* Category checklist */}
+      <div className="space-y-2.5">
+        {SCAN_CATEGORIES.map((cat, i) => (
+          <div key={cat} className={`flex items-center gap-2 text-xs ${PULSE_DELAYS[i]}`}>
+            <span className="w-3.5 h-3.5 rounded border border-border flex items-center justify-center text-[10px] text-text-muted">
+              {CATEGORY_ICONS[cat] || '\uD83D\uDD0D'}
+            </span>
+            <span className="text-text-muted">{cat}</span>
+            <span className="ml-auto font-mono text-[10px] text-text-muted">
+              --
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom progress bar */}
+      <div className="mt-4 h-0.5 bg-border/40 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full"
+          style={{
+            background: 'var(--color-primary)',
+            animation: 'scan-sweep 2.5s ease-in-out infinite',
+            width: '30%',
+            position: 'relative',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function SecurityScanCard({
   entityId,
   canRescan = false,
@@ -55,6 +133,11 @@ export default function SecurityScanCard({
     queryKey: ['security-scan', entityId],
     queryFn: async () => (await api.get(`/bots/${entityId}/security-scan`)).data,
     staleTime: 5 * 60_000,
+    refetchInterval: (query) => {
+      const data = query.state.data as SecurityScanData | undefined
+      // Poll every 3s while pending so we pick up results
+      return data?.scan_result === 'pending' ? 3000 : false
+    },
   })
 
   const rescanMutation = useMutation({
@@ -66,6 +149,8 @@ export default function SecurityScanCard({
     onError: () => addToast('Failed to trigger scan', 'error'),
   })
 
+  const isScanning = rescanMutation.isPending || scan?.scan_result === 'pending'
+
   if (isLoading) {
     return (
       <div className="bg-surface border border-border rounded-lg p-4 animate-pulse">
@@ -75,15 +160,18 @@ export default function SecurityScanCard({
     )
   }
 
-  if (!scan || scan.scan_result === 'pending') {
+  // Show scanning animation when pending or rescan in progress
+  if (isScanning) {
+    return <ScanningAnimation />
+  }
+
+  if (!scan) {
     if (compact) return null
     return (
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Security Scan</h3>
         <p className="text-xs text-text-muted">
-          {scan?.scan_result === 'pending'
-            ? 'Scan in progress\u2026 Results will appear here shortly.'
-            : 'No security scan available for this agent.'}
+          No security scan available for this agent.
         </p>
         {canRescan && (
           <button

@@ -48,6 +48,13 @@ _GLOBAL_KNOWLEDGE = (
     "trust layer (us).\n"
     "- Our Bluesky custom feed 'AI Agent News' is live — curated AI agent "
     "developments at bsky.app/profile/agentgraph.bsky.social/feed/ai-agent-news\n"
+    "- New: mcp-security-scan — open-source CLI + GitHub Action for "
+    "scanning MCP servers. Repo: github.com/agentgraph-co/mcp-security-scan "
+    "(MIT license). Scans for credential theft, data exfiltration, unsafe "
+    "execution, filesystem access, and code obfuscation. Outputs a trust "
+    "score 0-100 that integrates with AgentGraph trust badges. Available as "
+    "a GitHub Action for CI/CD pipelines. This is a pull-based growth tool — "
+    "developers discover AgentGraph through the scanner.\n"
     "- Our brand IS trust — always be transparent that this content "
     "is bot-generated.\n"
 )
@@ -532,6 +539,7 @@ _CARD_DIR = Path(__file__).resolve().parent.parent / "assets"
 # Map topic keys to card filenames
 _TOPIC_CARD_MAP: dict[str, str] = {
     "security": "card-security.png",
+    "security_scanner": "card-security.png",
     "tutorials": "card-tutorials.png",
     "ecosystem": "card-ecosystem.png",
     "features": "card-features.png",
