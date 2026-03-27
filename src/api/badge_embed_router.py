@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
-from src.models import Entity, TrustScore
+from src.models import Entity, FrameworkSecurityScan, TrustScore
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +46,12 @@ def _render_embed_badge_svg(
     entity_name: str,
     score: float,
     is_verified: bool,
+    scan_status: str | None = None,
 ) -> str:
     """Render a shields.io-style three-segment badge as SVG.
 
     Format: [AgentGraph | entity_name | score ✓/✗]
+    Includes scan status in title if available.
     """
     score_text = f"{score:.2f}"
     status_char = "\\u2713" if is_verified else "\\u2717"
@@ -69,6 +71,7 @@ def _render_embed_badge_svg(
 
     shadow = 'fill="#010101" fill-opacity=".3"'
     verified_label = "Verified" if is_verified else "Unverified"
+    scan_label = f" scan: {scan_status}" if scan_status else ""
     h = BADGE_HEIGHT
     val_x = label_width + name_width
 
@@ -79,7 +82,7 @@ def _render_embed_badge_svg(
         f' role="img"'
         f' aria-label="{entity_name}: Trust {score_text}">',
         f"  <title>{entity_name} -- Trust Score:"
-        f" {score_text} ({verified_label})</title>",
+        f" {score_text} ({verified_label}){scan_label}</title>",
         '  <linearGradient id="s" x2="0" y2="100%">',
         '    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>',
         '    <stop offset="1" stop-opacity=".1"/>',
@@ -156,6 +159,15 @@ async def get_embeddable_badge(
     is_verified = entity.operator_id is not None or entity.email_verified
     entity_name = entity.display_name or "Unknown"
 
+    # Get latest security scan result
+    scan = await db.scalar(
+        select(FrameworkSecurityScan)
+        .where(FrameworkSecurityScan.entity_id == entity_id)
+        .order_by(FrameworkSecurityScan.scanned_at.desc())
+        .limit(1)
+    )
+    scan_status = scan.scan_result if scan else None
+
     # Truncate long names to keep the badge readable
     max_name_len = 20
     if len(entity_name) > max_name_len:
@@ -163,21 +175,25 @@ async def get_embeddable_badge(
 
     if format == "json":
         color, tier = _trust_tier_color(score)
+        data = {
+            "entity_id": str(entity_id),
+            "entity_name": entity_name,
+            "trust_score": round(score, 4),
+            "trust_tier": tier,
+            "is_verified": is_verified,
+            "badge_color": color,
+            "scan_status": scan_status,
+            "schema_version": 1,
+        }
         return JSONResponse(
-            content={
-                "entity_id": str(entity_id),
-                "entity_name": entity_name,
-                "trust_score": round(score, 4),
-                "trust_tier": tier,
-                "is_verified": is_verified,
-                "badge_color": color,
-                "schema_version": 1,
-            },
+            content=data,
             headers={"Cache-Control": "public, max-age=300"},
         )
 
     # SVG format (default)
-    svg = _render_embed_badge_svg(entity_name, score, is_verified)
+    svg = _render_embed_badge_svg(
+        entity_name, score, is_verified, scan_status=scan_status,
+    )
     return Response(
         content=svg,
         media_type="image/svg+xml",

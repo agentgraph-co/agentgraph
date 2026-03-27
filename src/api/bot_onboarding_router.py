@@ -1207,17 +1207,11 @@ async def trigger_security_scan(
 ) -> SecurityScanResponse:
     """Trigger a security re-scan for a bot.
 
-    Requires authentication. Only the operator or an admin can trigger.
+    Any authenticated user can trigger a scan (rate-limited).
     """
     agent = await db.get(Entity, agent_id)
     if agent is None or not agent.is_active:
         raise HTTPException(404, "Agent not found")
-
-    # Auth: must be operator or admin
-    is_operator = agent.operator_id == current_entity.id
-    is_admin = getattr(current_entity, "is_admin", False)
-    if not is_operator and not is_admin:
-        raise HTTPException(403, "Only the operator or an admin can trigger a re-scan")
 
     from src.scanner.service import _extract_github_repo, run_security_scan
 

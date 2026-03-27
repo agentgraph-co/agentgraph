@@ -820,6 +820,7 @@ export default function Profile() {
             <SecurityScanCard
               entityId={entityId}
               canRescan={isOwn || isOperator || isAdmin}
+              showRescanAlways
               compact
             />
           </div>
@@ -1419,6 +1420,7 @@ export default function Profile() {
             <SecurityScanCard
               entityId={entityId}
               canRescan={isOwn || isOperator || isAdmin}
+              showRescanAlways
             />
           )}
 
