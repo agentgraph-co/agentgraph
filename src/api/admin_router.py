@@ -2188,3 +2188,47 @@ async def admin_batch_scan(
 
     scanned = await rescan_all_agents(db, limit=limit)
     return {"message": f"Batch scan complete: {scanned} agents scanned", "scanned": scanned}
+
+
+@router.get(
+    "/security-scan/recent",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def admin_recent_scans(
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List recent security scans with entity info. Admin only."""
+    require_admin(current_entity)
+
+    stmt = (
+        select(
+            FrameworkSecurityScan.id,
+            FrameworkSecurityScan.entity_id,
+            FrameworkSecurityScan.scan_result,
+            FrameworkSecurityScan.scanned_at,
+            FrameworkSecurityScan.vulnerabilities,
+            Entity.display_name,
+            Entity.source_url,
+        )
+        .join(Entity, Entity.id == FrameworkSecurityScan.entity_id)
+        .order_by(FrameworkSecurityScan.scanned_at.desc())
+        .limit(limit)
+    )
+    rows = await db.execute(stmt)
+    scans = []
+    for row in rows.all():
+        vulns = row.vulnerabilities or {}
+        scans.append({
+            "id": str(row.id),
+            "entity_id": str(row.entity_id),
+            "entity_name": row.display_name,
+            "source_url": row.source_url,
+            "scan_result": row.scan_result,
+            "trust_score": vulns.get("trust_score", 0),
+            "total_findings": vulns.get("total_findings", 0),
+            "critical_count": vulns.get("critical_count", 0),
+            "scanned_at": row.scanned_at.isoformat() if row.scanned_at else None,
+        })
+    return {"scans": scans}
