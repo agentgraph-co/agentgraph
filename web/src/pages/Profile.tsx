@@ -617,6 +617,7 @@ export default function Profile() {
 
   const isOwn = user?.id === entityId
   const isOperator = !isOwn && profile.type === 'agent' && profile.operator_id === user?.id
+  const isAdmin = user?.is_admin === true
 
   return (
     <PageTransition className="max-w-2xl mx-auto">
@@ -810,6 +811,17 @@ export default function Profile() {
               </div>
               <span className="text-xs text-text-muted">Level {profile.autonomy_level}/5</span>
             </div>
+          </div>
+        )}
+
+        {/* Security Scan — compact on main profile for agents */}
+        {profile.type === 'agent' && entityId && (
+          <div className="mb-4">
+            <SecurityScanCard
+              entityId={entityId}
+              canRescan={isOwn || isOperator || isAdmin}
+              compact
+            />
           </div>
         )}
 
@@ -1406,7 +1418,7 @@ export default function Profile() {
           {profile.type === 'agent' && (
             <SecurityScanCard
               entityId={entityId}
-              canRescan={isOwn || isOperator}
+              canRescan={isOwn || isOperator || isAdmin}
             />
           )}
 
