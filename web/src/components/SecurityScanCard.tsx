@@ -123,12 +123,15 @@ export default function SecurityScanCard({
   canRescan = false,
   compact = false,
   waitForScan = false,
+  showRescanAlways = false,
 }: {
   entityId: string
   canRescan?: boolean
   compact?: boolean
   /** When true, polls even on 404 (used after import while background scan runs) */
   waitForScan?: boolean
+  /** When true, shows a re-scan button even for non-owners (public profiles) */
+  showRescanAlways?: boolean
 }) {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
@@ -191,13 +194,13 @@ export default function SecurityScanCard({
         <p className="text-xs text-text-muted">
           No security scan available for this agent.
         </p>
-        {canRescan && (
+        {(canRescan || showRescanAlways) && (
           <button
             onClick={() => rescanMutation.mutate()}
             disabled={rescanMutation.isPending}
             className="mt-3 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
           >
-            {rescanMutation.isPending ? 'Scanning\u2026' : 'Run Scan'}
+            {rescanMutation.isPending ? 'Scanning\u2026' : 'Run Security Scan'}
           </button>
         )}
       </div>
@@ -219,14 +222,14 @@ export default function SecurityScanCard({
           <span className={`text-xs px-2 py-0.5 rounded ${status.bg} ${status.color}`}>
             {status.icon} {status.label}
           </span>
-          {canRescan && (
+          {(canRescan || showRescanAlways) && (
             <button
               onClick={() => rescanMutation.mutate()}
               disabled={rescanMutation.isPending}
-              className="text-xs text-text-muted hover:text-primary-light transition-colors cursor-pointer disabled:opacity-50"
+              className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-2 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
               title="Re-scan"
             >
-              {rescanMutation.isPending ? '\u21BB' : '\u21BB'}
+              {rescanMutation.isPending ? 'Scanning\u2026' : 'Re-scan'}
             </button>
           )}
         </div>
@@ -292,6 +295,20 @@ export default function SecurityScanCard({
               {signal}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Error state — prominent re-scan prompt */}
+      {scan.scan_result === 'error' && (canRescan || showRescanAlways) && (
+        <div className="bg-warning/5 border border-warning/20 rounded p-2 mb-3">
+          <p className="text-xs text-text-muted mb-2">Scan encountered an error. Try re-scanning to get fresh results.</p>
+          <button
+            onClick={() => rescanMutation.mutate()}
+            disabled={rescanMutation.isPending}
+            className="text-xs bg-primary text-white hover:bg-primary-light px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {rescanMutation.isPending ? 'Scanning\u2026' : 'Re-scan Now'}
+          </button>
         </div>
       )}
 
