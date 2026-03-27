@@ -176,14 +176,15 @@ async def rescan_all_agents(db: AsyncSession, limit: int = 20) -> int:
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
-    # Step 1: Get active entities with GitHub source URLs.
-    # ix_entities_source_url + ix_entities_is_active make this fast even at millions.
+    # Step 1: Get active entities with GitHub source.
+    # ix_entities_source_type is a B-tree index — fast even at millions of rows.
+    # Avoids LIKE '%github.com%' which forces a sequential scan.
     candidates = await db.execute(
         select(Entity.id)
         .where(
             Entity.is_active.is_(True),
             Entity.source_url.isnot(None),
-            Entity.source_url.like("%github.com%"),
+            Entity.source_type == "github",
         )
         .limit(limit * 5)  # Fetch extra since some will have recent scans
     )
