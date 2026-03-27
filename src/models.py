@@ -170,7 +170,7 @@ class Entity(Base):
     source_verified_at = Column(DateTime(timezone=True), nullable=True)
 
     # Profile metadata
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, server_default="true", nullable=False)
     is_admin = Column(Boolean, default=False)
     is_quarantined = Column(Boolean, default=False)
     suspended_until = Column(DateTime(timezone=True), nullable=True)
