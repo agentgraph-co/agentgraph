@@ -49,7 +49,7 @@ SCOUT_KEYWORDS = [
     "agentic",
 ]
 
-_USER_AGENT = "AgentGraphScout/1.0 (read-only monitoring; +https://agentgraph.co)"
+_USER_AGENT = "Mozilla/5.0 (compatible; AgentGraphScout/1.0; +https://agentgraph.co)"
 _REQUEST_TIMEOUT = 15.0
 _DELAY_BETWEEN_REQUESTS = 2.0  # seconds — be polite
 
@@ -175,8 +175,11 @@ async def fetch_thread_detail(thread_url: str) -> dict | None:
                 params={"raw_json": 1},
                 headers={"User-Agent": _USER_AGENT},
             )
-            if resp.status_code == 429:
-                logger.warning("Rate limited fetching thread detail")
+            if resp.status_code in (403, 429):
+                logger.info(
+                    "Reddit returned %s fetching thread detail (datacenter IP likely blocked)",
+                    resp.status_code,
+                )
                 return None
             resp.raise_for_status()
             data = resp.json()

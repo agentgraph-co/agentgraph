@@ -1153,7 +1153,7 @@ def _build_scan_response(
 
 
 @router.get(
-    "/bots/{agent_id}/security-scan",
+    "/{agent_id}/security-scan",
     response_model=SecurityScanResponse,
 )
 async def get_security_scan(
@@ -1174,7 +1174,7 @@ async def get_security_scan(
 
 
 @router.post(
-    "/bots/{agent_id}/security-scan",
+    "/{agent_id}/security-scan",
     response_model=SecurityScanResponse,
 )
 async def trigger_security_scan(

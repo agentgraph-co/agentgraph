@@ -1850,6 +1850,7 @@ class ClaimItem(BaseModel):
     claimer_name: str
     claimed_at: str
     reason: str
+    status: str = "approved"
     source_url: str | None = None
     source_type: str | None = None
 
@@ -1869,7 +1870,7 @@ class ClaimDecisionRequest(BaseModel):
     dependencies=[Depends(rate_limit_reads)],
 )
 async def list_claims(
-    status_filter: str = Query("pending", pattern="^(pending|approved|rejected)$"),
+    status_filter: str = Query("approved", pattern="^(pending|approved|rejected|all)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
@@ -1878,24 +1879,28 @@ async def list_claims(
     """List bot ownership claims. Admin only."""
     require_admin(current_entity)
 
-    stmt = (
-        select(Entity)
-        .where(
-            Entity.type == EntityType.AGENT,
-            Entity.is_active.is_(True),
+    # Base filter: active agents that have an ownership_claim in onboarding_data
+    _has_claim = Entity.onboarding_data["ownership_claim"].isnot(None)
+    _base_where = [
+        Entity.type == EntityType.AGENT,
+        Entity.is_active.is_(True),
+        _has_claim,
+    ]
+    if status_filter != "all":
+        _base_where.append(
             Entity.onboarding_data["ownership_claim"]["status"].astext == status_filter,
         )
+
+    stmt = (
+        select(Entity)
+        .where(*_base_where)
         .order_by(Entity.updated_at.desc())
     )
 
     count_stmt = (
         select(func.count())
         .select_from(Entity)
-        .where(
-            Entity.type == EntityType.AGENT,
-            Entity.is_active.is_(True),
-            Entity.onboarding_data["ownership_claim"]["status"].astext == status_filter,
-        )
+        .where(*_base_where)
     )
 
     total = await db.scalar(count_stmt) or 0
@@ -1912,6 +1917,7 @@ async def list_claims(
             claimer_name=claim.get("claimer_name", "Unknown"),
             claimed_at=claim.get("claimed_at", ""),
             reason=claim.get("reason", ""),
+            status=claim.get("status", "approved"),
             source_url=agent.source_url,
             source_type=agent.source_type,
         ))
@@ -2127,3 +2133,58 @@ async def reject_claim(
         "message": "Claim rejected.",
         "agent_id": str(agent.id),
     }
+
+
+# ---------------------------------------------------------------------------
+# Admin security scan endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/security-scan/trigger/{agent_id}",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def admin_trigger_scan(
+    agent_id: uuid.UUID,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a security scan for a specific agent. Admin only."""
+    require_admin(current_entity)
+
+    agent = await db.get(Entity, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(404, "Agent not found")
+
+    from src.scanner.service import _extract_github_repo, run_security_scan
+
+    repo = _extract_github_repo(agent.source_url)
+    if not repo:
+        raise HTTPException(400, "Agent has no GitHub source URL")
+
+    scan = await run_security_scan(db, agent_id, force=True)
+    await db.commit()
+
+    return {
+        "message": f"Scan triggered for {agent.display_name}",
+        "agent_id": str(agent_id),
+        "scan_result": scan.scan_result if scan else "no_result",
+    }
+
+
+@router.post(
+    "/security-scan/batch",
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def admin_batch_scan(
+    limit: int = Query(20, ge=1, le=100),
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger batch re-scan of agents not scanned recently. Admin only."""
+    require_admin(current_entity)
+
+    from src.scanner.service import rescan_all_agents
+
+    scanned = await rescan_all_agents(db, limit=limit)
+    return {"message": f"Batch scan complete: {scanned} agents scanned", "scanned": scanned}
