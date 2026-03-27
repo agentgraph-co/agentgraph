@@ -330,6 +330,7 @@ def _build_component_breakdowns(
         COMMUNITY_WEIGHT,
         EXTERNAL_WEIGHT,
         REPUTATION_WEIGHT,
+        SCAN_WEIGHT,
         VERIFICATION_WEIGHT,
     )
 
@@ -340,6 +341,7 @@ def _build_component_breakdowns(
         "reputation": REPUTATION_WEIGHT,
         "community": COMMUNITY_WEIGHT,
         "external_reputation": EXTERNAL_WEIGHT,
+        "scan_score": SCAN_WEIGHT,
     }
 
     descriptions = {
@@ -349,6 +351,7 @@ def _build_component_breakdowns(
         "reputation": "Peer reviews and endorsements from the community",
         "community": "Trust attestations weighted by attester credibility",
         "external_reputation": "Trust signals from linked external accounts (GitHub, npm, etc.)",
+        "scan_score": "Security scan of source code (secrets, exfiltration, unsafe patterns)",
     }
 
     breakdowns = []
