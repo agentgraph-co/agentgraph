@@ -230,6 +230,7 @@ export interface ClaimItem {
   claimer_name: string
   claimed_at: string
   reason: string
+  status: string
   source_url: string | null
   source_type: string | null
 }

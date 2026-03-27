@@ -150,6 +150,79 @@ FS_ACCESS_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     ),
 ]
 
+# --- Data exfiltration patterns ---
+EXFILTRATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "HTTP POST with sensitive data",
+        re.compile(
+            r"""(?:requests\.post|httpx\.post|fetch|axios\.post)\s*\([^)]*(?:key|secret|token|password|credential)""",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    (
+        "Outbound webhook/exfil URL",
+        re.compile(
+            r"""(?:webhook\.site|requestbin|pipedream|ngrok|burp|interact\.sh)""",
+            re.IGNORECASE,
+        ),
+        "critical",
+    ),
+    (
+        "Base64 encode + send",
+        re.compile(r"base64\.b64encode.*(?:post|send|request)", re.IGNORECASE),
+        "high",
+    ),
+    (
+        "Environment variable exfil",
+        re.compile(
+            r"""os\.environ.*(?:post|send|request|fetch)""",
+            re.IGNORECASE,
+        ),
+        "critical",
+    ),
+    (
+        "DNS exfiltration pattern",
+        re.compile(
+            r"""(?:socket\.gethostbyname|dns\.resolve).*(?:encode|secret|key)""",
+            re.IGNORECASE,
+        ),
+        "critical",
+    ),
+]
+
+# --- Code obfuscation patterns ---
+OBFUSCATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "Hex-encoded string execution",
+        re.compile(r"""\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){10,}"""),
+        "high",
+    ),
+    (
+        "String char-code assembly",
+        re.compile(r"""String\.fromCharCode\s*\((?:\s*\d+\s*,\s*){5,}"""),
+        "high",
+    ),
+    (
+        "Obfuscated eval (Python)",
+        re.compile(r"""getattr\s*\(\s*__builtins__\s*,"""),
+        "critical",
+    ),
+    (
+        "Dynamic import with variable",
+        re.compile(r"""__import__\s*\(\s*[a-zA-Z_]"""),
+        "medium",
+    ),
+    (
+        "Reversed/rotated string decode",
+        re.compile(
+            r"""(?:reversed|rot13|codecs\.decode)\s*\(.*(?:exec|eval|import)""",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+]
+
 # --- Auth/security positive signals ---
 # These REDUCE risk when found.
 AUTH_POSITIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [

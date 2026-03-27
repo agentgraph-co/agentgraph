@@ -64,7 +64,7 @@ async def run_security_scan(
                 return latest
 
     # Run the scan
-    token = settings.github_outreach_token or settings.github_token
+    token = settings.github_token
     try:
         from src.scanner.scan import scan_repo
 

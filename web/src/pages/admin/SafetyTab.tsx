@@ -111,7 +111,6 @@ export default function SafetyTab() {
   }>({
     queryKey: ['admin-security-scan-stats'],
     queryFn: async () => {
-      // Aggregate from the framework_security_scans table via admin stats
       const { data } = await api.get('/admin/stats')
       const scans = data.security_scans || { total_scanned: 0, clean: 0, warnings: 0, critical: 0, errors: 0, last_scan_at: null }
       return scans
@@ -119,11 +118,29 @@ export default function SafetyTab() {
     staleTime: 2 * 60_000,
   })
 
+  const batchScanMutation = useMutation({
+    mutationFn: async () => { await api.post('/admin/security-scan/batch', null, { params: { limit: 20 } }) },
+    onSuccess: () => {
+      addToast('Batch security scan complete', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-security-scan-stats'] })
+    },
+    onError: () => { addToast('Batch scan failed', 'error') },
+  })
+
   return (
     <div className="space-y-6">
       {/* Security Scan Overview */}
       <div>
-        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Security Scans</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Security Scans</h2>
+          <button
+            onClick={() => batchScanMutation.mutate()}
+            disabled={batchScanMutation.isPending}
+            className="text-xs bg-surface border border-border hover:border-primary/50 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {batchScanMutation.isPending ? 'Scanning...' : 'Run Batch Scan (20)'}
+          </button>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard label="Scanned" value={scanStats?.total_scanned ?? 0} />
           <StatCard label="Clean" value={scanStats?.clean ?? 0} sub={scanStats?.total_scanned ? `${Math.round(((scanStats?.clean ?? 0) / scanStats.total_scanned) * 100)}%` : undefined} />

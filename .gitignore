@@ -85,3 +85,4 @@ scripts/com.agentgraph.backup.plist
 # Generated data
 data/
 digest_history.json
+MANUAL_TASKS.md

@@ -14,7 +14,9 @@ import httpx
 
 from src.scanner.patterns import (
     AUTH_POSITIVE_PATTERNS,
+    EXFILTRATION_PATTERNS,
     FS_ACCESS_PATTERNS,
+    OBFUSCATION_PATTERNS,
     SECRET_PATTERNS,
     SKIP_DIRS,
     SKIP_EXTENSIONS,
@@ -236,6 +238,32 @@ def _scan_content(
             if pattern.search(line):
                 findings.append(Finding(
                     category="fs_access",
+                    name=name,
+                    severity=severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
+        # Check data exfiltration
+        for name, pattern, severity in EXFILTRATION_PATTERNS:
+            if pattern.search(line):
+                findings.append(Finding(
+                    category="exfiltration",
+                    name=name,
+                    severity=severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
+        # Check code obfuscation
+        for name, pattern, severity in OBFUSCATION_PATTERNS:
+            if pattern.search(line):
+                findings.append(Finding(
+                    category="obfuscation",
                     name=name,
                     severity=severity,
                     file_path=file_path,
