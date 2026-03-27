@@ -11,39 +11,49 @@ export interface TrustComponents {
   activity?: number
   reputation?: number
   community?: number
+  scan_score?: number
 }
 
-interface DualTrust {
+export interface DualTrust {
   attestation: number  // 0-100
   community: number    // 0-100
+  overall: number      // 0-100 — weighted combo matching backend formula
   divergent: boolean   // >30pt gap
 }
 
-const ATTESTATION_WEIGHTS = { verification: 0.35, age: 0.10 }
-const COMMUNITY_WEIGHTS = { activity: 0.20, reputation: 0.15, community: 0.20 }
+const ATTESTATION_WEIGHTS = { verification: 0.25, age: 0.08, scan_score: 0.05 }
+const COMMUNITY_WEIGHTS = { activity: 0.18, reputation: 0.14, community: 0.18 }
+// external_reputation (0.12) is excluded from dual display — it feeds into overall only
 
 export function computeDualTrust(components: TrustComponents | null | undefined): DualTrust | null {
   if (!components) return null
 
   const v = components.verification ?? 0
   const a = components.age ?? 0
+  const sc = components.scan_score ?? 0
   const act = components.activity ?? 0
   const rep = components.reputation ?? 0
   const com = components.community ?? 0
 
-  const attTotal = ATTESTATION_WEIGHTS.verification + ATTESTATION_WEIGHTS.age
+  const attTotal = ATTESTATION_WEIGHTS.verification + ATTESTATION_WEIGHTS.age + ATTESTATION_WEIGHTS.scan_score
   const comTotal = COMMUNITY_WEIGHTS.activity + COMMUNITY_WEIGHTS.reputation + COMMUNITY_WEIGHTS.community
 
   const attestation = Math.round(
-    ((v * ATTESTATION_WEIGHTS.verification + a * ATTESTATION_WEIGHTS.age) / attTotal) * 100
+    ((v * ATTESTATION_WEIGHTS.verification + a * ATTESTATION_WEIGHTS.age + sc * ATTESTATION_WEIGHTS.scan_score) / attTotal) * 100
   )
   const community = Math.round(
     ((act * COMMUNITY_WEIGHTS.activity + rep * COMMUNITY_WEIGHTS.reputation + com * COMMUNITY_WEIGHTS.community) / comTotal) * 100
   )
 
+  // Overall: sum all weighted components (matches backend formula, *100)
+  const overall = Math.round(
+    (v * 0.25 + a * 0.08 + act * 0.18 + rep * 0.14 + com * 0.18 + sc * 0.05) * 100
+  )
+
   return {
     attestation: Math.min(attestation, 100),
     community: Math.min(community, 100),
+    overall: Math.min(overall, 100),
     divergent: Math.abs(attestation - community) > 30,
   }
 }
@@ -52,7 +62,7 @@ export function computeDualTrust(components: TrustComponents | null | undefined)
 export function estimateFromOverall(score: number | null | undefined): DualTrust | null {
   if (score == null) return null
   const pct = Math.round(score * 100)
-  return { attestation: pct, community: pct, divergent: false }
+  return { attestation: pct, community: pct, overall: pct, divergent: false }
 }
 
 // ─── Shield Icon (Attestation) ───
@@ -105,6 +115,10 @@ export function TrustScoreCompact({ components, score, entityId, className = '' 
 
   const content = (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
+      <span className={`text-[11px] font-bold ${scoreColor(dual.overall, 'attestation')}`} title={`Overall Trust: ${dual.overall}`}>
+        {dual.overall}
+      </span>
+      <span className="text-border text-[9px]">(</span>
       <span className="inline-flex items-center gap-0.5" title="Attestation Trust — verified credentials">
         <ShieldIcon className="w-3 h-3 text-accent" />
         <span className={`text-[11px] font-semibold ${scoreColor(dual.attestation, 'attestation')}`}>
@@ -118,6 +132,7 @@ export function TrustScoreCompact({ components, score, entityId, className = '' 
           {dual.community}
         </span>
       </span>
+      <span className="text-border text-[9px]">)</span>
       {dual.divergent && (
         <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" title="Trust scores diverge significantly" />
       )}
@@ -155,7 +170,21 @@ export function TrustScoreStandard({ components, score, entityId, className = ''
   }
 
   const inner = (
-    <div className={`flex items-stretch gap-3 ${className}`}>
+    <div className={className}>
+      {/* Overall Trust Score */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px] text-text-muted uppercase tracking-wider">Overall Trust</span>
+        <span className={`text-sm font-bold ${scoreColor(dual.overall, 'attestation')}`}>
+          {dual.overall}
+        </span>
+        <div className="flex-1 bg-background rounded-full h-1 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor(dual.overall, 'attestation')}`}
+            style={{ width: `${dual.overall}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex items-stretch gap-3">
       {/* Attestation Trust */}
       <div className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 min-w-0">
         <div className="flex items-center gap-1.5 mb-1">
@@ -202,6 +231,7 @@ export function TrustScoreStandard({ components, score, entityId, className = ''
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 

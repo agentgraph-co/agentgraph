@@ -815,13 +815,13 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Security Scan — compact on main profile for agents */}
+        {/* Security Scan — full detail for operator/admin, compact for public */}
         {profile.type === 'agent' && entityId && (
           <div className="mb-4">
             <SecurityScanCard
               entityId={entityId}
               canManage={isOwn || isOperator || isAdmin}
-              compact
+              compact={!(isOwn || isOperator || isAdmin)}
             />
           </div>
         )}

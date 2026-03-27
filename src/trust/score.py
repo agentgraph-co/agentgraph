@@ -6,13 +6,14 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import (
     CapabilityEndorsement,
     Entity,
+    FrameworkSecurityScan,
     LinkedAccount,
     Post,
     Review,
@@ -24,14 +25,16 @@ from src.models import (
 
 logger = logging.getLogger(__name__)
 
-# Weights for trust score components (v3: 6 components)
+# Weights for trust score components (v4: 7 components)
 # External reputation is additive — 0.0 if no accounts linked
-VERIFICATION_WEIGHT = 0.30
+# Scan score: 0.0 if no security scan (never penalizes unscanned entities)
+VERIFICATION_WEIGHT = 0.25
 AGE_WEIGHT = 0.08
 ACTIVITY_WEIGHT = 0.18
 REPUTATION_WEIGHT = 0.14
 COMMUNITY_WEIGHT = 0.18
 EXTERNAL_WEIGHT = 0.12
+SCAN_WEIGHT = 0.05
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
@@ -239,6 +242,29 @@ async def _community_factor(
     return overall, contextual_scores
 
 
+async def _scan_score_factor(
+    db: AsyncSession, entity_id: uuid.UUID
+) -> float:
+    """Security scan score normalized to 0-1.
+
+    Returns the latest scan's trust_score / 100, or 0.0 if no scan exists.
+    Only applies to entities with a GitHub source (agents).
+    """
+    scan = await db.scalar(
+        select(FrameworkSecurityScan)
+        .where(FrameworkSecurityScan.entity_id == entity_id)
+        .order_by(FrameworkSecurityScan.scanned_at.desc())
+        .limit(1)
+    )
+    if scan is None:
+        return 0.0
+    vulns = scan.vulnerabilities or {}
+    if not isinstance(vulns, dict):
+        return 0.0
+    raw_score = vulns.get("trust_score", 0)
+    return min(raw_score / 100.0, 1.0)
+
+
 async def _external_reputation_factor(
     db: AsyncSession, entity_id: uuid.UUID
 ) -> float:
@@ -328,10 +354,11 @@ async def create_import_trust_score(
     # Age: brand new, will be ~0
     age = _age_factor(entity)
 
-    # Activity/reputation/community: 0 for a fresh import
+    # Activity/reputation/community/scan: 0 for a fresh import
     activity = 0.0
     reputation = 0.0
     community = 0.0
+    scan = 0.0
 
     # External reputation from community signals
     external = _source_reputation_score(community_signals)
@@ -343,6 +370,7 @@ async def create_import_trust_score(
         + REPUTATION_WEIGHT * reputation
         + COMMUNITY_WEIGHT * community
         + EXTERNAL_WEIGHT * external
+        + SCAN_WEIGHT * scan
     )
 
     # Apply framework trust modifier (e.g. Moltbook 0.65x)
@@ -356,6 +384,7 @@ async def create_import_trust_score(
         "reputation": round(reputation, 4),
         "community": round(community, 4),
         "external_reputation": round(external, 4),
+        "scan_score": round(scan, 4),
         "import_source": source_type,
     }
 
@@ -528,6 +557,7 @@ async def compute_trust_score(
     reputation = await _reputation_factor(db, entity_id)
     community, contextual_scores = await _community_factor(db, entity_id)
     external = await _external_reputation_factor(db, entity_id)
+    scan = await _scan_score_factor(db, entity_id)
 
     score = (
         VERIFICATION_WEIGHT * verification
@@ -536,6 +566,7 @@ async def compute_trust_score(
         + REPUTATION_WEIGHT * reputation
         + COMMUNITY_WEIGHT * community
         + EXTERNAL_WEIGHT * external
+        + SCAN_WEIGHT * scan
     )
 
     # Apply framework trust modifier (e.g. OpenClaw agents start at 0.8x)
@@ -550,6 +581,7 @@ async def compute_trust_score(
         "reputation": round(reputation, 4),
         "community": round(community, 4),
         "external_reputation": round(external, 4),
+        "scan_score": round(scan, 4),
     }
 
     # Compute primary_context from attestation frequency
@@ -779,7 +811,7 @@ async def batch_recompute(
     # and no activity to decay. Recomputing 700K+ static scores wastes resources.
     _recompute_filter = (
         Entity.is_active.is_(True),
-        Entity.framework_source != "moltbook",
+        or_(Entity.framework_source.is_(None), Entity.framework_source != "moltbook"),
     )
     total_entities = await db.scalar(
         select(func.count())
@@ -896,6 +928,27 @@ async def batch_recompute(
         )
         existing_scores = {ts.entity_id: ts for ts in ts_result.scalars().all()}
 
+        # Bulk query 8: latest security scan scores for this chunk
+        scan_result = await db.execute(
+            select(
+                FrameworkSecurityScan.entity_id,
+                FrameworkSecurityScan.vulnerabilities,
+            )
+            .where(FrameworkSecurityScan.entity_id.in_(entity_ids))
+            .order_by(
+                FrameworkSecurityScan.entity_id,
+                FrameworkSecurityScan.scanned_at.desc(),
+            )
+            .distinct(FrameworkSecurityScan.entity_id)
+        )
+        scan_scores: dict[uuid.UUID, float] = {}
+        for row in scan_result.all():
+            vulns = row[1] or {}
+            if not isinstance(vulns, dict):
+                continue
+            raw = vulns.get("trust_score", 0)
+            scan_scores[row[0]] = min(raw / 100.0, 1.0)
+
         # -- Compute scores in-memory --
 
         now_ts = datetime.now(timezone.utc)
@@ -939,6 +992,9 @@ async def batch_recompute(
             # External reputation from pre-loaded linked accounts (no per-entity query)
             external = _compute_external_from_accounts(acct_map.get(eid, []))
 
+            # Security scan score from pre-loaded data
+            scan = scan_scores.get(eid, 0.0)
+
             score = (
                 VERIFICATION_WEIGHT * verification
                 + AGE_WEIGHT * age
@@ -946,6 +1002,7 @@ async def batch_recompute(
                 + REPUTATION_WEIGHT * reputation
                 + COMMUNITY_WEIGHT * community
                 + EXTERNAL_WEIGHT * external
+                + SCAN_WEIGHT * scan
             )
 
             framework_modifier = getattr(entity, "framework_trust_modifier", None)
@@ -959,6 +1016,7 @@ async def batch_recompute(
                 "reputation": round(reputation, 4),
                 "community": round(community, 4),
                 "external_reputation": round(external, 4),
+                "scan_score": round(scan, 4),
             }
 
             # Update primary_context from attestation frequency

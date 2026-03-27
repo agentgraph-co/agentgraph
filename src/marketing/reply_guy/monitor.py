@@ -66,7 +66,7 @@ async def _check_target(target: ReplyTarget) -> int:
 
     new_count = 0
     async with async_session() as db:
-        async with db.no_autoflush:
+        with db.no_autoflush:
             for post in posts:
                 # Dedup check — no_autoflush prevents premature flush
                 existing = await db.scalar(

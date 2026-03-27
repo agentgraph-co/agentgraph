@@ -231,7 +231,8 @@ async def test_trust_v2_includes_community_component(db: AsyncSession):
     assert "age" in ts.components
     assert "activity" in ts.components
     assert "reputation" in ts.components
-    assert len(ts.components) == 6
+    assert "scan_score" in ts.components
+    assert len(ts.components) == 7
 
 
 @pytest.mark.asyncio
@@ -398,12 +399,14 @@ async def test_v2_weights_sum_to_one(db: AsyncSession):
         COMMUNITY_WEIGHT,
         EXTERNAL_WEIGHT,
         REPUTATION_WEIGHT,
+        SCAN_WEIGHT,
         VERIFICATION_WEIGHT,
     )
 
     total = (
         VERIFICATION_WEIGHT + AGE_WEIGHT + ACTIVITY_WEIGHT
         + REPUTATION_WEIGHT + COMMUNITY_WEIGHT + EXTERNAL_WEIGHT
+        + SCAN_WEIGHT
     )
     assert abs(total - 1.0) < 0.001
 
