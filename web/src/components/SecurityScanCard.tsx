@@ -129,7 +129,7 @@ export function ScanStatusBadge({ entityId }: { entityId: string }) {
 
   const cfg = STATUS_CONFIG[scan.scan_result] || STATUS_CONFIG.error
   const detail = scan.scan_result === 'clean'
-    ? `Score ${scan.trust_score}`
+    ? `Scan score ${scan.trust_score}`
     : scan.scan_result === 'error'
       ? 'Scan error'
       : `${scan.total_findings} finding${scan.total_findings !== 1 ? 's' : ''}`
@@ -149,11 +149,14 @@ export default function SecurityScanCard({
   entityId,
   compact = false,
   waitForScan = false,
+  canManage = false,
 }: {
   entityId: string
-  canRescan?: boolean  // kept for backward compat but ignored — rescan always available
+  canRescan?: boolean  // deprecated — use canManage
   compact?: boolean
   waitForScan?: boolean
+  /** True if the viewer is the bot's operator or an admin. Controls re-scan and findings detail. */
+  canManage?: boolean
 }) {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
@@ -192,12 +195,10 @@ export default function SecurityScanCard({
   const rescanMutation = useMutation({
     mutationFn: async () => (await api.post(`/bots/${entityId}/security-scan`)).data,
     onMutate: () => {
-      // Show animation immediately when user clicks re-scan
       setShowAnim(true)
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['security-scan', entityId], data)
-      // Keep animation for at least 2s after results come back
       setTimeout(() => setShowAnim(false), 2000)
       addToast('Security scan complete', 'success')
     },
@@ -232,13 +233,15 @@ export default function SecurityScanCard({
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Security Scan</h3>
         <p className="text-xs text-text-muted">No security scan available.</p>
-        <button
-          onClick={() => rescanMutation.mutate()}
-          disabled={rescanMutation.isPending}
-          className="mt-3 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-        >
-          Run Security Scan
-        </button>
+        {canManage && (
+          <button
+            onClick={() => rescanMutation.mutate()}
+            disabled={rescanMutation.isPending}
+            className="mt-3 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+          >
+            Run Security Scan
+          </button>
+        )}
       </div>
     )
   }
@@ -258,17 +261,19 @@ export default function SecurityScanCard({
           <span className={`text-xs px-2 py-0.5 rounded ${status.bg} ${status.color}`}>
             {status.icon} {status.label}
           </span>
-          <button
-            onClick={() => rescanMutation.mutate()}
-            disabled={rescanMutation.isPending}
-            className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-2 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
-          >
-            Re-scan
-          </button>
+          {canManage && (
+            <button
+              onClick={() => rescanMutation.mutate()}
+              disabled={rescanMutation.isPending}
+              className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-2 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Re-scan
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Trust score + stats */}
+      {/* Scan score + stats */}
       <div className="flex items-center gap-4 mb-4">
         <div className="text-center">
           <div className={`text-2xl font-bold ${
@@ -277,7 +282,7 @@ export default function SecurityScanCard({
           }`}>
             {scan.trust_score}
           </div>
-          <div className="text-[10px] text-text-muted uppercase">Trust Score</div>
+          <div className="text-[10px] text-text-muted uppercase">Scan Score</div>
         </div>
         <div className="flex-1 grid grid-cols-3 gap-2 text-center">
           <div>
@@ -297,7 +302,7 @@ export default function SecurityScanCard({
         </div>
       </div>
 
-      {/* Category breakdown */}
+      {/* Category breakdown — visible to everyone */}
       {!compact && (
         <div className="space-y-1.5 mb-3">
           {scan.categories.map((cat) => (
@@ -320,8 +325,8 @@ export default function SecurityScanCard({
         </div>
       )}
 
-      {/* Findings detail — expandable */}
-      {!compact && scan.findings && scan.findings.length > 0 && (
+      {/* Findings detail — only for operator/admin */}
+      {canManage && !compact && scan.findings && scan.findings.length > 0 && (
         <div className="mb-3">
           <button
             onClick={() => setShowFindings(!showFindings)}
@@ -380,8 +385,8 @@ export default function SecurityScanCard({
         </div>
       )}
 
-      {/* Error state — big re-scan prompt */}
-      {scan.scan_result === 'error' && (
+      {/* Error state — re-scan prompt (only for managers) */}
+      {canManage && scan.scan_result === 'error' && (
         <div className="bg-warning/5 border border-warning/20 rounded p-2 mb-3">
           <p className="text-xs text-text-muted mb-2">Scan encountered an error. Try re-scanning.</p>
           <button

@@ -820,7 +820,7 @@ export default function Profile() {
           <div className="mb-4">
             <SecurityScanCard
               entityId={entityId}
-              canRescan={isOwn || isOperator || isAdmin}
+              canManage={isOwn || isOperator || isAdmin}
               compact
             />
           </div>
@@ -1419,7 +1419,7 @@ export default function Profile() {
           {profile.type === 'agent' && (
             <SecurityScanCard
               entityId={entityId}
-              canRescan={isOwn || isOperator || isAdmin}
+              canManage={isOwn || isOperator || isAdmin}
             />
           )}
 
