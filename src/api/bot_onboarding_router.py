@@ -1096,6 +1096,14 @@ class ScanCategoryResult(BaseModel):
     status: str  # "clear", "warning", "critical"
 
 
+class ScanFinding(BaseModel):
+    category: str
+    name: str
+    severity: str
+    file_path: str
+    line_number: int
+
+
 class SecurityScanResponse(BaseModel):
     entity_id: uuid.UUID
     scan_result: str  # "clean", "warnings", "critical", "error", "pending"
@@ -1107,6 +1115,7 @@ class SecurityScanResponse(BaseModel):
     critical_count: int = 0
     high_count: int = 0
     medium_count: int = 0
+    findings: list[ScanFinding] = []
     scanned_at: str | None = None
     repo: str | None = None
 
@@ -1153,6 +1162,19 @@ def _build_scan_response(
             status=cat_status,
         ))
 
+    # Extract individual findings from stored scan data
+    raw_findings = vulns.get("findings", [])
+    findings = [
+        ScanFinding(
+            category=f.get("category", "unknown"),
+            name=f.get("name", "Unknown"),
+            severity=f.get("severity", "medium"),
+            file_path=f.get("file_path", ""),
+            line_number=f.get("line_number", 0),
+        )
+        for f in raw_findings[:100]
+    ]
+
     return SecurityScanResponse(
         entity_id=entity_id,
         scan_result=s.scan_result,
@@ -1164,6 +1186,7 @@ def _build_scan_response(
         critical_count=vulns.get("critical_count", 0),
         high_count=vulns.get("high_count", 0),
         medium_count=vulns.get("medium_count", 0),
+        findings=findings,
         scanned_at=s.scanned_at.isoformat() if s.scanned_at else None,
         repo=repo,
     )

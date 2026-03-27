@@ -53,9 +53,9 @@ def _render_embed_badge_svg(
     Format: [AgentGraph | entity_name | score ✓/✗]
     Includes scan status in title if available.
     """
-    score_text = f"{score:.2f}"
+    score_pct = str(round(score * 100))
     status_char = "\\u2713" if is_verified else "\\u2717"
-    value_text = f"{score_text} {status_char}"
+    value_text = f"{score_pct} {status_char}"
 
     label = "AgentGraph"
     label_width = len(label) * BADGE_CHAR_WIDTH + BADGE_PADDING
@@ -80,9 +80,9 @@ def _render_embed_badge_svg(
         f'<svg xmlns="http://www.w3.org/2000/svg"'
         f' width="{total_width}" height="{h}"'
         f' role="img"'
-        f' aria-label="{entity_name}: Trust {score_text}">',
+        f' aria-label="{entity_name}: Trust {score_pct}">',
         f"  <title>{entity_name} -- Trust Score:"
-        f" {score_text} ({verified_label}){scan_label}</title>",
+        f" {score_pct} ({verified_label}){scan_label}</title>",
         '  <linearGradient id="s" x2="0" y2="100%">',
         '    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>',
         '    <stop offset="1" stop-opacity=".1"/>',

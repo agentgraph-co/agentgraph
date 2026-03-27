@@ -80,7 +80,7 @@ async def test_trust_badge_svg_valid_entity(client, db):
     body = resp.text
     assert "<svg" in body
     assert "AgentGraph Trust" in body
-    assert "0.85" in body
+    assert "85" in body  # 0.85 displayed as 85 (0-100 scale)
 
 
 @pytest.mark.asyncio
@@ -93,13 +93,13 @@ async def test_trust_badge_svg_nonexistent_entity(client):
 
 @pytest.mark.asyncio
 async def test_trust_badge_svg_no_trust_score(client, db):
-    """An entity with no trust score record gets a badge showing 0.00."""
+    """An entity with no trust score record gets a badge showing 0."""
     _, entity_id = await _setup_user(client)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
     body = resp.text
-    assert "0.00" in body
+    assert ">0 " in body or ">0<" in body  # score 0 on 0-100 scale
 
 
 @pytest.mark.asyncio
