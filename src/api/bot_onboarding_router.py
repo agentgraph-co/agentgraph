@@ -41,7 +41,11 @@ logger = __import__("logging").getLogger(__name__)
 
 
 async def _background_security_scan(entity_id: uuid.UUID) -> None:
-    """Run a security scan in the background with its own DB session."""
+    """Run a security scan in the background with its own DB session.
+
+    Always writes a DB record — either the real result or an error record —
+    so the frontend stops polling and shows a result instead of spinning forever.
+    """
     try:
         from src.database import async_session
         from src.scanner.service import run_security_scan
@@ -52,6 +56,23 @@ async def _background_security_scan(entity_id: uuid.UUID) -> None:
         logger.info("Background security scan completed for %s", entity_id)
     except Exception:
         logger.exception("Background security scan failed for %s", entity_id)
+        # Write an error record so the frontend stops polling
+        try:
+            from src.database import async_session as _async_session
+            from src.models import FrameworkSecurityScan
+
+            async with _async_session() as db:
+                async with db.begin():
+                    error_record = FrameworkSecurityScan(
+                        id=uuid.uuid4(),
+                        entity_id=entity_id,
+                        framework="unknown",
+                        scan_result="error",
+                        vulnerabilities={"error": "Background scan failed"},
+                    )
+                    db.add(error_record)
+        except Exception:
+            logger.exception("Failed to write error scan record for %s", entity_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1094,14 +1115,10 @@ def _build_scan_response(
     entity_id: uuid.UUID,
     scan: object | None,
     repo: str | None = None,
-) -> SecurityScanResponse:
+) -> SecurityScanResponse | None:
     """Build a SecurityScanResponse from a FrameworkSecurityScan record."""
     if scan is None:
-        return SecurityScanResponse(
-            entity_id=entity_id,
-            scan_result="pending",
-            repo=repo,
-        )
+        return None
 
     from src.models import FrameworkSecurityScan
 
@@ -1169,8 +1186,13 @@ async def get_security_scan(
     from src.scanner.service import _extract_github_repo, get_latest_scan
 
     scan = await get_latest_scan(db, agent_id)
+    if scan is None:
+        raise HTTPException(404, "No security scan available")
     repo = _extract_github_repo(agent.source_url)
-    return _build_scan_response(agent_id, scan, repo)
+    resp = _build_scan_response(agent_id, scan, repo)
+    if resp is None:
+        raise HTTPException(404, "No security scan available")
+    return resp
 
 
 @router.post(

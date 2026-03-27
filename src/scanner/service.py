@@ -77,7 +77,17 @@ async def run_security_scan(
         )
     except Exception:
         logger.exception("Security scan failed for %s", repo_full_name)
-        return None
+        # Write error record so callers know the scan was attempted
+        scan_record = FrameworkSecurityScan(
+            id=uuid.uuid4(),
+            entity_id=entity_id,
+            framework=entity.framework_source or "unknown",
+            scan_result="error",
+            vulnerabilities={"error": f"Scan failed for {repo_full_name}"},
+        )
+        db.add(scan_record)
+        await db.flush()
+        return scan_record
 
     if result.error:
         logger.warning("Scan error for %s: %s", repo_full_name, result.error)

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from './Toasts'
@@ -121,22 +122,39 @@ export default function SecurityScanCard({
   entityId,
   canRescan = false,
   compact = false,
+  waitForScan = false,
 }: {
   entityId: string
   canRescan?: boolean
   compact?: boolean
+  /** When true, polls even on 404 (used after import while background scan runs) */
+  waitForScan?: boolean
 }) {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
+  const [pollCount, setPollCount] = useState(0)
+  const maxPolls = 20  // Stop after ~60 seconds (20 * 3s)
 
-  const { data: scan, isLoading } = useQuery<SecurityScanData>({
+  const { data: scan, isLoading, isError } = useQuery<SecurityScanData>({
     queryKey: ['security-scan', entityId],
-    queryFn: async () => (await api.get(`/bots/${entityId}/security-scan`)).data,
+    queryFn: async () => {
+      const resp = await api.get(`/bots/${entityId}/security-scan`)
+      return resp.data
+    },
     staleTime: 5 * 60_000,
+    retry: false,
     refetchInterval: (query) => {
       const data = query.state.data as SecurityScanData | undefined
-      // Poll every 3s while pending so we pick up results
-      return data?.scan_result === 'pending' ? 3000 : false
+      // If we have a final result, stop polling
+      if (data && data.scan_result !== 'pending') return false
+      // If waiting for a scan to appear (post-import), keep polling on 404
+      if (waitForScan && query.state.error && pollCount < maxPolls) {
+        setPollCount(c => c + 1)
+        return 3000
+      }
+      // If pending, poll
+      if (data?.scan_result === 'pending') return 3000
+      return false
     },
   })
 
@@ -149,7 +167,7 @@ export default function SecurityScanCard({
     onError: () => addToast('Failed to trigger scan', 'error'),
   })
 
-  const isScanning = rescanMutation.isPending || scan?.scan_result === 'pending'
+  const isScanning = rescanMutation.isPending
 
   if (isLoading) {
     return (
@@ -160,12 +178,12 @@ export default function SecurityScanCard({
     )
   }
 
-  // Show scanning animation when pending or rescan in progress
-  if (isScanning) {
+  // Show scanning animation when rescan in progress or waiting for background scan
+  if (isScanning || (waitForScan && isError && pollCount < maxPolls)) {
     return <ScanningAnimation />
   }
 
-  if (!scan) {
+  if (!scan || isError) {
     if (compact) return null
     return (
       <div className="bg-surface border border-border rounded-lg p-4">
