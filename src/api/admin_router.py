@@ -1850,7 +1850,7 @@ class ClaimItem(BaseModel):
     claimer_name: str
     claimed_at: str
     reason: str
-    status: str = "approved"
+    status: str  # "unclaimed", "approved", "rejected"
     source_url: str | None = None
     source_type: str | None = None
 
@@ -1870,26 +1870,49 @@ class ClaimDecisionRequest(BaseModel):
     dependencies=[Depends(rate_limit_reads)],
 )
 async def list_claims(
-    status_filter: str = Query("approved", pattern="^(pending|approved|rejected|all)$"),
+    status_filter: str = Query(
+        "all",
+        pattern="^(unclaimed|approved|rejected|all)$",
+    ),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_entity: Entity = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """List bot ownership claims. Admin only."""
+    """List bot ownership claims and unclaimed bots. Admin only.
+
+    Statuses:
+    - unclaimed: provisional bots with no operator (need someone to claim)
+    - approved: bots that have been claimed (operator assigned)
+    - rejected: claims that were rejected by admin
+    - all: everything
+    """
     require_admin(current_entity)
 
-    # Base filter: active agents that have an ownership_claim in onboarding_data
-    _has_claim = Entity.onboarding_data["ownership_claim"].isnot(None)
     _base_where = [
         Entity.type == EntityType.AGENT,
         Entity.is_active.is_(True),
-        _has_claim,
     ]
-    if status_filter != "all":
+
+    if status_filter == "unclaimed":
+        # Provisional bots with no operator — these need claiming
+        _base_where.append(Entity.is_provisional.is_(True))
+        _base_where.append(Entity.operator_id.is_(None))
+    elif status_filter == "approved":
+        _has_claim = Entity.onboarding_data["ownership_claim"].isnot(None)
+        _base_where.append(_has_claim)
         _base_where.append(
-            Entity.onboarding_data["ownership_claim"]["status"].astext == status_filter,
+            Entity.onboarding_data["ownership_claim"]["status"].astext
+            == "approved",
         )
+    elif status_filter == "rejected":
+        _has_claim = Entity.onboarding_data["ownership_claim"].isnot(None)
+        _base_where.append(_has_claim)
+        _base_where.append(
+            Entity.onboarding_data["ownership_claim"]["status"].astext
+            == "rejected",
+        )
+    # "all" = no extra filter
 
     stmt = (
         select(Entity)
@@ -1910,14 +1933,33 @@ async def list_claims(
     claims: list[ClaimItem] = []
     for agent in agents:
         claim = (agent.onboarding_data or {}).get("ownership_claim", {})
+        # Determine status from data
+        if claim and claim.get("status"):
+            status = claim["status"]
+            claimer_id = claim.get("claimed_by", "")
+            claimer_name = claim.get("claimer_name", "Unknown")
+            claimed_at = claim.get("claimed_at", "")
+            reason = claim.get("reason", "")
+        elif agent.operator_id:
+            status = "approved"
+            claimer_id = str(agent.operator_id)
+            claimer_name = ""
+            claimed_at = ""
+            reason = "Operator assigned at creation"
+        else:
+            status = "unclaimed"
+            claimer_id = ""
+            claimer_name = ""
+            claimed_at = ""
+            reason = ""
         claims.append(ClaimItem(
             agent_id=str(agent.id),
             agent_name=agent.display_name,
-            claimer_id=claim.get("claimed_by", ""),
-            claimer_name=claim.get("claimer_name", "Unknown"),
-            claimed_at=claim.get("claimed_at", ""),
-            reason=claim.get("reason", ""),
-            status=claim.get("status", "approved"),
+            claimer_id=claimer_id,
+            claimer_name=claimer_name,
+            claimed_at=claimed_at,
+            reason=reason,
+            status=status,
             source_url=agent.source_url,
             source_type=agent.source_type,
         ))
