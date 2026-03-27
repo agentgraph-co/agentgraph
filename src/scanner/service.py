@@ -243,7 +243,9 @@ def _extract_github_repo(source_url: str | None) -> str | None:
         return None
     # Handle https://github.com/owner/repo and git@github.com:owner/repo.git
     parts = url.split("github.com")[-1]
-    parts = parts.lstrip(":/").rstrip(".git")
+    parts = parts.lstrip(":/")
+    if parts.endswith(".git"):
+        parts = parts[:-4]
     segments = parts.split("/")
     if len(segments) >= 2:
         return f"{segments[0]}/{segments[1]}"
