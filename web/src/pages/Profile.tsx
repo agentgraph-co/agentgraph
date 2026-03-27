@@ -10,6 +10,7 @@ import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import ForkLineageTree from '../components/ForkLineageTree'
 import TrustTierBadge from '../components/trust/TrustTierBadge'
+import { OverallTrustHero } from '../components/DualTrustScore'
 import EntityAvatar from '../components/EntityAvatar'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
@@ -772,9 +773,13 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Trust Score — Dual Number Display */}
+        {/* Trust Score — Overall Hero + Dual Breakdown */}
         {profile.trust_score !== null && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-3">
+            <OverallTrustHero
+              components={profile.trust_components}
+              score={profile.trust_score}
+            />
             <div className="flex items-start gap-1.5">
               <div className="flex-1">
                 <TrustTierBadge

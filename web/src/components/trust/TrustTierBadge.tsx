@@ -68,6 +68,20 @@ function TierIcon({ axis, level, size }: { axis: 'attestation' | 'community'; le
   )
 }
 
+// ─── Overall score pill for micro/small lists ───
+function OverallPill({ score }: { score: number }) {
+  const color = score < 50 ? getTierColor(1, 'attestation') : score < 80 ? getTierColor(3, 'attestation') : getTierColor(5, 'attestation')
+  return (
+    <span
+      className="font-bold"
+      style={{ color }}
+      title={`Overall Trust: ${score}`}
+    >
+      {score}
+    </span>
+  )
+}
+
 function ProgressBar({ score, level, axis }: { score: number; level: number; axis: 'attestation' | 'community' }) {
   const progress = progressToNextTier(score)
   const color = getTierColor(level, axis)
@@ -114,9 +128,11 @@ function PrestigeBadgeDisplay({ size }: { size: 'micro' | 'small' | 'medium' | '
 }
 
 // ─── MICRO — inline two icons + numbers ───
-function MicroBadge({ att, com, prestige }: { att: { score: number; level: number }; com: { score: number; level: number }; prestige: boolean }) {
+function MicroBadge({ att, com, overall, prestige }: { att: { score: number; level: number }; com: { score: number; level: number }; overall: number; prestige: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
+      <OverallPill score={overall} />
+      <span className="text-border text-[10px]">&middot;</span>
       <span className="inline-flex items-center gap-0.5">
         <TierIcon axis="attestation" level={att.level} size={14} />
         <TierNumber value={att.score} level={att.level} axis="attestation" />
@@ -132,9 +148,11 @@ function MicroBadge({ att, com, prestige }: { att: { score: number; level: numbe
 }
 
 // ─── SMALL — slightly larger, tooltip on hover ───
-function SmallBadge({ att, com, prestige }: { att: { score: number; level: number; label: string }; com: { score: number; level: number; label: string }; prestige: boolean }) {
+function SmallBadge({ att, com, overall, prestige }: { att: { score: number; level: number; label: string }; com: { score: number; level: number; label: string }; overall: number; prestige: boolean }) {
   return (
     <span className="inline-flex items-center gap-2">
+      <OverallPill score={overall} />
+      <span className="text-border text-[10px]">&middot;</span>
       <span className="inline-flex items-center gap-1" title={`Attestation: ${att.label} (${att.score})`}>
         <TierIcon axis="attestation" level={att.level} size={18} />
         <TierNumber value={att.score} level={att.level} axis="attestation" />
@@ -257,10 +275,10 @@ export default function TrustTierBadge({
 
   switch (size) {
     case 'micro':
-      content = <span className={textSize}><MicroBadge att={att} com={com} prestige={prestige} /></span>
+      content = <span className={textSize}><MicroBadge att={att} com={com} overall={dual.overall} prestige={prestige} /></span>
       break
     case 'small':
-      content = <span className={textSize}><SmallBadge att={att} com={com} prestige={prestige} /></span>
+      content = <span className={textSize}><SmallBadge att={att} com={com} overall={dual.overall} prestige={prestige} /></span>
       break
     case 'medium':
       content = <MediumBadge att={att} com={com} prestige={prestige} />

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 
 type BadgeStyle = 'compact' | 'detailed' | 'minimal' | 'flat-square'
 type BadgeTheme = 'light' | 'dark'
+type BadgeScale = '1' | '1.5' | '2'
 type SnippetFormat = 'markdown' | 'html' | 'rst'
 
 interface Agent {
@@ -24,12 +25,12 @@ const STYLE_INFO: Record<BadgeStyle, { label: string; desc: string }> = {
   'flat-square': { label: 'Flat Square', desc: 'No rounded corners' },
 }
 
-function badgeSvgUrl(entityId: string, style: BadgeStyle, theme: BadgeTheme): string {
-  return `/api/v1/badges/trust/${entityId}.svg?style=${style}&theme=${theme}`
+function badgeSvgUrl(entityId: string, style: BadgeStyle, theme: BadgeTheme, scale: BadgeScale): string {
+  return `/api/v1/badges/trust/${entityId}.svg?style=${style}&theme=${theme}&scale=${scale}`
 }
 
-function badgeProdUrl(entityId: string, style: BadgeStyle, theme: BadgeTheme): string {
-  return `${PROD_BASE}/api/v1/badges/trust/${entityId}.svg?style=${style}&theme=${theme}`
+function badgeProdUrl(entityId: string, style: BadgeStyle, theme: BadgeTheme, scale: BadgeScale): string {
+  return `${PROD_BASE}/api/v1/badges/trust/${entityId}.svg?style=${style}&theme=${theme}&scale=${scale}`
 }
 
 function profileUrl(entityId: string): string {
@@ -40,9 +41,10 @@ function generateSnippet(
   entityId: string,
   style: BadgeStyle,
   theme: BadgeTheme,
+  scale: BadgeScale,
   format: SnippetFormat,
 ): string {
-  const imgUrl = badgeProdUrl(entityId, style, theme)
+  const imgUrl = badgeProdUrl(entityId, style, theme, scale)
   const link = profileUrl(entityId)
 
   switch (format) {
@@ -61,6 +63,7 @@ export default function Badges() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [style, setStyle] = useState<BadgeStyle>('compact')
   const [theme, setTheme] = useState<BadgeTheme>('light')
+  const [badgeScale, setBadgeScale] = useState<BadgeScale>('1.5')
   const [snippetFormat, setSnippetFormat] = useState<SnippetFormat>('markdown')
   const [copied, setCopied] = useState(false)
   const [loadingAgents, setLoadingAgents] = useState(false)
@@ -84,7 +87,7 @@ export default function Badges() {
   const entityId = selectedAgent?.id ?? ''
   const isDemo = !selectedAgent
 
-  const snippet = entityId ? generateSnippet(entityId, style, theme, snippetFormat) : ''
+  const snippet = entityId ? generateSnippet(entityId, style, theme, badgeScale, snippetFormat) : ''
 
   async function copySnippet() {
     if (!snippet) return
@@ -113,7 +116,7 @@ export default function Badges() {
   const inactiveBtn = 'bg-surface border border-border text-text-muted hover:text-text'
 
   // Force a unique key to bust browser image cache when style/theme changes
-  const badgeKey = `${entityId}-${style}-${theme}`
+  const badgeKey = `${entityId}-${style}-${theme}-${badgeScale}`
 
   return (
     <>
@@ -209,22 +212,43 @@ export default function Badges() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
-              Theme
-            </h2>
-            <div className="flex gap-2">
-              {(['light', 'dark'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTheme(t)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-colors ${
-                    theme === t ? activeBtn : inactiveBtn
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+          <div className="flex gap-6">
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
+                Theme
+              </h2>
+              <div className="flex gap-2">
+                {(['light', 'dark'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTheme(t)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-colors ${
+                      theme === t ? activeBtn : inactiveBtn
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
+                Size
+              </h2>
+              <div className="flex gap-2">
+                {(['1', '1.5', '2'] as BadgeScale[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setBadgeScale(s)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      badgeScale === s ? activeBtn : inactiveBtn
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -244,7 +268,7 @@ export default function Badges() {
               <div className="rounded-lg p-8 flex flex-col items-center justify-center gap-3 bg-white border border-gray-200">
                 <img
                   key={`light-${badgeKey}`}
-                  src={badgeSvgUrl(entityId, style, theme)}
+                  src={badgeSvgUrl(entityId, style, theme, badgeScale)}
                   alt="Badge on light background"
                   className="max-w-full"
                 />
@@ -256,7 +280,7 @@ export default function Badges() {
               <div className="rounded-lg p-8 flex flex-col items-center justify-center gap-3 bg-[#0d1117] border border-gray-700">
                 <img
                   key={`dark-${badgeKey}`}
-                  src={badgeSvgUrl(entityId, style, theme)}
+                  src={badgeSvgUrl(entityId, style, theme, badgeScale)}
                   alt="Badge on dark background"
                   className="max-w-full"
                 />
