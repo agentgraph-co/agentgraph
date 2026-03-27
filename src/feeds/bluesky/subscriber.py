@@ -56,8 +56,9 @@ async def _subscribe() -> None:
     cursor = await r.get("bluesky:feed:jetstream_cursor")
     url = JETSTREAM_URL
     if cursor:
-        url += f"&cursor={cursor.decode()}"
-        logger.info("Resuming Jetstream from cursor %s", cursor.decode())
+        cursor_str = cursor if isinstance(cursor, str) else cursor.decode()
+        url += f"&cursor={cursor_str}"
+        logger.info("Resuming Jetstream from cursor %s", cursor_str)
 
     processed = 0
     matched = 0
