@@ -66,30 +66,31 @@ async def _check_target(target: ReplyTarget) -> int:
 
     new_count = 0
     async with async_session() as db:
-        for post in posts:
-            # Dedup check
-            existing = await db.scalar(
-                select(ReplyOpportunity).where(
-                    ReplyOpportunity.platform == target.platform,
-                    ReplyOpportunity.post_uri == post["uri"],
+        async with db.no_autoflush:
+            for post in posts:
+                # Dedup check — no_autoflush prevents premature flush
+                existing = await db.scalar(
+                    select(ReplyOpportunity).where(
+                        ReplyOpportunity.platform == target.platform,
+                        ReplyOpportunity.post_uri == post["uri"],
+                    )
                 )
-            )
-            if existing:
-                continue
+                if existing:
+                    continue
 
-            urgency = _calculate_urgency(post, target)
-            opp = ReplyOpportunity(
-                target_id=target.id,
-                platform=target.platform,
-                post_uri=post["uri"],
-                post_content=post.get("text", ""),
-                post_timestamp=post["timestamp"],
-                status="new",
-                urgency_score=urgency,
-                engagement_count=post.get("likes", 0),
-            )
-            db.add(opp)
-            new_count += 1
+                urgency = _calculate_urgency(post, target)
+                opp = ReplyOpportunity(
+                    target_id=target.id,
+                    platform=target.platform,
+                    post_uri=post["uri"],
+                    post_content=post.get("text", ""),
+                    post_timestamp=post["timestamp"],
+                    status="new",
+                    urgency_score=urgency,
+                    engagement_count=post.get("likes", 0),
+                )
+                db.add(opp)
+                new_count += 1
 
         # Update last_checked_at
         await db.execute(
@@ -97,7 +98,12 @@ async def _check_target(target: ReplyTarget) -> int:
             .where(ReplyTarget.id == target.id)
             .values(last_checked_at=datetime.now(timezone.utc))
         )
-        await db.commit()
+        try:
+            await db.commit()
+        except Exception:
+            # Unique constraint race — another worker inserted same post
+            await db.rollback()
+            logger.debug("Duplicate post_uri during commit, rolled back")
 
     return new_count
 
