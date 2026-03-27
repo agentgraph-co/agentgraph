@@ -101,8 +101,41 @@ export default function SafetyTab() {
     onError: () => { addToast('Failed to release quarantine', 'error') },
   })
 
+  const { data: scanStats } = useQuery<{
+    total_scanned: number
+    clean: number
+    warnings: number
+    critical: number
+    errors: number
+    last_scan_at: string | null
+  }>({
+    queryKey: ['admin-security-scan-stats'],
+    queryFn: async () => {
+      // Aggregate from the framework_security_scans table via admin stats
+      const { data } = await api.get('/admin/stats')
+      const scans = data.security_scans || { total_scanned: 0, clean: 0, warnings: 0, critical: 0, errors: 0, last_scan_at: null }
+      return scans
+    },
+    staleTime: 2 * 60_000,
+  })
+
   return (
     <div className="space-y-6">
+      {/* Security Scan Overview */}
+      <div>
+        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Security Scans</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <StatCard label="Scanned" value={scanStats?.total_scanned ?? 0} />
+          <StatCard label="Clean" value={scanStats?.clean ?? 0} sub={scanStats?.total_scanned ? `${Math.round(((scanStats?.clean ?? 0) / scanStats.total_scanned) * 100)}%` : undefined} />
+          <StatCard label="Warnings" value={scanStats?.warnings ?? 0} />
+          <StatCard label="Critical" value={scanStats?.critical ?? 0} />
+          <StatCard label="Errors" value={scanStats?.errors ?? 0} />
+        </div>
+        {scanStats?.last_scan_at && (
+          <p className="text-[10px] text-text-muted mt-2">Last scan: {timeAgo(scanStats.last_scan_at)}</p>
+        )}
+      </div>
+
       {/* Emergency Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Propagation Freeze */}
