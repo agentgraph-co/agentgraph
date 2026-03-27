@@ -59,7 +59,6 @@ const PULSE_DELAYS = [
 function ScanningAnimation() {
   return (
     <div className="bg-surface border border-primary/30 rounded-lg p-4 relative overflow-hidden">
-      {/* Sweep line */}
       <div
         className="absolute left-0 right-0 h-px animate-scan-sweep pointer-events-none"
         style={{
@@ -67,8 +66,6 @@ function ScanningAnimation() {
           boxShadow: '0 0 8px var(--color-primary-glow), 0 0 2px var(--color-primary)',
         }}
       />
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
           Security Scan
@@ -77,8 +74,6 @@ function ScanningAnimation() {
           Scanning...
         </span>
       </div>
-
-      {/* File counter */}
       <div className="flex items-center gap-3 mb-4">
         <div className="font-mono text-xs text-text-muted flex items-center gap-1.5">
           <span className="text-primary-light animate-scan-counter">&gt;</span>
@@ -86,8 +81,6 @@ function ScanningAnimation() {
           <span className="animate-scan-pulse">...</span>
         </div>
       </div>
-
-      {/* Category checklist */}
       <div className="space-y-2.5">
         {SCAN_CATEGORIES.map((cat, i) => (
           <div key={cat} className={`flex items-center gap-2 text-xs ${PULSE_DELAYS[i]}`}>
@@ -95,14 +88,10 @@ function ScanningAnimation() {
               {CATEGORY_ICONS[cat] || '\uD83D\uDD0D'}
             </span>
             <span className="text-text-muted">{cat}</span>
-            <span className="ml-auto font-mono text-[10px] text-text-muted">
-              --
-            </span>
+            <span className="ml-auto font-mono text-[10px] text-text-muted">--</span>
           </div>
         ))}
       </div>
-
-      {/* Bottom progress bar */}
       <div className="mt-4 h-0.5 bg-border/40 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full"
@@ -122,10 +111,7 @@ function ScanningAnimation() {
 export function ScanStatusBadge({ entityId }: { entityId: string }) {
   const { data: scan } = useQuery<SecurityScanData>({
     queryKey: ['security-scan', entityId],
-    queryFn: async () => {
-      const resp = await api.get(`/bots/${entityId}/security-scan`)
-      return resp.data
-    },
+    queryFn: async () => (await api.get(`/bots/${entityId}/security-scan`)).data,
     staleTime: 5 * 60_000,
     retry: false,
   })
@@ -152,52 +138,42 @@ export function ScanStatusBadge({ entityId }: { entityId: string }) {
 
 export default function SecurityScanCard({
   entityId,
-  canRescan = false,
   compact = false,
   waitForScan = false,
 }: {
   entityId: string
-  canRescan?: boolean
+  canRescan?: boolean  // kept for backward compat but ignored — rescan always available
   compact?: boolean
-  /** When true, shows scanning animation initially and polls for results */
   waitForScan?: boolean
 }) {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [pollCount, setPollCount] = useState(0)
-  const [minAnimDone, setMinAnimDone] = useState(!waitForScan)
-  const maxPolls = 20  // Stop after ~60 seconds (20 * 3s)
+  const [showAnim, setShowAnim] = useState(waitForScan)
+  const maxPolls = 20
 
-  // Show animation for at least 3 seconds when waitForScan is true
+  // Minimum 3s animation on mount when waitForScan
   useEffect(() => {
     if (!waitForScan) return
-    const timer = setTimeout(() => setMinAnimDone(true), 3000)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => setShowAnim(false), 3000)
+    return () => clearTimeout(t)
   }, [waitForScan])
 
   const { data: scan, isLoading, isError } = useQuery<SecurityScanData>({
     queryKey: ['security-scan', entityId],
-    queryFn: async () => {
-      const resp = await api.get(`/bots/${entityId}/security-scan`)
-      return resp.data
-    },
+    queryFn: async () => (await api.get(`/bots/${entityId}/security-scan`)).data,
     staleTime: 5 * 60_000,
     retry: false,
     refetchInterval: (query) => {
       const data = query.state.data as SecurityScanData | undefined
-      // If minimum animation not done, keep polling
-      if (!minAnimDone) return 3000
-      // If we have a final non-error result, stop polling
+      if (showAnim) return 3000
       if (data && data.scan_result !== 'pending' && data.scan_result !== 'error') return false
-      // If waiting for a scan to complete (post-import), keep polling
       if (waitForScan && pollCount < maxPolls) {
-        // Poll on 404 or on error results (background scan may replace error with real results)
-        if (query.state.error || (data?.scan_result === 'error')) {
+        if (query.state.error || data?.scan_result === 'error') {
           setPollCount(c => c + 1)
           return 3000
         }
       }
-      // If pending, poll
       if (data?.scan_result === 'pending') return 3000
       return false
     },
@@ -205,25 +181,24 @@ export default function SecurityScanCard({
 
   const rescanMutation = useMutation({
     mutationFn: async () => (await api.post(`/bots/${entityId}/security-scan`)).data,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-scan', entityId] })
-      addToast('Security scan triggered', 'success')
+    onMutate: () => {
+      // Show animation immediately when user clicks re-scan
+      setShowAnim(true)
     },
-    onError: () => addToast('Failed to trigger scan', 'error'),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['security-scan', entityId], data)
+      // Keep animation for at least 2s after results come back
+      setTimeout(() => setShowAnim(false), 2000)
+      addToast('Security scan complete', 'success')
+    },
+    onError: () => {
+      setShowAnim(false)
+      addToast('Failed to trigger scan', 'error')
+    },
   })
 
-  const isScanning = rescanMutation.isPending
-
-  // Show scanning animation:
-  // 1. During rescan mutation
-  // 2. During waitForScan minimum animation period
-  // 3. While waiting for background scan to replace error result
-  if (isScanning || !minAnimDone || (waitForScan && !minAnimDone)) {
-    return <ScanningAnimation />
-  }
-
-  // Also show animation while polling for results after import
-  if (waitForScan && (isError || (scan?.scan_result === 'error')) && pollCount < maxPolls && pollCount > 0) {
+  // Show scanning animation
+  if (showAnim || rescanMutation.isPending) {
     return <ScanningAnimation />
   }
 
@@ -236,23 +211,24 @@ export default function SecurityScanCard({
     )
   }
 
+  // Also show animation while waitForScan is polling through errors
+  if (waitForScan && (isError || scan?.scan_result === 'error') && pollCount < maxPolls && pollCount > 0) {
+    return <ScanningAnimation />
+  }
+
   if (!scan || isError) {
     if (compact) return null
     return (
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Security Scan</h3>
-        <p className="text-xs text-text-muted">
-          No security scan available for this agent.
-        </p>
-        {canRescan && (
-          <button
-            onClick={() => rescanMutation.mutate()}
-            disabled={rescanMutation.isPending}
-            className="mt-3 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {rescanMutation.isPending ? 'Scanning\u2026' : 'Run Security Scan'}
-          </button>
-        )}
+        <p className="text-xs text-text-muted">No security scan available.</p>
+        <button
+          onClick={() => rescanMutation.mutate()}
+          disabled={rescanMutation.isPending}
+          className="mt-3 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+        >
+          Run Security Scan
+        </button>
       </div>
     )
   }
@@ -272,16 +248,13 @@ export default function SecurityScanCard({
           <span className={`text-xs px-2 py-0.5 rounded ${status.bg} ${status.color}`}>
             {status.icon} {status.label}
           </span>
-          {canRescan && (
-            <button
-              onClick={() => rescanMutation.mutate()}
-              disabled={rescanMutation.isPending}
-              className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-2 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
-              title="Re-scan"
-            >
-              {rescanMutation.isPending ? 'Scanning\u2026' : 'Re-scan'}
-            </button>
-          )}
+          <button
+            onClick={() => rescanMutation.mutate()}
+            disabled={rescanMutation.isPending}
+            className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-2 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
+          >
+            Re-scan
+          </button>
         </div>
       </div>
 
@@ -348,8 +321,8 @@ export default function SecurityScanCard({
         </div>
       )}
 
-      {/* Error state — prominent re-scan prompt */}
-      {scan.scan_result === 'error' && canRescan && (
+      {/* Error state — big re-scan prompt */}
+      {scan.scan_result === 'error' && (
         <div className="bg-warning/5 border border-warning/20 rounded p-2 mb-3">
           <p className="text-xs text-text-muted mb-2">Scan encountered an error. Try re-scanning.</p>
           <button
@@ -357,7 +330,7 @@ export default function SecurityScanCard({
             disabled={rescanMutation.isPending}
             className="text-xs bg-primary text-white hover:bg-primary-light px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
           >
-            {rescanMutation.isPending ? 'Scanning\u2026' : 'Re-scan Now'}
+            Re-scan Now
           </button>
         </div>
       )}

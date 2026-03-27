@@ -1202,12 +1202,11 @@ async def get_security_scan(
 async def trigger_security_scan(
     agent_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_entity: Entity = Depends(get_current_entity),
     _rate: None = Depends(rate_limit_writes),
 ) -> SecurityScanResponse:
     """Trigger a security re-scan for a bot.
 
-    Any authenticated user can trigger a scan (rate-limited).
+    Public endpoint (rate-limited) — anyone can request a scan.
     """
     agent = await db.get(Entity, agent_id)
     if agent is None or not agent.is_active:
