@@ -41,6 +41,9 @@ async def run_subscriber() -> None:
         except asyncio.CancelledError:
             logger.info("Jetstream subscriber cancelled")
             return
+        except websockets.exceptions.ConnectionClosed:
+            logger.warning("Jetstream connection closed — reconnecting in 5s")
+            await asyncio.sleep(5)
         except Exception:
             logger.exception("Jetstream subscriber error — reconnecting in 5s")
             await asyncio.sleep(5)
