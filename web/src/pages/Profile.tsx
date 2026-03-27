@@ -22,6 +22,7 @@ import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 import LinkedContent from '../components/LinkedContent'
 import SourceBadge from '../components/SourceBadge'
+import SecurityScanCard from '../components/SecurityScanCard'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
@@ -1401,6 +1402,14 @@ export default function Profile() {
 
       {activeTab === "badges" && entityId && (
         <div className="mt-3 space-y-3">
+          {/* Security Scan — agents only */}
+          {profile.type === 'agent' && (
+            <SecurityScanCard
+              entityId={entityId}
+              canRescan={isOwn || isOperator}
+            />
+          )}
+
           {/* Embed badge — for operators of this agent */}
           {(isOwn || isOperator) && profile.type === 'agent' && (
             <div className="bg-surface border border-border rounded-lg p-4 space-y-3">

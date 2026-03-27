@@ -9,7 +9,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, outerjoin, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -163,52 +163,61 @@ async def get_latest_scan(
     return result.scalar_one_or_none()
 
 
-async def rescan_all_agents(db: AsyncSession, limit: int = 50) -> int:
-    """Re-scan all agents with GitHub source URLs.
+async def rescan_all_agents(db: AsyncSession, limit: int = 20) -> int:
+    """Re-scan agents with GitHub source URLs not scanned in 7+ days.
 
-    Used by the scheduler for weekly re-scans. Skips entities
-    scanned in the last 7 days.
+    Uses a lightweight two-step approach to avoid expensive outerjoin at scale:
+    1. Fetch candidate entity IDs (active + GitHub source URL) — uses indexes
+    2. For each, check latest scan age in-loop (indexed lookup, fast)
+
+    Commits after each scan so a failure doesn't lose prior work.
     """
     from datetime import timedelta
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
-    # Find agents with GitHub source URLs that haven't been scanned recently
-    # Subquery: latest scan per entity
-    latest_scans = (
-        select(
-            FrameworkSecurityScan.entity_id,
-            func.max(FrameworkSecurityScan.scanned_at).label("last_scan"),
-        )
-        .group_by(FrameworkSecurityScan.entity_id)
-        .subquery()
-    )
-
-    query = (
+    # Step 1: Get active entities with GitHub source URLs.
+    # ix_entities_source_url + ix_entities_is_active make this fast even at millions.
+    candidates = await db.execute(
         select(Entity.id)
-        .select_from(
-            outerjoin(Entity, latest_scans, Entity.id == latest_scans.c.entity_id)
-        )
         .where(
             Entity.is_active.is_(True),
             Entity.source_url.isnot(None),
             Entity.source_url.like("%github.com%"),
         )
-        .where(
-            (latest_scans.c.last_scan.is_(None)) | (latest_scans.c.last_scan < cutoff)
-        )
-        .limit(limit)
+        .limit(limit * 5)  # Fetch extra since some will have recent scans
     )
+    candidate_ids = [row[0] for row in candidates.all()]
 
-    result = await db.execute(query)
-    entity_ids = [row[0] for row in result.all()]
+    if not candidate_ids:
+        return 0
+
+    # Step 2: Filter to those not scanned recently.
+    # Uses ix_framework_scans_entity + ix_framework_scans_scanned_at per entity.
+    entity_ids: list = []
+    for eid in candidate_ids:
+        if len(entity_ids) >= limit:
+            break
+        latest = await db.execute(
+            select(FrameworkSecurityScan.scanned_at)
+            .where(FrameworkSecurityScan.entity_id == eid)
+            .order_by(FrameworkSecurityScan.scanned_at.desc())
+            .limit(1)
+        )
+        row = latest.scalar_one_or_none()
+        if row is None or row < cutoff:
+            entity_ids.append(eid)
 
     scanned = 0
     for eid in entity_ids:
-        scan = await run_security_scan(db, eid, force=True)
-        if scan:
-            scanned += 1
-        await db.commit()
+        try:
+            scan = await run_security_scan(db, eid, force=True)
+            if scan:
+                scanned += 1
+            await db.commit()
+        except Exception:
+            logger.exception("Scan failed for entity %s, rolling back", eid)
+            await db.rollback()
 
     logger.info("Re-scanned %d/%d agents", scanned, len(entity_ids))
     return scanned

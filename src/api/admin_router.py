@@ -28,6 +28,7 @@ from src.models import (
     EntityRelationship,
     EntityType,
     EvolutionRecord,
+    FrameworkSecurityScan,
     IssueReport,
     Listing,
     ModerationFlag,
@@ -54,6 +55,15 @@ class FrameworkDistributionEntry(BaseModel):
     count: int
 
 
+class SecurityScanStats(BaseModel):
+    total_scanned: int = 0
+    clean: int = 0
+    warnings: int = 0
+    critical: int = 0
+    errors: int = 0
+    last_scan_at: str | None = None
+
+
 class PlatformStats(BaseModel):
     total_entities: int
     total_humans: int
@@ -75,6 +85,7 @@ class PlatformStats(BaseModel):
     active_entities_30d: int
     population_alerts_unresolved: int = 0
     framework_distribution: list[FrameworkDistributionEntry] = []
+    security_scans: SecurityScanStats = SecurityScanStats()
 
 
 class EntityListItem(BaseModel):
@@ -235,6 +246,27 @@ async def platform_stats(
         )
     ) or 0
 
+    # Security scan stats
+    _scan_counts = await db.execute(
+        select(
+            FrameworkSecurityScan.scan_result,
+            func.count().label("cnt"),
+        )
+        .group_by(FrameworkSecurityScan.scan_result)
+    )
+    _scan_map = {row[0]: row[1] for row in _scan_counts.all()}
+    _last_scan = await db.scalar(
+        select(func.max(FrameworkSecurityScan.scanned_at))
+    )
+    security_scans = SecurityScanStats(
+        total_scanned=sum(_scan_map.values()),
+        clean=_scan_map.get("clean", 0),
+        warnings=_scan_map.get("warnings", 0),
+        critical=_scan_map.get("critical", 0),
+        errors=_scan_map.get("error", 0),
+        last_scan_at=_last_scan.isoformat() if _last_scan else None,
+    )
+
     result = PlatformStats(
         total_entities=total_entities,
         total_humans=total_humans,
@@ -256,6 +288,7 @@ async def platform_stats(
         active_entities_30d=active_30d,
         population_alerts_unresolved=pop_alerts_unresolved,
         framework_distribution=framework_distribution,
+        security_scans=security_scans,
     )
     await cache.set("admin:stats", result.model_dump(mode="json"), ttl=cache.TTL_SHORT)
     return result

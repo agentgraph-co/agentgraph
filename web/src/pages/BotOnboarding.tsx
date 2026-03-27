@@ -5,6 +5,7 @@ import api from '../lib/api'
 import SEOHead from '../components/SEOHead'
 import { useAuth } from '../hooks/useAuth'
 import SourceBadge from '../components/SourceBadge'
+import SecurityScanCard from '../components/SecurityScanCard'
 
 // ─── Types ───
 
@@ -1268,6 +1269,14 @@ export default function BotOnboarding() {
               </div>
             )}
           </div>
+
+          {/* Security Scan Results */}
+          {bootstrapResult.agent?.id && (
+            <SecurityScanCard
+              entityId={bootstrapResult.agent.id}
+              canRescan
+            />
+          )}
 
           {/* Badge Studio */}
           <div className="bg-surface border border-border rounded-lg p-5">
