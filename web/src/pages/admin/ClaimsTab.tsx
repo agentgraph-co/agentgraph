@@ -5,8 +5,14 @@ import api from '../../lib/api'
 import { timeAgo } from '../../lib/formatters'
 import type { ClaimItem } from './types'
 
+const STATUS_STYLES: Record<string, string> = {
+  unclaimed: 'bg-warning/10 text-warning',
+  approved: 'bg-success/10 text-success',
+  rejected: 'bg-danger/10 text-danger',
+}
+
 export default function ClaimsTab() {
-  const [claimStatusFilter, setClaimStatusFilter] = useState<string>('all')
+  const [claimStatusFilter, setClaimStatusFilter] = useState<string>('unclaimed')
 
   const { data: claimsData } = useQuery<{ claims: ClaimItem[]; total: number }>({
     queryKey: ['admin-claims', claimStatusFilter],
@@ -28,17 +34,17 @@ export default function ClaimsTab() {
           onChange={e => setClaimStatusFilter(e.target.value)}
           className="text-xs bg-surface border border-border rounded-md px-3 py-1.5"
         >
-          <option value="all">All</option>
-          <option value="approved">Approved</option>
-          <option value="pending">Pending</option>
+          <option value="unclaimed">Unclaimed</option>
+          <option value="approved">Claimed</option>
           <option value="rejected">Rejected</option>
+          <option value="all">All</option>
         </select>
       </div>
 
       {claimsData && claimsData.claims.length > 0 ? (
         <div className="space-y-2">
           <div className="text-xs text-text-muted mb-3">
-            {claimsData.total} claim{claimsData.total !== 1 ? 's' : ''}
+            {claimsData.total} bot{claimsData.total !== 1 ? 's' : ''}
           </div>
           <div className="bg-surface border border-border rounded-lg overflow-x-auto">
             <table className="w-full text-sm min-w-[600px]">
@@ -46,9 +52,8 @@ export default function ClaimsTab() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-2 text-xs text-text-muted font-medium">Bot</th>
-                  <th className="px-4 py-2 text-xs text-text-muted font-medium">Claimer</th>
                   <th className="px-4 py-2 text-xs text-text-muted font-medium">Source</th>
-                  <th className="px-4 py-2 text-xs text-text-muted font-medium">Reason</th>
+                  <th className="px-4 py-2 text-xs text-text-muted font-medium">Claimer</th>
                   <th className="px-4 py-2 text-xs text-text-muted font-medium">When</th>
                   <th className="px-4 py-2 text-xs text-text-muted font-medium">Status</th>
                 </tr>
@@ -61,11 +66,6 @@ export default function ClaimsTab() {
                         {claim.agent_name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5">
-                      <Link to={`/profile/${claim.claimer_id}`} className="text-xs hover:text-primary transition-colors hover:underline">
-                        {claim.claimer_name}
-                      </Link>
-                    </td>
                     <td className="px-4 py-2.5 text-xs text-text-muted">
                       {claim.source_type ? (
                         claim.source_url ? (
@@ -75,18 +75,20 @@ export default function ClaimsTab() {
                         ) : claim.source_type
                       ) : '-'}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-text-muted max-w-[200px] truncate" title={claim.reason}>
-                      {claim.reason || '-'}
+                    <td className="px-4 py-2.5 text-xs text-text-muted">
+                      {claim.claimer_name ? (
+                        <Link to={`/profile/${claim.claimer_id}`} className="hover:text-primary transition-colors hover:underline">
+                          {claim.claimer_name}
+                        </Link>
+                      ) : claim.status === 'unclaimed' ? (
+                        <span className="italic">No one yet</span>
+                      ) : '-'}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-text-muted">
                       {claim.claimed_at ? timeAgo(claim.claimed_at) : '-'}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        claim.status === 'approved' ? 'bg-success/10 text-success' :
-                        claim.status === 'rejected' ? 'bg-danger/10 text-danger' :
-                        'bg-warning/10 text-warning'
-                      }`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_STYLES[claim.status] || 'bg-surface-hover text-text-muted'}`}>
                         {claim.status}
                       </span>
                     </td>
@@ -97,7 +99,11 @@ export default function ClaimsTab() {
           </div>
         </div>
       ) : (
-        <div className="text-text-muted text-center py-10">No {claimStatusFilter === 'all' ? '' : claimStatusFilter + ' '}claims</div>
+        <div className="text-text-muted text-center py-10">
+          {claimStatusFilter === 'unclaimed' ? 'No unclaimed bots' :
+           claimStatusFilter === 'all' ? 'No bots' :
+           `No ${claimStatusFilter} claims`}
+        </div>
       )}
     </div>
   )
