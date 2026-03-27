@@ -26,7 +26,7 @@ from src.scanner.patterns import (
 
 logger = logging.getLogger(__name__)
 
-_TIMEOUT = 20
+_TIMEOUT = 30
 _MAX_FILE_SIZE = 500_000  # 500KB — skip huge files
 _MAX_FILES_PER_REPO = 200  # don't scan massive monorepos
 
@@ -142,6 +142,12 @@ async def _fetch_repo_tree(
             headers=headers,
         )
         if resp.status_code != 200:
+            logger.warning(
+                "GitHub repo API returned %d for %s/%s (rate_remaining=%s, auth=%s)",
+                resp.status_code, owner, repo,
+                resp.headers.get("x-ratelimit-remaining", "?"),
+                "yes" if token else "no",
+            )
             return []
         default_branch = resp.json().get("default_branch", "main")
 
@@ -152,6 +158,11 @@ async def _fetch_repo_tree(
             params={"recursive": "1"},
         )
         if resp.status_code != 200:
+            logger.warning(
+                "GitHub tree API returned %d for %s/%s (rate_remaining=%s)",
+                resp.status_code, owner, repo,
+                resp.headers.get("x-ratelimit-remaining", "?"),
+            )
             return []
 
         tree = resp.json().get("tree", [])

@@ -63,8 +63,8 @@ async def run_security_scan(
                 )
                 return latest
 
-    # Run the scan
-    token = settings.github_token
+    # Run the scan — use any available GitHub token for rate limits
+    token = settings.github_token or settings.github_outreach_token
     try:
         from src.scanner.scan import scan_repo
 
