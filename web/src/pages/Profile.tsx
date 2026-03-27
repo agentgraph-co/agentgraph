@@ -22,7 +22,7 @@ import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 import LinkedContent from '../components/LinkedContent'
 import SourceBadge from '../components/SourceBadge'
-import SecurityScanCard from '../components/SecurityScanCard'
+import SecurityScanCard, { ScanStatusBadge } from '../components/SecurityScanCard'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
@@ -662,6 +662,7 @@ export default function Profile() {
                 {profile.type}
               </span>
               <TrustBadgesFull badges={profile.badges} />
+              {profile.type === 'agent' && entityId && <ScanStatusBadge entityId={entityId} />}
               <button
                 onClick={() => setShowDid(!showDid)}
                 className="text-xs text-text-muted font-mono hover:text-primary-light transition-colors cursor-pointer"
@@ -820,7 +821,6 @@ export default function Profile() {
             <SecurityScanCard
               entityId={entityId}
               canRescan={isOwn || isOperator || isAdmin}
-              showRescanAlways
               compact
             />
           </div>
@@ -1420,7 +1420,6 @@ export default function Profile() {
             <SecurityScanCard
               entityId={entityId}
               canRescan={isOwn || isOperator || isAdmin}
-              showRescanAlways
             />
           )}
 
