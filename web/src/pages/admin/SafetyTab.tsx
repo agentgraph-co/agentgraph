@@ -7,11 +7,31 @@ import { timeAgo } from '../../lib/formatters'
 import { InlineSkeleton } from '../../components/Skeleton'
 import { StatCard } from './StatCard'
 
+interface RecentScan {
+  id: string
+  entity_id: string
+  entity_name: string
+  source_url: string | null
+  scan_result: string
+  trust_score: number
+  total_findings: number
+  critical_count: number
+  scanned_at: string | null
+}
+
+const RESULT_STYLES: Record<string, string> = {
+  clean: 'bg-success/10 text-success',
+  warnings: 'bg-warning/10 text-warning',
+  critical: 'bg-danger/10 text-danger',
+  error: 'bg-surface-hover text-text-muted',
+}
+
 export default function SafetyTab() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
   const [quarantineId, setQuarantineId] = useState('')
   const [quarantineReason, setQuarantineReason] = useState('')
+  const [scanAgentId, setScanAgentId] = useState('')
 
   const { data: collusionAlerts } = useQuery<{
     alerts: { id: string; type: string; severity: string; entities: string[]; detail: string; created_at: string }[]
@@ -118,13 +138,33 @@ export default function SafetyTab() {
     staleTime: 2 * 60_000,
   })
 
+  const { data: recentScans } = useQuery<{ scans: RecentScan[] }>({
+    queryKey: ['admin-recent-scans'],
+    queryFn: async () => (await api.get('/admin/security-scan/recent', { params: { limit: 20 } })).data,
+    staleTime: 2 * 60_000,
+  })
+
   const batchScanMutation = useMutation({
     mutationFn: async () => { await api.post('/admin/security-scan/batch', null, { params: { limit: 20 } }) },
     onSuccess: () => {
       addToast('Batch security scan complete', 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-security-scan-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-recent-scans'] })
     },
     onError: () => { addToast('Batch scan failed', 'error') },
+  })
+
+  const singleScanMutation = useMutation({
+    mutationFn: async (agentId: string) => (await api.post(`/admin/security-scan/trigger/${agentId}`)).data,
+    onSuccess: (data) => {
+      addToast(`Scan complete: ${data.scan_result}`, data.scan_result === 'clean' ? 'success' : 'error')
+      setScanAgentId('')
+      queryClient.invalidateQueries({ queryKey: ['admin-security-scan-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-recent-scans'] })
+    },
+    onError: (err: { response?: { data?: { detail?: string } } }) => {
+      addToast(err.response?.data?.detail || 'Scan failed', 'error')
+    },
   })
 
   return (
@@ -150,6 +190,92 @@ export default function SafetyTab() {
         </div>
         {scanStats?.last_scan_at && (
           <p className="text-[10px] text-text-muted mt-2">Last scan: {timeAgo(scanStats.last_scan_at)}</p>
+        )}
+
+        {/* Scan individual agent */}
+        <div className="mt-4 bg-surface border border-border rounded-lg p-4">
+          <h3 className="text-xs font-medium mb-2">Scan Individual Agent</h3>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={scanAgentId}
+              onChange={(e) => setScanAgentId(e.target.value)}
+              placeholder="Agent ID (UUID)"
+              className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-xs text-text focus:outline-none focus:border-primary font-mono"
+            />
+            <button
+              onClick={() => singleScanMutation.mutate(scanAgentId)}
+              disabled={!scanAgentId.trim() || singleScanMutation.isPending}
+              className="text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {singleScanMutation.isPending ? 'Scanning...' : 'Scan'}
+            </button>
+          </div>
+        </div>
+
+        {/* Recent scans table */}
+        {recentScans && recentScans.scans.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-xs font-medium mb-2">Recent Scans</h3>
+            <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
+                <caption className="sr-only">Recent security scans</caption>
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">Agent</th>
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">Result</th>
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">Score</th>
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">Findings</th>
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">When</th>
+                    <th className="px-3 py-2 text-xs text-text-muted font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentScans.scans.map((scan) => (
+                    <tr key={scan.id} className="border-b border-border/50 last:border-0">
+                      <td className="px-3 py-2">
+                        <Link to={`/profile/${scan.entity_id}`} className="text-xs hover:text-primary-light transition-colors hover:underline">
+                          {scan.entity_name}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${RESULT_STYLES[scan.scan_result] || RESULT_STYLES.error}`}>
+                          {scan.scan_result}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-medium ${
+                          scan.trust_score >= 70 ? 'text-success' :
+                          scan.trust_score >= 40 ? 'text-warning' : 'text-danger'
+                        }`}>
+                          {scan.trust_score}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-text-muted">
+                        {scan.total_findings}
+                        {scan.critical_count > 0 && (
+                          <span className="text-danger ml-1">({scan.critical_count} critical)</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-text-muted">
+                        {scan.scanned_at ? timeAgo(scan.scanned_at) : '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          onClick={() => singleScanMutation.mutate(scan.entity_id)}
+                          disabled={singleScanMutation.isPending}
+                          className="text-[10px] text-text-muted hover:text-primary-light transition-colors cursor-pointer disabled:opacity-50"
+                          title="Re-scan"
+                        >
+                          Re-scan
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
 
