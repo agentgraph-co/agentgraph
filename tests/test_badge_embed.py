@@ -77,7 +77,7 @@ async def test_embed_badge_svg_default(client, db):
     assert "<svg" in body
     assert "AgentGraph" in body
     assert "EmbedBadgeUser" in body
-    assert "0.75" in body
+    assert "75" in body  # 0.75 displayed as 75 (0-100 scale)
 
 
 @pytest.mark.asyncio

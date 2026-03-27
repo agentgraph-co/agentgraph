@@ -9,6 +9,14 @@ interface ScanCategory {
   status: 'clear' | 'warning' | 'critical'
 }
 
+interface ScanFinding {
+  category: string
+  name: string
+  severity: string
+  file_path: string
+  line_number: number
+}
+
 export interface SecurityScanData {
   entity_id: string
   scan_result: 'clean' | 'warnings' | 'critical' | 'error' | 'pending'
@@ -20,6 +28,7 @@ export interface SecurityScanData {
   critical_count: number
   high_count: number
   medium_count: number
+  findings: ScanFinding[]
   scanned_at: string | null
   repo: string | null
 }
@@ -150,6 +159,7 @@ export default function SecurityScanCard({
   const { addToast } = useToast()
   const [pollCount, setPollCount] = useState(0)
   const [showAnim, setShowAnim] = useState(waitForScan)
+  const [showFindings, setShowFindings] = useState(false)
   const maxPolls = 20
 
   // Minimum 3s animation on mount when waitForScan
@@ -307,6 +317,55 @@ export default function SecurityScanCard({
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Findings detail — expandable */}
+      {!compact && scan.findings && scan.findings.length > 0 && (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowFindings(!showFindings)}
+            className="text-xs text-primary-light hover:text-primary flex items-center gap-1 mb-2 cursor-pointer"
+          >
+            <span className="text-[10px]">{showFindings ? '\u25BC' : '\u25B6'}</span>
+            {showFindings ? 'Hide' : 'Show'} {scan.findings.length} finding{scan.findings.length !== 1 ? 's' : ''}
+          </button>
+          {showFindings && (
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {scan.findings.map((f, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-2 text-[11px] bg-background/50 rounded px-2 py-1.5 border border-border/50"
+                >
+                  <span className={`shrink-0 font-medium uppercase text-[9px] px-1.5 py-0.5 rounded ${
+                    f.severity === 'critical' ? 'bg-danger/15 text-danger' :
+                    f.severity === 'high' ? 'bg-danger/10 text-danger' :
+                    f.severity === 'medium' ? 'bg-warning/15 text-warning' :
+                    'bg-surface text-text-muted'
+                  }`}>
+                    {f.severity}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-text font-medium truncate">{f.name}</div>
+                    <div className="text-text-muted font-mono text-[10px] truncate">
+                      {f.file_path}{f.line_number ? `:${f.line_number}` : ''}
+                    </div>
+                  </div>
+                  {scan.repo && (
+                    <a
+                      href={`https://github.com/${scan.repo}/blob/main/${f.file_path}${f.line_number ? `#L${f.line_number}` : ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-[10px] text-primary-light hover:text-primary"
+                      title="View on GitHub"
+                    >
+                      View
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -165,8 +165,8 @@ def _render_compact_svg(
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
     status = _status_text(has_operator, is_provisional)
-    score_text = f"{score:.2f}"
-    value_label = f"{score_text} {status}"
+    score_pct = round(score * 100)
+    value_label = f"{score_pct} {status}"
 
     # Icon (shield) occupies 14px (10 icon + 4 pad)
     icon_width = 14
@@ -207,8 +207,8 @@ def _render_compact_svg(
             f'width="{scan_width}" height="{height}" fill="{scan_color}"/>'
         )
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_text}">
-  <title>AgentGraph Trust: {score_text} ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_pct}/100">
+  <title>AgentGraph Trust: {score_pct}/100 ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -245,10 +245,11 @@ def _render_detailed_svg(
     is_provisional: bool,
     entity_name: str,
     theme: str,
+    scan_status: str | None = None,
 ) -> str:
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
-    score_text = f"{score:.2f}"
+    score_pct = str(round(score * 100))
 
     if len(entity_name) > 20:
         entity_name = entity_name[:19] + "\u2026"
@@ -266,7 +267,7 @@ def _render_detailed_svg(
     mid_text_x = left_width + mid_width / 2
 
     # Right: score + check/x icon
-    right_label = score_text
+    right_label = score_pct
     right_text_w = _text_width(right_label)
     # Add space for inline check icon (10px)
     right_width = math.ceil(right_text_w + 22)
@@ -274,7 +275,15 @@ def _render_detailed_svg(
     # Check icon position — after score text
     check_x = left_width + mid_width + right_width - 14
 
-    total_width = left_width + mid_width + right_width
+    # Optional scan status segment
+    scan_label, scan_color = _scan_badge_info(scan_status)
+    scan_width = 0
+    if scan_label:
+        scan_text_w = _text_width(scan_label)
+        scan_width = math.ceil(scan_text_w + 10)
+
+    total_width = left_width + mid_width + right_width + scan_width
+    scan_text_x = left_width + mid_width + right_width + scan_width / 2
     height = 20
     rx = 3
     font = "Verdana,Geneva,DejaVu Sans,sans-serif"
@@ -283,8 +292,23 @@ def _render_detailed_svg(
     check_icon = _CHECK_PATH if is_verified else _X_PATH
     check_color = "#fff"
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph: {entity_name} {score_text}">
-  <title>AgentGraph: {entity_name} — {score_text}</title>
+    scan_rect = ""
+    if scan_width:
+        scan_rect = (
+            f'<rect x="{left_width + mid_width + right_width}" '
+            f'width="{scan_width}" height="{height}" fill="{scan_color}"/>'
+        )
+
+    scan_svg = ""
+    if scan_label:
+        scan_svg = f"""
+  <g fill="#fff" text-anchor="middle" font-family="{font}" font-size="11">
+    <text x="{scan_text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{scan_label}</text>
+    <text x="{scan_text_x}" y="14">{scan_label}</text>
+  </g>"""
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph: {entity_name} {score_pct}/100">
+  <title>AgentGraph: {entity_name} — {score_pct}/100{' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -294,6 +318,7 @@ def _render_detailed_svg(
     <rect width="{left_width}" height="{height}" fill="{tc['label_bg']}"/>
     <rect x="{left_width}" width="{mid_width}" height="{height}" fill="{tc['mid_bg']}"/>
     <rect x="{left_width + mid_width}" width="{right_width}" height="{height}" fill="{color}"/>
+    {scan_rect}
     <rect width="{total_width}" height="{height}" fill="url(#s)"/>
   </g>
   <g transform="translate(4,4)" fill="#fff" fill-opacity=".9">
@@ -313,7 +338,7 @@ def _render_detailed_svg(
   </g>
   <g transform="translate({check_x},4)" fill="{check_color}">
     <path d="{check_icon}"/>
-  </g>
+  </g>{scan_svg}
 </svg>"""
 
 
@@ -327,16 +352,27 @@ def _render_minimal_svg(
     has_operator: bool,
     is_provisional: bool,
     theme: str,
+    scan_status: str | None = None,
 ) -> str:
     color = _trust_tier_color(score)
-    score_text = f"{score:.2f}"
+    score_pct = str(round(score * 100))
     tc = _theme_colors(theme)
 
-    text_w = _text_width(score_text)
+    text_w = _text_width(score_pct)
     # Shield icon (small, 8px) + score
     icon_size = 10
     pill_width = math.ceil(icon_size + text_w + 14)
     text_x = icon_size + 4 + text_w / 2
+
+    # Optional scan status segment
+    scan_label, scan_color = _scan_badge_info(scan_status)
+    scan_width = 0
+    if scan_label:
+        scan_text_w = _text_width(scan_label)
+        scan_width = math.ceil(scan_text_w + 10)
+
+    total_width = pill_width + scan_width
+    scan_text_x = pill_width + scan_width / 2
     height = 20
     rx = 3
     font = "Verdana,Geneva,DejaVu Sans,sans-serif"
@@ -344,24 +380,40 @@ def _render_minimal_svg(
     is_verified = has_operator and not is_provisional
     icon_path = _SHIELD_PATH
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{pill_width}" height="{height}" role="img" aria-label="Trust: {score_text}">
-  <title>AgentGraph Trust: {score_text}</title>
+    scan_rect = ""
+    if scan_width:
+        scan_rect = (
+            f'<rect x="{pill_width}" '
+            f'width="{scan_width}" height="{height}" fill="{scan_color}"/>'
+        )
+
+    scan_svg = ""
+    if scan_label:
+        scan_svg = f"""
+  <g fill="#fff" text-anchor="middle" font-family="{font}" font-size="11">
+    <text x="{scan_text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{scan_label}</text>
+    <text x="{scan_text_x}" y="14">{scan_label}</text>
+  </g>"""
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="Trust: {score_pct}/100">
+  <title>AgentGraph Trust: {score_pct}/100{' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
-  <clipPath id="r"><rect width="{pill_width}" height="{height}" rx="{rx}" fill="#fff"/></clipPath>
+  <clipPath id="r"><rect width="{total_width}" height="{height}" rx="{rx}" fill="#fff"/></clipPath>
   <g clip-path="url(#r)">
     <rect width="{pill_width}" height="{height}" fill="{color}"/>
-    <rect width="{pill_width}" height="{height}" fill="url(#s)"/>
+    {scan_rect}
+    <rect width="{total_width}" height="{height}" fill="url(#s)"/>
   </g>
   <g transform="translate(3,4)" fill="#fff" fill-opacity="{'.9' if is_verified else '.5'}">
     <path d="{icon_path}"/>
   </g>
   <g fill="{tc['value_text']}" text-anchor="middle" font-family="{font}" font-size="11">
-    <text x="{text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{score_text}</text>
-    <text x="{text_x}" y="14">{score_text}</text>
-  </g>
+    <text x="{text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{score_pct}</text>
+    <text x="{text_x}" y="14">{score_pct}</text>
+  </g>{scan_svg}
 </svg>"""
 
 
@@ -375,12 +427,13 @@ def _render_flat_square_svg(
     has_operator: bool,
     is_provisional: bool,
     theme: str,
+    scan_status: str | None = None,
 ) -> str:
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
     status = _status_text(has_operator, is_provisional)
-    score_text = f"{score:.2f}"
-    value_label = f"{score_text} {status}"
+    score_pct = round(score * 100)
+    value_label = f"{score_pct} {status}"
 
     icon_width = 14
     label_text = "AgentGraph"
@@ -390,18 +443,41 @@ def _render_flat_square_svg(
     value_text_w = _text_width(value_label)
     value_width = math.ceil(value_text_w + 10)
 
-    total_width = label_width + value_width
+    # Optional scan status segment
+    scan_label, scan_color = _scan_badge_info(scan_status)
+    scan_width = 0
+    if scan_label:
+        scan_text_w = _text_width(scan_label)
+        scan_width = math.ceil(scan_text_w + 10)
+
+    total_width = label_width + value_width + scan_width
     label_text_x = icon_width + 3 + label_text_w / 2
     value_text_x = label_width + value_width / 2
+    scan_text_x = label_width + value_width + scan_width / 2
     height = 20
     font = "Verdana,Geneva,DejaVu Sans,sans-serif"
 
+    scan_rect = ""
+    if scan_width:
+        scan_rect = (
+            f'<rect x="{label_width + value_width}" '
+            f'width="{scan_width}" height="{height}" fill="{scan_color}"/>'
+        )
+
+    scan_svg = ""
+    if scan_label:
+        scan_svg = f"""
+  <g fill="#fff" text-anchor="middle" font-family="{font}" font-size="11">
+    <text x="{scan_text_x}" y="14">{scan_label}</text>
+  </g>"""
+
     # Flat-square: no gradient, no rounded corners, no shadow
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_text}">
-  <title>AgentGraph Trust: {score_text} ({status})</title>
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_pct}/100">
+  <title>AgentGraph Trust: {score_pct}/100 ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <g>
     <rect width="{label_width}" height="{height}" fill="{tc['label_bg']}"/>
     <rect x="{label_width}" width="{value_width}" height="{height}" fill="{color}"/>
+    {scan_rect}
   </g>
   <g transform="translate(4,4)" fill="#fff" fill-opacity=".9">
     <path d="{_SHIELD_PATH}"/>
@@ -411,7 +487,7 @@ def _render_flat_square_svg(
   </g>
   <g fill="{tc['value_text']}" text-anchor="middle" font-family="{font}" font-size="11">
     <text x="{value_text_x}" y="14">{value_label}</text>
-  </g>
+  </g>{scan_svg}
 </svg>"""
 
 
@@ -450,12 +526,15 @@ def _render_badge_svg(
     if style == "detailed":
         return _render_detailed_svg(
             score, has_operator, is_provisional, entity_name, theme,
+            scan_status,
         )
     if style == "minimal":
-        return _render_minimal_svg(score, has_operator, is_provisional, theme)
+        return _render_minimal_svg(
+            score, has_operator, is_provisional, theme, scan_status,
+        )
     if style == "flat-square":
         return _render_flat_square_svg(
-            score, has_operator, is_provisional, theme,
+            score, has_operator, is_provisional, theme, scan_status,
         )
     # compact (default)
     return _render_compact_svg(
