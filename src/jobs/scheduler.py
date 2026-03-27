@@ -19,6 +19,7 @@ Runs multiple jobs on the same interval (default 6 hours):
 16. Bluesky starter pack refresh — recreate starter pack every 30 days
 17. Agent cleanup — hard-delete soft-deleted agents after grace period
 18. Auto-follow — follow active Bluesky reply targets daily
+19. Security re-scan — weekly re-scan of agents with GitHub source URLs
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -38,6 +39,7 @@ _reply_monitor_task: asyncio.Task | None = None
 _reply_drafter_task: asyncio.Task | None = None
 _starter_pack_task: asyncio.Task | None = None
 _auto_follow_task: asyncio.Task | None = None
+_security_scan_task: asyncio.Task | None = None
 
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
@@ -530,6 +532,28 @@ async def _auto_follow_loop(interval: int = AUTO_FOLLOW_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+SECURITY_SCAN_INTERVAL = 86400  # 24 hours — checks weekly cutoff internally
+
+
+async def _security_scan_loop(interval: int = SECURITY_SCAN_INTERVAL) -> None:
+    """Job 19: Weekly security re-scan of agents with GitHub source URLs."""
+    logger.info("Security scan task started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.database import async_session
+            from src.scanner.service import rescan_all_agents
+
+            async with async_session() as db:
+                scanned = await rescan_all_agents(db, limit=20)
+            if scanned > 0:
+                logger.info("Security re-scan: %d agents scanned", scanned)
+            else:
+                logger.debug("Security re-scan: no agents due for scan")
+        except Exception:
+            logger.exception("Security re-scan failed")
+        await asyncio.sleep(interval)
+
+
 def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """Start the background scheduler task.
 
@@ -537,7 +561,7 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
     Safe to call multiple times -- subsequent calls are no-ops.
     """
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
-    global _starter_pack_task, _auto_follow_task
+    global _starter_pack_task, _auto_follow_task, _security_scan_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
@@ -552,6 +576,17 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 
     # Reply Guy fast-loop tasks (gated by reply_guy_enabled inside each loop)
     from src.config import settings as _sched_settings
+
+    # Job 19: Security re-scan (daily loop, checks 7-day cutoff internally)
+    if _security_scan_task is None or _security_scan_task.done():
+        _security_scan_task = asyncio.create_task(
+            _security_scan_loop(),
+            name="security-scan",
+        )
+        logger.info(
+            "Security scan task created (interval=%ds)",
+            SECURITY_SCAN_INTERVAL,
+        )
 
     # Job 16: Bluesky starter pack refresh (30-day loop)
     if _sched_settings.starter_pack_refresh_enabled:
@@ -602,7 +637,7 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
-    global _starter_pack_task, _auto_follow_task
+    global _starter_pack_task, _auto_follow_task, _security_scan_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
@@ -628,3 +663,8 @@ def stop_scheduler() -> None:
         _auto_follow_task.cancel()
         logger.info("Auto-follow task cancelled")
     _auto_follow_task = None
+
+    if _security_scan_task is not None and not _security_scan_task.done():
+        _security_scan_task.cancel()
+        logger.info("Security scan task cancelled")
+    _security_scan_task = None
