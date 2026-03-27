@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
-from src.models import Entity, TrustScore
+from src.models import Entity, FrameworkSecurityScan, TrustScore
 
 logger = logging.getLogger(__name__)
 
@@ -142,11 +142,25 @@ def _theme_colors(theme: str) -> dict:
 # [shield AgentGraph | 0.85 verified]
 # ---------------------------------------------------------------------------
 
+def _scan_badge_info(scan_status: str | None) -> tuple[str, str]:
+    """Return (label, color) for the scan status segment."""
+    if scan_status == "clean":
+        return "scan \u2713", "#22C55E"  # green check
+    if scan_status == "warnings":
+        return "scan \u26A0", "#F59E0B"  # amber warning
+    if scan_status == "critical":
+        return "scan \u2717", "#EF4444"  # red x
+    if scan_status == "error":
+        return "scan ?", "#6C7086"  # gray
+    return "", ""  # no scan = no segment
+
+
 def _render_compact_svg(
     score: float,
     has_operator: bool,
     is_provisional: bool,
     theme: str,
+    scan_status: str | None = None,
 ) -> str:
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
@@ -158,21 +172,43 @@ def _render_compact_svg(
     icon_width = 14
     label_text = "AgentGraph"
     label_text_w = _text_width(label_text)
-    label_width = math.ceil(icon_width + label_text_w + 10)  # 5px pad each side
+    label_width = math.ceil(icon_width + label_text_w + 10)
 
     value_text_w = _text_width(value_label)
     value_width = math.ceil(value_text_w + 10)
 
-    total_width = label_width + value_width
-    # Text centers
+    # Optional scan status segment
+    scan_label, scan_color = _scan_badge_info(scan_status)
+    scan_width = 0
+    if scan_label:
+        scan_text_w = _text_width(scan_label)
+        scan_width = math.ceil(scan_text_w + 10)
+
+    total_width = label_width + value_width + scan_width
     label_text_x = icon_width + 3 + label_text_w / 2
     value_text_x = label_width + value_width / 2
+    scan_text_x = label_width + value_width + scan_width / 2
     height = 20
     rx = 3
     font = "Verdana,Geneva,DejaVu Sans,sans-serif"
 
+    scan_svg = ""
+    if scan_label:
+        scan_svg = f"""
+  <g fill="#fff" text-anchor="middle" font-family="{font}" font-size="11">
+    <text x="{scan_text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{scan_label}</text>
+    <text x="{scan_text_x}" y="14">{scan_label}</text>
+  </g>"""
+
+    scan_rect = ""
+    if scan_width:
+        scan_rect = (
+            f'<rect x="{label_width + value_width}" '
+            f'width="{scan_width}" height="{height}" fill="{scan_color}"/>'
+        )
+
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_text}">
-  <title>AgentGraph Trust: {score_text} ({status})</title>
+  <title>AgentGraph Trust: {score_text} ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -181,6 +217,7 @@ def _render_compact_svg(
   <g clip-path="url(#r)">
     <rect width="{label_width}" height="{height}" fill="{tc['label_bg']}"/>
     <rect x="{label_width}" width="{value_width}" height="{height}" fill="{color}"/>
+    {scan_rect}
     <rect width="{total_width}" height="{height}" fill="url(#s)"/>
   </g>
   <g transform="translate(4,4)" fill="#fff" fill-opacity=".9">
@@ -193,7 +230,7 @@ def _render_compact_svg(
   <g fill="{tc['value_text']}" text-anchor="middle" font-family="{font}" font-size="11">
     <text x="{value_text_x}" y="15" fill="{tc['shadow_fill']}" fill-opacity=".3">{value_label}</text>
     <text x="{value_text_x}" y="14">{value_label}</text>
-  </g>
+  </g>{scan_svg}
 </svg>"""
 
 
@@ -407,6 +444,7 @@ def _render_badge_svg(
     style: str = "compact",
     theme: str = "light",
     entity_name: str = "",
+    scan_status: str | None = None,
 ) -> str:
     """Render an SVG trust badge in the requested style and theme."""
     if style == "detailed":
@@ -420,7 +458,9 @@ def _render_badge_svg(
             score, has_operator, is_provisional, theme,
         )
     # compact (default)
-    return _render_compact_svg(score, has_operator, is_provisional, theme)
+    return _render_compact_svg(
+        score, has_operator, is_provisional, theme, scan_status,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -540,6 +580,17 @@ async def get_trust_badge_svg(
     has_operator = entity.operator_id is not None
     is_provisional = getattr(entity, "is_provisional", False) or False
 
+    # Get latest security scan result
+    scan = await db.scalar(
+        select(FrameworkSecurityScan)
+        .where(FrameworkSecurityScan.entity_id == entity_id)
+        .order_by(FrameworkSecurityScan.scanned_at.desc())
+        .limit(1)
+    )
+    scan_status = None
+    if scan:
+        scan_status = scan.scan_result  # clean, warnings, critical, error
+
     svg = _render_badge_svg(
         score=score,
         has_operator=has_operator,
@@ -547,6 +598,7 @@ async def get_trust_badge_svg(
         style=style,
         theme=theme,
         entity_name=entity.display_name or str(entity_id),
+        scan_status=scan_status,
     )
 
     # Apply scale by wrapping in viewBox if scale > 1

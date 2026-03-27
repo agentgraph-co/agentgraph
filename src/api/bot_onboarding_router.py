@@ -37,6 +37,23 @@ from src.source_import.resolver import resolve_source
 
 router = APIRouter(prefix="/bots", tags=["bots"])
 
+logger = __import__("logging").getLogger(__name__)
+
+
+async def _background_security_scan(entity_id: uuid.UUID) -> None:
+    """Run a security scan in the background with its own DB session."""
+    try:
+        from src.database import async_session
+        from src.scanner.service import run_security_scan
+
+        async with async_session() as db:
+            async with db.begin():
+                await run_security_scan(db, entity_id)
+        logger.info("Background security scan completed for %s", entity_id)
+    except Exception:
+        logger.exception("Background security scan failed for %s", entity_id)
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -544,6 +561,15 @@ async def import_from_source(
 
     readiness = await _build_readiness(db, agent)
 
+    # Trigger security scan in background if GitHub source
+    if result.source_type == "github":
+        try:
+            import asyncio
+
+            asyncio.create_task(_background_security_scan(agent.id))
+        except Exception:
+            pass  # Best-effort — scan can be triggered manually later
+
     return BootstrapResponse(
         agent=AgentResponse.model_validate(agent),
         api_key=plaintext_key,
@@ -1036,3 +1062,149 @@ async def get_claim_status(
         claimed_at=claim.get("claimed_at"),
         reason=claim.get("reason"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Security scan endpoints
+# ---------------------------------------------------------------------------
+
+
+class ScanCategoryResult(BaseModel):
+    category: str
+    count: int
+    status: str  # "clear", "warning", "critical"
+
+
+class SecurityScanResponse(BaseModel):
+    entity_id: uuid.UUID
+    scan_result: str  # "clean", "warnings", "critical", "error", "pending"
+    trust_score: int = 0
+    files_scanned: int = 0
+    categories: list[ScanCategoryResult] = []
+    positive_signals: list[str] = []
+    total_findings: int = 0
+    critical_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    scanned_at: str | None = None
+    repo: str | None = None
+
+
+def _build_scan_response(
+    entity_id: uuid.UUID,
+    scan: object | None,
+    repo: str | None = None,
+) -> SecurityScanResponse:
+    """Build a SecurityScanResponse from a FrameworkSecurityScan record."""
+    if scan is None:
+        return SecurityScanResponse(
+            entity_id=entity_id,
+            scan_result="pending",
+            repo=repo,
+        )
+
+    from src.models import FrameworkSecurityScan
+
+    s: FrameworkSecurityScan = scan  # type: ignore[assignment]
+    vulns = s.vulnerabilities or {}
+
+    # Build category breakdown
+    cat_counts = vulns.get("categories", {})
+    category_labels = {
+        "secret": "Credential Theft",
+        "exfiltration": "Data Exfiltration",
+        "unsafe_exec": "Unsafe Execution",
+        "fs_access": "Filesystem Access",
+        "obfuscation": "Code Obfuscation",
+    }
+    categories = []
+    for key, label in category_labels.items():
+        count = cat_counts.get(key, 0)
+        if count > 0:
+            # Any secret or obfuscation = critical category
+            if key in ("secret", "obfuscation"):
+                cat_status = "critical"
+            elif count > 5:
+                cat_status = "warning"
+            else:
+                cat_status = "warning"
+        else:
+            cat_status = "clear"
+        categories.append(ScanCategoryResult(
+            category=label,
+            count=count,
+            status=cat_status,
+        ))
+
+    return SecurityScanResponse(
+        entity_id=entity_id,
+        scan_result=s.scan_result,
+        trust_score=vulns.get("trust_score", 0),
+        files_scanned=vulns.get("files_scanned", 0),
+        categories=categories,
+        positive_signals=vulns.get("positive_signals", []),
+        total_findings=vulns.get("total_findings", 0),
+        critical_count=vulns.get("critical_count", 0),
+        high_count=vulns.get("high_count", 0),
+        medium_count=vulns.get("medium_count", 0),
+        scanned_at=s.scanned_at.isoformat() if s.scanned_at else None,
+        repo=repo,
+    )
+
+
+@router.get(
+    "/bots/{agent_id}/security-scan",
+    response_model=SecurityScanResponse,
+)
+async def get_security_scan(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_reads),
+) -> SecurityScanResponse:
+    """Get the latest security scan results for a bot. Public endpoint."""
+    agent = await db.get(Entity, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(404, "Agent not found")
+
+    from src.scanner.service import _extract_github_repo, get_latest_scan
+
+    scan = await get_latest_scan(db, agent_id)
+    repo = _extract_github_repo(agent.source_url)
+    return _build_scan_response(agent_id, scan, repo)
+
+
+@router.post(
+    "/bots/{agent_id}/security-scan",
+    response_model=SecurityScanResponse,
+)
+async def trigger_security_scan(
+    agent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_entity: Entity = Depends(get_current_entity),
+    _rate: None = Depends(rate_limit_writes),
+) -> SecurityScanResponse:
+    """Trigger a security re-scan for a bot.
+
+    Requires authentication. Only the operator or an admin can trigger.
+    """
+    agent = await db.get(Entity, agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(404, "Agent not found")
+
+    # Auth: must be operator or admin
+    is_operator = agent.operator_id == current_entity.id
+    is_admin = getattr(current_entity, "is_admin", False)
+    if not is_operator and not is_admin:
+        raise HTTPException(403, "Only the operator or an admin can trigger a re-scan")
+
+    from src.scanner.service import _extract_github_repo, run_security_scan
+
+    repo = _extract_github_repo(agent.source_url)
+    if not repo:
+        raise HTTPException(
+            400, "This agent has no GitHub source URL. Security scanning requires a GitHub repo.",
+        )
+
+    scan = await run_security_scan(db, agent_id, force=True)
+    await db.commit()
+    return _build_scan_response(agent_id, scan, repo)
