@@ -423,7 +423,9 @@ def _scan_content(
 
 def _calculate_trust_score(result: ScanResult) -> int:
     """Calculate a trust score (0-100) based on findings and signals."""
-    score = 70  # start at 70 (neutral)
+    # Clean repos start higher — no findings means the code passed review
+    total_findings = result.critical_count + result.high_count + result.medium_count
+    score = 80 if total_findings == 0 else 70
 
     # Deductions
     score -= result.critical_count * 15
