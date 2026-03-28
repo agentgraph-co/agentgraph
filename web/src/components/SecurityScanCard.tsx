@@ -343,13 +343,24 @@ export default function SecurityScanCard({
       {/* Findings detail — only for operator/admin */}
       {canManage && !compact && scan.findings && scan.findings.length > 0 && (
         <div className="mb-3">
-          <button
-            onClick={() => setShowFindings(!showFindings)}
-            className="text-xs text-primary-light hover:text-primary flex items-center gap-1 mb-2 cursor-pointer"
-          >
-            <span className="text-[10px]">{showFindings ? '\u25BC' : '\u25B6'}</span>
-            {showFindings ? 'Hide' : 'Show'} {scan.findings.length} finding{scan.findings.length !== 1 ? 's' : ''}
-          </button>
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => setShowFindings(!showFindings)}
+              className="text-xs text-primary-light hover:text-primary flex items-center gap-1 cursor-pointer"
+            >
+              <span className="text-[10px]">{showFindings ? '\u25BC' : '\u25B6'}</span>
+              {showFindings ? 'Hide' : 'Show'} {scan.findings.length} finding{scan.findings.length !== 1 ? 's' : ''}
+            </button>
+            <a
+              href="https://github.com/agentgraph-co/agentgraph/blob/main/docs/security-scan-false-positives.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-text-muted hover:text-primary-light transition-colors"
+              title="Learn how to suppress false positives"
+            >
+              False positive?
+            </a>
+          </div>
           {showFindings && (
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {scan.findings.map((f, i) => (
@@ -418,7 +429,17 @@ export default function SecurityScanCard({
       {scan.scanned_at && (
         <div className="flex items-center justify-between text-[10px] text-text-muted pt-2 border-t border-border">
           <span>Scanned {new Date(scan.scanned_at).toLocaleDateString()}</span>
-          {scan.repo && <span className="font-mono">{scan.repo}</span>}
+          <div className="flex items-center gap-2">
+            <a
+              href="https://github.com/agentgraph-co/agentgraph/blob/main/docs/security-scan-false-positives.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary-light transition-colors"
+            >
+              Scan docs
+            </a>
+            {scan.repo && <span className="font-mono">{scan.repo}</span>}
+          </div>
         </div>
       )}
     </div>
