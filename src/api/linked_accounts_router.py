@@ -10,11 +10,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_entity, get_db
+from src.api.rate_limit import rate_limit_reads, rate_limit_writes
 from src.config import settings
 from src.models import LinkedAccount
 
@@ -27,12 +28,16 @@ router = APIRouter(prefix="/linked-accounts", tags=["linked-accounts"])
 
 
 class ClaimRequest(BaseModel):
-    provider: str
-    username: str
+    provider: str = Field(..., max_length=50)
+    username: str = Field(..., max_length=255)
 
 
 class ApiHealthRequest(BaseModel):
-    endpoint_url: str
+    endpoint_url: str = Field(..., max_length=1000)
+
+
+# Maximum health check endpoints per entity
+_MAX_HEALTH_ENDPOINTS = 10
 
 
 # --- GitHub OAuth flow ---
@@ -186,6 +191,7 @@ async def claim_account(
     body: ClaimRequest,
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Claim an external account by username. Returns verification challenge."""
     provider = body.provider.lower()
@@ -260,6 +266,7 @@ async def verify_account(
     provider: str,
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Check if verification challenge was completed."""
     la = await db.scalar(
@@ -401,6 +408,7 @@ async def _check_huggingface_card(model_id: str | None, token: str) -> bool:
 async def get_public_linked_accounts(
     entity_id: str,
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_reads),
 ):
     """Return linked accounts for any entity (tokens excluded)."""
     try:
@@ -435,6 +443,7 @@ async def register_api_health(
     body: ApiHealthRequest,
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Register an API endpoint for uptime monitoring."""
     from src.models import ApiHealthCheck
@@ -444,6 +453,18 @@ async def register_api_health(
         validate_url(body.endpoint_url, field_name="endpoint_url")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+    # Per-entity cap
+    count_row = await db.execute(
+        select(func.count()).select_from(ApiHealthCheck).where(
+            ApiHealthCheck.entity_id == entity.id,
+        )
+    )
+    if (count_row.scalar() or 0) >= _MAX_HEALTH_ENDPOINTS:
+        raise HTTPException(
+            429,
+            f"Maximum {_MAX_HEALTH_ENDPOINTS} health check endpoints per entity",
+        )
 
     # Check for existing
     existing = await db.scalar(
@@ -478,6 +499,7 @@ async def register_api_health(
 async def discover_sources(
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Trigger cross-source discovery for current entity's source_url."""
     from src.models import Entity
@@ -491,8 +513,9 @@ async def discover_sources(
 
     try:
         primary = await resolve_source(ent.source_url)
-    except Exception as exc:
-        raise HTTPException(502, f"Failed to resolve source: {exc}")
+    except Exception:
+        logger.exception("Failed to resolve source for discovery")
+        raise HTTPException(502, "Failed to resolve source URL")
 
     discovered = await discover_related_sources(primary)
 
@@ -551,6 +574,7 @@ async def discover_sources(
 async def list_linked_accounts(
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_reads),
 ):
     """List current user's linked accounts (tokens excluded)."""
     result = await db.execute(
@@ -577,6 +601,7 @@ async def unlink_account(
     provider: str,
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Unlink an external account."""
     la = await db.scalar(
@@ -617,6 +642,7 @@ async def sync_account(
     provider: str,
     entity=Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
+    _rate: None = Depends(rate_limit_writes),
 ):
     """Manual re-sync trigger for a linked account."""
     la = await db.scalar(
