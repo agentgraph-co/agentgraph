@@ -249,8 +249,8 @@ _SAFE_OPEN_PATTERNS = [
     re.compile(r"Path\s*\(.*\)\s*\.(?:open|read_text|write_text|read_bytes|write_bytes)\s*\("),
     # open() with a hardcoded string path (no variable interpolation)
     re.compile(r"""open\s*\(\s*['"][^'"{}$]+['"]\s*[,)]"""),
-    # with open(...) as f — context manager pattern (safe resource handling)
-    re.compile(r"""with\s+open\s*\("""),
+    # with open(..., hardcoded path) as f — context manager with string literal path
+    re.compile(r"""with\s+open\s*\(\s*['"][^'"{}$]+['"]"""),
 ]
 
 # Regex: safe exec/eval — e.g. ast.literal_eval, json.loads with exec in name
@@ -263,9 +263,10 @@ def _is_safe_exec_context(line: str, finding_name: str) -> bool:
     """Check if an unsafe_exec match is actually a safe usage pattern."""
     stripped = line.strip()
 
-    # subprocess with hardcoded args → safe
+    # subprocess with hardcoded args → safe (but NOT if shell=True is present)
     if "subprocess" in finding_name.lower():
-        if _SAFE_SUBPROCESS_RE.search(stripped):
+        has_shell_true = "shell=True" in stripped or "shell = True" in stripped
+        if not has_shell_true and _SAFE_SUBPROCESS_RE.search(stripped):
             return True
         # Also safe: subprocess with shell=False (explicit)
         if "shell=False" in stripped or "shell = False" in stripped:
@@ -413,7 +414,6 @@ def _scan_content(
                 break
 
     # Check positive signals (once per file, not per line)
-    content.lower()
     for name, pattern in AUTH_POSITIVE_PATTERNS:
         if pattern.search(content):
             positives.append(name)

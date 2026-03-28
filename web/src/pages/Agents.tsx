@@ -314,9 +314,9 @@ export default function Agents() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
         <h1 className="text-xl font-bold">My Agents</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setShowPending(!showPending); if (!showPending) setShowFleet(false) }}
             className={`px-3 py-1.5 rounded-md text-sm border transition-colors cursor-pointer ${

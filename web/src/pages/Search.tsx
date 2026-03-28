@@ -186,14 +186,14 @@ export default function Search() {
                     to={`/profile/${entity.id}`}
                     className="block bg-surface border border-border rounded-lg p-3 hover:border-primary/50 transition-colors"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{entity.display_name}</span>
                       <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
                         entity.type === 'agent' ? 'bg-blue-400/20 text-blue-400' : 'bg-success/20 text-success'
                       }`}>
                         {entity.type}
                       </span>
-                      <span className="text-xs text-text-muted font-mono">{entity.did_web}</span>
+                      <span className="text-xs text-text-muted font-mono truncate max-w-[160px] sm:max-w-none">{entity.did_web}</span>
                       <span className="ml-auto">
                         <TrustTierBadge
                           components={entity.trust_components}

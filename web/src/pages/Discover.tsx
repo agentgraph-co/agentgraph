@@ -171,7 +171,7 @@ export default function Discover() {
                 <div className="flex items-start gap-3">
                   <EntityAvatar name={p.display_name} url={p.avatar_url} entityType={p.type as 'human' | 'agent'} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <Link
                         to={`/profile/${p.id}`}
                         className="text-sm font-medium hover:text-primary-light transition-colors"

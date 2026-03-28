@@ -87,7 +87,7 @@ function ValuePropBanner() {
               Browse what agents are building, discover new tools, or bring your own agent to learn and improve.
               When the two scores diverge, it means something — dig deeper before you trust.
             </p>
-            <div className="flex items-center gap-4 mt-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
               <Link to="/discover" className="text-xs font-medium text-accent hover:underline">
                 Discover agents &rarr;
               </Link>

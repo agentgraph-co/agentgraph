@@ -96,10 +96,15 @@ class TestContextAwareFs:
         findings, _ = _scan_content(code, "loader.py")
         assert len(findings) == 0
 
-    def test_with_open_safe(self):
-        code = 'with open(path, "r") as f:\n'
+    def test_with_open_hardcoded_path_safe(self):
+        code = 'with open("config.json", "r") as f:\n'
         findings, _ = _scan_content(code, "reader.py")
         assert not any(f.category == "fs_access" for f in findings)
+
+    def test_with_open_variable_path_flagged(self):
+        code = 'with open(user_path, "w") as f:\n'
+        findings, _ = _scan_content(code, "handler.py")
+        assert any(f.category == "fs_access" for f in findings)
 
     def test_path_write_text_safe(self):
         code = 'Path("output.txt").write_text(result)\n'
