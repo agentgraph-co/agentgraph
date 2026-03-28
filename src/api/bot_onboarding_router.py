@@ -47,13 +47,22 @@ async def _background_security_scan(entity_id: uuid.UUID) -> None:
     so the frontend stops polling and shows a result instead of spinning forever.
     """
     try:
+        import asyncio
+
         from src.database import async_session
         from src.scanner.service import run_security_scan
 
+        # Wait for the parent request's transaction to commit — the entity
+        # won't be visible to our separate session until then.
+        await asyncio.sleep(2)
+
         async with async_session() as db:
             async with db.begin():
-                await run_security_scan(db, entity_id)
-        logger.info("Background security scan completed for %s", entity_id)
+                result = await run_security_scan(db, entity_id)
+        if result is None:
+            logger.warning("Background security scan returned None for %s (entity inactive or no source?)", entity_id)
+        else:
+            logger.info("Background security scan completed for %s: %s", entity_id, result.scan_result)
     except Exception:
         logger.exception("Background security scan failed for %s", entity_id)
         # Write an error record so the frontend stops polling
@@ -582,14 +591,16 @@ async def import_from_source(
 
     readiness = await _build_readiness(db, agent)
 
-    # Trigger security scan in background if GitHub source
+    # Run security scan inline for GitHub sources — ensures scan result is
+    # available immediately when the frontend polls, and avoids the race
+    # condition where a background task can't see the uncommitted entity.
     if result.source_type == "github":
         try:
-            import asyncio
+            from src.scanner.service import run_security_scan as _run_scan
 
-            asyncio.create_task(_background_security_scan(agent.id))
+            await _run_scan(db, agent.id)
         except Exception:
-            pass  # Best-effort — scan can be triggered manually later
+            logger.exception("Inline security scan failed for %s", agent.id)
 
     return BootstrapResponse(
         agent=AgentResponse.model_validate(agent),

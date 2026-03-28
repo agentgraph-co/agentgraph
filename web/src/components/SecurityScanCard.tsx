@@ -172,6 +172,8 @@ export default function SecurityScanCard({
     return () => clearTimeout(t)
   }, [waitForScan])
 
+  const [scanResolved, setScanResolved] = useState(false)
+
   const { data: scan, isLoading, isError } = useQuery<SecurityScanData>({
     queryKey: ['security-scan', entityId],
     queryFn: async () => (await api.get(`/bots/${entityId}/security-scan`)).data,
@@ -180,7 +182,16 @@ export default function SecurityScanCard({
     refetchInterval: (query) => {
       const data = query.state.data as SecurityScanData | undefined
       if (showAnim) return 3000
-      if (data && data.scan_result !== 'pending' && data.scan_result !== 'error') return false
+      if (data && data.scan_result !== 'pending' && data.scan_result !== 'error') {
+        // Scan finished — refresh trust-related queries so badges update
+        if (waitForScan && !scanResolved) {
+          setScanResolved(true)
+          queryClient.invalidateQueries({ queryKey: ['trust'] })
+          queryClient.invalidateQueries({ queryKey: ['profile'] })
+          queryClient.invalidateQueries({ queryKey: ['entity'] })
+        }
+        return false
+      }
       if (waitForScan && pollCount < maxPolls) {
         if (query.state.error || data?.scan_result === 'error') {
           setPollCount(c => c + 1)
@@ -200,6 +211,10 @@ export default function SecurityScanCard({
     onSuccess: (data) => {
       queryClient.setQueryData(['security-scan', entityId], data)
       setTimeout(() => setShowAnim(false), 2000)
+      // Refresh trust queries so badges reflect updated scan score
+      queryClient.invalidateQueries({ queryKey: ['trust'] })
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+      queryClient.invalidateQueries({ queryKey: ['entity'] })
       addToast('Security scan complete', 'success')
     },
     onError: () => {
