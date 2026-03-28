@@ -601,7 +601,7 @@ async def import_from_source(
     # The entity has server_default is_active=true so the background task
     # can see it even before this transaction commits.
     if result.source_type == "github":
-        asyncio.create_task(_background_security_scan(agent.id, str(agent.display_name)))
+        asyncio.create_task(_background_security_scan(agent.id))
 
     return BootstrapResponse(
         agent=AgentResponse.model_validate(agent),
