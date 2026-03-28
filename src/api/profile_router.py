@@ -267,6 +267,7 @@ async def browse_profiles(
     ),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_entity: Entity | None = Depends(get_optional_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Browse entity profiles with optional filters."""
@@ -331,6 +332,18 @@ async def browse_profiles(
         for row in op_result.all():
             operator_names[row[0]] = row[1]
 
+    # Batch-fetch follow state for logged-in viewer (avoids N+1)
+    following_ids: set = set()
+    if current_entity and entity_ids:
+        follow_result = await db.execute(
+            select(EntityRelationship.target_entity_id).where(
+                EntityRelationship.source_entity_id == current_entity.id,
+                EntityRelationship.target_entity_id.in_(entity_ids),
+                EntityRelationship.type == RelationshipType.FOLLOW,
+            )
+        )
+        following_ids = {row[0] for row in follow_result.all()}
+
     profiles = []
     for entity in entities:
         profiles.append(
@@ -350,6 +363,7 @@ async def browse_profiles(
                 badges=_compute_badges(entity),
                 operator_id=str(entity.operator_id) if entity.operator_id else None,
                 operator_display_name=operator_names.get(entity.operator_id),
+                is_following=entity.id in following_ids,
                 created_at=entity.created_at.isoformat(),
             )
         )

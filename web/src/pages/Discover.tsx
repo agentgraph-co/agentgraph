@@ -27,6 +27,7 @@ interface DiscoverProfile {
   operator_display_name: string | null
   framework_source: string | null
   source_type: string | null
+  is_following: boolean
   created_at: string
 }
 
@@ -53,15 +54,44 @@ export default function Discover() {
     staleTime: 2 * 60_000,
   })
 
+  type DiscoverData = { profiles: DiscoverProfile[]; total: number; has_more: boolean }
+  const queryKey = ['discover', search, entityType, offset]
+
   const followMutation = useMutation({
     mutationFn: async (entityId: string) => {
       await api.post(`/social/follow/${entityId}`)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['discover'] })
+    onMutate: async (entityId: string) => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<DiscoverData>(queryKey)
+      queryClient.setQueryData<DiscoverData>(queryKey, old => {
+        if (!old) return old
+        return { ...old, profiles: old.profiles.map(p => p.id === entityId ? { ...p, is_following: true } : p) }
+      })
+      return { prev }
     },
-    onError: () => {
-      addToast('Failed to follow user', 'error')
+    onError: (_err, _id, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev)
+      addToast('Failed to follow', 'error')
+    },
+  })
+
+  const unfollowMutation = useMutation({
+    mutationFn: async (entityId: string) => {
+      await api.delete(`/social/follow/${entityId}`)
+    },
+    onMutate: async (entityId: string) => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<DiscoverData>(queryKey)
+      queryClient.setQueryData<DiscoverData>(queryKey, old => {
+        if (!old) return old
+        return { ...old, profiles: old.profiles.map(p => p.id === entityId ? { ...p, is_following: false } : p) }
+      })
+      return { prev }
+    },
+    onError: (_err, _id, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev)
+      addToast('Failed to unfollow', 'error')
     },
   })
 
@@ -190,13 +220,24 @@ export default function Discover() {
                   </div>
                   {user ? (
                     user.id !== p.id && (
-                      <button
-                        onClick={() => followMutation.mutate(p.id)}
-                        disabled={followMutation.isPending}
-                        className="shrink-0 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        Follow
-                      </button>
+                      p.is_following ? (
+                        <button
+                          onClick={() => unfollowMutation.mutate(p.id)}
+                          disabled={unfollowMutation.isPending}
+                          className="shrink-0 text-xs bg-surface border border-border text-text-muted hover:border-danger/50 hover:text-danger px-3 py-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50 group"
+                        >
+                          <span className="group-hover:hidden">Following</span>
+                          <span className="hidden group-hover:inline">Unfollow</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => followMutation.mutate(p.id)}
+                          disabled={followMutation.isPending}
+                          className="shrink-0 text-xs bg-primary/10 text-primary-light hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Follow
+                        </button>
+                      )
                     )
                   ) : (
                     <div className="shrink-0">
