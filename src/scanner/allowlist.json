@@ -1,0 +1,6 @@
+[
+  {
+    "_comment": "Each entry suppresses a specific finding for matching file paths. Use * at end of file_path for glob matching.",
+    "_example": {"file_path": "src/utils/git.py", "name": "subprocess.run / Popen (Python)"}
+  }
+]

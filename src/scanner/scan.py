@@ -5,6 +5,7 @@ Designed to run against the recruitment_prospects table of discovered repos.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -23,6 +24,12 @@ from src.scanner.patterns import (
     SOURCE_EXTENSIONS,
     UNSAFE_EXEC_PATTERNS,
 )
+
+# Inline suppression marker — append to any line to skip scanning it
+_SUPPRESSION_COMMENT = "ag-scan:ignore"
+
+# Allowlist file path (JSON array of {file_path, name} objects to skip)
+_ALLOWLIST_PATH = Path(__file__).parent / "allowlist.json"
 
 logger = logging.getLogger(__name__)
 
@@ -192,12 +199,110 @@ async def _fetch_file_content(
     return None
 
 
+def _load_allowlist() -> set[tuple[str, str]]:
+    """Load the false-positive allowlist from disk.
+
+    Returns a set of (file_path_glob, finding_name) tuples.
+    Each entry suppresses the named finding for matching file paths.
+    """
+    if not _ALLOWLIST_PATH.exists():
+        return set()
+    try:
+        data = json.loads(_ALLOWLIST_PATH.read_text())
+        return {(e["file_path"], e["name"]) for e in data if "file_path" in e and "name" in e}
+    except Exception:
+        logger.warning("Failed to load scanner allowlist from %s", _ALLOWLIST_PATH)
+        return set()
+
+
+def _is_allowlisted(
+    file_path: str, finding_name: str, allowlist: set[tuple[str, str]],
+) -> bool:
+    """Check if a finding is allowlisted.
+
+    Supports exact match and simple glob patterns (* at end).
+    """
+    for pattern, name in allowlist:
+        if name != finding_name:
+            continue
+        if pattern == file_path:
+            return True
+        # Simple glob: "src/utils/*" matches "src/utils/helpers.py"
+        if pattern.endswith("*") and file_path.startswith(pattern[:-1]):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Context-aware checks — reduce false positives for safe usage patterns
+# ---------------------------------------------------------------------------
+
+# Regex: subprocess.run/call/etc with a hardcoded string list as first arg
+# e.g. subprocess.run(["git", "status"]) or subprocess.run("ls -la", ...)
+_SAFE_SUBPROCESS_RE = re.compile(
+    r"""subprocess\.(?:run|call|check_output|Popen)\s*\(\s*\[?\s*['"]""",
+)
+
+# Regex: open() on a known safe path / with Path objects / read-only config
+_SAFE_OPEN_PATTERNS = [
+    # Path(...).open() or Path(...).read_text() / write_text()
+    re.compile(r"Path\s*\(.*\)\s*\.(?:open|read_text|write_text|read_bytes|write_bytes)\s*\("),
+    # open() with a hardcoded string path (no variable interpolation)
+    re.compile(r"""open\s*\(\s*['"][^'"{}$]+['"]\s*[,)]"""),
+    # with open(...) as f — context manager pattern (safe resource handling)
+    re.compile(r"""with\s+open\s*\("""),
+]
+
+# Regex: safe exec/eval — e.g. ast.literal_eval, json.loads with exec in name
+_SAFE_EVAL_RE = re.compile(
+    r"""(?:ast\.literal_eval|json\.loads?|yaml\.safe_load)\s*\(""",
+)
+
+
+def _is_safe_exec_context(line: str, finding_name: str) -> bool:
+    """Check if an unsafe_exec match is actually a safe usage pattern."""
+    stripped = line.strip()
+
+    # subprocess with hardcoded args → safe
+    if "subprocess" in finding_name.lower():
+        if _SAFE_SUBPROCESS_RE.search(stripped):
+            return True
+        # Also safe: subprocess with shell=False (explicit)
+        if "shell=False" in stripped or "shell = False" in stripped:
+            return True
+
+    # eval/exec — skip if it's ast.literal_eval or similar safe wrappers
+    if "eval" in finding_name.lower() or "exec" in finding_name.lower():
+        if _SAFE_EVAL_RE.search(stripped):
+            return True
+
+    return False
+
+
+def _is_safe_fs_context(line: str, _finding_name: str) -> bool:
+    """Check if a file system access match is actually a safe usage pattern."""
+    stripped = line.strip()
+
+    for safe_pat in _SAFE_OPEN_PATTERNS:
+        if safe_pat.search(stripped):
+            return True
+
+    # Path.write_text / read_text (already method-chained on Path object)
+    if re.search(r"\.(?:read_text|write_text|read_bytes|write_bytes)\s*\(", stripped):
+        return True
+
+    return False
+
+
 def _scan_content(
     content: str, file_path: str,
+    allowlist: set[tuple[str, str]] | None = None,
 ) -> tuple[list[Finding], list[str]]:
     """Scan file content for security issues and positive signals."""
     findings: list[Finding] = []
     positives: list[str] = []
+    if allowlist is None:
+        allowlist = set()
 
     lines = content.split("\n")
 
@@ -210,6 +315,11 @@ def _scan_content(
         if "example" in stripped.lower() or "placeholder" in stripped.lower():
             continue
 
+        # --- Option 1: Inline suppression ---
+        # If the line contains "ag-scan:ignore", skip all pattern checks
+        if _SUPPRESSION_COMMENT in line:
+            continue
+
         # Check secrets
         for name, pattern, severity in SECRET_PATTERNS:
             match = pattern.search(line)
@@ -220,6 +330,9 @@ def _scan_content(
                 # Skip if value is clearly a placeholder
                 val = match.group()
                 if val in ("YOUR_API_KEY", "your_api_key", "xxx", "changeme"):
+                    continue
+                # --- Option 2: Allowlist check ---
+                if _is_allowlisted(file_path, name, allowlist):
                     continue
                 findings.append(Finding(
                     category="secret",
@@ -234,6 +347,12 @@ def _scan_content(
         # Check unsafe exec
         for name, pattern, severity in UNSAFE_EXEC_PATTERNS:
             if pattern.search(line):
+                # --- Option 2: Allowlist check ---
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                # --- Option 3: Context-aware check ---
+                if _is_safe_exec_context(line, name):
+                    continue
                 findings.append(Finding(
                     category="unsafe_exec",
                     name=name,
@@ -247,6 +366,12 @@ def _scan_content(
         # Check file system access
         for name, pattern, severity in FS_ACCESS_PATTERNS:
             if pattern.search(line):
+                # --- Option 2: Allowlist check ---
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                # --- Option 3: Context-aware check ---
+                if _is_safe_fs_context(line, name):
+                    continue
                 findings.append(Finding(
                     category="fs_access",
                     name=name,
@@ -260,6 +385,8 @@ def _scan_content(
         # Check data exfiltration
         for name, pattern, severity in EXFILTRATION_PATTERNS:
             if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
                 findings.append(Finding(
                     category="exfiltration",
                     name=name,
@@ -273,6 +400,8 @@ def _scan_content(
         # Check code obfuscation
         for name, pattern, severity in OBFUSCATION_PATTERNS:
             if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
                 findings.append(Finding(
                     category="obfuscation",
                     name=name,
@@ -375,6 +504,9 @@ async def scan_repo(
             and _is_source_file(item["path"])
         ][:_MAX_FILES_PER_REPO]
 
+        # Load allowlist once for the whole scan
+        allowlist = _load_allowlist()
+
         # Scan each file
         for item in scan_files:
             path = item["path"]
@@ -383,7 +515,7 @@ async def scan_repo(
                 continue
 
             result.files_scanned += 1
-            findings, positives = _scan_content(content, path)
+            findings, positives = _scan_content(content, path, allowlist)
             result.findings.extend(findings)
             result.positive_signals.extend(positives)
 
