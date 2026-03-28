@@ -90,6 +90,67 @@ async def _background_security_scan(entity_id: uuid.UUID) -> None:
             logger.exception("Failed to write error scan record for %s", entity_id)
 
 
+async def _background_discover_and_link(
+    entity_id: uuid.UUID,
+    primary_result,
+) -> None:
+    """Discover related sources and create LinkedAccount records in background."""
+    try:
+        import asyncio as _asyncio
+
+        from src.database import async_session
+        from src.external_reputation import sync_provider_data
+        from src.models import LinkedAccount
+        from src.source_import.discovery import discover_related_sources
+
+        await _asyncio.sleep(2)  # Wait for parent transaction to commit
+
+        discovered = await discover_related_sources(primary_result)
+        if not discovered:
+            return
+
+        async with async_session() as db:
+            async with db.begin():
+                from sqlalchemy import select
+
+                for src in discovered:
+                    # Check for existing linked account
+                    existing = await db.scalar(
+                        select(LinkedAccount).where(
+                            LinkedAccount.entity_id == entity_id,
+                            LinkedAccount.provider == src.provider,
+                        )
+                    )
+                    if existing:
+                        continue
+
+                    la = LinkedAccount(
+                        id=uuid.uuid4(),
+                        entity_id=entity_id,
+                        provider=src.provider,
+                        provider_user_id=src.identifier,
+                        provider_username=src.identifier,
+                        verification_status="unverified_claim",
+                    )
+                    db.add(la)
+                    await db.flush()
+
+                    try:
+                        await sync_provider_data(db, la)
+                    except Exception:
+                        logger.debug(
+                            "Failed to sync discovered source %s for %s",
+                            src.provider, entity_id,
+                        )
+
+        logger.info(
+            "Discovered and linked %d sources for %s",
+            len(discovered), entity_id,
+        )
+    except Exception:
+        logger.exception("Background discover+link failed for %s", entity_id)
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -172,6 +233,15 @@ class CommunitySignals(BaseModel):
     downloads_monthly: int | None = None
     likes: int | None = None
     versions: int | None = None
+    pulls: int | None = None
+
+
+class DiscoveredSourceResponse(BaseModel):
+    provider: str
+    identifier: str
+    source_url: str
+    discovery_method: str
+    community_signals: dict = {}
 
 
 class SourcePreviewResponse(BaseModel):
@@ -186,6 +256,7 @@ class SourcePreviewResponse(BaseModel):
     readme_excerpt: str = ""
     avatar_url: str | None = None
     version: str | None = None
+    discovered_sources: list[DiscoveredSourceResponse] = []
 
 
 class SourceImportRequest(BaseModel):
@@ -410,6 +481,25 @@ async def preview_source(
     except (SourceImportError, ValueError) as exc:
         raise HTTPException(400, str(exc))
 
+    # Discover related sources across registries
+    discovered: list[DiscoveredSourceResponse] = []
+    try:
+        from src.source_import.discovery import discover_related_sources
+
+        raw_discovered = await discover_related_sources(result)
+        discovered = [
+            DiscoveredSourceResponse(
+                provider=d.provider,
+                identifier=d.identifier,
+                source_url=d.source_url,
+                discovery_method=d.discovery_method,
+                community_signals=d.community_signals,
+            )
+            for d in raw_discovered
+        ]
+    except Exception:
+        logger.debug("Cross-source discovery failed, continuing without", exc_info=True)
+
     return SourcePreviewResponse(
         source_type=result.source_type,
         source_url=result.source_url,
@@ -425,6 +515,7 @@ async def preview_source(
         readme_excerpt=result.readme_excerpt,
         avatar_url=result.avatar_url,
         version=result.version,
+        discovered_sources=discovered,
     )
 
 
@@ -602,6 +693,11 @@ async def import_from_source(
     # can see it even before this transaction commits.
     if result.source_type == "github":
         asyncio.create_task(_background_security_scan(agent.id))
+
+    # Discover and link related sources in background
+    asyncio.create_task(
+        _background_discover_and_link(agent.id, result)
+    )
 
     return BootstrapResponse(
         agent=AgentResponse.model_validate(agent),

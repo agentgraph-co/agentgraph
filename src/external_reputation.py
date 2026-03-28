@@ -179,6 +179,75 @@ def compute_huggingface_reputation(model_data: dict) -> tuple[float, dict]:
     return round(score, 4), metrics
 
 
+def compute_docker_reputation(data: dict) -> tuple[float, dict]:
+    """Compute Docker Hub repository reputation.
+
+    Weights: pulls (log-scaled, cap 1M) 60%, stars (log-scaled, cap 500) 25%,
+    is_official bonus 15%.
+    """
+    if not data:
+        return 0.0, {}
+
+    pulls = data.get("pull_count", 0)
+    stars = data.get("star_count", 0)
+    is_official = data.get("is_official", False)
+
+    pull_score = _log_normalize(pulls, 1000000)
+    star_score = _log_normalize(stars, 500)
+    official_score = 1.0 if is_official else 0.0
+
+    score = 0.60 * pull_score + 0.25 * star_score + 0.15 * official_score
+
+    metrics = {
+        "pull_count": pulls,
+        "star_count": stars,
+        "is_official": is_official,
+    }
+    return round(score, 4), metrics
+
+
+def compute_api_health_reputation(data: dict) -> tuple[float, dict]:
+    """Compute API health reputation from uptime monitoring data.
+
+    uptime >= 99% = 0.8 base, response < 200ms = +0.2 bonus.
+    """
+    if not data:
+        return 0.0, {}
+
+    uptime_pct = data.get("uptime_pct_30d", 0.0)
+    response_ms = data.get("last_response_ms")
+    total_checks = data.get("total_checks", 0)
+
+    if total_checks < 3:
+        # Not enough data yet
+        return 0.0, {"uptime_pct": uptime_pct, "total_checks": total_checks}
+
+    base = 0.0
+    if uptime_pct >= 99.0:
+        base = 0.8
+    elif uptime_pct >= 95.0:
+        base = 0.6
+    elif uptime_pct >= 90.0:
+        base = 0.4
+    elif uptime_pct >= 80.0:
+        base = 0.2
+
+    bonus = 0.0
+    if response_ms is not None and response_ms < 200:
+        bonus = 0.2
+    elif response_ms is not None and response_ms < 500:
+        bonus = 0.1
+
+    score = min(base + bonus, 1.0)
+
+    metrics = {
+        "uptime_pct": uptime_pct,
+        "last_response_ms": response_ms,
+        "total_checks": total_checks,
+    }
+    return round(score, 4), metrics
+
+
 async def sync_github_data(db, linked_account) -> None:
     """Fetch latest GitHub data, compute score, update linked_account."""
     from src.api.github_oauth import fetch_github_repos
@@ -241,6 +310,10 @@ async def sync_provider_data(db, linked_account) -> None:
         await _sync_pypi_data(db, linked_account)
     elif provider == "huggingface":
         await _sync_huggingface_data(db, linked_account)
+    elif provider == "docker":
+        await _sync_docker_data(db, linked_account)
+    elif provider == "api_health":
+        await _sync_api_health_data(db, linked_account)
     else:
         logger.warning("Unknown provider: %s", provider)
 
@@ -328,6 +401,80 @@ async def _sync_huggingface_data(db, linked_account) -> None:
         "model_id": model_id,
         "pipeline_tag": model_data.get("pipeline_tag", ""),
     }
+    linked_account.reputation_data = metrics
+    linked_account.reputation_score = score
+    linked_account.last_synced_at = datetime.now(timezone.utc)
+    await db.flush()
+
+
+async def _sync_docker_data(db, linked_account) -> None:
+    """Fetch Docker Hub repository data and compute score."""
+    identifier = linked_account.provider_username
+    if not identifier:
+        return
+
+    # identifier is "namespace/name"
+    parts = identifier.split("/", 1)
+    if len(parts) != 2:
+        return
+    namespace, name = parts
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://hub.docker.com/v2/repositories/{namespace}/{name}"
+            )
+            repo_data = resp.json() if resp.status_code == 200 else {}
+    except Exception:
+        logger.exception("Docker Hub API fetch failed for %s", identifier)
+        return
+
+    score, metrics = compute_docker_reputation(repo_data)
+    linked_account.profile_data = {
+        "namespace": namespace,
+        "name": name,
+        "description": repo_data.get("description", ""),
+    }
+    linked_account.reputation_data = metrics
+    linked_account.reputation_score = score
+    linked_account.last_synced_at = datetime.now(timezone.utc)
+    await db.flush()
+
+
+async def _sync_api_health_data(db, linked_account) -> None:
+    """Compute API health reputation from ApiHealthCheck records."""
+    from sqlalchemy import select
+
+    from src.models import ApiHealthCheck
+
+    entity_id = linked_account.entity_id
+    result = await db.execute(
+        select(ApiHealthCheck).where(
+            ApiHealthCheck.entity_id == entity_id,
+            ApiHealthCheck.is_active.is_(True),
+        )
+    )
+    checks = list(result.scalars().all())
+    if not checks:
+        return
+
+    # Aggregate across all endpoints
+    total_checks = sum(c.total_checks or 0 for c in checks)
+    successful = sum(c.successful_checks or 0 for c in checks)
+    uptime_pct = (successful / total_checks * 100) if total_checks > 0 else 0.0
+
+    # Average response time from checks that have data
+    response_times = [c.last_response_ms for c in checks if c.last_response_ms is not None]
+    avg_response_ms = int(sum(response_times) / len(response_times)) if response_times else None
+
+    health_data = {
+        "uptime_pct_30d": round(uptime_pct, 2),
+        "last_response_ms": avg_response_ms,
+        "total_checks": total_checks,
+        "endpoint_count": len(checks),
+    }
+
+    score, metrics = compute_api_health_reputation(health_data)
     linked_account.reputation_data = metrics
     linked_account.reputation_score = score
     linked_account.last_synced_at = datetime.now(timezone.utc)

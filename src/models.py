@@ -2141,6 +2141,40 @@ class LinkedAccount(Base):
     )
 
 
+class ApiHealthCheck(Base):
+    """API endpoint health monitoring for agents with API-only presence."""
+
+    __tablename__ = "api_health_checks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint_url = Column(String(1000), nullable=False)
+    is_active = Column(Boolean, server_default="true", nullable=False)
+    last_status = Column(Integer, nullable=True)
+    last_response_ms = Column(Integer, nullable=True)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    uptime_pct_30d = Column(Float, default=0.0)
+    total_checks = Column(Integer, default=0)
+    successful_checks = Column(Integer, default=0)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("ix_api_health_checks_entity", "entity_id"),
+        Index("ix_api_health_checks_active", "is_active"),
+    )
+
+
 class RecruitmentProspect(Base):
     """Tracks discovered repos/packages for operator recruitment outreach."""
 

@@ -13,6 +13,7 @@ interface SourceBadgeProps {
     downloads_monthly?: number
     likes?: number
     versions?: number
+    pulls?: number
   }
   verified?: boolean
   compact?: boolean
@@ -32,6 +33,7 @@ function extractName(url: string, sourceType: string): string {
     if (sourceType === 'npm' && parts.length >= 1) return parts.join('/')
     if (sourceType === 'pypi' && parts.length >= 2) return parts[parts.length - 1]
     if (sourceType === 'huggingface' && parts.length >= 2) return `${parts[0]}/${parts[1]}`
+    if (sourceType === 'docker' && parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
     if (parts.length >= 1) return parts[parts.length - 1]
     return u.hostname
   } catch {
@@ -76,6 +78,24 @@ function HuggingFaceIcon() {
   )
 }
 
+function DockerIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#2496ED" />
+      <text x="8" y="11" textAnchor="middle" fontSize="6" fontWeight="bold" fill="white">D</text>
+    </svg>
+  )
+}
+
+function ApiIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#10B981" />
+      <text x="8" y="11" textAnchor="middle" fontSize="6" fontWeight="bold" fill="white">A</text>
+    </svg>
+  )
+}
+
 function LinkIcon() {
   return (
     <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
@@ -114,6 +134,8 @@ const SOURCE_ICONS: Record<string, () => ReactNode> = {
   npm: NpmIcon,
   pypi: PyPIIcon,
   huggingface: HuggingFaceIcon,
+  docker: DockerIcon,
+  api_health: ApiIcon,
   moltbook: MoltbookIcon,
 }
 
@@ -144,6 +166,9 @@ export default function SourceBadge({
     }
     if (communitySignals.versions != null) {
       stats.push({ label: 'vers', value: formatNumber(communitySignals.versions) })
+    }
+    if (communitySignals.pulls != null) {
+      stats.push({ label: 'pulls', value: formatNumber(communitySignals.pulls) })
     }
   }
 
@@ -187,6 +212,7 @@ export default function SourceBadge({
               {s.label === 'dl' && <span className="mr-0.5">dl</span>}
               {s.label === 'likes' && <span className="mr-0.5">likes</span>}
               {s.label === 'vers' && <span className="mr-0.5">v</span>}
+              {s.label === 'pulls' && <span className="mr-0.5">pulls</span>}
               {s.value}
             </span>
           ))}

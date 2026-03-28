@@ -31,6 +31,10 @@ class ClaimRequest(BaseModel):
     username: str
 
 
+class ApiHealthRequest(BaseModel):
+    endpoint_url: str
+
+
 # --- GitHub OAuth flow ---
 
 
@@ -388,6 +392,156 @@ async def _check_huggingface_card(model_id: str | None, token: str) -> bool:
     except Exception:
         logger.exception("HuggingFace card check failed")
     return False
+
+
+# --- Public linked accounts ---
+
+
+@router.get("/{entity_id}/public")
+async def get_public_linked_accounts(
+    entity_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return linked accounts for any entity (tokens excluded)."""
+    try:
+        eid = uuid.UUID(entity_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid entity ID")
+
+    result = await db.execute(
+        select(LinkedAccount).where(LinkedAccount.entity_id == eid)
+    )
+    accounts = result.scalars().all()
+    return [
+        {
+            "id": str(a.id),
+            "provider": a.provider,
+            "provider_username": a.provider_username,
+            "verification_status": a.verification_status,
+            "reputation_score": a.reputation_score,
+            "reputation_data": a.reputation_data,
+            "community_signals": (a.profile_data or {}).get("community_signals"),
+            "last_synced_at": a.last_synced_at.isoformat() if a.last_synced_at else None,
+        }
+        for a in accounts
+    ]
+
+
+# --- API Health monitoring ---
+
+
+@router.post("/api-health")
+async def register_api_health(
+    body: ApiHealthRequest,
+    entity=Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register an API endpoint for uptime monitoring."""
+    from src.models import ApiHealthCheck
+    from src.ssrf import validate_url
+
+    try:
+        validate_url(body.endpoint_url, field_name="endpoint_url")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    # Check for existing
+    existing = await db.scalar(
+        select(ApiHealthCheck).where(
+            ApiHealthCheck.entity_id == entity.id,
+            ApiHealthCheck.endpoint_url == body.endpoint_url,
+        )
+    )
+    if existing:
+        raise HTTPException(409, "Endpoint already registered")
+
+    check = ApiHealthCheck(
+        id=uuid.uuid4(),
+        entity_id=entity.id,
+        endpoint_url=body.endpoint_url,
+    )
+    db.add(check)
+    await db.flush()
+
+    return {
+        "id": str(check.id),
+        "endpoint_url": check.endpoint_url,
+        "is_active": check.is_active,
+        "status": "registered",
+    }
+
+
+# --- Discover related sources ---
+
+
+@router.post("/discover")
+async def discover_sources(
+    entity=Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger cross-source discovery for current entity's source_url."""
+    from src.models import Entity
+
+    ent = await db.get(Entity, entity.id)
+    if not ent or not ent.source_url:
+        raise HTTPException(400, "Entity has no source URL to discover from")
+
+    from src.source_import.discovery import discover_related_sources
+    from src.source_import.resolver import resolve_source
+
+    try:
+        primary = await resolve_source(ent.source_url)
+    except Exception as exc:
+        raise HTTPException(502, f"Failed to resolve source: {exc}")
+
+    discovered = await discover_related_sources(primary)
+
+    # Auto-create LinkedAccounts for discovered sources
+    created = 0
+    for src in discovered:
+        existing = await db.scalar(
+            select(LinkedAccount).where(
+                LinkedAccount.entity_id == entity.id,
+                LinkedAccount.provider == src.provider,
+            )
+        )
+        if existing:
+            continue
+
+        la = LinkedAccount(
+            id=uuid.uuid4(),
+            entity_id=entity.id,
+            provider=src.provider,
+            provider_user_id=src.identifier,
+            provider_username=src.identifier,
+            verification_status="unverified_claim",
+        )
+        db.add(la)
+        await db.flush()
+
+        # Sync reputation data
+        try:
+            from src.external_reputation import sync_provider_data
+
+            await sync_provider_data(db, la)
+        except Exception:
+            logger.debug("Failed to sync discovered source %s", src.provider)
+
+        created += 1
+
+    return {
+        "discovered": len(discovered),
+        "created": created,
+        "sources": [
+            {
+                "provider": d.provider,
+                "identifier": d.identifier,
+                "source_url": d.source_url,
+                "discovery_method": d.discovery_method,
+            }
+            for d in discovered
+        ],
+    }
 
 
 # --- List / Delete / Sync ---
