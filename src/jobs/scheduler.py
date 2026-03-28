@@ -20,6 +20,7 @@ Runs multiple jobs on the same interval (default 6 hours):
 17. Agent cleanup — hard-delete soft-deleted agents after grace period
 18. Auto-follow — follow active Bluesky reply targets daily
 19. Security re-scan — weekly re-scan of agents with GitHub source URLs
+20. API health check — ping registered API endpoints every 15 minutes
 
 Started via a startup hook in ``src/main.py`` when the ``ENABLE_SCHEDULER``
 config flag is set.
@@ -40,6 +41,7 @@ _reply_drafter_task: asyncio.Task | None = None
 _starter_pack_task: asyncio.Task | None = None
 _auto_follow_task: asyncio.Task | None = None
 _security_scan_task: asyncio.Task | None = None
+_api_health_task: asyncio.Task | None = None
 
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
@@ -524,7 +526,29 @@ async def _auto_follow_loop(interval: int = AUTO_FOLLOW_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+API_HEALTH_CHECK_INTERVAL = 15 * 60  # 15 minutes
+
 SECURITY_SCAN_INTERVAL = 86400  # 24 hours — checks weekly cutoff internally
+
+
+async def _api_health_loop(interval: int = API_HEALTH_CHECK_INTERVAL) -> None:
+    """Job 20: Ping registered API endpoints every 15 minutes."""
+    logger.info("API health check task started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.database import async_session
+            from src.jobs.api_health_check import run_health_checks
+
+            async with async_session() as db:
+                async with db.begin():
+                    summary = await run_health_checks(db)
+                    if summary.get("checked", 0) > 0:
+                        logger.info("API health check: %s", summary)
+                    else:
+                        logger.debug("API health check: no endpoints registered")
+        except Exception:
+            logger.exception("API health check failed")
+        await asyncio.sleep(interval)
 
 
 async def _security_scan_loop(interval: int = SECURITY_SCAN_INTERVAL) -> None:
@@ -554,6 +578,7 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
     """
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
+    global _api_health_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
@@ -568,6 +593,17 @@ def start_scheduler(interval: int | None = None) -> asyncio.Task:
 
     # Reply Guy fast-loop tasks (gated by reply_guy_enabled inside each loop)
     from src.config import settings as _sched_settings
+
+    # Job 20: API health check (15-minute loop)
+    if _api_health_task is None or _api_health_task.done():
+        _api_health_task = asyncio.create_task(
+            _api_health_loop(),
+            name="api-health-check",
+        )
+        logger.info(
+            "API health check task created (interval=%ds)",
+            API_HEALTH_CHECK_INTERVAL,
+        )
 
     # Job 19: Security re-scan (daily loop, checks 7-day cutoff internally)
     if _security_scan_task is None or _security_scan_task.done():
@@ -630,6 +666,7 @@ def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
+    global _api_health_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
@@ -660,3 +697,8 @@ def stop_scheduler() -> None:
         _security_scan_task.cancel()
         logger.info("Security scan task cancelled")
     _security_scan_task = None
+
+    if _api_health_task is not None and not _api_health_task.done():
+        _api_health_task.cancel()
+        logger.info("API health check task cancelled")
+    _api_health_task = None

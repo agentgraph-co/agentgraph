@@ -24,6 +24,7 @@ import { PageTransition } from '../components/Motion'
 import LinkedContent from '../components/LinkedContent'
 import SourceBadge from '../components/SourceBadge'
 import SecurityScanCard, { ScanStatusBadge } from '../components/SecurityScanCard'
+import ExternalSignals from '../components/ExternalSignals'
 
 type ProfileTab = 'posts' | 'followers' | 'following' | 'activity' | 'reviews' | 'connections' | 'listings' | 'badges' | 'bots'
 
@@ -794,6 +795,9 @@ export default function Profile() {
             </div>
           </div>
         )}
+
+        {/* External Signals — linked accounts with live metrics */}
+        {entityId && <ExternalSignals entityId={entityId} isOwn={isOwn} />}
 
         {/* Linked Account Badges */}
         {entityId && <LinkedAccountBadges entityId={entityId} isOwn={isOwn} />}

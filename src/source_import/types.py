@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class SourceImportResult:
-    source_type: str       # github, npm, pypi, huggingface, mcp_manifest, a2a_card, moltbook
+    source_type: str       # github, npm, pypi, huggingface, docker, ...
     source_url: str
     display_name: str
     bio: str
@@ -17,3 +17,12 @@ class SourceImportResult:
     readme_excerpt: str = ""
     avatar_url: str | None = None
     version: str | None = None
+
+
+@dataclass
+class DiscoveredSource:
+    provider: str               # npm, pypi, docker, github, huggingface
+    identifier: str             # package name or URL
+    source_url: str             # canonical URL
+    discovery_method: str       # e.g. "package.json name field"
+    community_signals: dict = field(default_factory=dict)

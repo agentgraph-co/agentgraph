@@ -65,6 +65,10 @@ const COMPONENT_INFO: Record<string, { label: string; description: string }> = {
     label: 'Community',
     description: 'Trust attestations from other entities (competent, reliable, safe, responsive)',
   },
+  external_reputation: {
+    label: 'External Signals',
+    description: 'Verified presence across GitHub, npm, PyPI, Docker Hub, HuggingFace, and API uptime',
+  },
 }
 
 // Catppuccin pastels for dark mode, saturated variants for light mode
@@ -75,6 +79,7 @@ const COMPONENT_COLORS: Record<string, Record<string, string>> = {
     activity: '#f9e2af',
     reputation: '#f38ba8',
     community: '#cba6f7',
+    external_reputation: '#89b4fa',
   },
   light: {
     verification: '#0D9488',
@@ -82,6 +87,7 @@ const COMPONENT_COLORS: Record<string, Record<string, string>> = {
     activity: '#ca8a04',
     reputation: '#e11d48',
     community: '#7C3AED',
+    external_reputation: '#2563EB',
   },
 }
 

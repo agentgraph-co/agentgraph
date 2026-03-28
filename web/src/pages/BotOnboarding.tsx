@@ -76,6 +76,14 @@ interface ClaimResponse {
   message: string
 }
 
+interface DiscoveredSourceItem {
+  provider: string
+  identifier: string
+  source_url: string
+  discovery_method: string
+  community_signals: Record<string, number>
+}
+
 interface SourcePreviewResponse {
   source_type: string
   source_url: string
@@ -90,10 +98,12 @@ interface SourcePreviewResponse {
     downloads_monthly?: number
     likes?: number
     versions?: number
+    pulls?: number
   }
   readme_excerpt: string
   avatar_url: string | null
   version: string | null
+  discovered_sources: DiscoveredSourceItem[]
 }
 
 interface Framework {
@@ -884,6 +894,28 @@ export default function BotOnboarding() {
                   </div>
                 )}
                 <p className="text-xs text-success mt-2">Source data loaded — customize below and confirm.</p>
+                {sourcePreview.discovered_sources && sourcePreview.discovered_sources.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-text-muted mb-2">
+                      Also discovered across {sourcePreview.discovered_sources.length} {sourcePreview.discovered_sources.length === 1 ? 'registry' : 'registries'}:
+                    </p>
+                    <div className="space-y-1.5">
+                      {sourcePreview.discovered_sources.map((ds) => (
+                        <div key={ds.provider} className="flex items-center gap-2 text-xs">
+                          <SourceBadge
+                            sourceUrl={ds.source_url}
+                            sourceType={ds.provider}
+                            communitySignals={ds.community_signals}
+                            compact
+                          />
+                          <span className="text-text-muted/50 text-[10px]">
+                            via {ds.discovery_method}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

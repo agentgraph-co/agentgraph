@@ -109,7 +109,8 @@ async def fetch_github(owner: str, repo: str, url: str) -> SourceImportResult:
                 readme_text = readme_resp.text
 
             # 3. Fetch dependency files for framework detection
-            dep_contents = await _fetch_dependency_files(client, api_base, headers)
+            dep_files = await _fetch_dependency_files(client, api_base, headers)
+            dep_contents = "\n".join(dep_files.values())
 
     except SourceFetchError:
         raise
@@ -162,6 +163,7 @@ async def fetch_github(owner: str, repo: str, url: str) -> SourceImportResult:
             "created_at": repo_data.get("created_at"),
             "updated_at": repo_data.get("updated_at"),
             "topics": topics,
+            "dep_files": dep_files,
         },
         readme_excerpt=readme_text[:2000],
         avatar_url=owner_data.get("avatar_url"),
@@ -173,9 +175,9 @@ async def _fetch_dependency_files(
     client: httpx.AsyncClient,
     api_base: str,
     headers: dict[str, str],
-) -> str:
-    """Fetch common dependency files and return their concatenated contents."""
-    contents_parts: list[str] = []
+) -> dict[str, str]:
+    """Fetch common dependency files and return a filename→content dict."""
+    files: dict[str, str] = {}
 
     for fname in _DEP_FILES:
         resp = await client.get(
@@ -183,9 +185,9 @@ async def _fetch_dependency_files(
             headers={**headers, "Accept": "application/vnd.github.raw"},
         )
         if resp.status_code == 200:
-            contents_parts.append(resp.text)
+            files[fname] = resp.text
 
-    return "\n".join(contents_parts)
+    return files
 
 
 def _extract_capabilities(readme: str) -> list[str]:

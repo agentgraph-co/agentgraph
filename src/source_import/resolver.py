@@ -87,6 +87,12 @@ async def _dispatch(url: str) -> SourceImportResult:
             from src.source_import.huggingface_fetcher import fetch_huggingface
             return await fetch_huggingface(model_id, url)
 
+    # Docker Hub: hub.docker.com/r/{namespace}/{name} or hub.docker.com/_/{name}
+    if host == "hub.docker.com":
+        from src.source_import.docker_fetcher import fetch_docker, parse_docker_url
+        namespace, name = parse_docker_url(url)
+        return await fetch_docker(namespace, name, url)
+
     # Moltbook
     if "moltbook" in host:
         from src.source_import.moltbook_fetcher import fetch_moltbook
@@ -99,6 +105,6 @@ async def _dispatch(url: str) -> SourceImportResult:
 
     raise UnsupportedSourceError(
         f"Unsupported source URL: {url}. "
-        "Supported: GitHub, npm, PyPI, HuggingFace, MCP manifest (.json), "
-        "A2A agent card, Moltbook."
+        "Supported: GitHub, npm, PyPI, HuggingFace, Docker Hub, "
+        "MCP manifest (.json), A2A agent card, Moltbook."
     )
