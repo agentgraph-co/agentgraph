@@ -1,6 +1,7 @@
 """Bot onboarding router — template-driven bootstrap, readiness tracking, quick-trust actions."""
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 
@@ -60,9 +61,14 @@ async def _background_security_scan(entity_id: uuid.UUID) -> None:
             async with db.begin():
                 result = await run_security_scan(db, entity_id)
         if result is None:
-            logger.warning("Background security scan returned None for %s (entity inactive or no source?)", entity_id)
+            logger.warning(
+                "Background security scan returned None for %s", entity_id,
+            )
         else:
-            logger.info("Background security scan completed for %s: %s", entity_id, result.scan_result)
+            logger.info(
+                "Background security scan completed for %s: %s",
+                entity_id, result.scan_result,
+            )
     except Exception:
         logger.exception("Background security scan failed for %s", entity_id)
         # Write an error record so the frontend stops polling
@@ -591,16 +597,11 @@ async def import_from_source(
 
     readiness = await _build_readiness(db, agent)
 
-    # Run security scan inline for GitHub sources — ensures scan result is
-    # available immediately when the frontend polls, and avoids the race
-    # condition where a background task can't see the uncommitted entity.
+    # Kick off background security scan for GitHub sources.
+    # The entity has server_default is_active=true so the background task
+    # can see it even before this transaction commits.
     if result.source_type == "github":
-        try:
-            from src.scanner.service import run_security_scan as _run_scan
-
-            await _run_scan(db, agent.id)
-        except Exception:
-            logger.exception("Inline security scan failed for %s", agent.id)
+        asyncio.create_task(_background_security_scan(agent.id, str(agent.display_name)))
 
     return BootstrapResponse(
         agent=AgentResponse.model_validate(agent),
@@ -1264,4 +1265,6 @@ async def trigger_security_scan(
 
     scan = await run_security_scan(db, agent_id, force=True)
     await db.commit()
+    if scan is None:
+        raise HTTPException(500, "Security scan failed — please try again.")
     return _build_scan_response(agent_id, scan, repo)

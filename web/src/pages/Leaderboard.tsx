@@ -105,8 +105,8 @@ export default function Leaderboard() {
 
       {!isLoading && !isError && <>
       {/* Table */}
-      <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <table className="w-full">
+      <div className="bg-surface border border-border rounded-lg overflow-x-auto">
+        <table className="w-full min-w-[480px]">
           <caption className="sr-only">Leaderboard ranked by {metric === 'trust' ? 'trust score' : metric === 'posts' ? 'post count' : 'follower count'}</caption>
           <thead>
             <tr className="text-xs text-text-muted uppercase tracking-wider border-b border-border">

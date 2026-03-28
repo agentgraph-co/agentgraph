@@ -244,7 +244,7 @@ export default function Graph() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden sm:flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: nodeTypeColor('human', theme) }} />
             <span>Human</span>

@@ -176,7 +176,7 @@ export default function Admin() {
     <div className="max-w-4xl mx-auto">
       <h1 className="text-xl font-bold mb-4">Admin Dashboard</h1>
 
-      <div className="flex flex-wrap items-end gap-x-0 mb-6 border-b border-border" role="tablist" aria-label="Admin sections">
+      <div className="flex items-end gap-x-0 mb-6 border-b border-border overflow-x-auto sm:flex-wrap scrollbar-none" role="tablist" aria-label="Admin sections">
         {TAB_SECTIONS.map((section, idx) => (
           <div key={section.name} className={`flex items-end ${idx > 0 ? 'ml-4' : ''}`}>
             <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold mr-1.5 pb-2.5 select-none whitespace-nowrap">
