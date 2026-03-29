@@ -42,6 +42,12 @@ _starter_pack_task: asyncio.Task | None = None
 _auto_follow_task: asyncio.Task | None = None
 _security_scan_task: asyncio.Task | None = None
 _api_health_task: asyncio.Task | None = None
+_lock_refresh_task: asyncio.Task | None = None
+
+# Redis distributed lock — prevents multiple workers from running the scheduler
+SCHEDULER_LOCK_KEY = "ag:scheduler:lock"
+SCHEDULER_LOCK_TTL = 60  # seconds — auto-expires if worker dies
+SCHEDULER_LOCK_REFRESH = 45  # refresh interval (must be < TTL)
 
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
@@ -570,19 +576,74 @@ async def _security_scan_loop(interval: int = SECURITY_SCAN_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
-def start_scheduler(interval: int | None = None) -> asyncio.Task:
+async def _lock_refresh_loop() -> None:
+    """Periodically refresh the Redis scheduler lock so it doesn't expire."""
+    try:
+        from src.redis_client import get_redis
+
+        while True:
+            await asyncio.sleep(SCHEDULER_LOCK_REFRESH)
+            try:
+                r = get_redis()
+                await r.expire(SCHEDULER_LOCK_KEY, SCHEDULER_LOCK_TTL)
+                logger.debug("Scheduler lock refreshed (TTL=%ds)", SCHEDULER_LOCK_TTL)
+            except Exception:
+                logger.warning("Failed to refresh scheduler lock", exc_info=True)
+    except asyncio.CancelledError:
+        # Release the lock on shutdown so another worker can take over immediately
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            await r.delete(SCHEDULER_LOCK_KEY)
+            logger.info("Scheduler lock released on shutdown")
+        except Exception:
+            pass
+        raise
+
+
+async def start_scheduler(interval: int | None = None) -> asyncio.Task | None:
     """Start the background scheduler task.
 
-    Returns the asyncio.Task so it can be cancelled on shutdown.
+    Uses a Redis distributed lock (SET NX) so only one uvicorn worker
+    runs the scheduler, even when multiple workers are started.
+    Returns the asyncio.Task, or None if another worker holds the lock.
     Safe to call multiple times -- subsequent calls are no-ops.
     """
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
-    global _api_health_task
+    global _api_health_task, _lock_refresh_task
 
     if _scheduler_task is not None and not _scheduler_task.done():
         logger.debug("Scheduler already running, skipping start")
         return _scheduler_task
+
+    # Acquire distributed lock via Redis SET NX
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        acquired = await r.set(
+            SCHEDULER_LOCK_KEY, "1", nx=True, ex=SCHEDULER_LOCK_TTL,
+        )
+        if not acquired:
+            logger.info(
+                "Scheduler lock held by another worker, skipping start"
+            )
+            return None
+        logger.info("Scheduler lock acquired (TTL=%ds)", SCHEDULER_LOCK_TTL)
+    except Exception:
+        logger.warning(
+            "Redis unavailable for scheduler lock — starting scheduler "
+            "anyway (single-worker fallback)",
+            exc_info=True,
+        )
+
+    # Start lock refresh task
+    if _lock_refresh_task is None or _lock_refresh_task.done():
+        _lock_refresh_task = asyncio.create_task(
+            _lock_refresh_loop(), name="scheduler-lock-refresh",
+        )
 
     effective_interval = interval or SCHEDULER_INTERVAL
     _scheduler_task = asyncio.create_task(
@@ -666,7 +727,13 @@ def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
-    global _api_health_task
+    global _api_health_task, _lock_refresh_task
+
+    # Cancel the lock refresh first — its CancelledError handler releases the Redis key
+    if _lock_refresh_task is not None and not _lock_refresh_task.done():
+        _lock_refresh_task.cancel()
+        logger.info("Scheduler lock refresh task cancelled")
+    _lock_refresh_task = None
 
     if _scheduler_task is not None and not _scheduler_task.done():
         _scheduler_task.cancel()
