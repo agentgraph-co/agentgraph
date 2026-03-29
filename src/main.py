@@ -191,7 +191,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     if settings.enable_scheduler:
         from src.jobs.scheduler import start_scheduler
 
-        start_scheduler(settings.trust_recompute_interval_seconds)
+        await start_scheduler(settings.trust_recompute_interval_seconds)
 
     # Start Bluesky Jetstream subscriber for AI Agent News feed
     if getattr(settings, "bluesky_feed_enabled", False):

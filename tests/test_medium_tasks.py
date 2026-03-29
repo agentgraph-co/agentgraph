@@ -380,6 +380,7 @@ class TestScheduler:
 
     def test_start_stop_scheduler(self):
         import asyncio
+        from unittest.mock import AsyncMock, patch
 
         from src.jobs.scheduler import start_scheduler, stop_scheduler
 
@@ -387,17 +388,24 @@ class TestScheduler:
         loop = asyncio.new_event_loop()
 
         async def _test():
-            task = start_scheduler(interval=999999)  # long interval so it doesn't fire
-            assert task is not None
-            assert not task.done()
+            # Mock Redis so the lock is always acquired
+            mock_redis = AsyncMock()
+            mock_redis.set = AsyncMock(return_value=True)
+            mock_redis.expire = AsyncMock(return_value=True)
+            mock_redis.delete = AsyncMock(return_value=True)
 
-            # Start again — should return same task
-            task2 = start_scheduler(interval=999999)
-            assert task2 is task
+            with patch("src.redis_client.get_redis", return_value=mock_redis):
+                task = await start_scheduler(interval=999999)  # long interval so it doesn't fire
+                assert task is not None
+                assert not task.done()
+
+                # Start again — should return same task
+                task2 = await start_scheduler(interval=999999)
+                assert task2 is task
 
             stop_scheduler()
             # Give it a moment to cancel
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.05)
             assert task.cancelled() or task.done()
 
         loop.run_until_complete(_test())
