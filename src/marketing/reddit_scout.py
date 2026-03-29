@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import httpx
 
@@ -154,7 +155,12 @@ async def scan_subreddits(
 
 
 async def fetch_thread_detail(thread_url: str) -> dict | None:
-    """Fetch full details for a specific Reddit thread via .json endpoint.
+    """Fetch full details for a specific Reddit thread.
+
+    Checks digest_history.json first (populated by news-digest on
+    Windows server and synced to EC2 via scp). Falls back to the
+    Reddit .json endpoint if not cached — this will fail on EC2
+    (datacenter IP blocked) but works from residential IPs.
 
     Args:
         thread_url: Full Reddit URL (e.g. https://www.reddit.com/r/...)
@@ -163,7 +169,13 @@ async def fetch_thread_detail(thread_url: str) -> dict | None:
         Dict with title, selftext, author, score, num_comments, subreddit,
         and top comments, or None on failure.
     """
-    # Normalize URL and add .json suffix
+    # Try digest_history.json cache first (news-digest populates this)
+    cached = _get_thread_from_digest(thread_url)
+    if cached is not None:
+        logger.debug("Thread detail from digest cache: %s", thread_url)
+        return cached
+
+    # Fallback: fetch directly from Reddit (will 403 on EC2)
     url = thread_url.rstrip("/")
     if not url.endswith(".json"):
         url = url + ".json"
@@ -221,6 +233,38 @@ async def fetch_thread_detail(thread_url: str) -> dict | None:
     except Exception:
         logger.exception("Failed to fetch thread detail: %s", thread_url)
         return None
+
+
+# Candidate paths for digest_history.json
+_DIGEST_PATHS = [
+    "/app/digest_history.json",       # Docker container (production)
+    str(Path(__file__).resolve().parent.parent.parent / "digest_history.json"),  # Local dev
+]
+
+
+def _get_thread_from_digest(thread_url: str) -> dict | None:
+    """Look up a Reddit thread in the digest_history.json cache.
+
+    Returns the cached detail dict if found, None otherwise.
+    """
+    import json
+
+    for p in _DIGEST_PATHS:
+        path = Path(p)
+        if not path.exists():
+            continue
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            details = data.get("reddit_thread_details", {})
+            # Try exact URL match, then stripped trailing slash
+            detail = details.get(thread_url) or details.get(thread_url.rstrip("/"))
+            if detail:
+                return detail
+        except Exception:
+            logger.debug("Failed to read digest cache at %s", p)
+            continue
+    return None
 
 
 # Redis cache key for scout results
