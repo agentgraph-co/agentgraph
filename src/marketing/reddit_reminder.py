@@ -29,14 +29,15 @@ async def _find_best_thread() -> dict | None:
 
     threads = await get_cached_threads()
 
-    # Fallback: digest history — only pick threads that have cached
-    # details (selftext + comments), since EC2 can't fetch from Reddit
+    # Fallback: iterate reddit_thread_details directly from
+    # digest_history.json — these have selftext + comments cached
+    # and are the only threads we can draft replies for on EC2
     if not threads:
         try:
             import json as _json
+            from pathlib import Path
 
-            from src.api.marketing_router import _reddit_from_digest_history
-            from src.marketing.reddit_scout import _get_thread_from_digest
+            from src.marketing.reddit_scout import _DIGEST_PATHS
             from src.redis_client import get_redis
 
             # Load used-threads set so we don't repeat
@@ -49,18 +50,24 @@ async def _find_best_thread() -> dict | None:
             except Exception:
                 pass
 
-            digest_threads = _reddit_from_digest_history()
-            if digest_threads:
-                for dt in digest_threads:
-                    if (
-                        dt.url
-                        and dt.url not in used_urls
-                        and _get_thread_from_digest(dt.url) is not None
-                    ):
-                        return {"url": dt.url, "title": dt.title, "subreddit": dt.subreddit}
-                return None
+            # Read reddit_thread_details directly
+            for p in _DIGEST_PATHS:
+                path = Path(p)
+                if not path.exists():
+                    continue
+                with open(path) as f:
+                    data = _json.load(f)
+                details = data.get("reddit_thread_details", {})
+                for url, detail in details.items():
+                    if url not in used_urls and detail.get("title"):
+                        return {
+                            "url": url,
+                            "title": detail["title"],
+                            "subreddit": detail.get("subreddit", ""),
+                        }
+                break  # Only read from the first available path
         except Exception:
-            pass
+            logger.debug("Failed to read digest thread details", exc_info=True)
         return None
 
     # Score threads: prefer more keywords matched, higher score, some comments
