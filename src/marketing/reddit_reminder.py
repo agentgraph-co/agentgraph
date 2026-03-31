@@ -29,17 +29,34 @@ async def _find_best_thread() -> dict | None:
 
     threads = await get_cached_threads()
 
-    # Fallback: digest history
+    # Fallback: digest history — only pick threads that have cached
+    # details (selftext + comments), since EC2 can't fetch from Reddit
     if not threads:
         try:
+            import json as _json
+
             from src.api.marketing_router import _reddit_from_digest_history
+            from src.marketing.reddit_scout import _get_thread_from_digest
+            from src.redis_client import get_redis
+
+            # Load used-threads set so we don't repeat
+            used_urls: set[str] = set()
+            try:
+                _r = get_redis()
+                _data = await _r.get("ag:reddit:used_threads")
+                if _data:
+                    used_urls = set(_json.loads(_data))
+            except Exception:
+                pass
 
             digest_threads = _reddit_from_digest_history()
             if digest_threads:
-                # Convert RedditThreadResponse → dict for fetch_thread_detail
-                # Pick the first one with a URL
                 for dt in digest_threads:
-                    if dt.url:
+                    if (
+                        dt.url
+                        and dt.url not in used_urls
+                        and _get_thread_from_digest(dt.url) is not None
+                    ):
                         return {"url": dt.url, "title": dt.title, "subreddit": dt.subreddit}
                 return None
         except Exception:
