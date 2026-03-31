@@ -110,7 +110,7 @@ class Entity(Base):
     email_verified = Column(Boolean, default=False)
     display_name = Column(String(100), nullable=False)
     bio_markdown = Column(Text, default="")
-    avatar_url = Column(String(500), nullable=True)
+    avatar_url = Column(String(2000), nullable=True)
     did_web = Column(String(500), unique=True, nullable=False, index=True)
 
     # Agent-specific fields
