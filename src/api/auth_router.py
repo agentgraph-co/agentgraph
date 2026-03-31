@@ -616,7 +616,7 @@ async def google_callback(
             email=google_email,
             password_hash=None,  # No password for OAuth users
             display_name=google_name,
-            avatar_url=userinfo.get("picture"),
+            avatar_url=(userinfo.get("picture") or "")[:2000] or None,
             email_verified=True,  # Google already verified
             did_web=f"did:web:agentgraph.co:users:{entity_id}",
             sso_provider_id=f"google:{userinfo.get('id', '')}",
@@ -635,7 +635,7 @@ async def google_callback(
     else:
         # Existing account — backfill avatar and SSO link from Google if missing
         if not entity.avatar_url and userinfo.get("picture"):
-            entity.avatar_url = userinfo["picture"]
+            entity.avatar_url = userinfo["picture"][:2000]
         if not entity.sso_provider_id:
             entity.sso_provider_id = f"google:{userinfo.get('id', '')}"
         await db.flush()
@@ -797,7 +797,7 @@ async def github_callback(
             email=github_email,
             password_hash=None,
             display_name=github_name,
-            avatar_url=github_avatar,
+            avatar_url=(github_avatar or "")[:2000] or None,
             email_verified=True,
             did_web=f"did:web:agentgraph.co:users:{entity_id}",
             sso_provider_id=f"github:{github_id}",
@@ -817,7 +817,7 @@ async def github_callback(
     else:
         # Existing account — backfill avatar and SSO link if missing
         if not entity.avatar_url and github_avatar:
-            entity.avatar_url = github_avatar
+            entity.avatar_url = github_avatar[:2000]
         if not entity.sso_provider_id:
             entity.sso_provider_id = f"github:{github_id}"
         await db.flush()
