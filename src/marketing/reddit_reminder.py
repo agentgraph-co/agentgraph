@@ -224,7 +224,7 @@ async def _generate_thread_reply(
         llm_cost_usd=cost,
         utm_params={"thread_url": thread_url, "thread_title": thread_title},
     )
-    await db.commit()
+    await db.flush()
 
     return result.text, result.model, detail
 
