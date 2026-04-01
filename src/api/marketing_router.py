@@ -43,6 +43,8 @@ class DraftResponse(BaseModel):
     destination: str | None = None
     parent_external_id: str | None = None
     scheduled_day: str | None = None
+    thread_url: str | None = None
+    thread_title: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -209,6 +211,8 @@ async def get_pending_drafts(
             image_url=_topic_image_url(d.topic, d.platform),
             parent_external_id=d.parent_external_id,
             scheduled_day=_get_scheduled_day(d),
+            thread_url=(d.utm_params or {}).get("thread_url"),
+            thread_title=(d.utm_params or {}).get("thread_title"),
         )
         for d in drafts
     ]
@@ -318,6 +322,8 @@ async def action_draft(
         created_at=post.created_at.isoformat(),
         image_url=_topic_image_url(post.topic, post.platform),
         parent_external_id=post.parent_external_id,
+        thread_url=(post.utm_params or {}).get("thread_url"),
+        thread_title=(post.utm_params or {}).get("thread_title"),
     )
 
 
