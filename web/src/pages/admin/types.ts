@@ -104,6 +104,8 @@ export interface MarketingDraft {
   destination: string | null
   parent_external_id: string | null
   scheduled_day: string | null
+  thread_url: string | null
+  thread_title: string | null
 }
 
 export interface MarketingHealth {

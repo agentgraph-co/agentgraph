@@ -105,6 +105,8 @@ export default function MarketingTab() {
           destination: d.destination ? String(d.destination) : null,
           parent_external_id: d.parent_external_id ? String(d.parent_external_id) : null,
           scheduled_day: d.scheduled_day ? String(d.scheduled_day) : null,
+          thread_url: d.thread_url ? String(d.thread_url) : null,
+          thread_title: d.thread_title ? String(d.thread_title) : null,
         })
       }
     },
@@ -437,6 +439,16 @@ export default function MarketingTab() {
                       )}
                       <span className="text-[10px] text-text-muted">{timeAgo(draft.created_at)}</span>
                     </div>
+
+                    {/* Thread link for reactive posts */}
+                    {draft.thread_url && (
+                      <div className="mb-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                        <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Reply to this thread:</p>
+                        <a href={draft.thread_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:text-primary-light hover:underline font-medium">
+                          {draft.thread_title || draft.thread_url}
+                        </a>
+                      </div>
+                    )}
 
                     {/* Card image preview */}
                     {draft.image_url && (
