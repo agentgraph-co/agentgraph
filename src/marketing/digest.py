@@ -165,17 +165,17 @@ def _render_digest_email(data: dict) -> str:
         platform_rows += (
             "<tr>"
             "<td style='padding:8px 12px;"
-            "border-bottom:1px solid #334155;'>"
+            "border-bottom:1px solid #e2e8f0;color:#1e293b;'>"
             f"{p['platform']}</td>"
             "<td style='padding:8px 12px;"
-            "border-bottom:1px solid #334155;"
-            f"text-align:center;'>{p['posts']}</td>"
+            "border-bottom:1px solid #e2e8f0;"
+            f"text-align:center;color:#1e293b;'>{p['posts']}</td>"
             "</tr>"
         )
     if not platform_rows:
         platform_rows = (
             "<tr><td colspan='2' style='padding:8px 12px;"
-            "color:#94a3b8;'>No posts this week</td></tr>"
+            "color:#64748b;'>No posts this week</td></tr>"
         )
 
     # Cost rows
@@ -184,33 +184,34 @@ def _render_digest_email(data: dict) -> str:
         cost_rows += (
             "<tr>"
             "<td style='padding:8px 12px;"
-            "border-bottom:1px solid #334155;'>"
+            "border-bottom:1px solid #e2e8f0;color:#1e293b;'>"
             f"{c['model']}</td>"
             "<td style='padding:8px 12px;"
-            "border-bottom:1px solid #334155;"
-            f"text-align:center;'>{c['calls']}</td>"
+            "border-bottom:1px solid #e2e8f0;"
+            f"text-align:center;color:#1e293b;'>{c['calls']}</td>"
             "<td style='padding:8px 12px;"
-            "border-bottom:1px solid #334155;"
-            f"text-align:right;'>${c['cost_usd']:.4f}</td>"
+            "border-bottom:1px solid #e2e8f0;"
+            f"text-align:right;color:#1e293b;'>${c['cost_usd']:.4f}</td>"
             "</tr>"
         )
     if not cost_rows:
         cost_rows = (
             "<tr><td colspan='3' style='padding:8px 12px;"
-            "color:#94a3b8;'>No LLM usage this week</td></tr>"
+            "color:#64748b;'>No LLM usage this week</td></tr>"
         )
 
     # Top posts
     top_posts_html = ""
     for tp in data["top_posts"]:
         top_posts_html += (
-            "<div style='padding:12px;background:#1e293b;"
-            "border-radius:8px;margin-bottom:8px;'>"
+            "<div style='padding:12px;background:#f1f5f9;"
+            "border-radius:8px;margin-bottom:8px;"
+            "border:1px solid #e2e8f0;'>"
             "<div style='color:#6366f1;font-size:12px;"
-            f"margin-bottom:4px;'>{tp['platform']}</div>"
-            "<div style='color:#e2e8f0;font-size:14px;'>"
+            f"margin-bottom:4px;font-weight:600;'>{tp['platform']}</div>"
+            "<div style='color:#1e293b;font-size:14px;'>"
             f"{tp['content']}</div>"
-            "<div style='color:#94a3b8;font-size:12px;"
+            "<div style='color:#64748b;font-size:12px;"
             f"margin-top:6px;'>{tp['engagement']} engagements "
             f"({tp['likes']} likes, {tp['comments']} comments, "
             f"{tp['shares']} shares)</div>"
@@ -218,7 +219,7 @@ def _render_digest_email(data: dict) -> str:
         )
     if not top_posts_html:
         top_posts_html = (
-            "<p style='color:#94a3b8;'>"
+            "<p style='color:#64748b;'>"
             "No posts with metrics this week</p>"
         )
 
@@ -239,14 +240,14 @@ def _render_digest_email(data: dict) -> str:
             failure_rows += (
                 "<tr>"
                 "<td style='padding:8px 12px;"
-                "border-bottom:1px solid #334155;"
-                f"color:#e2e8f0;'>{platform}</td>"
+                "border-bottom:1px solid #e2e8f0;"
+                f"color:#1e293b;'>{platform}</td>"
                 "<td style='padding:8px 12px;"
-                "border-bottom:1px solid #334155;"
-                f"text-align:center;color:#f87171;'>{failed}</td>"
+                "border-bottom:1px solid #e2e8f0;"
+                f"text-align:center;color:#dc2626;'>{failed}</td>"
                 "<td style='padding:8px 12px;"
-                "border-bottom:1px solid #334155;"
-                f"text-align:center;color:#ef4444;'>{perm}</td>"
+                "border-bottom:1px solid #e2e8f0;"
+                f"text-align:center;color:#b91c1c;'>{perm}</td>"
                 "</tr>"
             )
 
@@ -254,32 +255,36 @@ def _render_digest_email(data: dict) -> str:
         for err in failures.get("recent_errors", [])[:5]:
             recent_error_html += (
                 "<div style='padding:6px 10px;"
-                "background:#1e293b;border-radius:4px;"
-                "margin-bottom:4px;font-size:12px;'>"
-                "<span style='color:#6366f1;'>"
+                "background:#fef2f2;border-radius:4px;"
+                "margin-bottom:4px;font-size:12px;"
+                "border:1px solid #fecaca;'>"
+                "<span style='color:#6366f1;font-weight:600;'>"
                 f"{err['platform']}</span>"
-                "<span style='color:#94a3b8;'> — </span>"
-                "<span style='color:#f87171;'>"
+                "<span style='color:#64748b;'> — </span>"
+                "<span style='color:#dc2626;'>"
                 f"{err['error']}</span>"
                 "</div>"
             )
 
         failures_section = (
             "<tr><td style='padding-bottom:24px;'>"
-            "<h2 style='color:#f87171;font-size:16px;"
+            "<h2 style='color:#dc2626;font-size:16px;"
             "margin:0 0 12px;'>"
             f"Failures ({total_failures})</h2>"
             "<table width='100%' cellpadding='0' "
             "cellspacing='0' "
-            "style='background:#0f172a;"
-            "border-radius:8px;'>"
+            "style='background:#f8fafc;"
+            "border-radius:8px;border:1px solid #e2e8f0;'>"
             "<tr>"
             "<th style='padding:8px 12px;text-align:left;"
-            "color:#94a3b8;font-size:12px;'>Platform</th>"
+            "color:#64748b;font-size:12px;"
+            "border-bottom:1px solid #e2e8f0;'>Platform</th>"
             "<th style='padding:8px 12px;text-align:center;"
-            "color:#94a3b8;font-size:12px;'>Failed</th>"
+            "color:#64748b;font-size:12px;"
+            "border-bottom:1px solid #e2e8f0;'>Failed</th>"
             "<th style='padding:8px 12px;text-align:center;"
-            "color:#94a3b8;font-size:12px;'>Permanent</th>"
+            "color:#64748b;font-size:12px;"
+            "border-bottom:1px solid #e2e8f0;'>Permanent</th>"
             "</tr>"
             f"{failure_rows}"
             "</table>"
@@ -298,34 +303,35 @@ def _render_digest_email(data: dict) -> str:
             if len(t.get("selftext_preview", "") or "") > 120:
                 preview += "..."
             thread_cards += (
-                "<div style='padding:12px;background:#1e293b;"
-                "border-radius:8px;margin-bottom:8px;'>"
+                "<div style='padding:12px;background:#f1f5f9;"
+                "border-radius:8px;margin-bottom:8px;"
+                "border:1px solid #e2e8f0;'>"
                 "<div style='color:#6366f1;font-size:12px;"
-                f"margin-bottom:4px;'>r/{t['subreddit']} "
+                f"margin-bottom:4px;font-weight:600;'>r/{t['subreddit']} "
                 f"&middot; {t['score']} pts "
                 f"&middot; {t['num_comments']} comments</div>"
-                "<a href='" + t["url"] + "' style='color:#e2e8f0;"
+                "<a href='" + t["url"] + "' style='color:#1e293b;"
                 "font-size:14px;text-decoration:none;'>"
                 f"{t['title']}</a>"
             )
             if preview:
                 thread_cards += (
-                    "<div style='color:#94a3b8;font-size:12px;"
+                    "<div style='color:#64748b;font-size:12px;"
                     f"margin-top:4px;'>{preview}</div>"
                 )
             if kw_tags:
                 thread_cards += (
-                    "<div style='color:#818cf8;font-size:11px;"
+                    "<div style='color:#6366f1;font-size:11px;"
                     f"margin-top:4px;'>Keywords: {kw_tags}</div>"
                 )
             thread_cards += "</div>"
 
         reddit_section = (
             "<tr><td style='padding-bottom:24px;'>"
-            "<h2 style='color:#e2e8f0;font-size:16px;"
+            "<h2 style='color:#1e293b;font-size:16px;"
             "margin:0 0 12px;'>"
             f"Reddit Scout ({len(reddit_threads)} threads)</h2>"
-            "<p style='color:#94a3b8;font-size:13px;"
+            "<p style='color:#64748b;font-size:13px;"
             "margin:0 0 12px;'>Relevant threads discovered "
             "across AI/agent subreddits this week:</p>"
             f"{thread_cards}"
@@ -338,13 +344,15 @@ def _render_digest_email(data: dict) -> str:
         week_end=data["week_end"],
         total_posts=str(data["total_posts"]),
         total_cost=f"${data['total_cost_usd']:.2f}",
-        platform_rows=platform_rows,
-        cost_rows=cost_rows,
-        top_posts=top_posts_html,
-        failures_section=failures_section,
-        reddit_section=reddit_section,
         fallback=(
             f"Marketing Digest: {data['total_posts']} posts, "
             f"${data['total_cost_usd']:.2f} spend"
         ),
+        _raw={
+            "platform_rows": platform_rows,
+            "cost_rows": cost_rows,
+            "top_posts": top_posts_html,
+            "failures_section": failures_section,
+            "reddit_section": reddit_section,
+        },
     )

@@ -14,13 +14,26 @@ logger = logging.getLogger(__name__)
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
-def _load_template(name: str, **kwargs: str) -> str:
-    """Load an HTML template and substitute placeholders."""
+def _load_template(
+    name: str,
+    *,
+    _raw: dict[str, str] | None = None,
+    **kwargs: str,
+) -> str:
+    """Load an HTML template and substitute placeholders.
+
+    Regular kwargs are HTML-escaped for safety.
+    Keys passed via ``_raw`` are inserted verbatim (pre-rendered HTML).
+    """
     path = _TEMPLATE_DIR / name
     if not path.exists():
         logger.warning("Email template %s not found, using plain text fallback", name)
         return kwargs.get("fallback", "")
     content = path.read_text()
+    # Insert raw HTML first (no escaping)
+    for key, value in (_raw or {}).items():
+        content = content.replace(f"{{{{{key}}}}}", str(value))
+    # Then escaped values
     for key, value in kwargs.items():
         content = content.replace(f"{{{{{key}}}}}", html_mod.escape(str(value)))
     return content
