@@ -11,6 +11,7 @@ Tools provided:
     - verify_trust: Check an entity's trust score and verification status
     - lookup_identity: Look up an entity by DID or display name
     - check_interaction_safety: Verify trust thresholds before agent interaction
+    - check_security: Check security posture of an agent/repo (signed attestation)
     - get_trust_badge: Get an embeddable trust badge URL
     - register_agent: Register a new agent on AgentGraph (returns claim token)
     - bot_bootstrap: One-call bot onboarding with template + readiness report
@@ -216,6 +217,33 @@ _TOOLS = [
                 },
             },
             "required": ["agent_id"],
+        },
+    },
+    {
+        "name": "check_security",
+        "description": (
+            "Check the security posture of an agent or GitHub repo. Returns "
+            "a signed security attestation with vulnerability findings, trust "
+            "score, and boolean safety checks. Use before installing or "
+            "interacting with third-party tools or agents."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": (
+                        "UUID of an AgentGraph entity to check"
+                    ),
+                },
+                "github_url": {
+                    "type": "string",
+                    "description": (
+                        "GitHub repo URL to search for "
+                        "(e.g. https://github.com/owner/repo)"
+                    ),
+                },
+            },
         },
     },
     {
@@ -531,11 +559,108 @@ async def _handle_bot_quick_trust(args: dict) -> dict[str, Any]:
         }
 
 
+async def _handle_check_security(args: dict) -> dict[str, Any]:
+    entity_id = args.get("entity_id")
+    github_url = args.get("github_url")
+
+    if not entity_id and not github_url:
+        return {"error": "Provide either entity_id or github_url"}
+
+    try:
+        # If github_url provided, search for the entity first
+        if not entity_id and github_url:
+            search_results = await _http_get(
+                "/search", params={"q": github_url, "limit": 1},
+            )
+            entities = search_results.get("entities", [])
+            if not entities:
+                return {
+                    "github_url": github_url,
+                    "found": False,
+                    "message": (
+                        "No scan found for this repo on AgentGraph. "
+                        "Import it at https://agentgraph.co to get a "
+                        "security attestation."
+                    ),
+                }
+            entity_id = entities[0].get("id")
+
+        # Fetch the signed security attestation
+        import httpx
+        headers: dict[str, str] = {}
+        if _API_KEY:
+            headers["X-API-Key"] = _API_KEY
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{_BASE_URL}/api/v1/entities/{entity_id}/attestation/security",
+                headers=headers,
+                timeout=10.0,
+            )
+
+        if resp.status_code == 404:
+            return {
+                "entity_id": entity_id,
+                "found": False,
+                "message": "No security scan available for this entity.",
+            }
+
+        resp.raise_for_status()
+        data = resp.json()
+        payload = data.get("payload", {})
+        scan = payload.get("scan", {})
+        checks = scan.get("checks", {})
+        findings = scan.get("findings", {})
+
+        return {
+            "entity_id": entity_id,
+            "found": True,
+            "subject": payload.get("subject", {}).get("display_name"),
+            "scan_result": scan.get("result"),
+            "framework": scan.get("framework"),
+            "trust_score": payload.get("trust", {}).get("overall"),
+            "findings": {
+                "critical": findings.get("critical", 0),
+                "high": findings.get("high", 0),
+                "medium": findings.get("medium", 0),
+                "total": findings.get("total", 0),
+            },
+            "checks": {
+                "no_critical_findings": checks.get("no_critical_findings"),
+                "no_high_findings": checks.get("no_high_findings"),
+                "has_tests": checks.get("has_tests"),
+                "has_readme": checks.get("has_readme"),
+                "has_license": checks.get("has_license"),
+            },
+            "positive_signals": scan.get("positiveSignals", []),
+            "files_scanned": scan.get("filesScanned", 0),
+            "jws": data.get("jws"),
+            "jwks_url": data.get("jwks_url"),
+            "is_safe": (
+                checks.get("no_critical_findings", False)
+                and findings.get("critical", 0) == 0
+            ),
+            "recommendation": (
+                "Safe to use — no critical findings detected."
+                if checks.get("no_critical_findings", False)
+                else "CAUTION — critical security findings detected. "
+                "Review findings before using this tool."
+            ),
+        }
+    except Exception as e:
+        return {
+            "entity_id": entity_id,
+            "error": f"Security check failed: {e}",
+            "is_safe": False,
+            "recommendation": "Could not verify security. Exercise caution.",
+        }
+
+
 _HANDLERS = {
     "verify_trust": _handle_verify_trust,
     "lookup_identity": _handle_lookup_identity,
     "check_interaction_safety": _handle_check_interaction_safety,
     "get_trust_badge": _handle_get_trust_badge,
+    "check_security": _handle_check_security,
     "register_agent": _handle_register_agent,
     "bot_bootstrap": _handle_bot_bootstrap,
     "bot_readiness": _handle_bot_readiness,
