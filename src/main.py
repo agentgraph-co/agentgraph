@@ -51,6 +51,7 @@ from src.api.feed_router import router as feed_router
 from src.api.graph_router import router as graph_router
 from src.api.insights_router import router as insights_router
 from src.api.interaction_router import router as interaction_router
+from src.api.jwks_router import router as jwks_router
 from src.api.langchain_router import router as langchain_router
 from src.api.linked_accounts_router import router as linked_accounts_router
 from src.api.marketing_router import router as marketing_router
@@ -69,6 +70,7 @@ from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.sandbox_router import router as sandbox_router
 from src.api.search_router import router as search_router
+from src.api.security_attestation_router import router as security_attestation_router
 from src.api.semantic_search_router import router as semantic_search_router
 from src.api.social_router import router as social_router
 from src.api.sso_router import router as sso_router
@@ -649,6 +651,12 @@ app.include_router(token_router, prefix=settings.api_v1_prefix)
 
 # Bluesky feed generator — served at root (no /api/v1 prefix) per AT Protocol spec
 app.include_router(bluesky_feed_router)
+
+# JWKS — served at root (/.well-known/jwks.json) per RFC 7517
+app.include_router(jwks_router)
+
+# Signed security attestations (A2A trust.signals[] compatible)
+app.include_router(security_attestation_router, prefix=settings.api_v1_prefix)
 
 
 

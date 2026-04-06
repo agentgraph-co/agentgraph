@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # Webhook encryption (Fernet key for signing key at-rest encryption)
     webhook_encryption_key: str | None = None
 
+    # Ed25519 attestation signing key (base64-encoded 32-byte seed)
+    # Generate with: scripts/generate_signing_key.py
+    attestation_signing_key_ed25519: str | None = None
+
     # SSO
     sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe
     sso_saml_entity_id: str = "agentgraph-sp"
