@@ -86,3 +86,25 @@ scripts/com.agentgraph.backup.plist
 data/
 digest_history.json
 MANUAL_TASKS.md
+
+# Internal strategy docs (sensitive — not for public repo)
+docs/outreach/
+docs/agent-ecosystem-targeting.md
+docs/agentgraph-ecosystem-targeting-v2.md
+docs/cold-start-strategy.md
+docs/marketing-bot-rollout.md
+docs/community-hub-posts.md
+docs/show_hn_post.md
+docs/kenne-action-items.md
+docs/prd-reconciliation.md
+docs/remaining-roadmap.md
+docs/future-considerations-backlog.md
+docs/phase2-implementation-plan.md
+docs/AgentGraph_CC_Implementation_Brief_v1.md
+docs/AgentGraph_Trust_Framework_PRD_v1.md
+docs/AgentGraph_CC_Prompt_Trust_Framework_Review.md
+docs/AgentGraph_Emergent_Cooperation_Design_Brief.md
+docs/emergent-cooperation-cross-reference.md
+docs/trust-framework-review.md
+docs/research-questions.md
+docs/developer-hub-and-external-trust.md
