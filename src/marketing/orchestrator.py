@@ -227,6 +227,7 @@ async def _post_planned_campaign_posts(
                 post.error_message = result.error
                 results["errors"].append({
                     "id": str(post.id),
+                    "platform": post.platform,
                     "error": result.error,
                 })
         except Exception as exc:
@@ -237,6 +238,7 @@ async def _post_planned_campaign_posts(
             post.error_message = str(exc)
             results["errors"].append({
                 "id": str(post.id),
+                "platform": post.platform,
                 "error": str(exc),
             })
 
@@ -465,7 +467,10 @@ async def post_approved_drafts(db: AsyncSession) -> dict:
         if not adapter or not await adapter.is_configured():
             post.status = "failed"
             post.error_message = f"Adapter not configured: {post.platform}"
-            results["errors"].append({"id": str(post.id), "error": post.error_message})
+            results["errors"].append({
+                "id": str(post.id), "platform": post.platform,
+                "error": post.error_message,
+            })
             continue
 
         try:
@@ -495,13 +500,16 @@ async def post_approved_drafts(db: AsyncSession) -> dict:
                     post.status = "queued"  # Will retry next cycle
                 post.error_message = result.error
                 results["errors"].append({
-                    "id": str(post.id), "error": result.error,
+                    "id": str(post.id), "platform": post.platform, "error": result.error,
                 })
         except Exception as exc:
             logger.exception("Failed to post approved draft %s", post.id)
             post.retry_count += 1
             post.error_message = str(exc)
-            results["errors"].append({"id": str(post.id), "error": str(exc)})
+            results["errors"].append({
+                "id": str(post.id), "platform": post.platform,
+                "error": str(exc),
+            })
 
     await db.flush()
     return results
