@@ -72,3 +72,18 @@ def get_jwk() -> dict:
 def sign_payload(payload_bytes: bytes) -> bytes:
     """Sign *payload_bytes* with Ed25519, return 64-byte raw signature."""
     return get_signing_key().sign(payload_bytes)
+
+
+def create_jws(payload_bytes: bytes) -> str:
+    """Return a compact JWS (RFC 7515) string: header.payload.signature.
+
+    The signing input is ``header_b64 + "." + payload_b64`` (ASCII bytes).
+    This avoids canonical-JSON ambiguity across languages — the payload
+    bytes are preserved exactly as provided.
+    """
+    header = b'{"alg":"EdDSA","kid":"' + KID.encode() + b'"}'
+    h_b64 = _b64url(header)
+    p_b64 = _b64url(payload_bytes)
+    signing_input = (h_b64 + "." + p_b64).encode()
+    sig = get_signing_key().sign(signing_input)
+    return h_b64 + "." + p_b64 + "." + _b64url(sig)

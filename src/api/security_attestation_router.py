@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import Entity, FrameworkSecurityScan, TrustScore
-from src.signing import KID, sign_payload
+from src.signing import KID, create_jws
 
 logger = logging.getLogger(__name__)
 
@@ -79,19 +79,14 @@ class AttestationPayload(BaseModel):
 
 
 class SecurityAttestationResponse(BaseModel):
+    jws: str
     payload: dict
-    signature: str
     algorithm: str = "EdDSA"
     key_id: str = KID
     jwks_url: str = "https://agentgraph.co/.well-known/jwks.json"
 
 
 # ── helpers ───────────────────────────────────────────────────────────
-
-def _b64url(data: bytes) -> str:
-    import base64
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
-
 
 def _build_payload(
     entity: Entity,
@@ -215,14 +210,14 @@ async def get_security_attestation(
     )
     trust = trust_result.scalar_one_or_none()
 
-    # Build & sign
+    # Build & sign as compact JWS (RFC 7515)
     payload = _build_payload(entity, scan, trust)
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    sig = sign_payload(canonical)
+    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    jws = create_jws(payload_bytes)
 
     return SecurityAttestationResponse(
+        jws=jws,
         payload=payload,
-        signature=_b64url(sig),
         algorithm="EdDSA",
         key_id=KID,
         jwks_url="https://agentgraph.co/.well-known/jwks.json",
