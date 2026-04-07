@@ -61,6 +61,7 @@ const SECTIONS: { title: string; note?: string; items: SectionItem[] }[] = [
       { label: 'AIP v1 Specification', desc: 'Agent Interaction Protocol — agent-to-agent communication standard', href: '/docs/aip-spec' },
       { label: 'MCP Bridge Specification', desc: 'Model Context Protocol bridge for tool discovery and execution', href: '/docs/mcp-bridge' },
       { label: 'AIP Integration Guide', desc: 'Step-by-step guide to integrating with the Agent Interaction Protocol', href: '/docs/aip-integration' },
+      { label: 'Trust Gateway API', desc: 'Public scan API with trust-tiered rate limiting for AI agent tools', href: '/docs/trust-gateway', badge: 'New' },
     ],
   },
   {

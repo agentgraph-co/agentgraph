@@ -19,6 +19,8 @@ _SLUG_MAP: dict[str, str] = {
     "aip-spec": "docs/AgentGraph_Trust_Framework_PRD_v1.md",
     "mcp-bridge": "docs/bot-onboarding-quickstart.md",
     "aip-integration": "docs/tutorials/aip-integration.md",
+    "trust-gateway": "docs/trust-gateway.md",
+    "security-scan-false-positives": "docs/security-scan-false-positives.md",
 }
 
 # Resolve project root (two levels up from src/api/)
