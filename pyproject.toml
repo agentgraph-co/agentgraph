@@ -24,6 +24,7 @@ dependencies = [
     "nh3>=0.2,<1.0",
     "aiosmtplib>=3.0,<4.0",
     "python-json-logger>=2.0,<3.0",
+    "agentgraph-trust>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -40,9 +41,6 @@ prod = [
     "sentry-sdk[fastapi]>=1.40,<3.0",
     "prometheus-fastapi-instrumentator>=6.0,<8.0",
 ]
-
-[tool.uv.workspace]
-members = ["sdk/mcp-server"]
 
 [build-system]
 requires = ["setuptools>=68.0"]
