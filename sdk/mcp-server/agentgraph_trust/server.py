@@ -12,6 +12,7 @@ Tools provided:
     - lookup_identity: Look up an entity by DID or display name
     - check_interaction_safety: Verify trust thresholds before agent interaction
     - check_security: Check security posture of an agent/repo (signed attestation)
+    - check_trust_tier: Scan a GitHub repo and get trust tier + rate limits (NEW in 0.3.0)
     - get_trust_badge: Get an embeddable trust badge URL
     - register_agent: Register a new agent on AgentGraph (returns claim token)
     - bot_bootstrap: One-call bot onboarding with template + readiness report
@@ -244,6 +245,36 @@ _TOOLS = [
                     ),
                 },
             },
+        },
+    },
+    {
+        "name": "check_trust_tier",
+        "description": (
+            "Scan a GitHub repository and get its trust tier with recommended "
+            "rate limits. Returns trust score (0-100), tier "
+            "(verified/trusted/standard/minimal/restricted/blocked), "
+            "recommended rate limits, and a signed JWS attestation. "
+            "No authentication required. Use this to check any tool or "
+            "agent before running it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "owner": {
+                    "type": "string",
+                    "description": "GitHub repo owner (e.g. 'openai')",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "GitHub repo name (e.g. 'swarm')",
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "Bypass cache and force a fresh scan",
+                    "default": False,
+                },
+            },
+            "required": ["owner", "repo"],
         },
     },
     {
@@ -655,12 +686,70 @@ async def _handle_check_security(args: dict) -> dict[str, Any]:
         }
 
 
+async def _handle_check_trust_tier(args: dict) -> dict[str, Any]:
+    owner = args["owner"]
+    repo = args["repo"]
+    force = args.get("force", False)
+
+    try:
+        import httpx
+
+        params: dict[str, str] = {}
+        if force:
+            params["force"] = "true"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{_BASE_URL}/api/v1/public/scan/{owner}/{repo}",
+                params=params,
+                timeout=120.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        tier = data.get("trust_tier", "unknown")
+        score = data.get("trust_score", 0)
+        limits = data.get("recommended_limits", {})
+        findings = data.get("findings", {})
+
+        recommendation = {
+            "verified": "Safe to run freely — verified clean.",
+            "trusted": "Safe to run — minor findings only.",
+            "standard": "Generally safe — review findings before heavy use.",
+            "minimal": "Elevated risk — requires user confirmation before execution.",
+            "restricted": "High risk — significant security findings detected.",
+            "blocked": "Do not execute — critical security issues found.",
+        }.get(tier, "Unknown tier — review manually.")
+
+        return {
+            "repo": f"{owner}/{repo}",
+            "trust_score": score,
+            "trust_tier": tier,
+            "recommendation": recommendation,
+            "recommended_limits": limits,
+            "findings": findings,
+            "positive_signals": data.get("positive_signals", []),
+            "scan_result": data.get("scan_result"),
+            "cached": data.get("cached", False),
+            "jws": data.get("jws"),
+            "jwks_url": data.get("jwks_url"),
+            "badge_url": f"{_BASE_URL}/api/v1/public/scan/{owner}/{repo}/badge",
+        }
+    except Exception as e:
+        return {
+            "repo": f"{owner}/{repo}",
+            "error": f"Trust tier check failed: {e}",
+            "trust_tier": "unknown",
+            "recommendation": "Could not verify. Exercise caution.",
+        }
+
+
 _HANDLERS = {
     "verify_trust": _handle_verify_trust,
     "lookup_identity": _handle_lookup_identity,
     "check_interaction_safety": _handle_check_interaction_safety,
     "get_trust_badge": _handle_get_trust_badge,
     "check_security": _handle_check_security,
+    "check_trust_tier": _handle_check_trust_tier,
     "register_agent": _handle_register_agent,
     "bot_bootstrap": _handle_bot_bootstrap,
     "bot_readiness": _handle_bot_readiness,
@@ -686,7 +775,7 @@ def _handle_initialize(msg: dict) -> dict:
             },
             "serverInfo": {
                 "name": "agentgraph-trust",
-                "version": "0.2.1",
+                "version": "0.3.0",
             },
         },
     }
