@@ -19,23 +19,35 @@ curl https://agentgraph.co/api/v1/public/scan/tuya/tuya-openclaw-skills
 ```json
 {
   "repo": "tuya/tuya-openclaw-skills",
-  "trust_score": 95,
-  "trust_tier": "trusted",
+  "trust_score": 100,
+  "trust_tier": "verified",
   "recommended_limits": {
-    "requests_per_minute": 60,
-    "max_tokens_per_call": 8192,
+    "requests_per_minute": null,
+    "max_tokens_per_call": null,
     "require_user_confirmation": false
   },
   "scan_result": "clean",
   "findings": {
     "critical": 0,
     "high": 0,
-    "medium": 2,
-    "total": 2,
-    "categories": {"fs_access": 2}
+    "medium": 0,
+    "total": 0,
+    "categories": {},
+    "suppressed_lines": 0
   },
-  "positive_signals": ["Authentication check", "Input validation"],
+  "positive_signals": ["Authentication check", "Input validation", "Logging / audit trail"],
+  "metadata": {
+    "files_scanned": 12,
+    "primary_language": "Python",
+    "has_readme": true,
+    "has_license": true,
+    "has_tests": true
+  },
+  "scanned_at": "2026-04-07T02:30:00+00:00",
+  "cached": false,
   "jws": "eyJhbGciOiJFZERTQSIs...",
+  "algorithm": "EdDSA",
+  "key_id": "agentgraph-2026-03",
   "jwks_url": "https://agentgraph.co/.well-known/jwks.json"
 }
 ```
@@ -104,7 +116,24 @@ Add to your MCP config:
 
 Then ask your assistant: "Check the security of [repo name]"
 
+### Available MCP Tools (v0.3.0)
+
+| Tool | Description |
+|------|-------------|
+| `check_trust_tier` | Scan a repo and get trust tier with recommended rate limits |
+| `scan_repository` | Full security scan with detailed findings |
+| `get_trust_score` | Quick trust score lookup |
+| `verify_attestation` | Verify a JWS attestation against the public JWKS |
+| `list_findings` | List all findings for a scanned repo |
+| `get_positive_signals` | List detected positive security signals |
+| `compare_repos` | Compare trust scores between two repos |
+| `get_scan_history` | View scan history for a repo |
+| `get_badge_url` | Get the badge URL for README embedding |
+| `check_compliance` | Check if a repo meets a minimum trust tier |
+
 ## What the Scanner Checks
+
+### Security Findings (reduce score)
 
 - **Hardcoded secrets** — API keys, tokens, passwords in source
 - **Unsafe execution** — subprocess, eval, exec, shell=True
@@ -112,4 +141,31 @@ Then ask your assistant: "Check the security of [repo name]"
 - **Data exfiltration** — outbound network calls to unexpected destinations
 - **Code obfuscation** — base64-encoded payloads, dynamic imports
 
-Positive signals (auth checks, input validation, rate limiting, CORS) boost the trust score.
+### Positive Signals (boost score)
+
+- Authentication checks (login, JWT, OAuth)
+- Input validation and sanitization
+- Rate limiting / CORS configuration
+- Cryptographic verification (HMAC, JWT signing)
+- Logging / audit trails
+- Error handling (try/except, .catch)
+- Type safety (TypeVar, Pydantic, dataclasses)
+- Dependency pinning (lock files)
+- README, LICENSE, and test directories
+
+### Context-Aware Analysis
+
+The scanner avoids false positives with context-aware checks:
+
+- `subprocess.run(["git", "status"])` with hardcoded args → **safe** (not flagged)
+- `subprocess.run(cmd, shell=False)` → **safe**
+- `ast.literal_eval(data)` → **safe** (not confused with `eval()`)
+- `open("config.json", "r")` with hardcoded path → **safe**
+- Findings in test files (`tests/*`, `test/*`) → severity downgraded
+
+### Anti-Gaming
+
+- **Inline suppression** (`# ag-scan:ignore`) is supported but monitored
+- The `suppressed_lines` count is exposed in every response for transparency
+- Repos with excessive suppressions (>10) receive a score penalty
+- Suppression abuse is visible to any consumer of the API
