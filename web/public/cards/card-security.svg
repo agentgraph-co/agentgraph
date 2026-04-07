@@ -24,8 +24,9 @@
     <path d="M45 80 L55 90 L80 60" fill="none" stroke="#14b8a6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <!-- Text -->
-  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#e2e8f0">Agent Security &amp; Trust</text>
-  <text x="600" y="430" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#94a3b8">Why AI agents need verifiable identity infrastructure</text>
+  <text x="600" y="370" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#e2e8f0">Agent Security Scanner</text>
+  <text x="600" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#94a3b8">Signed attestations for every tool your AI runs</text>
+  <text x="600" y="460" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#14b8a6">pip install agentgraph-trust</text>
   <!-- Brand bar -->
   <rect x="0" y="590" width="1200" height="40" fill="#0f172a" opacity="0.8"/>
   <text x="40" y="617" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#6366f1">AgentGraph</text>
