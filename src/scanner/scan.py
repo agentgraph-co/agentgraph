@@ -258,6 +258,12 @@ _SAFE_EVAL_RE = re.compile(
     r"""(?:ast\.literal_eval|json\.loads?|yaml\.safe_load)\s*\(""",
 )
 
+# Regex: safe DB execute — db.execute(), session.execute(), conn.execute(), etc.
+_SAFE_DB_EXEC_RE = re.compile(
+    r"""(?:await\s+)?(?:\w+\.)?(?:db|session|conn(?:ection)?|cursor|engine|tx|transaction)\.exec(?:ute|utescalar|utemany)\s*\(""",
+    re.IGNORECASE,
+)
+
 
 def _is_test_or_doc_file(file_path: str) -> bool:
     """Check if a file is a test, doc, or example file (lower severity)."""
@@ -299,6 +305,18 @@ def _is_safe_exec_context(line: str, finding_name: str) -> bool:
     # eval/exec — skip if it's ast.literal_eval or similar safe wrappers
     if "eval" in finding_name.lower() or "exec" in finding_name.lower():
         if _SAFE_EVAL_RE.search(stripped):
+            return True
+        # db.execute(), session.execute(), conn.execute() — SQLAlchemy / DB calls
+        if _SAFE_DB_EXEC_RE.search(stripped):
+            return True
+        # cursor.execute() — standard DB-API
+        if "cursor" in stripped.lower() and "execute" in stripped.lower():
+            return True
+        # await exec(session, ...) — common DB helper wrapper pattern
+        if re.search(r"""(?:await\s+)?exec\s*\(\s*(?:session|conn|db|cursor)""", stripped):
+            return True
+        # def exec(...) or async def exec(...) — function definition, not builtin exec
+        if re.search(r"""(?:async\s+)?def\s+exec\s*\(""", stripped):
             return True
 
     return False
