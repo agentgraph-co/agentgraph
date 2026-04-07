@@ -69,6 +69,7 @@ class FindingsSummary(BaseModel):
     medium: int = 0
     total: int = 0
     categories: dict[str, int] = {}
+    suppressed_lines: int = 0  # Lines with ag-scan:ignore — transparency
 
 
 class RecommendedLimits(BaseModel):
@@ -184,6 +185,7 @@ def _scan_result_to_dict(result: object) -> dict:
             "medium": result.medium_count,
             "total": len(result.findings),
             "categories": categories,
+            "suppressed_lines": result.suppressed_count,
         },
         "positive_signals": list(set(result.positive_signals)),
         "metadata": {

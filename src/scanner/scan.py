@@ -65,6 +65,7 @@ class ScanResult:
     has_license: bool = False
     has_tests: bool = False
     primary_language: str = ""
+    suppressed_count: int = 0  # lines with ag-scan:ignore
     trust_score: int = 0  # 0-100, computed after scan
     error: str | None = None
 
@@ -340,10 +341,14 @@ def _is_safe_fs_context(line: str, _finding_name: str) -> bool:
 def _scan_content(
     content: str, file_path: str,
     allowlist: set[tuple[str, str]] | None = None,
-) -> tuple[list[Finding], list[str]]:
-    """Scan file content for security issues and positive signals."""
+) -> tuple[list[Finding], list[str], int]:
+    """Scan file content for security issues and positive signals.
+
+    Returns (findings, positive_signals, suppressed_count).
+    """
     findings: list[Finding] = []
     positives: list[str] = []
+    suppressed_count = 0
     if allowlist is None:
         allowlist = set()
 
@@ -361,7 +366,9 @@ def _scan_content(
 
         # --- Option 1: Inline suppression ---
         # If the line contains "ag-scan:ignore", skip all pattern checks
+        # but count it — excessive suppression is suspicious
         if _SUPPRESSION_COMMENT in line:
+            suppressed_count += 1
             continue
 
         # Check secrets
@@ -469,7 +476,7 @@ def _scan_content(
         if pattern.search(content):
             positives.append(name)
 
-    return findings, positives
+    return findings, positives, suppressed_count
 
 
 def _calculate_trust_score(result: ScanResult) -> int:
@@ -515,6 +522,13 @@ def _calculate_trust_score(result: ScanResult) -> int:
         score += 5
     if result.has_tests:
         score += 5
+
+    # Penalty for excessive inline suppression (gaming deterrent)
+    # First 10 are free (legitimate false-positive suppression).
+    # After that, -2 per suppression — heavy suppression is suspicious.
+    if result.suppressed_count > 10:
+        excess = result.suppressed_count - 10
+        score -= excess * 2
 
     return max(0, min(100, score))
 
@@ -597,9 +611,10 @@ async def scan_repo(
                 continue
 
             result.files_scanned += 1
-            findings, positives = _scan_content(content, path, allowlist)
+            findings, positives, suppressed = _scan_content(content, path, allowlist)
             result.findings.extend(findings)
             result.positive_signals.extend(positives)
+            result.suppressed_count += suppressed
 
         # Calculate trust score
         result.trust_score = _calculate_trust_score(result)
