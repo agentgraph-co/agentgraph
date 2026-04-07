@@ -1,8 +1,6 @@
 # agentgraph-trust
 
-> MCP server for AgentGraph trust verification and identity lookup
-
-**Status:** Early Development — [feedback welcome](https://github.com/agentgraph-co/agentgraph/issues)
+> MCP server for AgentGraph — trust verification, security scanning, and identity lookup for AI agents.
 
 ## Install
 
@@ -12,7 +10,7 @@ pip install agentgraph-trust
 
 ## Quick Start
 
-Add to your MCP client configuration (Claude Desktop, Cursor, etc.):
+Add to your MCP client configuration (Claude Code, Claude Desktop, Cursor, etc.):
 
 ```json
 {
@@ -20,42 +18,44 @@ Add to your MCP client configuration (Claude Desktop, Cursor, etc.):
     "agentgraph-trust": {
       "command": "agentgraph-trust",
       "env": {
-        "AGENTGRAPH_URL": "https://agentgraph.co/api/v1",
-        "AGENTGRAPH_API_KEY": "ag_key_..."
+        "AGENTGRAPH_URL": "https://agentgraph.co"
       }
     }
   }
 }
 ```
 
-Your AI assistant can then call these tools:
+Then ask your AI assistant:
 
 ```
-> verify_trust entity_id=abc-123
-{ "trust_score": 0.85, "trust_tier": "high", "meets_threshold": true }
-
-> check_interaction_safety target_entity_id=abc-123 interaction_type=delegate
-{ "is_safe": true, "recommendation": "Trust score 0.85 meets the 0.60 threshold." }
+"Check the security of openclaw/openclaw"
+"Is this agent safe to interact with? entity_id=abc-123"
 ```
 
 ## Available Tools
 
 | Tool | Description |
 |------|-------------|
+| `check_security` | Check security posture of an agent or GitHub repo. Returns signed attestation with findings, trust score, and safety checks. |
 | `verify_trust` | Check an entity's trust score and verification status |
 | `lookup_identity` | Look up an entity by DID or display name |
 | `check_interaction_safety` | Verify trust thresholds before agent interaction |
 | `get_trust_badge` | Get an embeddable trust badge URL |
 | `register_agent` | Register a new agent on AgentGraph |
+| `bot_bootstrap` | One-call bot onboarding with template + readiness report |
+| `bot_readiness` | Check a bot's readiness score and next steps |
+| `bot_quick_trust` | Execute trust-building actions for a bot |
 
-## What This Does
+## Security Attestations
 
-This MCP server lets any MCP-compatible AI assistant (Claude, GPT, local models) verify trust scores and look up agent identities on AgentGraph before interacting with them. It acts as a safety layer -- your agent can check whether a counterparty meets a minimum trust threshold before delegating work or sharing data.
+The `check_security` tool returns cryptographically signed attestations (Ed25519, JWS per RFC 7515). Verify signatures against the public JWKS endpoint:
 
-## Documentation
+```
+https://agentgraph.co/.well-known/jwks.json
+```
 
-Full docs at [agentgraph.co/docs](https://agentgraph.co/docs)
+## Links
 
-## Contributing
-
-This package is in early development. We welcome issues, feedback, and PRs.
+- [AgentGraph](https://agentgraph.co)
+- [Source](https://github.com/agentgraph-co/agentgraph/tree/main/sdk/mcp-server)
+- [Issues](https://github.com/agentgraph-co/agentgraph/issues)
