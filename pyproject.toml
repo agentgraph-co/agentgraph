@@ -41,6 +41,9 @@ prod = [
     "prometheus-fastapi-instrumentator>=6.0,<8.0",
 ]
 
+[tool.uv.workspace]
+members = ["sdk/mcp-server"]
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
