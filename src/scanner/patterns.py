@@ -242,6 +242,30 @@ AUTH_POSITIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("CORS configuration", re.compile(r"(?:cors|Access-Control-Allow)", re.IGNORECASE)),
     ("Content-Security-Policy", re.compile(r"Content-Security-Policy", re.IGNORECASE)),
     ("Helmet / security headers", re.compile(r"(?:helmet|security.?headers)", re.IGNORECASE)),
+    ("Cryptographic verification", re.compile(
+        r"(?:hmac|hashlib\.(?:sha|md5)|cryptography\.|jwt\.(?:encode|decode|verify)|verify_signature)",
+        re.IGNORECASE,
+    )),
+    ("Input sanitization", re.compile(
+        r"(?:html\.escape|urllib\.parse\.quote|bleach\.clean|markupsafe|nh3\.clean|DOMPurify)",
+        re.IGNORECASE,
+    )),
+    ("Logging / audit trail", re.compile(
+        r"(?:logging\.getLogger|logger\.(?:info|warning|error)|audit_log|structlog)",
+        re.IGNORECASE,
+    )),
+    ("Error handling", re.compile(
+        r"(?:try\s*:|except\s+\w|\.catch\s*\(|error\s*boundary|rescue\s+)",
+        re.IGNORECASE,
+    )),
+    ("Type safety", re.compile(
+        r"(?:from\s+typing\s+import|TypeVar|Generic\[|pydantic\.BaseModel|@dataclass|interface\s+\w+\s*\{)",
+        re.IGNORECASE,
+    )),
+    ("Dependency pinning", re.compile(
+        r"(?:requirements\.txt|poetry\.lock|package-lock\.json|Pipfile\.lock|Cargo\.lock)",
+        re.IGNORECASE,
+    )),
 ]
 
 # --- Files to skip (binary, generated, vendor) ---

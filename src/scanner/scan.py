@@ -259,6 +259,27 @@ _SAFE_EVAL_RE = re.compile(
 )
 
 
+def _is_test_or_doc_file(file_path: str) -> bool:
+    """Check if a file is a test, doc, or example file (lower severity)."""
+    lower = file_path.lower()
+    parts = Path(file_path).parts
+    # Test directories and files
+    if any(p in ("tests", "test", "spec", "__tests__", "testing") for p in parts):
+        return True
+    name = Path(file_path).stem.lower()
+    if name.startswith("test_") or name.endswith("_test") or name.endswith("_spec"):
+        return True
+    if name == "conftest":
+        return True
+    # Doc / example directories
+    if any(p in ("docs", "doc", "examples", "example", "samples") for p in parts):
+        return True
+    # Config examples
+    if ".example" in lower or ".sample" in lower or ".template" in lower:
+        return True
+    return False
+
+
 def _is_safe_exec_context(line: str, finding_name: str) -> bool:
     """Check if an unsafe_exec match is actually a safe usage pattern."""
     stripped = line.strip()
@@ -270,6 +291,9 @@ def _is_safe_exec_context(line: str, finding_name: str) -> bool:
             return True
         # Also safe: subprocess with shell=False (explicit)
         if "shell=False" in stripped or "shell = False" in stripped:
+            return True
+        # subprocess.run with capture_output (typically safe tooling)
+        if "capture_output=True" in stripped and not has_shell_true:
             return True
 
     # eval/exec — skip if it's ast.literal_eval or similar safe wrappers
@@ -305,6 +329,7 @@ def _scan_content(
     if allowlist is None:
         allowlist = set()
 
+    is_test_or_doc = _is_test_or_doc_file(file_path)
     lines = content.split("\n")
 
     for line_num, line in enumerate(lines, 1):
@@ -354,10 +379,14 @@ def _scan_content(
                 # --- Option 3: Context-aware check ---
                 if _is_safe_exec_context(line, name):
                     continue
+                # Downgrade severity in test/doc/example files
+                effective_severity = severity
+                if is_test_or_doc and severity in ("critical", "high"):
+                    effective_severity = "medium"
                 findings.append(Finding(
                     category="unsafe_exec",
                     name=name,
-                    severity=severity,
+                    severity=effective_severity,
                     file_path=file_path,
                     line_number=line_num,
                     snippet=stripped[:120],
@@ -373,10 +402,14 @@ def _scan_content(
                 # --- Option 3: Context-aware check ---
                 if _is_safe_fs_context(line, name):
                     continue
+                # Downgrade severity in test/doc/example files
+                effective_severity = severity
+                if is_test_or_doc and severity in ("critical", "high"):
+                    effective_severity = "medium"
                 findings.append(Finding(
                     category="fs_access",
                     name=name,
-                    severity=severity,
+                    severity=effective_severity,
                     file_path=file_path,
                     line_number=line_num,
                     snippet=stripped[:120],
@@ -422,19 +455,40 @@ def _scan_content(
 
 
 def _calculate_trust_score(result: ScanResult) -> int:
-    """Calculate a trust score (0-100) based on findings and signals."""
+    """Calculate a trust score (0-100) based on findings and signals.
+
+    Score considers:
+    - Finding counts by severity (deductions)
+    - Positive security signals (bonuses)
+    - Good practices: README, LICENSE, tests (bonuses)
+    - File ratio: if findings are concentrated in few files, reduce penalty
+    """
     # Clean repos start higher — no findings means the code passed review
     total_findings = result.critical_count + result.high_count + result.medium_count
     score = 80 if total_findings == 0 else 70
 
     # Deductions
-    score -= result.critical_count * 15
-    score -= result.high_count * 8
-    score -= result.medium_count * 3
+    raw_deduction = (
+        result.critical_count * 15
+        + result.high_count * 8
+        + result.medium_count * 3
+    )
 
-    # Bonuses for positive signals
+    # File-ratio scaling: if only a small percentage of files have issues,
+    # reduce the deduction. A repo with 200 files and 5 findings in 3 files
+    # should not be penalized as harshly as one with findings in 50% of files.
+    if result.files_scanned > 0 and total_findings > 0:
+        affected_files = len({f.file_path for f in result.findings})
+        ratio = affected_files / result.files_scanned
+        # Scale factor: 0.4 at 1% affected, 1.0 at 25%+ affected
+        scale = min(1.0, 0.4 + ratio * 2.4)
+        raw_deduction = int(raw_deduction * scale)
+
+    score -= raw_deduction
+
+    # Bonuses for positive signals (capped at +35)
     unique_positives = set(result.positive_signals)
-    score += len(unique_positives) * 5
+    score += min(len(unique_positives) * 5, 35)
 
     # Bonuses for good practices
     if result.has_readme:
@@ -498,6 +552,14 @@ async def scan_repo(
                 result.has_license = True
             if "test" in path_lower or "spec" in path_lower:
                 result.has_tests = True
+
+        # Check for dependency pinning (lock files) in tree
+        lock_files = {"requirements.txt", "poetry.lock", "package-lock.json",
+                      "pipfile.lock", "cargo.lock", "yarn.lock", "pnpm-lock.yaml"}
+        for item in tree:
+            if Path(item["path"]).name.lower() in lock_files:
+                result.positive_signals.append("Dependency pinning")
+                break
 
         # Filter to scannable files
         scan_files = [
