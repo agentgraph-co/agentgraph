@@ -140,7 +140,7 @@ async def _fetch_repo_tree(
     """Fetch the file tree of a repo via GitHub API."""
     headers = {"Accept": "application/vnd.github+json"}
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["Authorization"] = f"token {token}"
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         # Get default branch
@@ -187,7 +187,7 @@ async def _fetch_file_content(
     """Fetch raw file content from GitHub."""
     headers = {"Accept": "application/vnd.github.raw+json"}
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["Authorization"] = f"token {token}"
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
