@@ -42,6 +42,9 @@ prod = [
     "prometheus-fastapi-instrumentator>=6.0,<8.0",
 ]
 
+[project.scripts]
+agentgraph-trust = "agentgraph_trust.server:main"
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
