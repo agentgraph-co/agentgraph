@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentgraph-trust"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for AgentGraph — trust verification, security scanning, and identity lookup for AI agents"
 readme = "README.md"
 requires-python = ">=3.9"

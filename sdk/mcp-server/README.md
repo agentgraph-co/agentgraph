@@ -59,3 +59,5 @@ https://agentgraph.co/.well-known/jwks.json
 - [AgentGraph](https://agentgraph.co)
 - [Source](https://github.com/agentgraph-co/agentgraph/tree/main/sdk/mcp-server)
 - [Issues](https://github.com/agentgraph-co/agentgraph/issues)
+
+<!-- mcp-name: io.github.agentgraph-co/agentgraph-trust -->
