@@ -1,7 +1,7 @@
 """Add wallet_bindings table for cross-provider wallet lookup.
 
 Revision ID: t03
-Revises: t02
+Revises: t02_avatar_url
 Create Date: 2026-04-08
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "t03"
-down_revision = "t02"
+down_revision = "t02_avatar_url"
 branch_labels = None
 depends_on = None
 
