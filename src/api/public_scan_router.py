@@ -105,10 +105,13 @@ class PublicScanResponse(BaseModel):
     algorithm: str = "EdDSA"
     key_id: str = KID
     jwks_url: str = "https://agentgraph.co/.well-known/jwks.json"
+    # Entity trust (full composite) — only available for imported entities
+    entity_trust: dict | None = None
     score_note: str = (
         "trust_score is the security scan score (code analysis only). "
         "For full entity trust including identity and external signals, "
-        "use the gateway: POST /api/v1/gateway/check"
+        "import this bot to AgentGraph or use the gateway: "
+        "POST /api/v1/gateway/check"
     )
     # Proxy gateway hint
     gateway_info: dict = {
@@ -122,6 +125,65 @@ class PublicScanResponse(BaseModel):
 
 _CACHE_PREFIX = "public_scan:"
 _CACHE_TTL = 3600  # 1 hour
+
+
+async def _get_entity_trust(repo: str, db: AsyncSession) -> dict | None:
+    """Look up full entity trust score for an imported repo.
+
+    If repo matches an entity on AgentGraph (via source_url), return
+    the composite trust score, grade, and profile URL. Otherwise None.
+    """
+    from src.models import Entity, TrustScore
+
+    # Match by source_url containing the repo path
+    entity = (await db.execute(
+        select(Entity).where(
+            Entity.is_active.is_(True),
+            Entity.source_url.ilike(f"%github.com/{repo}%"),
+        ).limit(1)
+    )).scalar_one_or_none()
+
+    if not entity:
+        return {
+            "imported": False,
+            "import_url": f"https://agentgraph.co/bots/import?url=https://github.com/{repo}",
+            "message": (
+                "Import this bot to AgentGraph for a full trust profile "
+                "with identity verification, external signals, and "
+                "trust-tiered rate limits."
+            ),
+            "benefits": [
+                "Full trust grade (A-F) combining identity + external + security",
+                "Signed EdDSA attestation with entity DID",
+                "Trust gateway enforcement (rate limits by tier)",
+                "README badge linking to trust profile",
+                "Discoverability in search, discover, and rankings",
+            ],
+        }
+
+    # Entity exists — get trust score
+    ts = (await db.execute(
+        select(TrustScore).where(TrustScore.entity_id == entity.id)
+    )).scalar_one_or_none()
+
+    if not ts:
+        return {"imported": True, "entity_id": str(entity.id), "score": None}
+
+    score100 = round(ts.score * 100)
+    grade = (
+        "A+" if score100 >= 96 else "A" if score100 >= 81
+        else "B" if score100 >= 61 else "C" if score100 >= 41
+        else "D" if score100 >= 21 else "F"
+    )
+
+    return {
+        "imported": True,
+        "entity_id": str(entity.id),
+        "composite_score": score100,
+        "grade": grade,
+        "profile_url": f"https://agentgraph.co/profile/{entity.id}",
+        "trust_detail_url": f"https://agentgraph.co/trust/{entity.id}",
+    }
 
 
 async def _get_cached(owner: str, repo: str) -> dict | None:
@@ -310,6 +372,7 @@ async def public_scan(
     owner: str,
     repo: str,
     force: bool = Query(False, description="Bypass cache and force a fresh scan"),
+    db: AsyncSession = Depends(get_db),
 ) -> PublicScanResponse:
     """Scan a GitHub repo and return trust tier with recommended rate limits.
 
@@ -342,6 +405,9 @@ async def public_scan(
             payload_bytes = canonicalize(payload)
             jws = create_jws(payload_bytes)
 
+            # Look up entity trust (full composite) if this repo is imported
+            entity_trust = await _get_entity_trust(full_name, db)
+
             return PublicScanResponse(
                 repo=full_name,
                 trust_score=cached["trust_score"],
@@ -356,6 +422,7 @@ async def public_scan(
                 scanned_at=cached["scanned_at"],
                 cached=True,
                 jws=jws,
+                entity_trust=entity_trust,
             )
 
     # Run scan
@@ -390,6 +457,9 @@ async def public_scan(
     payload_bytes = canonicalize(payload)
     jws = create_jws(payload_bytes)
 
+    # Look up entity trust (full composite) if this repo is imported
+    entity_trust = await _get_entity_trust(full_name, db)
+
     return PublicScanResponse(
         repo=full_name,
         trust_score=data["trust_score"],
@@ -404,6 +474,7 @@ async def public_scan(
         scanned_at=data["scanned_at"],
         cached=False,
         jws=jws,
+        entity_trust=entity_trust,
     )
 
 
