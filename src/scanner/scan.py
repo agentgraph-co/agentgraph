@@ -69,6 +69,7 @@ class ScanResult:
     suppressed_count: int = 0  # lines with ag-scan:ignore
     trust_score: int = 0  # 0-100, computed after scan
     category_scores: dict[str, int] = field(default_factory=dict)  # per-category 0-100
+    is_mcp_server: bool = False  # context-aware: MCP servers have expected tool patterns
     error: str | None = None
 
     @property
@@ -508,12 +509,39 @@ def _calculate_trust_score(result: ScanResult) -> int:
     total_findings = result.critical_count + result.high_count + result.medium_count
     score = 80 if total_findings == 0 else 70
 
-    # Deductions
-    raw_deduction = (
-        result.critical_count * 15
-        + result.high_count * 8
-        + result.medium_count * 3
-    )
+    # For MCP servers, discount expected tool patterns (fs_access, subprocess)
+    # These are intentional capabilities, not vulnerabilities
+    if result.is_mcp_server:
+        expected_categories = {"fs_access", "unsafe_exec"}
+        actual_critical = sum(
+            1 for f in result.findings
+            if f.severity == "critical" and f.category not in expected_categories
+        )
+        actual_high = sum(
+            1 for f in result.findings
+            if f.severity == "high" and f.category not in expected_categories
+        )
+        actual_medium = sum(
+            1 for f in result.findings
+            if f.severity == "medium" and f.category not in expected_categories
+        )
+        # Count expected patterns at 10% weight (not zero — they still matter)
+        expected_medium = result.medium_count - actual_medium
+        expected_high = result.high_count - actual_high
+        raw_deduction = (
+            actual_critical * 15
+            + actual_high * 8
+            + actual_medium * 3
+            + int(expected_high * 0.8)  # 10% of normal penalty
+            + int(expected_medium * 0.3)
+        )
+    else:
+        # Standard deductions for non-MCP repos
+        raw_deduction = (
+            result.critical_count * 15
+            + result.high_count * 8
+            + result.medium_count * 3
+        )
 
     # File-ratio scaling: if only a small percentage of files have issues,
     # reduce the deduction. A repo with 200 files and 5 findings in 3 files
@@ -574,10 +602,16 @@ def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
         "filesystem_access": 100,
     }
 
+    # For MCP servers, expected tool patterns get discounted deductions
+    expected_mcp_categories = {"unsafe_exec", "fs_access"} if result.is_mcp_server else set()
+
     for finding in result.findings:
         score_cat = category_map.get(finding.category)
         if score_cat:
             deduction = severity_weights.get(finding.severity, 3)
+            # Discount expected MCP patterns to 10% of normal penalty
+            if finding.category in expected_mcp_categories and finding.severity != "critical":
+                deduction = max(1, deduction // 10)
             scores[score_cat] = max(0, scores[score_cat] - deduction)
 
     return scores
@@ -634,6 +668,26 @@ async def scan_repo(
                 result.has_license = True
             if "test" in path_lower or "spec" in path_lower:
                 result.has_tests = True
+
+        # Detect MCP server context — MCP servers have expected tool patterns
+        # (fs_access, subprocess) that shouldn't be penalized as heavily
+        mcp_indicators = {"server.json", "mcp.json", ".mcp.json"}
+        mcp_dep_files = {"package.json", "pyproject.toml", "setup.py"}
+        for item in tree:
+            fname = Path(item["path"]).name.lower()
+            if fname in mcp_indicators:
+                result.is_mcp_server = True
+                break
+        if not result.is_mcp_server:
+            # Check if package.json or pyproject.toml mentions MCP
+            for item in tree:
+                if Path(item["path"]).name.lower() in mcp_dep_files:
+                    content = await _fetch_file_content(owner, repo, item["path"], token)
+                    low = (content or "").lower()
+                    mcp_match = "mcp" in low or "modelcontextprotocol" in low
+                    if mcp_match or "model-context-protocol" in low:
+                        result.is_mcp_server = True
+                        break
 
         # Check for dependency pinning (lock files) in tree
         lock_files = {"requirements.txt", "poetry.lock", "package-lock.json",

@@ -86,6 +86,7 @@ class ScanMetadata(BaseModel):
     has_readme: bool = False
     has_license: bool = False
     has_tests: bool = False
+    is_mcp_server: bool = False  # context-aware: expected tool patterns discounted
 
 
 class PublicScanResponse(BaseModel):
@@ -274,6 +275,7 @@ def _scan_result_to_dict(result: object) -> dict:
             "has_readme": result.has_readme,
             "has_license": result.has_license,
             "has_tests": result.has_tests,
+            "is_mcp_server": getattr(result, "is_mcp_server", False),
         },
         "category_scores": getattr(result, "category_scores", {}),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
