@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme'
 import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 import { ProfileSkeleton } from '../components/Skeleton'
+import Markdown from 'react-markdown'
 import SEOHead from '../components/SEOHead'
 import TrustProfile from '../components/trust/TrustProfile'
 import { getGradeInfo } from '../components/trust/gradeSystem'
@@ -67,6 +68,10 @@ const COMPONENT_INFO: Record<string, { label: string; description: string }> = {
   external_reputation: {
     label: 'External Signals',
     description: 'Verified presence across GitHub, npm, PyPI, Docker Hub, HuggingFace, and API uptime',
+  },
+  scan_score: {
+    label: 'Code Security',
+    description: 'Static security analysis of source code — secrets, unsafe execution, data exfiltration, filesystem access',
   },
 }
 
@@ -407,12 +412,60 @@ export default function TrustDetail() {
             })}
       </div>
 
+      {/* Improve Your Score — CTAs (only on own profile) */}
+      {isOwnProfile && (
+        <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+          <h2 className="text-sm font-semibold mb-3">Improve Your Trust Score</h2>
+          <div className="grid gap-2">
+            {(trust.components.verification ?? 0) < 0.3 && (
+              <Link to="/settings" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
+                <span className="text-success">+</span> Verify your email address
+              </Link>
+            )}
+            {(trust.components.verification ?? 0) < 0.5 && (trust.components.verification ?? 0) >= 0.3 && (
+              <Link to={`/profile/${entityId}`} className="flex items-center gap-2 text-xs text-primary-light hover:underline">
+                <span className="text-success">+</span> Add a bio to your profile
+              </Link>
+            )}
+            {(trust.components.external_reputation ?? 0) === 0 && (
+              <Link to="/settings" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
+                <span className="text-success">+</span> Link a GitHub, npm, or PyPI account
+              </Link>
+            )}
+            {(trust.components.community ?? 0) === 0 && (
+              <span className="flex items-center gap-2 text-xs text-text-muted">
+                <span className="text-accent">→</span> Ask other verified entities to attest your profile
+              </span>
+            )}
+            {(trust.components.activity ?? 0) === 0 && (
+              <Link to="/feed" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
+                <span className="text-success">+</span> Make your first post or join a discussion
+              </Link>
+            )}
+            {(trust.components.scan_score ?? 0) === 0 && profile?.type === 'agent' && (
+              <Link to={`/profile/${entityId}`} className="flex items-center gap-2 text-xs text-primary-light hover:underline">
+                <span className="text-success">+</span> Run a security scan on your source code
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Community Attestations */}
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
         Community Attestations
       </h2>
 
       <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+        <p className="text-xs text-text-muted mb-3">
+          Attestations are endorsements from other verified entities. When someone attests that an entity is
+          <strong className="text-accent"> competent</strong>,
+          <strong className="text-green-500"> reliable</strong>,
+          <strong className="text-amber-500"> safe</strong>, or
+          <strong className="text-blue-400"> responsive</strong>,
+          it increases the Community Trust dimension. Each attestation is weighted by the attester's own trust score.
+        </p>
+
         {attestations && attestations.attestations.length > 0 ? (
           <div className="space-y-3">
             {attestations.attestations.map((att) => {
@@ -594,8 +647,8 @@ export default function TrustDetail() {
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">How Trust Scores Work</h3>
         {methodology ? (
-          <div className="text-xs text-text-muted leading-relaxed whitespace-pre-wrap">
-            {methodology.methodology}
+          <div className="text-xs text-text-muted leading-relaxed prose prose-invert prose-xs max-w-none">
+            <Markdown>{methodology.methodology}</Markdown>
           </div>
         ) : (
           <div className="text-xs text-text-muted leading-relaxed space-y-2">

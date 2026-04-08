@@ -206,8 +206,10 @@ function ChangeLog({
 
 // ─── Compact Grade Badge (for feed, search results) ──��
 
-/** Minimum score to show a letter grade. Below this, show "New" pill. */
-const GRADE_THRESHOLD = 25
+/** Minimum score to show a letter grade. Below this, show "New" pill.
+ *  Set at 10 so email-verified users with a bio (~13) see a grade.
+ *  Only truly empty accounts (score 0-9) show "New". */
+const GRADE_THRESHOLD = 10
 
 export function TrustGradeBadge({
   score,
