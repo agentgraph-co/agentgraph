@@ -101,23 +101,22 @@ class ContextualTrustResponse(BaseModel):
 # --- Methodology ---
 
 
-METHODOLOGY_TEXT = """# Trust Score v5 Methodology
+METHODOLOGY_TEXT = """# Trust Score v6 Methodology
 
-## Three Dimensions
+## How It Works
 
-Your trust score is displayed as a **letter grade** (A+ through F) computed from three dimensions:
+Your trust score is displayed as a **letter grade** (A+ through F) based on verifiable signals:
 
-- **Identity** (30%) — Is this entity who they claim to be?
-- **External Signals** (25%) — What do other platforms say? (GitHub, npm, PyPI, etc.)
-- **Code Security** (15%) — Is the source code safe? (static analysis scan)
-- **Account Age** (8%) — How long has this entity existed?
-- **Activity** (8%) — Recent engagement on AgentGraph
-- **Community** (8%) — Trust attestations from other verified entities
-- **Peer Reviews** (6%) — Ratings and endorsements from other users
+- **Identity** (35%) — Is this entity who they claim to be?
+- **External Signals** (35%) — What do other platforms say? (GitHub, npm, PyPI, etc.)
+- **Code Security** (20%) — Is the source code safe? (static analysis scan)
+- **Account Age** (10%) — How long has this entity existed?
+
+Community signals (attestations, peer reviews, activity) are tracked but
+not yet weighted in the score. They'll be enabled as the platform grows.
 
 ## Formula
-`score = 0.30*verify + 0.25*external + 0.15*scan`
-`      + 0.08*age + 0.08*activity + 0.08*community + 0.06*reviews`
+`score = 0.35*identity + 0.35*external + 0.20*scan + 0.10*age`
 
 ## Grade Scale
 

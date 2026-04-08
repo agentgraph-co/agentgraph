@@ -17,7 +17,6 @@ import {
   getGradeInfo,
   getSecuritySubGrades,
   identityReason,
-  communityReason,
 } from './gradeSystem'
 
 // ─── Dimension Row ───
@@ -373,11 +372,15 @@ export default function TrustProfile({
           </>
         )}
 
-        <DimensionRow
-          label="Community Trust"
-          score={dims.communityTrust}
-          reason={components ? communityReason(components) : 'Unknown'}
-        />
+        {/* Community Trust — greyed out until platform has enough engagement */}
+        <div className="opacity-40">
+          <DimensionRow
+            label="Community Trust"
+            score={dims.communityTrust}
+            reason="Coming soon — attestations, reviews, and activity will factor in as the community grows"
+            showBar={false}
+          />
+        </div>
       </div>
 
       {/* Changelog */}

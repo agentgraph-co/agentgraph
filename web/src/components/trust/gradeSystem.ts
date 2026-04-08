@@ -166,9 +166,9 @@ export function computeDimensions(
     Math.min(100, (com * 40 + rep * 35 + act * 25))
   )
 
-  // Overall: weighted composite matching backend (v5 weights)
+  // Overall: weighted composite matching backend (v6 weights — community disabled)
   const overall = Math.round(
-    (v * 0.30 + a * 0.08 + act * 0.08 + rep * 0.06 + com * 0.08 + ext * 0.25 + scan * 0.15) * 100
+    (v * 0.35 + a * 0.10 + act * 0.0 + rep * 0.0 + com * 0.0 + ext * 0.35 + scan * 0.20) * 100
   )
 
   return { identity, codeSecurity, communityTrust, overall }

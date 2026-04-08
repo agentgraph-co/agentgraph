@@ -25,18 +25,18 @@ from src.models import (
 
 logger = logging.getLogger(__name__)
 
-# Weights for trust score components (v5: rebalanced for pre-traction phase)
-# Internal community metrics (activity, reputation, community) are weighted lower
-# because most entities have zero engagement. As platform grows, increase these.
-# External reputation and scan score are weighted higher because they reflect
-# real-world signals that new users can achieve immediately.
-VERIFICATION_WEIGHT = 0.30  # up from 0.25 — identity is foundational
-AGE_WEIGHT = 0.08           # unchanged — time is time
-ACTIVITY_WEIGHT = 0.08      # down from 0.18 — minimal platform activity exists
-REPUTATION_WEIGHT = 0.06    # down from 0.14 — minimal peer reviews exist
-COMMUNITY_WEIGHT = 0.08     # down from 0.18 — minimal attestations exist
-EXTERNAL_WEIGHT = 0.25      # up from 0.12 — GitHub/npm/PyPI are strong signals
-SCAN_WEIGHT = 0.15          # up from 0.05 — security scanning is core feature
+# Weights for trust score components (v6: community metrics excluded pre-traction)
+# Activity, reputation, and community are set to 0 because the platform has
+# minimal engagement. They're tracked and displayed (greyed out) but don't
+# affect the score. This prevents everyone getting F due to empty community.
+# When the platform has enough activity, re-enable with v7 weights.
+VERIFICATION_WEIGHT = 0.35  # identity is foundational
+AGE_WEIGHT = 0.10           # tenure matters
+ACTIVITY_WEIGHT = 0.0       # DISABLED — re-enable when platform has engagement
+REPUTATION_WEIGHT = 0.0     # DISABLED — re-enable when peer reviews exist
+COMMUNITY_WEIGHT = 0.0      # DISABLED — re-enable when attestations exist
+EXTERNAL_WEIGHT = 0.35      # GitHub/npm/PyPI are the strongest signals
+SCAN_WEIGHT = 0.20          # security scanning is core feature
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
@@ -647,10 +647,25 @@ async def compute_trust_score(
 
     await db.refresh(trust_score)
 
-    # Invalidate trust gate cache so new score takes effect immediately
+    # Invalidate ALL caches that contain trust score data
     try:
         from src.cache import invalidate
+        from src.redis_client import get_redis
+
+        # Direct trust caches
         await invalidate(f"trust_gate:{entity_id}")
+        await invalidate(f"trust:{entity_id}")
+        await invalidate(f"profile:{entity_id}")
+
+        # Flush search/leaderboard caches (pattern-based)
+        r = await get_redis()
+        keys: list[bytes] = []
+        async for key in r.scan_iter(match="ag:cache:search_leaderboard:*"):
+            keys.append(key)
+        async for key in r.scan_iter(match="ag:cache:search:*"):
+            keys.append(key)
+        if keys:
+            await r.delete(*keys)
     except Exception:
         pass  # Best-effort
 
