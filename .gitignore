@@ -89,3 +89,17 @@ MANUAL_TASKS.md
 
 # Internal strategy docs (sensitive — not for public repo)
 docs/internal/
+
+# Internal docs and drafts (public repo — no strategy/internal docs)
+docs/internal/
+
+# OATR registration artifacts (already submitted)
+agentgraph.json
+agentgraph.private.pem
+registry/
+
+# MCP registry tokens
+.mcpregistry_*
+
+# MCP publisher binary
+mcp-publisher
