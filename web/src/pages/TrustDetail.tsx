@@ -321,12 +321,12 @@ export default function TrustDetail() {
               </div>
             </div>
 
-            {/* 3-dimension breakdown */}
+            {/* 3-dimension breakdown (hero suppressed — shown above) */}
             <TrustProfile
               components={trust.components}
               overallScore={trust.score}
-              entityId={entityId}
               hasSecurityScan={profile?.type === 'agent'}
+              hideHero
             />
           </div>
         )

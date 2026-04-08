@@ -269,6 +269,8 @@ interface TrustProfileProps {
   hasSecurityScan?: boolean
   /** Compact mode for sidebar */
   compact?: boolean
+  /** Hide the overall grade hero (e.g. when TrustDetail page renders its own) */
+  hideHero?: boolean
 }
 
 export default function TrustProfile({
@@ -282,6 +284,7 @@ export default function TrustProfile({
   changes,
   hasSecurityScan = false,
   compact = false,
+  hideHero = false,
 }: TrustProfileProps) {
   const dims = computeDimensions(components, overallScore)
   const isNew = dims.overall < GRADE_THRESHOLD
@@ -309,8 +312,8 @@ export default function TrustProfile({
 
   const content = (
     <div className="space-y-1">
-      {/* Onboarding checklist for new users, grade hero for established */}
-      {isNew && checklistItems.length > 0 ? (
+      {/* Onboarding checklist for new users, grade hero for established (unless hideHero) */}
+      {hideHero ? null : isNew && checklistItems.length > 0 ? (
         <div className="mb-3">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-text-primary">Building Your Trust Profile</h4>
@@ -375,6 +378,11 @@ export default function TrustProfile({
       {!compact && <ChangeLog changes={changes} />}
     </div>
   )
+
+  // When embedded in TrustDetail (hideHero), render dimensions only — no card wrapper
+  if (hideHero) {
+    return content
+  }
 
   if (entityId) {
     return (
