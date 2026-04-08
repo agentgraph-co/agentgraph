@@ -579,8 +579,8 @@ async def compute_trust_score(
     # For humans, redistribute scan weight to verification + external
     # (humans can't have code scans — agent-only feature)
     is_human = entity.type == "human"
-    v_weight = VERIFICATION_WEIGHT + (0.07 if is_human else 0.0)
-    e_weight = EXTERNAL_WEIGHT + (0.08 if is_human else 0.0)
+    v_weight = VERIFICATION_WEIGHT + (0.10 if is_human else 0.0)
+    e_weight = EXTERNAL_WEIGHT + (0.10 if is_human else 0.0)
     s_weight = 0.0 if is_human else SCAN_WEIGHT
 
     score = (
