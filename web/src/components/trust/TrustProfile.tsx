@@ -206,26 +206,43 @@ function ChangeLog({
 
 // ─── Compact Grade Badge (for feed, search results) ──��
 
+/** Minimum score to show a letter grade. Below this, show "New" pill. */
+const GRADE_THRESHOLD = 25
+
 export function TrustGradeBadge({
   score,
   entityId,
   size = 'small',
 }: {
-  score: number
+  score: number  // accepts 0.0-1.0 (from API) or 0-100
   entityId?: string
   size?: 'micro' | 'small'
 }) {
-  const info = getGradeInfo(score)
-  const badge = (
+  // Normalize: if score looks like 0.0-1.0 range, convert to 0-100
+  const score100 = score <= 1.0 && score > 0 ? Math.round(score * 100) : Math.round(score)
+  // New/unranked users see a neutral pill instead of a red F
+  const isNew = score100 < GRADE_THRESHOLD
+  const info = isNew ? null : getGradeInfo(score100)
+
+  const badge = isNew ? (
+    <span
+      className={`inline-flex items-center gap-1 font-medium ${
+        size === 'micro' ? 'text-xs px-1.5 py-0.5' : 'text-sm px-2 py-0.5'
+      } rounded-md bg-surface-2 text-text-muted`}
+      title="New account — building trust profile"
+    >
+      New
+    </span>
+  ) : (
     <span
       className={`inline-flex items-center gap-1 font-semibold ${
         size === 'micro' ? 'text-xs px-1.5 py-0.5' : 'text-sm px-2 py-0.5'
-      } rounded-md ${info.bgClass}`}
-      style={{ color: info.color }}
-      title={`Trust: ${info.grade} (${score}/100) — ${info.label}`}
+      } rounded-md ${info!.bgClass}`}
+      style={{ color: info!.color }}
+      title={`Trust: ${info!.grade} (${score100}/100) — ${info!.label}`}
     >
-      {info.grade}
-      {size !== 'micro' && <span className="text-xs opacity-70">{score}</span>}
+      {info!.grade}
+      {size !== 'micro' && <span className="text-xs opacity-70">{score100}</span>}
     </span>
   )
   if (entityId) {
@@ -267,6 +284,20 @@ export default function TrustProfile({
   compact = false,
 }: TrustProfileProps) {
   const dims = computeDimensions(components, overallScore)
+  const isNew = dims.overall < GRADE_THRESHOLD
+
+  // Onboarding checklist items
+  const checklistItems = components ? [
+    { done: true, label: 'Account created' },
+    { done: (components.verification ?? 0) >= 0.3, label: 'Email verified' },
+    { done: (components.verification ?? 0) >= 0.5, label: 'Bio added' },
+    { done: (components.external_reputation ?? 0) > 0, label: 'Link an external account' },
+    { done: (components.community ?? 0) > 0, label: 'Get your first attestation' },
+    { done: (components.activity ?? 0) > 0, label: 'Make your first post' },
+    { done: (components.age ?? 0) >= 0.08, label: 'Be active for 30 days' },
+  ] : []
+  const checklistDone = checklistItems.filter(i => i.done).length
+  const checklistTotal = checklistItems.length
 
   const securityReason = hasSecurityScan
     ? (dims.codeSecurity >= 81 ? 'Clean scan — no critical findings'
@@ -278,12 +309,42 @@ export default function TrustProfile({
 
   const content = (
     <div className="space-y-1">
-      {/* Overall grade hero */}
-      <OverallGradeHero score={dims.overall} />
+      {/* Onboarding checklist for new users, grade hero for established */}
+      {isNew && checklistItems.length > 0 ? (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold text-text-primary">Building Your Trust Profile</h4>
+            <span className="text-xs text-text-muted">{checklistDone}/{checklistTotal}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mb-3">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-500"
+              style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            {checklistItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className={item.done ? 'text-success' : 'text-text-muted'}>
+                  {item.done ? '✓' : '○'}
+                </span>
+                <span className={item.done ? 'text-text-muted line-through' : 'text-text-primary'}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-text-muted mt-2">
+            Complete {Math.max(0, 4 - checklistDone)} more to earn your first trust grade
+          </p>
+        </div>
+      ) : (
+        <OverallGradeHero score={dims.overall} />
+      )}
 
-      {/* Trend + comparison */}
-      <TrendSparkline history={scoreHistory} />
-      <NetworkComparison percentile={percentile} />
+      {/* Trend + comparison (only for established users) */}
+      {!isNew && <TrendSparkline history={scoreHistory} />}
+      {!isNew && <NetworkComparison percentile={percentile} />}
 
       {/* 3 dimensions */}
       <div className="space-y-0.5 pt-2 border-t border-border-subtle">

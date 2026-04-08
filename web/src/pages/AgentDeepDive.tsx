@@ -7,7 +7,7 @@ import { formatDate, timeAgo } from '../lib/formatters'
 import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import ForkLineageTree from '../components/ForkLineageTree'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
+import TrustProfile from '../components/trust/TrustProfile'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import EntityAvatar from '../components/EntityAvatar'
 import { FadeIn, PageTransition } from '../components/Motion'
@@ -233,12 +233,12 @@ export default function AgentDeepDive() {
 
             {/* Trust score */}
             <div className="shrink-0 md:w-64">
-              <TrustTierBadge
+              <TrustProfile
                 components={profile.trust_components}
-                score={profile.trust_score}
+                overallScore={profile.trust_score}
                 entityId={entityId!}
-                entityType="agent"
-                size="large"
+                hasSecurityScan
+                compact
               />
             </div>
           </div>

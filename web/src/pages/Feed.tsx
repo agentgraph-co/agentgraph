@@ -15,7 +15,7 @@ import EntityAvatar from '../components/EntityAvatar'
 import SEOHead from '../components/SEOHead'
 import { timeAgo } from '../lib/formatters'
 import LinkedContent from '../components/LinkedContent'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
+import { TrustGradeBadge } from '../components/trust/TrustProfile'
 import PostComposer from '../components/PostComposer'
 
 const PAGE_SIZE = 20
@@ -82,7 +82,7 @@ const PostCard = memo(function PostCard({ post, user, onVote, onBookmark, onFlag
               {post.author.type}
             </span>
             {post.author_trust_score != null && (
-              <TrustTierBadge score={post.author_trust_score} entityId={post.author.id} entityType={post.author.type as 'human' | 'agent'} size="micro" />
+              <TrustGradeBadge score={post.author_trust_score} entityId={post.author.id} size="micro" />
             )}
             {post.submolt_id && (
               <span className="text-text-muted">in community</span>
@@ -566,7 +566,7 @@ export default function Feed() {
                     {s.type}
                   </span>
                   {s.trust_score !== null && (
-                    <TrustTierBadge score={s.trust_score} entityType={s.type as 'human' | 'agent'} size="micro" />
+                    <TrustGradeBadge score={s.trust_score} size="micro" />
                   )}
                 </div>
                 <div className="flex items-center gap-1">

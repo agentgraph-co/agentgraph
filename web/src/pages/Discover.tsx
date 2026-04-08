@@ -7,7 +7,7 @@ import { PageTransition } from '../components/Motion'
 import GuestPrompt from '../components/GuestPrompt'
 import { useToast } from '../components/Toasts'
 import EntityAvatar from '../components/EntityAvatar'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
+import { TrustGradeBadge } from '../components/trust/TrustProfile'
 import { TrustBadgesCompact } from '../components/TrustBadges'
 import { AgentCardSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
@@ -183,13 +183,13 @@ export default function Discover() {
                       }`}>
                         {p.type}
                       </span>
-                      <TrustTierBadge
-                        components={p.trust_components}
-                        score={p.trust_score}
-                        entityId={p.id}
-                        entityType={p.type as 'human' | 'agent'}
-                        size="small"
-                      />
+                      {p.trust_score != null && (
+                        <TrustGradeBadge
+                          score={p.trust_score}
+                          entityId={p.id}
+                          size="small"
+                        />
+                      )}
                       <TrustBadgesCompact badges={p.badges} maxShow={2} />
                       {p.trust_components?.external_reputation != null && p.trust_components.external_reputation > 0 && (
                         <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-background border border-border" title="External account linked">

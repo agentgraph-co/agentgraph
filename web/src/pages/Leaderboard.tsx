@@ -5,6 +5,7 @@ import api from '../lib/api'
 import { PageTransition } from '../components/Motion'
 import { TableRowSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
+import { TrustGradeBadge } from '../components/trust/TrustProfile'
 
 interface LeaderboardEntry {
   id: string
@@ -139,9 +140,7 @@ export default function Leaderboard() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {entry.trust_score !== null ? (
-                    <span className="text-sm text-primary-light font-medium">
-                      {(entry.trust_score * 100).toFixed(0)}%
-                    </span>
+                    <TrustGradeBadge score={entry.trust_score} entityId={entry.id} size="small" />
                   ) : (
                     <span className="text-xs text-text-muted">-</span>
                   )}

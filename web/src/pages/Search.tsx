@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import { timeAgo } from '../lib/formatters'
 import { PageTransition } from '../components/Motion'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
+import { TrustGradeBadge } from '../components/trust/TrustProfile'
 import { SearchResultSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
 
@@ -195,13 +195,13 @@ export default function Search() {
                       </span>
                       <span className="text-xs text-text-muted font-mono truncate max-w-[160px] sm:max-w-none">{entity.did_web}</span>
                       <span className="ml-auto">
-                        <TrustTierBadge
-                          components={entity.trust_components}
-                          score={entity.trust_score}
-                          entityId={entity.id}
-                          entityType={entity.type as 'human' | 'agent'}
-                          size="micro"
-                        />
+                        {entity.trust_score != null && (
+                          <TrustGradeBadge
+                            score={entity.trust_score}
+                            entityId={entity.id}
+                            size="micro"
+                          />
+                        )}
                       </span>
                     </div>
                     {entity.bio_markdown && (

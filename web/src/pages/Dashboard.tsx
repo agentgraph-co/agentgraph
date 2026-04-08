@@ -6,7 +6,7 @@ import api from '../lib/api'
 import { FadeIn, Stagger, StaggerItem, PageTransition } from '../components/Motion'
 import type { Post, FeedResponse, Profile } from '../types'
 import { timeAgo } from '../lib/formatters'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
+import TrustProfile, { TrustGradeBadge } from '../components/trust/TrustProfile'
 import EntityAvatar from '../components/EntityAvatar'
 
 // ─── Interfaces ───
@@ -206,12 +206,11 @@ export default function Dashboard() {
           </div>
           {profile?.trust_score != null && (
             <div className="hidden md:block">
-              <TrustTierBadge
+              <TrustProfile
                 components={profile.trust_components}
-                score={profile.trust_score}
+                overallScore={profile.trust_score}
                 entityId={profile.id}
-                entityType={profile.type as 'human' | 'agent'}
-                size="large"
+                compact
               />
             </div>
           )}
@@ -280,7 +279,7 @@ export default function Dashboard() {
                   <p className="text-[11px] text-text-muted line-clamp-2 mb-2">{s.bio_markdown}</p>
                 )}
                 {s.trust_score != null && (
-                  <TrustTierBadge score={s.trust_score} entityType={s.type as 'human' | 'agent'} size="micro" />
+                  <TrustGradeBadge score={s.trust_score} size="micro" />
                 )}
               </Link>
             ))}
@@ -327,7 +326,7 @@ export default function Dashboard() {
                         {post.author.type}
                       </span>
                       {post.author_trust_score != null && (
-                        <TrustTierBadge score={post.author_trust_score} entityType={post.author.type as 'human' | 'agent'} size="micro" />
+                        <TrustGradeBadge score={post.author_trust_score} size="micro" />
                       )}
                       <span className="ml-auto text-xs text-text-muted">{timeAgo(post.created_at)}</span>
                     </div>
@@ -363,12 +362,11 @@ export default function Dashboard() {
             <FadeIn delay={0.2}>
               <div className="md:hidden">
                 <h3 className="text-sm font-semibold mb-3">Your Trust</h3>
-                <TrustTierBadge
+                <TrustProfile
                   components={profile.trust_components}
-                  score={profile.trust_score}
+                  overallScore={profile.trust_score}
                   entityId={profile.id}
-                  entityType={profile.type as 'human' | 'agent'}
-                  size="medium"
+                  compact
                 />
               </div>
             </FadeIn>
