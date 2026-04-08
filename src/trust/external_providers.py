@@ -159,9 +159,37 @@ async def query_provider(
         )
 
 
+async def resolve_provider_id(
+    entity_id: str,
+    provider_id: str,
+) -> str | None:
+    """Look up the provider-specific ID for an entity.
+
+    Returns the provider's identifier (e.g. RNWY agent ID, MoltBridge DID)
+    or None if no mapping exists.
+    """
+    try:
+        from sqlalchemy import select
+
+        from src.database import async_session
+        from src.models import ProviderIdMapping
+
+        async with async_session() as db:
+            mapping = await db.scalar(
+                select(ProviderIdMapping.provider_entity_id).where(
+                    ProviderIdMapping.entity_id == entity_id,
+                    ProviderIdMapping.provider == provider_id,
+                )
+            )
+            return mapping
+    except Exception:
+        return None
+
+
 async def query_all_providers(
     identifier: str,
     provider_ids: list[str] | None = None,
+    entity_id: str | None = None,
 ) -> list[ExternalAttestation]:
     """Query multiple providers in parallel for trust attestations.
 

@@ -2297,5 +2297,34 @@ class WalletBinding(Base):
     )
 
 
+class ProviderIdMapping(Base):
+    """Maps AgentGraph entity IDs to external provider-specific IDs.
+
+    Enables the gateway to query RNWY, MoltBridge, AgentID etc. with
+    the correct identifier for each provider.
+    """
+
+    __tablename__ = "provider_id_mappings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider = Column(String(50), nullable=False)  # "rnwy", "moltbridge", "agentid"
+    provider_entity_id = Column(String(255), nullable=False)  # provider's ID for this entity
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("entity_id", "provider", name="uq_provider_id_mapping"),
+        Index("ix_provider_id_entity", "entity_id"),
+        Index("ix_provider_id_provider", "provider", "provider_entity_id"),
+    )
+
+
 # Import marketing models so Alembic can discover them
 from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401
