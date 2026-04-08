@@ -79,6 +79,7 @@ from src.api.submolt_router import router as submolt_router
 from src.api.subscription_router import router as subscription_router
 from src.api.token_router import router as token_router
 from src.api.trust_explainer_router import router as trust_explainer_router
+from src.api.trust_gateway_router import router as trust_gateway_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
@@ -658,6 +659,9 @@ app.include_router(jwks_router)
 
 # Public scan API — trust-tiered security scanning (no auth required)
 app.include_router(public_scan_router, prefix=settings.api_v1_prefix)
+
+# Trust gateway proxy — enforcement layer for agent tool execution
+app.include_router(trust_gateway_router, prefix=settings.api_v1_prefix)
 
 # Signed security attestations (A2A trust.signals[] compatible)
 app.include_router(security_attestation_router, prefix=settings.api_v1_prefix)
