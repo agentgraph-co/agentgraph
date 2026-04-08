@@ -4,6 +4,17 @@ import { useToast } from '../../components/Toasts'
 import { InlineSkeleton } from '../../components/Skeleton'
 import { StatCard } from './StatCard'
 
+interface GatewayStats {
+  status: string
+  metrics: {
+    total_checks: number
+    allowed: number
+    blocked: number
+    by_tier: Record<string, number>
+    by_grade: Record<string, number>
+  }
+}
+
 export default function InfraTab() {
   const { addToast } = useToast()
 
@@ -24,6 +35,12 @@ export default function InfraTab() {
     queryKey: ['admin-rate-limits'],
     queryFn: async () => (await api.get('/admin/rate-limits')).data,
     staleTime: 30_000,
+  })
+
+  const { data: gatewayStats } = useQuery<GatewayStats>({
+    queryKey: ['admin-gateway-stats'],
+    queryFn: async () => (await api.get('/gateway/stats')).data,
+    staleTime: 60_000,
   })
 
   const cleanupTokenMutation = useMutation({
@@ -79,6 +96,60 @@ export default function InfraTab() {
                 ))}
               </div>
             )}
+          </div>
+        ) : (
+          <div className="py-6"><InlineSkeleton /></div>
+        )}
+      </div>
+
+      {/* Trust Gateway */}
+      <div>
+        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">Trust Gateway</h2>
+        {gatewayStats ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <StatCard label="Total Checks" value={gatewayStats.metrics.total_checks} />
+              <div className="bg-surface border border-border rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-500">{gatewayStats.metrics.allowed.toLocaleString()}</div>
+                <div className="text-xs text-text-muted mt-1">Allowed</div>
+              </div>
+              <div className="bg-surface border border-border rounded-lg p-4">
+                <div className="text-2xl font-bold text-red-500">{gatewayStats.metrics.blocked.toLocaleString()}</div>
+                <div className="text-xs text-text-muted mt-1">Blocked</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <span className={`inline-block w-2 h-2 rounded-full ${gatewayStats.status === 'operational' ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-text-muted capitalize">{gatewayStats.status}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {Object.keys(gatewayStats.metrics.by_tier).length > 0 && (
+                <div className="bg-surface border border-border rounded-lg p-4">
+                  <div className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-2">By Tier</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(gatewayStats.metrics.by_tier).map(([tier, count]) => (
+                      <span key={tier} className="text-xs bg-surface-hover border border-border rounded-full px-2.5 py-1">
+                        {tier} <span className="font-semibold">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Object.keys(gatewayStats.metrics.by_grade).length > 0 && (
+                <div className="bg-surface border border-border rounded-lg p-4">
+                  <div className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-2">By Grade</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(gatewayStats.metrics.by_grade).map(([grade, count]) => (
+                      <span key={grade} className="text-xs bg-surface-hover border border-border rounded-full px-2.5 py-1">
+                        {grade} <span className="font-semibold">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="py-6"><InlineSkeleton /></div>
