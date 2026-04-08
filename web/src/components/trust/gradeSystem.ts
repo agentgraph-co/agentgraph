@@ -166,10 +166,13 @@ export function computeDimensions(
     Math.min(100, (com * 40 + rep * 35 + act * 25))
   )
 
-  // Overall: weighted composite matching backend (v6 weights — community disabled)
-  const overall = Math.round(
-    (v * 0.35 + a * 0.10 + act * 0.0 + rep * 0.0 + com * 0.0 + ext * 0.35 + scan * 0.20) * 100
-  )
+  // Use backend's authoritative score when available (prevents mismatch
+  // when backend weights change but frontend hasn't been redeployed)
+  const overall = overallScore != null
+    ? Math.round((overallScore <= 1.0 && overallScore > 0 ? overallScore * 100 : overallScore))
+    : Math.round(
+        (v * 0.35 + a * 0.10 + act * 0.0 + rep * 0.0 + com * 0.0 + ext * 0.35 + scan * 0.20) * 100
+      )
 
   return { identity, codeSecurity, communityTrust, overall }
 }

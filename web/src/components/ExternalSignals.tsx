@@ -108,12 +108,12 @@ export default function ExternalSignals({ entityId, isOwn }: ExternalSignalsProp
 
   const { data: accounts, isLoading } = useQuery<LinkedAccountPublic[]>({
     queryKey: ['linked-accounts-public', entityId],
-    queryFn: () => api.get(`/api/v1/linked-accounts/${entityId}/public`).then(r => r.data),
+    queryFn: () => api.get(`/linked-accounts/${entityId}/public`).then(r => r.data),
     staleTime: 60_000,
   })
 
   const refreshMutation = useMutation({
-    mutationFn: () => api.post('/api/v1/linked-accounts/discover'),
+    mutationFn: () => api.post('/linked-accounts/discover'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['linked-accounts-public', entityId] })
     },
