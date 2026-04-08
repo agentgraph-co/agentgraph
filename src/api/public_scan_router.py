@@ -16,8 +16,11 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
+from src.database import get_db
 from src.signing import KID, canonicalize, create_jws
 
 logger = logging.getLogger(__name__)
@@ -324,6 +327,7 @@ async def public_scan(
 async def scan_by_wallet(
     wallet_address: str,
     chain: str = "ethereum",
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Resolve a wallet address to an entity and return its trust data.
 
@@ -333,57 +337,54 @@ async def scan_by_wallet(
     If no entity maps to the wallet, returns ``found: false``.
     If the entity has a linked GitHub repo, triggers a scan.
     """
-    from src.database import get_async_session
     from src.models import LinkedAccount, WalletBinding
 
-    async with get_async_session() as db:
-        from sqlalchemy import select
-        stmt = select(WalletBinding).where(
-            WalletBinding.wallet_address == wallet_address,
-            WalletBinding.chain == chain,
-        )
-        result = await db.execute(stmt)
-        binding = result.scalar_one_or_none()
+    stmt = select(WalletBinding).where(
+        WalletBinding.wallet_address == wallet_address,
+        WalletBinding.chain == chain,
+    )
+    result = await db.execute(stmt)
+    binding = result.scalar_one_or_none()
 
-        if not binding:
-            return {
-                "found": False,
-                "wallet": wallet_address,
-                "chain": chain,
-                "reason": "no_entity_mapping",
-            }
+    if not binding:
+        return {
+            "found": False,
+            "wallet": wallet_address,
+            "chain": chain,
+            "reason": "no_entity_mapping",
+        }
 
-        # Find linked GitHub account for this entity
-        stmt = select(LinkedAccount).where(
-            LinkedAccount.entity_id == binding.entity_id,
-            LinkedAccount.provider == "github",
-        )
-        result = await db.execute(stmt)
-        github_account = result.scalar_one_or_none()
+    # Find linked GitHub account for this entity
+    stmt = select(LinkedAccount).where(
+        LinkedAccount.entity_id == binding.entity_id,
+        LinkedAccount.provider == "github",
+    )
+    result = await db.execute(stmt)
+    github_account = result.scalar_one_or_none()
 
-        if not github_account or not github_account.provider_username:
-            return {
-                "found": True,
-                "wallet": wallet_address,
-                "chain": chain,
-                "entity_id": str(binding.entity_id),
-                "scan": None,
-                "reason": "no_linked_github_repo",
-            }
+    if not github_account or not github_account.provider_username:
+        return {
+            "found": True,
+            "wallet": wallet_address,
+            "chain": chain,
+            "entity_id": str(binding.entity_id),
+            "scan": None,
+            "reason": "no_linked_github_repo",
+        }
 
-        # Resolve to repo and scan
-        # provider_user_id typically contains "owner/repo" for GitHub
-        repo_id = github_account.provider_user_id
-        if "/" not in repo_id:
-            return {
-                "found": True,
-                "wallet": wallet_address,
-                "chain": chain,
-                "entity_id": str(binding.entity_id),
-                "scan": None,
-                "reason": "github_account_not_repo",
-            }
-        owner, repo = repo_id.split("/", 1)
+    # Resolve to repo and scan
+    # provider_user_id typically contains "owner/repo" for GitHub
+    repo_id = github_account.provider_user_id
+    if "/" not in repo_id:
+        return {
+            "found": True,
+            "wallet": wallet_address,
+            "chain": chain,
+            "entity_id": str(binding.entity_id),
+            "scan": None,
+            "reason": "github_account_not_repo",
+        }
+    owner, repo = repo_id.split("/", 1)
 
     # Delegate to the main scan endpoint
     scan_result = await public_scan(owner=owner, repo=repo)
