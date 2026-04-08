@@ -68,6 +68,7 @@ class ScanResult:
     primary_language: str = ""
     suppressed_count: int = 0  # lines with ag-scan:ignore
     trust_score: int = 0  # 0-100, computed after scan
+    category_scores: dict[str, int] = field(default_factory=dict)  # per-category 0-100
     error: str | None = None
 
     @property
@@ -550,6 +551,38 @@ def _calculate_trust_score(result: ScanResult) -> int:
     return max(0, min(100, score))
 
 
+def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
+    """Calculate per-category sub-scores (0-100) as independent axes.
+
+    Categories: secret_hygiene, code_safety, data_handling, filesystem_access.
+    Each starts at 100 and deducts based on severity-weighted findings.
+    """
+    # Map finding categories to score categories
+    category_map = {
+        "secret": "secret_hygiene",
+        "unsafe_exec": "code_safety",
+        "obfuscation": "code_safety",
+        "exfiltration": "data_handling",
+        "fs_access": "filesystem_access",
+    }
+    severity_weights = {"critical": 25, "high": 15, "medium": 8}
+
+    scores: dict[str, int] = {
+        "secret_hygiene": 100,
+        "code_safety": 100,
+        "data_handling": 100,
+        "filesystem_access": 100,
+    }
+
+    for finding in result.findings:
+        score_cat = category_map.get(finding.category)
+        if score_cat:
+            deduction = severity_weights.get(finding.severity, 3)
+            scores[score_cat] = max(0, scores[score_cat] - deduction)
+
+    return scores
+
+
 async def scan_repo(
     full_name: str,
     stars: int = 0,
@@ -633,8 +666,9 @@ async def scan_repo(
             result.positive_signals.extend(positives)
             result.suppressed_count += suppressed
 
-        # Calculate trust score
+        # Calculate trust score and per-category sub-scores
         result.trust_score = _calculate_trust_score(result)
+        result.category_scores = _calculate_category_scores(result)
 
     except httpx.TimeoutException:
         result.error = "Request timed out"

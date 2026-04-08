@@ -93,6 +93,7 @@ class PublicScanResponse(BaseModel):
     scan_result: str  # clean, warnings, critical, error
     findings: FindingsSummary
     positive_signals: list[str] = []
+    category_scores: dict[str, int] = {}  # per-category 0-100 sub-scores
     metadata: ScanMetadata
     scanned_at: str
     cached: bool = False
@@ -159,6 +160,7 @@ def _build_scan_payload(repo: str, result_data: dict) -> dict:
             "positiveSignals": result_data["positive_signals"],
             "filesScanned": result_data["metadata"]["files_scanned"],
             "primaryLanguage": result_data["metadata"]["primary_language"],
+            "categoryScores": result_data.get("category_scores", {}),
         },
         "recommendedLimits": result_data["recommended_limits"],
     }
@@ -202,6 +204,7 @@ def _scan_result_to_dict(result: object) -> dict:
             "has_license": result.has_license,
             "has_tests": result.has_tests,
         },
+        "category_scores": getattr(result, "category_scores", {}),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -258,6 +261,7 @@ async def public_scan(
                 scan_result=cached["scan_result"],
                 findings=FindingsSummary(**cached["findings"]),
                 positive_signals=cached.get("positive_signals", []),
+                category_scores=cached.get("category_scores", {}),
                 metadata=ScanMetadata(**cached["metadata"]),
                 scanned_at=cached["scanned_at"],
                 cached=True,
@@ -304,6 +308,7 @@ async def public_scan(
         scan_result=data["scan_result"],
         findings=FindingsSummary(**data["findings"]),
         positive_signals=data["positive_signals"],
+        category_scores=data.get("category_scores", {}),
         metadata=ScanMetadata(**data["metadata"]),
         scanned_at=data["scanned_at"],
         cached=False,
