@@ -647,7 +647,7 @@ export default function TrustDetail() {
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">How Trust Scores Work</h3>
         {methodology ? (
-          <div className="text-xs text-text-muted leading-relaxed prose prose-invert prose-xs max-w-none">
+          <div className="text-xs text-text-muted leading-relaxed [&_h1]:text-sm [&_h1]:font-bold [&_h1]:text-text-primary [&_h1]:mt-3 [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:text-text [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-medium [&_h3]:text-text [&_h3]:mt-2 [&_h3]:mb-0.5 [&_code]:bg-surface-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_ul]:ml-3 [&_ul]:list-disc [&_li]:my-0.5 [&_p]:my-1">
             <Markdown>{methodology.methodology}</Markdown>
           </div>
         ) : (
