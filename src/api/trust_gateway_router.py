@@ -278,4 +278,94 @@ async def gateway_stats() -> dict:
             "D": "21-40 (Caution)",
             "F": "0-20 (Fail)",
         },
+        "external_providers": ["RNWY", "MoltBridge", "AgentID"],
     }
+
+
+# ── Webhook Endpoints ──
+
+
+class WebhookRescanRequest(BaseModel):
+    """Request from external provider to trigger a rescan."""
+    repo: str  # owner/repo format
+    reason: str  # why the rescan is needed
+    provider: str  # who is requesting (e.g. "moltbridge")
+    severity: str = "medium"  # low/medium/high
+
+
+class WebhookRescanResponse(BaseModel):
+    """Response after processing a rescan webhook."""
+    accepted: bool
+    repo: str
+    message: str
+    scan_queued: bool = False
+
+
+@router.post(
+    "/webhook/rescan",
+    response_model=WebhookRescanResponse,
+)
+async def webhook_rescan(
+    request: WebhookRescanRequest,
+) -> WebhookRescanResponse:
+    """Receive a rescan request from an external provider.
+
+    When MoltBridge detects a behavioral anomaly or another provider
+    detects a trust signal change, they POST here to trigger a fresh
+    security scan. The compound signal (behavioral anomaly + code
+    analysis) is more informative than either alone.
+
+    Example::
+
+        POST /api/v1/gateway/webhook/rescan
+        {"repo": "owner/repo", "reason": "behavioral_anomaly", "provider": "moltbridge"}
+    """
+    if "/" not in request.repo:
+        return WebhookRescanResponse(
+            accepted=False,
+            repo=request.repo,
+            message="repo must be in owner/repo format",
+        )
+
+    owner, repo = request.repo.split("/", 1)
+
+    # Queue the rescan (force=True bypasses cache)
+    try:
+        import asyncio
+
+        from src.config import settings
+        from src.scanner.scan import scan_repo
+
+        token = settings.github_token or settings.github_outreach_token
+
+        async def _rescan() -> None:
+            try:
+                await scan_repo(
+                    full_name=request.repo,
+                    stars=0,
+                    description="",
+                    framework="",
+                    token=token,
+                )
+                logger.info(
+                    "Webhook rescan completed: %s (provider=%s, reason=%s)",
+                    request.repo, request.provider, request.reason,
+                )
+            except Exception:
+                logger.warning("Webhook rescan failed: %s", request.repo)
+
+        asyncio.create_task(_rescan())
+
+        return WebhookRescanResponse(
+            accepted=True,
+            repo=request.repo,
+            message=f"Rescan queued (provider={request.provider}, reason={request.reason})",
+            scan_queued=True,
+        )
+    except Exception as e:
+        logger.exception("Webhook rescan error: %s", request.repo)
+        return WebhookRescanResponse(
+            accepted=False,
+            repo=request.repo,
+            message=f"Error: {e}",
+        )
