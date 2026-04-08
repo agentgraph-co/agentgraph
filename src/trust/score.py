@@ -650,8 +650,7 @@ async def compute_trust_score(
 
     # Invalidate ALL caches that contain trust score data
     try:
-        from src.cache import invalidate
-        from src.redis_client import get_redis
+        from src.cache import invalidate, invalidate_pattern
 
         # Direct trust caches
         await invalidate(f"trust_gate:{entity_id}")
@@ -659,16 +658,15 @@ async def compute_trust_score(
         await invalidate(f"profile:{entity_id}")
 
         # Flush search/leaderboard caches (pattern-based)
-        r = await get_redis()
-        keys: list[bytes] = []
-        async for key in r.scan_iter(match="ag:cache:search_leaderboard:*"):
-            keys.append(key)
-        async for key in r.scan_iter(match="ag:cache:search:*"):
-            keys.append(key)
-        if keys:
-            await r.delete(*keys)
+        await invalidate_pattern("search_leaderboard:*")
+        await invalidate_pattern("search:*")
+
+        logger.debug(
+            "Cache invalidated for entity %s (trust, profile, search, leaderboard)",
+            entity_id,
+        )
     except Exception:
-        pass  # Best-effort
+        logger.warning("Cache invalidation failed for entity %s", entity_id, exc_info=True)
 
     # WebSocket push: real-time trust score update to connected clients
     try:
