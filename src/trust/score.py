@@ -561,14 +561,21 @@ async def compute_trust_score(
     external = await _external_reputation_factor(db, entity_id)
     scan = await _scan_score_factor(db, entity_id)
 
+    # For humans, redistribute scan weight to verification + external
+    # (humans can't have code scans — agent-only feature)
+    is_human = entity.type == "human"
+    v_weight = VERIFICATION_WEIGHT + (0.07 if is_human else 0.0)
+    e_weight = EXTERNAL_WEIGHT + (0.08 if is_human else 0.0)
+    s_weight = 0.0 if is_human else SCAN_WEIGHT
+
     score = (
-        VERIFICATION_WEIGHT * verification
+        v_weight * verification
         + AGE_WEIGHT * age
         + ACTIVITY_WEIGHT * activity
         + REPUTATION_WEIGHT * reputation
         + COMMUNITY_WEIGHT * community
-        + EXTERNAL_WEIGHT * external
-        + SCAN_WEIGHT * scan
+        + e_weight * external
+        + s_weight * scan
     )
 
     # Apply framework trust modifier (e.g. OpenClaw agents start at 0.8x)

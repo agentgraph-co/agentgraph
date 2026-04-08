@@ -359,14 +359,18 @@ export default function TrustProfile({
           reason={components ? identityReason(components) : 'Unknown'}
         />
 
-        <DimensionRow
-          label="Code Security"
-          score={hasSecurityScan ? dims.codeSecurity : 0}
-          reason={securityReason}
-          showBar={hasSecurityScan}
-        />
-        {securitySubScores && hasSecurityScan && !compact && (
-          <SecuritySubScoreCard scores={securitySubScores} />
+        {/* Code Security only shows for agents — humans don't have code scans */}
+        {hasSecurityScan && (
+          <>
+            <DimensionRow
+              label="Code Security"
+              score={dims.codeSecurity}
+              reason={securityReason}
+            />
+            {securitySubScores && !compact && (
+              <SecuritySubScoreCard scores={securitySubScores} />
+            )}
+          </>
         )}
 
         <DimensionRow
