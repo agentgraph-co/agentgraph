@@ -39,6 +39,15 @@ _MAX_FILE_SIZE = 500_000  # 500KB — skip huge files
 _MAX_FILES_PER_REPO = 200  # don't scan massive monorepos
 
 
+_REMEDIATION_HINTS: dict[str, str] = {
+    "secret": "Move to environment variable or secrets manager",
+    "unsafe_exec": "Validate and sanitize input before execution",
+    "fs_access": "Restrict paths to allowed directories",
+    "exfiltration": "Add authentication to outbound data endpoints",
+    "obfuscation": "Replace obfuscated code with readable equivalent",
+}
+
+
 @dataclass
 class Finding:
     """A single security finding."""
@@ -49,6 +58,7 @@ class Finding:
     file_path: str
     line_number: int
     snippet: str  # surrounding context (redacted for secrets)
+    remediation: str = ""  # actionable fix suggestion
 
 
 @dataclass
@@ -478,6 +488,11 @@ def _scan_content(
                     snippet=stripped[:120],
                 ))
                 break
+
+    # Add remediation hints to all findings
+    for f in findings:
+        if not f.remediation:
+            f.remediation = _REMEDIATION_HINTS.get(f.category, "Review and address this finding")
 
     # Check positive signals per-line, skipping comments and examples
     # (same filtering as negative patterns to prevent comment-trick gaming)
