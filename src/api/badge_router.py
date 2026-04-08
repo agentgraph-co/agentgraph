@@ -100,11 +100,17 @@ def _trust_tier_label(score: float) -> str:
 
 
 def _status_text(has_operator: bool, is_provisional: bool) -> str:
+    """Unused — kept for backward compatibility. Badge now shows letter grade."""
     if is_provisional:
         return "unclaimed"
     if has_operator:
         return "verified"
     return "unverified"
+
+
+def _grade_label(score: float) -> str:
+    """Return the letter grade for badge display."""
+    return _trust_tier_label(score)
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +181,9 @@ def _render_compact_svg(
 ) -> str:
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
-    status = _status_text(has_operator, is_provisional)
+    grade = _grade_label(score)
     score_pct = round(score * 100)
-    value_label = f"{score_pct} {status}"
+    value_label = f"{grade} {score_pct}"
 
     # Icon (shield) occupies 14px (10 icon + 4 pad)
     icon_width = 14
@@ -219,7 +225,7 @@ def _render_compact_svg(
         )
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_pct}/100">
-  <title>AgentGraph Trust: {score_pct}/100 ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
+  <title>AgentGraph Trust: {score_pct}/100 ({grade}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -442,9 +448,9 @@ def _render_flat_square_svg(
 ) -> str:
     tc = _theme_colors(theme)
     color = _trust_tier_color(score)
-    status = _status_text(has_operator, is_provisional)
+    grade = _grade_label(score)
     score_pct = round(score * 100)
-    value_label = f"{score_pct} {status}"
+    value_label = f"{grade} {score_pct}"
 
     icon_width = 14
     label_text = "AgentGraph"
@@ -484,7 +490,7 @@ def _render_flat_square_svg(
 
     # Flat-square: no gradient, no rounded corners, no shadow
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{height}" role="img" aria-label="AgentGraph Trust: {score_pct}/100">
-  <title>AgentGraph Trust: {score_pct}/100 ({status}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
+  <title>AgentGraph Trust: {score_pct}/100 ({grade}){' scan: ' + (scan_status or '') if scan_status else ''}</title>
   <g>
     <rect width="{label_width}" height="{height}" fill="{tc['label_bg']}"/>
     <rect x="{label_width}" width="{value_width}" height="{height}" fill="{color}"/>

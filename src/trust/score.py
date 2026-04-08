@@ -25,16 +25,18 @@ from src.models import (
 
 logger = logging.getLogger(__name__)
 
-# Weights for trust score components (v4: 7 components)
-# External reputation is additive — 0.0 if no accounts linked
-# Scan score: 0.0 if no security scan (never penalizes unscanned entities)
-VERIFICATION_WEIGHT = 0.25
-AGE_WEIGHT = 0.08
-ACTIVITY_WEIGHT = 0.18
-REPUTATION_WEIGHT = 0.14
-COMMUNITY_WEIGHT = 0.18
-EXTERNAL_WEIGHT = 0.12
-SCAN_WEIGHT = 0.05
+# Weights for trust score components (v5: rebalanced for pre-traction phase)
+# Internal community metrics (activity, reputation, community) are weighted lower
+# because most entities have zero engagement. As platform grows, increase these.
+# External reputation and scan score are weighted higher because they reflect
+# real-world signals that new users can achieve immediately.
+VERIFICATION_WEIGHT = 0.30  # up from 0.25 — identity is foundational
+AGE_WEIGHT = 0.08           # unchanged — time is time
+ACTIVITY_WEIGHT = 0.08      # down from 0.18 — minimal platform activity exists
+REPUTATION_WEIGHT = 0.06    # down from 0.14 — minimal peer reviews exist
+COMMUNITY_WEIGHT = 0.08     # down from 0.18 — minimal attestations exist
+EXTERNAL_WEIGHT = 0.25      # up from 0.12 — GitHub/npm/PyPI are strong signals
+SCAN_WEIGHT = 0.15          # up from 0.05 — security scanning is core feature
 
 # Age cap: 1 year
 AGE_CAP_DAYS = 365

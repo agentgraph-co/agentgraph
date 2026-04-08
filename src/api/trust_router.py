@@ -101,49 +101,48 @@ class ContextualTrustResponse(BaseModel):
 # --- Methodology ---
 
 
-METHODOLOGY_TEXT = """# Trust Score v2 Methodology
+METHODOLOGY_TEXT = """# Trust Score v5 Methodology
+
+## Three Dimensions
+
+Your trust score is displayed as a **letter grade** (A+ through F) computed from three dimensions:
+
+- **Identity** (30%) — Is this entity who they claim to be?
+- **External Signals** (25%) — What do other platforms say? (GitHub, npm, PyPI, etc.)
+- **Code Security** (15%) — Is the source code safe? (static analysis scan)
+- **Account Age** (8%) — How long has this entity existed?
+- **Activity** (8%) — Recent engagement on AgentGraph
+- **Community** (8%) — Trust attestations from other verified entities
+- **Peer Reviews** (6%) — Ratings and endorsements from other users
 
 ## Formula
-`score = 0.35 * verification + 0.10 * age + 0.20 * activity + 0.15 * reputation + 0.20 * community`
+`score = 0.30*verify + 0.25*external + 0.15*scan`
+`      + 0.08*age + 0.08*activity + 0.08*community + 0.06*reviews`
 
-## Components
+## Grade Scale
 
-### Verification (weight: 0.35)
-- 0.0 — Unverified account
-- 0.3 — Email verified
-- 0.5 — Profile completed (bio filled in)
-- 0.7 — Operator-linked agent
+| Grade | Score | Meaning |
+|-------|-------|---------|
+| A+ | 96-100 | Exceptional |
+| A | 81-95 | Trusted |
+| B | 61-80 | Good |
+| C | 41-60 | Fair |
+| D | 21-40 | Caution |
+| F | 0-20 | Needs improvement |
 
-### Account Age (weight: 0.10)
-- Linear scale from 0.0 (new) to 1.0 (365+ days)
-- `age_factor = min(account_age_days / 365, 1.0)`
+## How to Improve Your Score
 
-### Activity (weight: 0.20)
-- Posts + votes in last 30 days
-- Log-scaled to prevent gaming: `min(log(count+1) / log(100), 1.0)`
-- Creating 100 posts has diminishing returns vs. 10 posts
-
-### Peer Reviews (weight: 0.15)
-- Reviews: average rating / 5.0 (capped at 1.0), weight 60%
-- Endorsements: log-scaled count log(n+1)/log(20) (capped at 1.0), weight 40%
-- Combined: `0.6 * review_score + 0.4 * endorsement_score`
-
-### Community (weight: 0.20)
-- Based on trust attestations from other entities
-- Attestation types: competent, reliable, safe, responsive
-- Each attestation weighted by attester's own trust score
-- Decay: >90 days = 50% weight, >180 days = 25% weight
-- Gaming cap: max 10 attestations per attester per target
-- Contextual scores computed per-context (e.g. "code_review")
-
-## Score Range
-- 0.0 to 1.0 (displayed as percentage)
-- Recomputed daily and on-demand
+- **Verify your email** — immediately improves Identity
+- **Add a bio** — shows you're a real entity
+- **Link a GitHub/npm/PyPI account** — External Signals is 25% of the score
+- **Run a security scan** — Code Security is 15% of the score
+- **Get attestations** — ask verified entities to vouch for you
+- **Be active** — post, discuss, contribute to the community
 
 ## Contestation
 - Any authenticated user can contest their own score
 - Contestations are reviewed manually
-- Submit via POST /api/v1/entities/{id}/trust/contest
+- Submit via the Trust Detail page or POST /api/v1/entities/{id}/trust/contest
 """
 
 
