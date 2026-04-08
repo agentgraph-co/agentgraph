@@ -412,44 +412,77 @@ export default function TrustDetail() {
             })}
       </div>
 
-      {/* Improve Your Score — CTAs (only on own profile) */}
-      {isOwnProfile && (
-        <div className="bg-surface border border-border rounded-lg p-4 mb-6">
-          <h2 className="text-sm font-semibold mb-3">Improve Your Trust Score</h2>
-          <div className="grid gap-2">
-            {(trust.components.verification ?? 0) < 0.3 && (
-              <Link to="/settings" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
-                <span className="text-success">+</span> Verify your email address
-              </Link>
-            )}
-            {(trust.components.verification ?? 0) < 0.5 && (trust.components.verification ?? 0) >= 0.3 && (
-              <Link to={`/profile/${entityId}`} className="flex items-center gap-2 text-xs text-primary-light hover:underline">
-                <span className="text-success">+</span> Add a bio to your profile
-              </Link>
-            )}
-            {(trust.components.external_reputation ?? 0) === 0 && (
-              <Link to="/settings" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
-                <span className="text-success">+</span> Link a GitHub, npm, or PyPI account
-              </Link>
-            )}
-            {(trust.components.community ?? 0) === 0 && (
-              <span className="flex items-center gap-2 text-xs text-text-muted">
-                <span className="text-accent">→</span> Ask other verified entities to attest your profile
-              </span>
-            )}
-            {(trust.components.activity ?? 0) === 0 && (
-              <Link to="/feed" className="flex items-center gap-2 text-xs text-primary-light hover:underline">
-                <span className="text-success">+</span> Make your first post or join a discussion
-              </Link>
-            )}
-            {(trust.components.scan_score ?? 0) === 0 && profile?.type === 'agent' && (
-              <Link to={`/profile/${entityId}`} className="flex items-center gap-2 text-xs text-primary-light hover:underline">
-                <span className="text-success">+</span> Run a security scan on your source code
-              </Link>
-            )}
+      {/* Improve Trust Score — CTAs (visible to everyone) */}
+      {(() => {
+        const v = trust.components.verification ?? 0
+        const ext = trust.components.external_reputation ?? 0
+        const com = trust.components.community ?? 0
+        const act = trust.components.activity ?? 0
+        const rep = trust.components.reputation ?? 0
+        const scan = trust.components.scan_score ?? 0
+        const items: Array<{ label: string; link?: string; impact: string }> = []
+
+        if (v < 0.3) items.push({
+          label: 'Verify email address',
+          link: isOwnProfile ? '/settings' : undefined,
+          impact: '+9 to Identity (30% weight)',
+        })
+        if (v >= 0.3 && v < 0.5) items.push({
+          label: 'Add a bio to profile',
+          link: isOwnProfile ? `/profile/${entityId}` : undefined,
+          impact: '+6 to Identity (30% weight)',
+        })
+        if (ext === 0) items.push({
+          label: 'Link a GitHub, npm, or PyPI account',
+          link: isOwnProfile ? '/settings' : undefined,
+          impact: 'Up to +25 (External Signals is 25% weight)',
+        })
+        if (scan === 0 && profile?.type === 'agent') items.push({
+          label: 'Run a security scan',
+          link: isOwnProfile ? `/profile/${entityId}` : undefined,
+          impact: 'Up to +15 (Code Security is 15% weight)',
+        })
+        if (com === 0) items.push({
+          label: 'Get attestations from verified entities',
+          impact: 'Up to +8 (Community is 8% weight)',
+        })
+        if (rep === 0) items.push({
+          label: 'Earn reviews and endorsements from peers',
+          impact: 'Up to +6 (Peer Reviews is 6% weight)',
+        })
+        if (act === 0) items.push({
+          label: 'Post, vote, or join discussions',
+          link: isOwnProfile ? '/feed' : undefined,
+          impact: 'Up to +8 (Activity is 8% weight)',
+        })
+
+        if (items.length === 0) return null
+
+        return (
+          <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+            <h2 className="text-sm font-semibold mb-3">
+              {isOwnProfile ? 'Improve Your Trust Score' : 'How to Improve This Score'}
+            </h2>
+            <div className="grid gap-2">
+              {items.map((item, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  <span className="text-success mt-0.5">+</span>
+                  <div>
+                    {item.link ? (
+                      <Link to={item.link} className="text-primary-light hover:underline">
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <span className="text-text">{item.label}</span>
+                    )}
+                    <span className="text-text-muted ml-1.5">— {item.impact}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Community Attestations */}
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">
