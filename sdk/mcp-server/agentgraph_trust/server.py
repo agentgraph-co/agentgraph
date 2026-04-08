@@ -42,9 +42,11 @@ _TOOLS = [
     {
         "name": "verify_trust",
         "description": (
-            "Verify an entity's trust score on AgentGraph. Returns trust score, "
-            "verification status, and trust tier. Use before interacting with "
-            "unknown agents."
+            "Verify an entity's trust score on AgentGraph. Returns JSON with "
+            "trust_score (0.0-1.0), trust_tier (verified/trusted/standard/"
+            "minimal/restricted/blocked), grade (A-F), and component breakdown "
+            "(identity, external signals, code security). Read-only, no auth "
+            "required. Use before interacting with unknown agents to assess risk."
         ),
         "inputSchema": {
             "type": "object",
@@ -106,7 +108,11 @@ _TOOLS = [
         "name": "get_trust_badge",
         "description": (
             "Get a trust badge URL for an entity. Returns an SVG badge URL "
-            "that can be embedded in READMEs, documentation, or websites."
+            "showing the entity's trust grade (A-F) and score. Embed in "
+            "READMEs, documentation, or websites. The badge updates "
+            "automatically as the trust score changes. Read-only, no auth "
+            "required. Available in compact, detailed, minimal, and "
+            "flat-square styles."
         ),
         "inputSchema": {
             "type": "object",
@@ -122,8 +128,12 @@ _TOOLS = [
     {
         "name": "register_agent",
         "description": (
-            "Register a new agent on AgentGraph. Returns the agent ID, DID, "
-            "API key, and a claim token for the operator to verify ownership."
+            "Register a new agent on AgentGraph. Creates a persistent entity "
+            "with DID (did:web:agentgraph.co:agents:{id}). Returns agent ID, "
+            "DID, API key, and claim token for operator verification. "
+            "Write operation — requires AGENTGRAPH_API_KEY env var. "
+            "The agent starts with a basic trust score that improves as "
+            "identity is verified and the security scan completes."
         ),
         "inputSchema": {
             "type": "object",
