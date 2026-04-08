@@ -26,8 +26,10 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
+from src.database import get_db
 from src.signing import canonicalize, create_jws
 
 logger = logging.getLogger(__name__)
@@ -128,6 +130,7 @@ def _tier_meets_minimum(actual_tier: str, min_tier: str) -> bool:
 )
 async def gateway_check(
     request: GatewayCheckRequest,
+    db: AsyncSession = Depends(get_db),
 ) -> GatewayDecision:
     """Check trust tier for a tool and return an enforcement decision.
 
@@ -152,7 +155,7 @@ async def gateway_check(
     # Query the public scan API (uses cache internally)
     from src.api.public_scan_router import public_scan
     try:
-        scan_result = await public_scan(owner=owner, repo=repo)
+        scan_result = await public_scan(owner=owner, repo=repo, db=db)
     except HTTPException as e:
         # Scan failed — treat as blocked
         elapsed = (time.monotonic() - start) * 1000
