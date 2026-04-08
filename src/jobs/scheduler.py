@@ -558,19 +558,28 @@ async def _api_health_loop(interval: int = API_HEALTH_CHECK_INTERVAL) -> None:
 
 
 async def _security_scan_loop(interval: int = SECURITY_SCAN_INTERVAL) -> None:
-    """Job 19: Weekly security re-scan of agents with GitHub source URLs."""
+    """Job 19: Weekly security re-scan + public scan cache pre-refresh."""
     logger.info("Security scan task started (interval=%ds)", interval)
     while True:
         try:
             from src.database import async_session
-            from src.scanner.service import rescan_all_agents
+            from src.scanner.service import (
+                refresh_public_scan_cache,
+                rescan_all_agents,
+            )
 
+            # Part A: Re-scan agents not scanned in 7+ days
             async with async_session() as db:
                 scanned = await rescan_all_agents(db, limit=20)
             if scanned > 0:
                 logger.info("Security re-scan: %d agents scanned", scanned)
             else:
                 logger.debug("Security re-scan: no agents due for scan")
+
+            # Part B: Pre-refresh public scan cache for popular repos
+            refreshed = await refresh_public_scan_cache(limit=10)
+            if refreshed > 0:
+                logger.info("Public scan cache: %d repos pre-refreshed", refreshed)
         except Exception:
             logger.exception("Security re-scan failed")
         await asyncio.sleep(interval)

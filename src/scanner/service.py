@@ -234,6 +234,55 @@ async def rescan_all_agents(db: AsyncSession, limit: int = 20) -> int:
     return scanned
 
 
+async def refresh_public_scan_cache(limit: int = 10) -> int:
+    """Pre-refresh Redis cache for popular public scan repos.
+
+    Queries cached scan results that are about to expire (> 50 min old
+    from the 1-hour TTL) and re-scans them so the cache stays warm.
+    Called by the scheduler alongside the agent rescan loop.
+    """
+    try:
+        from src.redis_client import get_redis
+        from src.scanner.scan import scan_repo
+
+        r = await get_redis()
+        refreshed = 0
+
+        # Find cached public scan keys
+        keys: list[bytes] = []
+        async for key in r.scan_iter(match="ag:cache:public_scan:*"):
+            keys.append(key)
+
+        if not keys:
+            return 0
+
+        # Check TTL — refresh any with < 10 min remaining
+        for key in keys[:limit]:
+            ttl = await r.ttl(key)
+            if 0 < ttl < 600:  # less than 10 min remaining
+                # Extract repo name from key: ag:cache:public_scan:owner/repo
+                repo = key.decode().replace("ag:cache:public_scan:", "")
+                if "/" in repo:
+                    token = settings.github_token or settings.github_outreach_token
+                    try:
+                        await scan_repo(
+                            full_name=repo,
+                            stars=0,
+                            description="",
+                            framework="",
+                            token=token,
+                        )
+                        refreshed += 1
+                        logger.debug("Pre-refreshed public scan cache: %s", repo)
+                    except Exception:
+                        logger.debug("Failed to refresh cache for %s", repo)
+
+        return refreshed
+    except Exception:
+        logger.exception("Public scan cache refresh failed")
+        return 0
+
+
 def _extract_github_repo(source_url: str | None) -> str | None:
     """Extract 'owner/repo' from a GitHub URL."""
     if not source_url:
