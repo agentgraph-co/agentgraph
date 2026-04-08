@@ -2268,5 +2268,34 @@ class ReplyOpportunity(Base):
     )
 
 
+class WalletBinding(Base):
+    """Maps blockchain wallet addresses to entities for cross-provider lookup.
+
+    Used by the insumer multi-attestation WG: a single wallet address
+    resolves to an entity → linked accounts → source repos → scan data.
+    """
+
+    __tablename__ = "wallet_bindings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wallet_address = Column(String(255), nullable=False)
+    chain = Column(String(50), nullable=False)  # "ethereum", "solana", "base", etc.
+    entity_id = Column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        UniqueConstraint("wallet_address", "chain", name="uq_wallet_binding"),
+        Index("ix_wallet_binding_address", "wallet_address"),
+        Index("ix_wallet_binding_entity", "entity_id"),
+    )
+
+
 # Import marketing models so Alembic can discover them
 from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401
