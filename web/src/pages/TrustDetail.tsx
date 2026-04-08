@@ -8,9 +8,8 @@ import { useToast } from '../components/Toasts'
 import { timeAgo } from '../lib/formatters'
 import { ProfileSkeleton } from '../components/Skeleton'
 import SEOHead from '../components/SEOHead'
-import { computeDualTrust } from '../components/DualTrustScore'
-import { computeTier, progressToNextTier } from '../components/trust/trustTiers'
-import { getAttestationIcon, getCommunityIcon } from '../components/trust/TrustIcons'
+import TrustProfile from '../components/trust/TrustProfile'
+import { getGradeInfo } from '../components/trust/gradeSystem'
 
 interface TrustComponentDetail {
   raw: number
@@ -252,7 +251,6 @@ export default function TrustDetail() {
     return <div className="text-danger text-center mt-10">Trust data not found</div>
   }
 
-  const overallPct = (trust.score * 100).toFixed(1)
   const isOwnProfile = user?.id === entityId
 
   return (
@@ -267,9 +265,10 @@ export default function TrustDetail() {
         <span>Trust Score</span>
       </div>
 
-      {/* Dual Trust Display */}
+      {/* Trust Profile — unified 3-dimension display */}
       {(() => {
-        const dual = computeDualTrust(trust.components)
+        const score100 = Math.round(trust.score * 100)
+        const grade = getGradeInfo(score100)
         return (
           <div className="bg-surface border border-border rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -302,100 +301,33 @@ export default function TrustDetail() {
               </div>
             </div>
 
-            {/* Dual Trust Numbers — Tier Icons */}
-            {(() => {
-              const attScore = dual?.attestation ?? 0
-              const comScore = dual?.community ?? 0
-              const attTier = computeTier(attScore, 'attestation')
-              const comTier = computeTier(comScore, 'community')
-              const AttIcon = getAttestationIcon(attTier.level)
-              const ComIcon = getCommunityIcon(comTier.level)
-              const attProgress = progressToNextTier(attScore)
-              const comProgress = progressToNextTier(comScore)
-
-              return (
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-background rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span style={{ color: attTier.color }}>
-                        <AttIcon size={20} />
-                      </span>
-                      <span className="text-xs text-text-muted uppercase tracking-wider">Attestation Trust</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-3xl font-bold" style={{ color: attTier.color }}>
-                        {dual?.attestation ?? '--'}
-                      </span>
-                      <span className="text-xs font-medium" style={{ color: attTier.color }}>
-                        {attTier.label}
-                      </span>
-                    </div>
-                    <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${dual?.attestation ?? 0}%`, background: attTier.gradient ?? attTier.color }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <p className="text-[10px] text-text-muted">Verified credentials, identity, account age</p>
-                      {attProgress != null && attTier.nextThreshold != null && (
-                        <span className="text-[9px] text-text-muted">{attProgress}% to {attTier.nextThreshold}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span style={{ color: comTier.color }}>
-                        <ComIcon size={20} />
-                      </span>
-                      <span className="text-xs text-text-muted uppercase tracking-wider">Community Trust</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-3xl font-bold" style={{ color: comTier.color }}>
-                        {dual?.community ?? '--'}
-                      </span>
-                      <span className="text-xs font-medium" style={{ color: comTier.color }}>
-                        {comTier.label}
-                      </span>
-                    </div>
-                    <div className="bg-surface rounded-full h-2 overflow-hidden mt-2">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${dual?.community ?? 0}%`, background: comTier.gradient ?? comTier.color }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <p className="text-[10px] text-text-muted">Activity, peer reviews, attestations</p>
-                      {comProgress != null && comTier.nextThreshold != null && (
-                        <span className="text-[9px] text-text-muted">{comProgress}% to {comTier.nextThreshold}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
-
-            {/* Divergence warning */}
-            {dual?.divergent && (
-              <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 mb-2">
-                <span className="text-warning text-sm font-bold">!</span>
-                <span className="text-xs text-warning">
-                  Attestation and Community trust diverge significantly. This may indicate the entity looks different on paper than in practice.
-                </span>
+            {/* Overall grade hero — THE number */}
+            <div className="flex items-center gap-4 mb-4 pb-4 border-b border-border">
+              <div
+                className={`w-20 h-20 rounded-xl flex items-center justify-center font-black text-4xl ${grade.bgClass}`}
+                style={{ color: grade.color }}
+              >
+                {grade.grade}
               </div>
-            )}
-
-            {/* Overall composite */}
-            <div className="flex items-center gap-2 text-xs text-text-muted pt-2 border-t border-border">
-              <span>Composite Score:</span>
-              <span className="font-semibold text-text">{overallPct}%</span>
-              <div className="flex-1 bg-background rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all bg-gradient-to-r from-accent to-primary"
-                  style={{ width: `${overallPct}%` }}
-                />
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-text-primary">{score100}</span>
+                  <span className="text-sm text-text-muted">/ 100</span>
+                </div>
+                <p className="text-sm font-medium" style={{ color: grade.color }}>{grade.label}</p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  This is the overall trust score shown in badges and rankings
+                </p>
               </div>
             </div>
+
+            {/* 3-dimension breakdown */}
+            <TrustProfile
+              components={trust.components}
+              overallScore={trust.score}
+              entityId={entityId}
+              hasSecurityScan={profile?.type === 'agent'}
+            />
           </div>
         )
       })()}
@@ -662,28 +594,30 @@ export default function TrustDetail() {
       <div className="bg-surface border border-border rounded-lg p-4">
         <h3 className="text-xs text-text-muted uppercase tracking-wider mb-2">How Trust Scores Work</h3>
         {methodology ? (
-          <pre className="text-xs text-text-muted leading-relaxed whitespace-pre-wrap font-sans">
+          <div className="text-xs text-text-muted leading-relaxed whitespace-pre-wrap">
             {methodology.methodology}
-          </pre>
+          </div>
         ) : (
           <div className="text-xs text-text-muted leading-relaxed space-y-2">
             <p>
-              Every entity on AgentGraph has two trust dimensions:
+              Every entity on AgentGraph has an overall trust grade (A+ through F) computed from three dimensions:
             </p>
             <p>
-              <strong className="text-accent">Attestation Trust</strong> — "Who vouches for this entity?" Based on{' '}
-              <strong>Verification</strong> (35%) — email, DID, and attestation status, and{' '}
-              <strong>Account Age</strong> (10%) — time since registration (up to 1 year).
+              <strong className="text-accent">Identity</strong> — Is this entity who they claim to be?
+              Based on email verification, profile completeness, operator linkage, external account connections, and account age.
             </p>
             <p>
-              <strong className="text-primary-light">Community Trust</strong> — "What is it like to interact with this entity?" Based on{' '}
-              <strong>Activity</strong> (20%) — recent posts and votes (log-scaled);{' '}
-              <strong>Peer Reviews</strong> (15%) — review ratings and endorsements;{' '}
-              <strong>Community</strong> (20%) — trust attestations from other entities.
+              <strong className="text-green-500">Code Security</strong> — Is their source code safe?
+              Static analysis scanning for hardcoded secrets, unsafe execution patterns, data exfiltration, and filesystem access.
+              Each category gets its own sub-grade. Only applies to agents with scanned source code.
             </p>
             <p>
-              When the two scores diverge significantly, a warning indicator appears — high attestation but low community trust
-              may mean an entity looks good on paper but underperforms in practice.
+              <strong className="text-primary-light">Community Trust</strong> — Do other verified entities vouch for them?
+              Based on trust attestations (competent, reliable, safe, responsive), peer review ratings, endorsements, and activity level.
+            </p>
+            <p>
+              The overall grade is a weighted composite of these three dimensions. The same grade appears in README badges, feed listings, and profile pages.
+              New users see an onboarding checklist until enough signal exists for a meaningful grade.
             </p>
           </div>
         )}
