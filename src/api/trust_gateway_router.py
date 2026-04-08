@@ -45,16 +45,28 @@ class GatewayCheckRequest(BaseModel):
     context: str | None = None  # optional context (e.g. "data_analysis")
 
 
+class ExternalSignal(BaseModel):
+    """A trust signal from an external provider."""
+    provider: str
+    type: str
+    score: float | None = None
+    tier: str | None = None
+    verified: bool = False
+    error: str | None = None
+
+
 class GatewayDecision(BaseModel):
     """Enforcement decision returned by the gateway."""
     allowed: bool
     repo: str
-    trust_score: int
+    trust_score: int  # security scan score (0-100)
     trust_tier: str
     grade: str  # A+/A/B/C/D/F
     decision_reason: str
     recommended_limits: dict
     category_scores: dict = {}
+    # External provider signals (aggregated)
+    external_signals: list[ExternalSignal] = []
     # Signed decision for audit trail
     jws: str | None = None
     checked_at: str
@@ -166,6 +178,23 @@ async def gateway_check(
     limits = scan_result.recommended_limits.dict()
     category_scores = scan_result.category_scores or {}
 
+    # Query external providers in parallel (best-effort, short timeout)
+    external_signals: list[ExternalSignal] = []
+    try:
+        from src.trust.external_providers import query_all_providers
+        attestations = await query_all_providers(request.repo)
+        for att in attestations:
+            external_signals.append(ExternalSignal(
+                provider=att.provider_name,
+                type=att.attestation_type,
+                score=att.score,
+                tier=att.tier,
+                verified=att.verified,
+                error=att.error,
+            ))
+    except Exception:
+        pass  # Best-effort — don't block the decision on external failures
+
     # Enforcement decision
     allowed = _tier_meets_minimum(tier, request.min_tier)
     reason = f"Tier {tier} meets minimum {request.min_tier}" if allowed else (
@@ -205,6 +234,7 @@ async def gateway_check(
         decision_reason=reason,
         recommended_limits=limits,
         category_scores=category_scores,
+        external_signals=external_signals,
         jws=jws,
         checked_at=datetime.now(timezone.utc).isoformat(),
         check_ms=round(elapsed, 1),
