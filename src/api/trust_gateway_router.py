@@ -70,6 +70,7 @@ class GatewayCheckRequest(BaseModel):
     action: str = "execute"  # what the agent wants to do
     min_tier: str = "standard"  # minimum acceptable tier
     context: str | None = None  # optional context (e.g. "data_analysis")
+    include_external: bool = False  # opt-in: query external providers (adds latency)
 
 
 class ExternalSignal(BaseModel):
@@ -209,22 +210,23 @@ async def gateway_check(
     limits = scan_result.recommended_limits.dict()
     category_scores = scan_result.category_scores or {}
 
-    # Query external providers in parallel (best-effort, short timeout)
+    # Query external providers only if opted in (adds 10-30s latency)
     external_signals: list[ExternalSignal] = []
-    try:
-        from src.trust.external_providers import query_all_providers
-        attestations = await query_all_providers(request.repo)
-        for att in attestations:
-            external_signals.append(ExternalSignal(
-                provider=att.provider_name,
-                type=att.attestation_type,
-                score=att.score,
-                tier=att.tier,
-                verified=att.verified,
-                error=att.error,
-            ))
-    except Exception:
-        pass  # Best-effort — don't block the decision on external failures
+    if request.include_external:
+        try:
+            from src.trust.external_providers import query_all_providers
+            attestations = await query_all_providers(request.repo)
+            for att in attestations:
+                if att.error is None:  # Only include successful results
+                    external_signals.append(ExternalSignal(
+                        provider=att.provider_name,
+                        type=att.attestation_type,
+                        score=att.score,
+                        tier=att.tier,
+                        verified=att.verified,
+                    ))
+        except Exception:
+            pass  # Best-effort
 
     # Enforcement decision
     allowed = _tier_meets_minimum(tier, request.min_tier)
