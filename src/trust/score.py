@@ -305,9 +305,10 @@ async def _external_reputation_factor(
         if signals:
             return _source_reputation_score(signals) * 0.70
 
-        # Baseline: source-verified = 0.35 (confirmed real source URL)
-        # This rewards having an actual codebase over nothing.
-        return 0.35
+        # Baseline: source-verified = 0.60 (confirmed real source URL)
+        # The import process verified the repo exists and pulled data.
+        # That's a real signal worth more than nothing.
+        return 0.60
 
     return 0.0
 

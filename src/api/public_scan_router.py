@@ -90,7 +90,8 @@ class ScanMetadata(BaseModel):
 
 class PublicScanResponse(BaseModel):
     repo: str
-    trust_score: int
+    trust_score: int  # Security scan score (0-100) — code-level analysis only
+    security_score: int = 0  # Alias for trust_score (clearer naming)
     trust_tier: str
     recommended_limits: RecommendedLimits
     scan_result: str  # clean, warnings, critical, error
@@ -104,6 +105,11 @@ class PublicScanResponse(BaseModel):
     algorithm: str = "EdDSA"
     key_id: str = KID
     jwks_url: str = "https://agentgraph.co/.well-known/jwks.json"
+    score_note: str = (
+        "trust_score is the security scan score (code analysis only). "
+        "For full entity trust including identity and external signals, "
+        "use the gateway: POST /api/v1/gateway/check"
+    )
     # Proxy gateway hint
     gateway_info: dict = {
         "status": "available",
@@ -339,6 +345,7 @@ async def public_scan(
             return PublicScanResponse(
                 repo=full_name,
                 trust_score=cached["trust_score"],
+                security_score=cached["trust_score"],
                 trust_tier=cached["trust_tier"],
                 recommended_limits=RecommendedLimits(**cached["recommended_limits"]),
                 scan_result=cached["scan_result"],
@@ -386,6 +393,7 @@ async def public_scan(
     return PublicScanResponse(
         repo=full_name,
         trust_score=data["trust_score"],
+        security_score=data["trust_score"],
         trust_tier=data["trust_tier"],
         recommended_limits=RecommendedLimits(**data["recommended_limits"]),
         scan_result=data["scan_result"],
