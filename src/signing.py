@@ -4,11 +4,18 @@ AgentGraph signs security attestations as a platform-level issuer.
 The private key is loaded from ATTESTATION_SIGNING_KEY_ED25519 (base64
 encoded 32-byte seed).  In debug mode a transient key is generated if
 the env var is absent.
+
+Payload canonicalization follows JCS (RFC 8785): sorted keys, no
+whitespace, integer-valued floats without decimal (1.0 → 1), null
+values stripped.  This ensures byte-identical serialization across
+Python and TypeScript runtimes.
 """
 from __future__ import annotations
 
 import base64
+import json
 import logging
+import math
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -72,6 +79,40 @@ def get_jwk() -> dict:
 def sign_payload(payload_bytes: bytes) -> bytes:
     """Sign *payload_bytes* with Ed25519, return 64-byte raw signature."""
     return get_signing_key().sign(payload_bytes)
+
+
+def canonicalize(payload: dict) -> bytes:
+    """Serialize *payload* to canonical JSON bytes (JCS-compatible).
+
+    Sorted keys, no whitespace, integer-valued floats without decimal,
+    null values stripped.  Matches APS interop fixtures for cross-language
+    verification (Python json.dumps(1.0)='1.0' vs JS JSON.stringify(1.0)='1').
+    """
+    cleaned = _normalize_for_jcs(payload)
+    return json.dumps(
+        cleaned, sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+
+def _normalize_for_jcs(obj: object) -> object:
+    """Recursively normalize a Python object for JCS serialization.
+
+    - Strip keys with None values
+    - Convert integer-valued floats to int (1.0 → 1)
+    - Reject Inf/NaN
+    """
+    if isinstance(obj, dict):
+        return {
+            k: _normalize_for_jcs(v) for k, v in obj.items() if v is not None
+        }
+    if isinstance(obj, list):
+        return [_normalize_for_jcs(item) for item in obj]
+    if isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            raise ValueError(f"Cannot canonicalize {obj}")
+        if obj == int(obj):
+            return int(obj)
+    return obj
 
 
 def create_jws(payload_bytes: bytes) -> str:

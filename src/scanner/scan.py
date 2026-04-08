@@ -16,6 +16,7 @@ import httpx
 from src.scanner.patterns import (
     AUTH_POSITIVE_PATTERNS,
     EXFILTRATION_PATTERNS,
+    EXTENSIONLESS_SCAN_FILES,
     FS_ACCESS_PATTERNS,
     OBFUSCATION_PATTERNS,
     SECRET_PATTERNS,
@@ -101,7 +102,11 @@ def _should_skip_path(path: str) -> bool:
 def _is_source_file(path: str) -> bool:
     """Check if a file should be scanned for source patterns."""
     ext = Path(path).suffix.lower()
-    return ext in SOURCE_EXTENSIONS
+    if ext in SOURCE_EXTENSIONS:
+        return True
+    # Check extensionless files by name (Dockerfile, Makefile, etc.)
+    filename = Path(path).name
+    return filename in EXTENSIONLESS_SCAN_FILES
 
 
 def _redact_secret(line: str, match: re.Match) -> str:  # type: ignore[type-arg]
@@ -365,8 +370,9 @@ def _scan_content(
             continue
 
         # --- Option 1: Inline suppression ---
-        # If the line contains "ag-scan:ignore", skip all pattern checks
-        # but count it — excessive suppression is suspicious
+        # If the line contains "ag-scan:ignore", skip pattern checks but
+        # count it — excessive suppression is suspicious.
+        # Track the line for severity-weighted penalty calculation later.
         if _SUPPRESSION_COMMENT in line:
             suppressed_count += 1
             continue
@@ -471,10 +477,19 @@ def _scan_content(
                 ))
                 break
 
-    # Check positive signals (once per file, not per line)
-    for name, pattern in AUTH_POSITIVE_PATTERNS:
-        if pattern.search(content):
-            positives.append(name)
+    # Check positive signals per-line, skipping comments and examples
+    # (same filtering as negative patterns to prevent comment-trick gaming)
+    for line in lines:
+        stripped_pos = line.strip()
+        if not stripped_pos:
+            continue
+        if stripped_pos.startswith(("#", "//", "*", "/*")):
+            continue
+        if "example" in stripped_pos.lower() or "placeholder" in stripped_pos.lower():
+            continue
+        for name, pattern in AUTH_POSITIVE_PATTERNS:
+            if pattern.search(stripped_pos):
+                positives.append(name)
 
     return findings, positives, suppressed_count
 
@@ -523,12 +538,14 @@ def _calculate_trust_score(result: ScanResult) -> int:
     if result.has_tests:
         score += 5
 
-    # Penalty for excessive inline suppression (gaming deterrent)
-    # First 10 are free (legitimate false-positive suppression).
-    # After that, -2 per suppression — heavy suppression is suspicious.
-    if result.suppressed_count > 10:
-        excess = result.suppressed_count - 10
-        score -= excess * 2
+    # Penalty for inline suppression (gaming deterrent)
+    # First 3 are free (legitimate false-positive suppression).
+    # After that, -3 per suppression — even moderate suppression is suspicious.
+    # Rationale: hiding a critical saves 15pts but costs 3pts — still net positive
+    # for the attacker, but much less favorable than the old 10-free / -2 scheme.
+    if result.suppressed_count > 3:
+        excess = result.suppressed_count - 3
+        score -= excess * 3
 
     return max(0, min(100, score))
 

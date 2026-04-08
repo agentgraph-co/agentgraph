@@ -56,20 +56,20 @@ CONTEXT_BLEND_CONTEXTUAL_WEIGHT = 0.30
 
 
 def _verification_factor(entity: Entity) -> float:
-    """0.0 (unverified) to 1.0 (fully verified)."""
+    """0.0 (unverified) to 1.0 (fully verified). Additive — each verification stacks."""
     score = 0.0
     # Source-verified imports get a floor of 0.15
     if getattr(entity, "source_verified_at", None) is not None:
-        score = 0.15
+        score += 0.15
     if entity.email_verified:
-        score = max(score, 0.3)
+        score += 0.3
     # Profile completeness: has bio + display_name
     if entity.bio_markdown and len(entity.bio_markdown.strip()) > 0:
-        score = max(score, 0.5)
+        score += 0.2
     # Operator-linked agent gets higher base
     if entity.operator_id is not None:
-        score = max(score, 0.7)
-    return score
+        score += 0.25
+    return min(score, 1.0)
 
 
 def _age_factor(entity: Entity) -> float:
@@ -203,7 +203,7 @@ async def _community_factor(
     context_sums: dict[str, float] = {}
 
     for att in filtered:
-        w = att.weight or 0.5
+        w = att.weight if att.weight is not None else 0.5
         created = att.created_at
         if created and created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
@@ -731,7 +731,7 @@ def _compute_community_from_attestations(
     context_sums: dict[str, float] = {}
 
     for att in filtered:
-        w = att.weight or 0.5
+        w = att.weight if att.weight is not None else 0.5
         created = att.created_at
         if created and created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)

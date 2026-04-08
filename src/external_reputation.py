@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 VERIFICATION_WEIGHTS = {
     "verified_oauth": 1.0,
     "verified_challenge": 0.85,
-    "unverified_claim": 0.40,
+    "unverified_claim": 0.0,
     "pending": 0.0,
 }
 

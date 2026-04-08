@@ -10,7 +10,6 @@ Endpoints:
 """
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -19,7 +18,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from src.api.rate_limit import rate_limit_reads
-from src.signing import KID, create_jws
+from src.signing import KID, canonicalize, create_jws
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +127,14 @@ async def _set_cached(owner: str, repo: str, data: dict) -> None:
 
 
 def _build_scan_payload(repo: str, result_data: dict) -> dict:
-    """Build the JWS attestation payload for a public scan."""
+    """Build the JWS attestation payload for a public scan.
+
+    Timestamps follow the insumer WG convention:
+    - scannedAt: when the security analysis actually ran (evidence freshness)
+    - issuedAt:  when this JWS attestation was minted (signature freshness)
+    - expiresAt: when the attestation expires (24h TTL)
+    Consumers can diff scannedAt vs issuedAt to assess evidence staleness.
+    """
     now = datetime.now(timezone.utc)
     return {
         "@context": "https://schema.agentgraph.co/attestation/security/v1",
@@ -142,6 +148,7 @@ def _build_scan_payload(repo: str, result_data: dict) -> dict:
             "id": f"github:{repo}",
             "repo": repo,
         },
+        "scannedAt": result_data.get("scanned_at", now.isoformat()),
         "issuedAt": now.isoformat(),
         "expiresAt": (now + timedelta(hours=24)).isoformat(),
         "scan": {
@@ -240,9 +247,7 @@ async def public_scan(
         if cached:
             # Re-sign (attestation expires, so sign fresh)
             payload = _build_scan_payload(full_name, cached)
-            payload_bytes = json.dumps(
-                payload, sort_keys=True, separators=(",", ":"),
-            ).encode()
+            payload_bytes = canonicalize(payload)
             jws = create_jws(payload_bytes)
 
             return PublicScanResponse(
@@ -286,11 +291,9 @@ async def public_scan(
     data = _scan_result_to_dict(result)
     await _set_cached(owner, repo, data)
 
-    # Sign
+    # Sign (JCS-canonical payload for cross-implementation verification)
     payload = _build_scan_payload(full_name, data)
-    payload_bytes = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"),
-    ).encode()
+    payload_bytes = canonicalize(payload)
     jws = create_jws(payload_bytes)
 
     return PublicScanResponse(

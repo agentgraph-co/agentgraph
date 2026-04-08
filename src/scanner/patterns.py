@@ -291,4 +291,16 @@ SOURCE_EXTENSIONS = frozenset({
     ".sh", ".bash", ".zsh",
     ".yaml", ".yml", ".toml", ".json", ".env",
     ".cfg", ".ini", ".conf",
+    # Additional languages and formats with executable content
+    ".php", ".pl", ".pm", ".lua", ".r", ".scala", ".groovy",
+    ".swift", ".m", ".ps1", ".bat", ".cmd", ".vbs",
+    ".html", ".htm", ".xml", ".svg",  # can contain inline scripts
+    ".ipynb",  # Jupyter notebooks contain executable code
+})
+
+# Extensionless files that should always be scanned
+EXTENSIONLESS_SCAN_FILES = frozenset({
+    "Dockerfile", "Makefile", "Rakefile", "Gemfile",
+    "Vagrantfile", "Procfile", "Brewfile",
+    "Jenkinsfile", "Snakefile",
 })

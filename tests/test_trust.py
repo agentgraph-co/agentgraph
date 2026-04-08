@@ -44,12 +44,22 @@ def test_verification_email_verified():
 
 def test_verification_profile_complete():
     entity = _make_entity(bio_markdown="I am a developer")
-    assert _verification_factor(entity) == 0.5
+    # Additive: bio only = 0.2
+    assert _verification_factor(entity) == 0.2
 
 
 def test_verification_operator_linked():
     entity = _make_entity(operator_id=uuid.uuid4())
-    assert _verification_factor(entity) == 0.7
+    # Additive: operator only = 0.25
+    assert _verification_factor(entity) == 0.25
+
+
+def test_verification_additive_stacks():
+    """Email + bio + operator should stack additively."""
+    entity = _make_entity(email_verified=True, bio_markdown="I am a developer",
+                          operator_id=uuid.uuid4())
+    # 0.3 (email) + 0.2 (bio) + 0.25 (operator) = 0.75
+    assert _verification_factor(entity) == 0.75
 
 
 # --- Age factor ---

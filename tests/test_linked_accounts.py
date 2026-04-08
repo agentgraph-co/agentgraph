@@ -105,5 +105,5 @@ def test_verification_weights():
 
     assert VERIFICATION_WEIGHTS["verified_oauth"] == 1.0
     assert VERIFICATION_WEIGHTS["verified_challenge"] == 0.85
-    assert VERIFICATION_WEIGHTS["unverified_claim"] == 0.40
+    assert VERIFICATION_WEIGHTS["unverified_claim"] == 0.0
     assert VERIFICATION_WEIGHTS["pending"] == 0.0

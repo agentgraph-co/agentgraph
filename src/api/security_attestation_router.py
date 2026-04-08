@@ -1,7 +1,6 @@
 """Signed security posture attestations (A2A trust.signals[] compatible)."""
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -14,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import Entity, FrameworkSecurityScan, TrustScore
-from src.signing import KID, create_jws
+from src.signing import KID, canonicalize, create_jws
 
 logger = logging.getLogger(__name__)
 
@@ -128,11 +127,11 @@ def _build_payload(
             "entity_id": str(entity.id),
             "display_name": entity.display_name,
         },
+        "scannedAt": scan.scanned_at.isoformat() if scan.scanned_at else now.isoformat(),
         "issuedAt": now.isoformat(),
         "expiresAt": (now + timedelta(hours=24)).isoformat(),
         "scan": {
             "result": scan.scan_result,
-            "scannedAt": scan.scanned_at.isoformat() if scan.scanned_at else now.isoformat(),
             "framework": scan.framework,
             "trustScore": vulns.get("trust_score", 0) if isinstance(vulns, dict) else 0,
             "findings": {
@@ -212,7 +211,7 @@ async def get_security_attestation(
 
     # Build & sign as compact JWS (RFC 7515)
     payload = _build_payload(entity, scan, trust)
-    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    payload_bytes = canonicalize(payload)
     jws = create_jws(payload_bytes)
 
     return SecurityAttestationResponse(
