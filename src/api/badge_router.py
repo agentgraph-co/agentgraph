@@ -64,28 +64,39 @@ _BRAND_TEAL_BRIGHT = "#2DD4BF"
 
 
 def _trust_tier_color(score: float) -> str:
-    """Return a hex color based on trust score tier.
+    """Return a hex color based on unified A-F grade system.
 
-    Uses AgentGraph brand palette from design tokens.
+    Matches the frontend gradeSystem.ts and TrustProfile component.
+    Score is 0.0-1.0, mapped to the same thresholds as 0-100.
     """
-    if score >= 0.8:
-        return _BRAND_TEAL_BRIGHT  # tier-3 — bright teal, highly trusted
-    if score >= 0.6:
-        return _BRAND_TEAL  # tier-2 — primary teal, trusted
-    if score >= 0.3:
-        return "#F59E0B"  # tier-1 — amber, emerging
-    return "#6C7086"  # tier-0 — muted gray, unverified
+    s = score * 100
+    if s >= 96:
+        return "#14B8A6"  # A+ — teal-500 (Exceptional)
+    if s >= 81:
+        return _BRAND_TEAL_BRIGHT  # A — teal-400 (Trusted)
+    if s >= 61:
+        return "#22C55E"  # B — green-500 (Good)
+    if s >= 41:
+        return "#F59E0B"  # C — amber-500 (Fair)
+    if s >= 21:
+        return "#F97316"  # D — orange-500 (Caution)
+    return "#EF4444"  # F — red-500 (Fail)
 
 
 def _trust_tier_label(score: float) -> str:
-    """Return a human-readable trust tier label."""
-    if score >= 0.8:
-        return "Trusted"
-    if score >= 0.6:
-        return "Verified"
-    if score >= 0.3:
-        return "Emerging"
-    return "New"
+    """Return a letter grade + label matching the unified grade system."""
+    s = score * 100
+    if s >= 96:
+        return "A+"
+    if s >= 81:
+        return "A"
+    if s >= 61:
+        return "B"
+    if s >= 41:
+        return "C"
+    if s >= 21:
+        return "D"
+    return "F"
 
 
 def _status_text(has_operator: bool, is_provisional: bool) -> str:

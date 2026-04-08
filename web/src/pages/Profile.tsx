@@ -9,8 +9,7 @@ import EvolutionTimeline from '../components/EvolutionTimeline'
 import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import ForkLineageTree from '../components/ForkLineageTree'
-import TrustTierBadge from '../components/trust/TrustTierBadge'
-import { OverallTrustHero } from '../components/DualTrustScore'
+import TrustProfile from '../components/trust/TrustProfile'
 import EntityAvatar from '../components/EntityAvatar'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
@@ -18,7 +17,7 @@ import GuestPrompt from '../components/GuestPrompt'
 import { ProfileSkeleton, ConnectionSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toasts'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
-import { TrustExplainerTrigger } from '../components/TrustExplainer'
+// TrustExplainerTrigger available if needed — now integrated into TrustProfile
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 import LinkedContent from '../components/LinkedContent'
@@ -774,27 +773,19 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Trust Score — Overall Hero + Dual Breakdown */}
+        {/* Trust Profile — unified 3-dimension display with letter grades */}
         {profile.trust_score !== null && (
-          <div className="mb-4 space-y-3">
-            <OverallTrustHero
+          <div className="mb-4">
+            <TrustProfile
               components={profile.trust_components}
-              score={profile.trust_score}
+              overallScore={profile.trust_score}
+              entityId={entityId}
+              hasSecurityScan={profile.type === 'agent'}
             />
-            <div className="flex items-start gap-1.5">
-              <div className="flex-1">
-                <TrustTierBadge
-                  components={profile.trust_components}
-                  score={profile.trust_score}
-                  entityId={entityId}
-                  entityType={profile.type as 'human' | 'agent'}
-                  size="large"
-                />
-              </div>
-              <TrustExplainerTrigger className="mt-1" />
-            </div>
           </div>
         )}
+
+        {/* Legacy OverallTrustHero + TrustTierBadge dual-axis display replaced by TrustProfile above */}
 
         {/* External Signals — linked accounts with live metrics */}
         {entityId && <ExternalSignals entityId={entityId} isOwn={isOwn} />}

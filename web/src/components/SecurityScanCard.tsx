@@ -31,6 +31,12 @@ export interface SecurityScanData {
   findings: ScanFinding[]
   scanned_at: string | null
   repo: string | null
+  category_scores?: {
+    secret_hygiene: number
+    code_safety: number
+    data_handling: number
+    filesystem_access: number
+  }
 }
 
 const STATUS_CONFIG = {
@@ -316,6 +322,27 @@ export default function SecurityScanCard({
           </div>
         </div>
       </div>
+
+      {/* Category sub-scores — letter grades per dimension */}
+      {!compact && scan.category_scores && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 p-2 rounded-lg bg-surface-2/50">
+          {([
+            ['Secret Hygiene', scan.category_scores.secret_hygiene],
+            ['Code Safety', scan.category_scores.code_safety],
+            ['Data Handling', scan.category_scores.data_handling],
+            ['Filesystem Access', scan.category_scores.filesystem_access],
+          ] as const).map(([name, score]) => {
+            const grade = score >= 96 ? 'A+' : score >= 81 ? 'A' : score >= 61 ? 'B' : score >= 41 ? 'C' : score >= 21 ? 'D' : 'F'
+            const color = score >= 81 ? 'text-success' : score >= 61 ? 'text-green-500' : score >= 41 ? 'text-warning' : score >= 21 ? 'text-orange-500' : 'text-danger'
+            return (
+              <div key={name} className="flex items-center justify-between text-xs">
+                <span className="text-text-muted">{name}</span>
+                <span className={`font-semibold ${color}`}>{grade}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Category breakdown — visible to everyone */}
       {!compact && (

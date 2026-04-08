@@ -32,14 +32,19 @@ BADGE_PADDING = 10
 
 
 def _trust_tier_color(score: float) -> tuple[str, str]:
-    """Return (hex_color, tier_label) based on trust score."""
-    if score >= 0.8:
-        return "#2196F3", "high"
-    if score >= 0.6:
-        return "#4CAF50", "good"
-    if score >= 0.3:
-        return "#FFC107", "moderate"
-    return "#F44336", "low"
+    """Return (hex_color, grade_label) matching unified A-F grade system."""
+    s = score * 100
+    if s >= 96:
+        return "#14B8A6", "A+"
+    if s >= 81:
+        return "#2DD4BF", "A"
+    if s >= 61:
+        return "#22C55E", "B"
+    if s >= 41:
+        return "#F59E0B", "C"
+    if s >= 21:
+        return "#F97316", "D"
+    return "#EF4444", "F"
 
 
 def _render_embed_badge_svg(
