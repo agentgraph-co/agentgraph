@@ -284,9 +284,6 @@ async def _external_reputation_factor(
     )
     accounts = result.scalars().all()
 
-    if not accounts:
-        return 0.0
-
     total = 0.0
     count = 0
     for acct in accounts:
@@ -295,7 +292,24 @@ async def _external_reputation_factor(
             total += acct.reputation_score * weight
             count += 1
 
-    return total / count if count > 0 else 0.0
+    if count > 0:
+        return total / count
+
+    # Fallback: for source-verified entities (imported from GitHub/npm/etc.),
+    # give baseline external reputation — they have a real source URL even
+    # if community signals weren't persisted during import.
+    entity = await db.get(Entity, entity_id)
+    if entity and getattr(entity, "source_verified_at", None) is not None:
+        # Check for community signals (if stored)
+        signals = getattr(entity, "community_signals", None) or {}
+        if signals:
+            return _source_reputation_score(signals) * 0.70
+
+        # Baseline: source-verified = 0.35 (confirmed real source URL)
+        # This rewards having an actual codebase over nothing.
+        return 0.35
+
+    return 0.0
 
 
 def _source_reputation_score(community_signals: dict) -> float:
