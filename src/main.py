@@ -197,6 +197,41 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
         await start_scheduler(settings.trust_recompute_interval_seconds)
 
+    # Startup: recompute all trust scores (ensures scores reflect latest weights)
+    try:
+        import asyncio as _aio
+
+        from src.database import async_session as _as
+        from src.trust.score import compute_trust_score as _cts
+
+        async def _startup_recompute() -> None:
+            from sqlalchemy import select
+
+            from src.models import Entity
+
+            async with _as() as db:
+                eids = (await db.execute(
+                    select(Entity.id).where(Entity.is_active.is_(True))
+                )).scalars().all()
+            recomputed = 0
+            for eid in eids:
+                try:
+                    async with _as() as db:
+                        await _cts(db, eid)
+                        await db.commit()
+                        recomputed += 1
+                except Exception:
+                    pass
+            logging.getLogger(__name__).info(
+                "Startup trust recompute: %d/%d entities", recomputed, len(eids),
+            )
+
+        _aio.create_task(_startup_recompute())
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Startup trust recompute skipped", exc_info=True,
+        )
+
     # Start Bluesky Jetstream subscriber for AI Agent News feed
     if getattr(settings, "bluesky_feed_enabled", False):
         import asyncio

@@ -32,6 +32,31 @@ from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.signing import canonicalize, create_jws
 
+# ── Usage Metrics (Redis-backed counters) ──
+
+_METRICS_PREFIX = "gw:metrics:"
+
+
+async def _increment_metric(key: str, amount: int = 1) -> None:
+    """Increment a Redis counter for gateway metrics."""
+    try:
+        from src.redis_client import get_redis
+        r = get_redis()
+        await r.incrby(f"{_METRICS_PREFIX}{key}", amount)
+    except Exception:
+        pass
+
+
+async def _get_metric(key: str) -> int:
+    """Get a Redis counter value."""
+    try:
+        from src.redis_client import get_redis
+        r = get_redis()
+        val = await r.get(f"{_METRICS_PREFIX}{key}")
+        return int(val) if val else 0
+    except Exception:
+        return 0
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gateway", tags=["trust-gateway"])
@@ -147,6 +172,9 @@ async def gateway_check(
     """
     start = time.monotonic()
 
+    # Track metrics
+    await _increment_metric("checks:total")
+
     # Parse owner/repo
     if "/" not in request.repo:
         raise HTTPException(400, "repo must be in owner/repo format")
@@ -213,6 +241,11 @@ async def gateway_check(
                 break
 
     # Sign the decision for audit trail
+    # Track decision metrics
+    await _increment_metric(f"decisions:{'allowed' if allowed else 'blocked'}")
+    await _increment_metric(f"tiers:{tier}")
+    await _increment_metric(f"grades:{grade}")
+
     decision_payload = {
         "type": "GatewayDecision",
         "repo": request.repo,
@@ -260,6 +293,23 @@ async def gateway_stats() -> dict:
     # - checks by decision (allowed/blocked)
     # - average latency
     # - top repos checked
+    # Fetch live metrics
+    total = await _get_metric("checks:total")
+    allowed = await _get_metric("decisions:allowed")
+    blocked = await _get_metric("decisions:blocked")
+
+    tier_counts = {}
+    for t in TIER_ORDER:
+        c = await _get_metric(f"tiers:{t}")
+        if c > 0:
+            tier_counts[t] = c
+
+    grade_counts = {}
+    for g in ["A+", "A", "B", "C", "D", "F"]:
+        c = await _get_metric(f"grades:{g}")
+        if c > 0:
+            grade_counts[g] = c
+
     return {
         "status": "operational",
         "version": "v1",
@@ -267,7 +317,15 @@ async def gateway_stats() -> dict:
         "docs": "https://agentgraph.co/docs/trust-gateway",
         "endpoints": {
             "check": "POST /api/v1/gateway/check",
+            "webhook_rescan": "POST /api/v1/gateway/webhook/rescan",
             "stats": "GET /api/v1/gateway/stats",
+        },
+        "metrics": {
+            "total_checks": total,
+            "allowed": allowed,
+            "blocked": blocked,
+            "by_tier": tier_counts,
+            "by_grade": grade_counts,
         },
         "supported_tiers": list(TIER_ORDER.keys()),
         "grade_scale": {
