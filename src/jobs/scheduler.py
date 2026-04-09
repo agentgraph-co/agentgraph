@@ -67,13 +67,13 @@ MARKETING_SYNC_INTERVAL = 6 * 60 * 60
 
 async def _marketing_sync_loop(interval: int = MARKETING_SYNC_INTERVAL) -> None:
     """Job 22: Weekly marketing digest — generates Fridays, consumed by content engine."""
-    logger.info("Marketing sync started (interval=%ds, runs Fridays)", interval)
+    logger.info("Marketing sync started (interval=%ds, runs Saturdays)", interval)
     while True:
         try:
             from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
-            # Only generate on Fridays (weekday 4)
-            if now.weekday() == 4:
+            # Only generate on Saturdays (weekday 5), afternoon UTC (covers US afternoon)
+            if now.weekday() == 5 and now.hour >= 18:
                 from src.jobs.weekly_marketing_sync import generate_weekly_digest
                 digest = await generate_weekly_digest()
                 logger.info(
