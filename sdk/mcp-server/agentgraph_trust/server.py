@@ -479,7 +479,7 @@ async def _handle_check_interaction_safety(args: dict) -> dict[str, Any]:
     threshold = _SAFETY_THRESHOLDS.get(interaction, 0.5)
 
     try:
-        trust_data = await _http_get(f"/trust/{target_id}")
+        trust_data = await _http_get(f"/entities/{target_id}/trust")
         score = trust_data.get("score", 0.0)
         tier = _trust_tier(score)
         is_safe = score >= threshold
