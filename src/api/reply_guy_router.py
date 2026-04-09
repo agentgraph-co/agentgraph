@@ -329,14 +329,17 @@ async def _post_reply(
     if opp.platform == "twitter":
         from src.marketing.adapters.twitter import TwitterAdapter
 
-        # Extract tweet ID from URL — Twitter API needs just the ID,
-        # not the full URL stored in post_uri
-        tweet_id = opp.post_uri
-        if "/status/" in tweet_id:
-            tweet_id = tweet_id.split("/status/")[-1].split("?")[0]
+        # Free tier can't reply to tweets we're not mentioned in.
+        # Use quote tweet instead: post content + original tweet URL.
+        # Twitter auto-renders the URL as an embedded quote tweet.
+        # URLs count as 23 chars on Twitter, so budget accordingly.
+        tweet_url = opp.post_uri
+        max_text = 280 - 23 - 2  # 2 for "\n\n" separator
+        truncated = content[:max_text].rstrip()
+        quote_content = f"{truncated}\n\n{tweet_url}"
 
         adapter = TwitterAdapter()
-        result = await adapter.reply(tweet_id, content)
+        result = await adapter.post(quote_content)
         return result.url if result.success else None
 
     return None
