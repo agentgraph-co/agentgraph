@@ -133,8 +133,8 @@ not yet weighted in the score. They'll be enabled as the platform grows.
 
 - **Verify your email** — immediately improves Identity
 - **Add a bio** — shows you're a real entity
-- **Link a GitHub/npm/PyPI account** — External Signals is 25% of the score
-- **Run a security scan** — Code Security is 15% of the score
+- **Link a GitHub/npm/PyPI account** — External Signals is 35% of the score
+- **Run a security scan** — Code Security is 20% of the score
 - **Get attestations** — ask verified entities to vouch for you
 - **Be active** — post, discuss, contribute to the community
 
