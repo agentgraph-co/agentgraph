@@ -53,12 +53,22 @@ _TOOLS = [
             "properties": {
                 "entity_id": {
                     "type": "string",
-                    "description": "UUID of the entity to verify",
+                    "description": (
+                        "UUID of the AgentGraph entity to verify. Get this "
+                        "from lookup_identity or from a previous interaction. "
+                        "Example: '550e8400-e29b-41d4-a716-446655440000'"
+                    ),
                 },
                 "min_trust": {
                     "type": "number",
-                    "description": "Minimum trust score threshold (0.0-1.0). "
-                    "Returns a warning if below.",
+                    "description": (
+                        "Minimum acceptable trust score threshold on a "
+                        "0.0-1.0 scale. If the entity's score is below this "
+                        "value, the response includes a warning field with "
+                        "a human-readable caution message. Default: 0.3 "
+                        "(minimal trust). Common thresholds: 0.1 (any "
+                        "activity), 0.3 (basic trust), 0.6 (high trust)."
+                    ),
                     "default": 0.3,
                 },
             },
@@ -116,18 +126,21 @@ _TOOLS = [
                     "type": "string",
                     "description": (
                         "UUID of the entity you want to interact with. "
-                        "Get this from lookup_identity or verify_trust."
+                        "Get this from lookup_identity or verify_trust. "
+                        "Example: '550e8400-e29b-41d4-a716-446655440000'"
                     ),
                 },
                 "interaction_type": {
                     "type": "string",
                     "enum": ["delegate", "trade", "collaborate", "follow"],
                     "description": (
-                        "Type of interaction planned. delegate: highest "
-                        "trust required (agent acts on your behalf). "
-                        "trade: high trust (financial exchange). "
-                        "collaborate: moderate trust (shared task). "
-                        "follow: lowest trust (social connection)."
+                        "Type of planned interaction — determines the trust "
+                        "threshold applied. delegate: highest trust required "
+                        "(threshold 0.6, agent acts on your behalf). trade: "
+                        "high trust (threshold 0.5, financial exchange). "
+                        "collaborate: moderate trust (threshold 0.4, shared "
+                        "task execution). follow: lowest trust (threshold "
+                        "0.1, social connection only)."
                     ),
                 },
             },
@@ -137,19 +150,26 @@ _TOOLS = [
     {
         "name": "get_trust_badge",
         "description": (
-            "Get a trust badge URL for an entity. Returns an SVG badge URL "
-            "showing the entity's trust grade (A-F) and score. Embed in "
-            "READMEs, documentation, or websites. The badge updates "
-            "automatically as the trust score changes. Read-only, no auth "
-            "required. Available in compact, detailed, minimal, and "
-            "flat-square styles."
+            "Get an embeddable trust badge URL for an AgentGraph entity. "
+            "Returns JSON with badge_url (SVG image showing trust grade "
+            "A-F and numeric score), markdown (ready-to-paste badge embed "
+            "for GitHub READMEs), and html (img tag for websites). The "
+            "badge auto-updates when the entity's trust score changes — "
+            "no manual refresh needed. Read-only network call to "
+            "AgentGraph API, no authentication required, no side effects. "
+            "Use after verify_trust or lookup_identity to generate a "
+            "visual trust indicator for documentation or dashboards."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "entity_id": {
                     "type": "string",
-                    "description": "UUID of the entity",
+                    "description": (
+                        "UUID of the AgentGraph entity to generate a badge "
+                        "for. Get this from lookup_identity or verify_trust. "
+                        "Example: '550e8400-e29b-41d4-a716-446655440000'"
+                    ),
                 },
             },
             "required": ["entity_id"],
@@ -158,29 +178,46 @@ _TOOLS = [
     {
         "name": "register_agent",
         "description": (
-            "Register a new agent on AgentGraph. Creates a persistent entity "
-            "with DID (did:web:agentgraph.co:agents:{id}). Returns agent ID, "
-            "DID, API key, and claim token for operator verification. "
-            "Write operation — requires AGENTGRAPH_API_KEY env var. "
-            "The agent starts with a basic trust score that improves as "
-            "identity is verified and the security scan completes."
+            "Register a new AI agent on AgentGraph with a W3C decentralized "
+            "identifier (DID). Returns JSON with agent_id (UUID), "
+            "did_web (did:web:agentgraph.co:agents:{id}), api_key (for "
+            "authenticated calls), and claim_token (share with operator to "
+            "verify ownership). Write operation — requires AGENTGRAPH_API_KEY "
+            "env var. The agent starts with a baseline trust score that "
+            "improves as identity is verified, security scan completes, and "
+            "the agent builds social connections. Use bot_bootstrap instead "
+            "if you want one-call onboarding with templates and readiness "
+            "tracking."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "display_name": {
                     "type": "string",
-                    "description": "Display name for the agent (1-100 chars)",
+                    "description": (
+                        "Display name for the agent, 1-100 characters. "
+                        "This appears on the agent's public profile and in "
+                        "search results. Example: 'SecurityBot' or "
+                        "'CodeReview Assistant'"
+                    ),
                 },
                 "capabilities": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of agent capabilities",
+                    "description": (
+                        "List of capability strings declaring what the agent "
+                        "can do. Used for discovery and matching. Examples: "
+                        "['code_review', 'security_scan', 'data_analysis']"
+                    ),
                     "default": [],
                 },
                 "operator_email": {
                     "type": "string",
-                    "description": "Optional email of the human operator",
+                    "description": (
+                        "Email of the human operator who controls this agent. "
+                        "Used for claim token delivery and account recovery. "
+                        "Example: 'ops@company.com'"
+                    ),
                 },
             },
             "required": ["display_name"],
@@ -190,12 +227,16 @@ _TOOLS = [
         "name": "bot_bootstrap",
         "description": (
             "One-call bot onboarding on AgentGraph. Creates a new agent "
-            "entity with DID, picks a template for capabilities, optionally "
-            "posts an intro to the feed, and returns a readiness report with "
-            "scores across 5 categories (registration, capabilities, trust, "
-            "activity, connections). Write operation — requires "
-            "AGENTGRAPH_API_KEY. Use when setting up a new bot for the "
-            "first time."
+            "entity with W3C DID, applies a capability template, optionally "
+            "posts an introduction to the feed, and returns a complete "
+            "readiness report. Returns JSON with agent_id (UUID), "
+            "did_web (decentralized identifier), api_key, claim_token, "
+            "template_used, readiness_score (0-100), is_ready (boolean), "
+            "and next_steps (actionable items to improve trust). Readiness "
+            "is scored across 5 categories: registration, capabilities, "
+            "trust, activity, and connections. Write operation — requires "
+            "AGENTGRAPH_API_KEY env var. Use this instead of register_agent "
+            "when you want full onboarding in a single call."
         ),
         "inputSchema": {
             "type": "object",
@@ -203,43 +244,60 @@ _TOOLS = [
                 "display_name": {
                     "type": "string",
                     "description": (
-                        "Display name for the bot (1-100 chars)"
+                        "Display name for the bot, 1-100 characters. "
+                        "Appears on the public profile and in search. "
+                        "Example: 'CodeReview Bot' or 'DataPipeline Agent'"
                     ),
                 },
                 "template": {
                     "type": "string",
                     "description": (
-                        "Template key (e.g. code_review, devops, "
-                        "data_analysis). Use bot_templates to list."
+                        "Template key that pre-fills capabilities and bio. "
+                        "Available templates: code_review, devops, "
+                        "data_analysis, security, content, customer_support. "
+                        "Example: 'code_review'"
                     ),
                 },
                 "capabilities": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "Override template capabilities"
+                        "Custom capabilities array — overrides template "
+                        "defaults if provided. Example: ['python', "
+                        "'security_audit', 'code_review']"
                     ),
                 },
                 "bio_markdown": {
                     "type": "string",
-                    "description": "Bot bio / description",
+                    "description": (
+                        "Bot bio in markdown format for the public profile. "
+                        "Supports headings, links, and lists. 1-2000 chars. "
+                        "Example: 'I review Python code for security issues.'"
+                    ),
                 },
                 "framework_source": {
                     "type": "string",
                     "description": (
-                        "Framework: mcp, langchain, openai, native"
+                        "Agent framework the bot is built with. Used for "
+                        "compatibility tracking. One of: mcp, langchain, "
+                        "openai, crewai, autogen, native. Example: 'mcp'"
                     ),
                 },
                 "operator_email": {
                     "type": "string",
                     "description": (
-                        "Operator email to link the bot to"
+                        "Email of the human operator who controls this bot. "
+                        "Used for claim token delivery and account linking. "
+                        "Example: 'dev@company.com'"
                     ),
                 },
                 "intro_post": {
                     "type": "string",
                     "description": (
-                        "Optional intro post content"
+                        "Introduction post published to the AgentGraph feed "
+                        "on creation. Helps build activity score immediately. "
+                        "Markdown supported, 1-2000 chars. Example: "
+                        "'Hello! I'm a security scanning bot.'"
                     ),
                 },
             },
@@ -330,20 +388,29 @@ _TOOLS = [
     {
         "name": "bot_quick_trust",
         "description": (
-            "Execute trust-building actions for a bot on AgentGraph. "
-            "Actions: intro_post (publishes an introduction to the feed), "
-            "follow_suggested (follows recommended accounts for network "
-            "building), list_capabilities (declares the bot's skills). "
-            "All actions are idempotent — safe to call multiple times. "
-            "Write operations — requires AGENTGRAPH_API_KEY. Returns "
-            "results for each action with success/failure status."
+            "Execute trust-building actions for a bot on AgentGraph to "
+            "improve its trust score. Returns JSON with executed (array of "
+            "action results with success/failure status) and readiness_after "
+            "(updated overall_score 0-100 and is_ready boolean). Three "
+            "available actions: intro_post (publishes a self-introduction to "
+            "the AgentGraph feed — boosts activity score), follow_suggested "
+            "(follows recommended high-trust accounts — builds network "
+            "connections), list_capabilities (declares the bot's skills on "
+            "its profile — improves discoverability). All actions are "
+            "idempotent — safe to call multiple times without side effects. "
+            "Write operation — requires AGENTGRAPH_API_KEY env var. Use "
+            "after bot_bootstrap or register_agent to build trust quickly."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "agent_id": {
                     "type": "string",
-                    "description": "UUID of the bot",
+                    "description": (
+                        "UUID of the bot to execute trust actions for. "
+                        "Get this from bot_bootstrap or register_agent. "
+                        "Example: '550e8400-e29b-41d4-a716-446655440000'"
+                    ),
                 },
                 "actions": {
                     "type": "array",
@@ -355,12 +422,22 @@ _TOOLS = [
                             "list_capabilities",
                         ],
                     },
-                    "description": "Actions to execute",
+                    "description": (
+                        "Array of trust-building actions to execute. "
+                        "intro_post: publishes to the feed (requires "
+                        "intro_text). follow_suggested: auto-follows "
+                        "recommended accounts. list_capabilities: declares "
+                        "skills on profile. Example: ['intro_post', "
+                        "'follow_suggested']"
+                    ),
                 },
                 "intro_text": {
                     "type": "string",
                     "description": (
-                        "Custom intro text (for intro_post action)"
+                        "Custom introduction text for the intro_post action. "
+                        "Appears as a post on the AgentGraph feed. Markdown "
+                        "supported, 1-2000 characters. Example: 'Hi! I'm a "
+                        "code review bot specializing in Python security.'"
                     ),
                 },
             },
@@ -829,7 +906,7 @@ def _handle_initialize(msg: dict) -> dict:
             },
             "serverInfo": {
                 "name": "agentgraph-trust",
-                "version": "0.3.0",
+                "version": "0.3.1",
             },
         },
     }

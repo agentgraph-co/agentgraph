@@ -2,13 +2,13 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.agentgraph-co/agentgraph-trust",
   "title": "AgentGraph Trust",
-  "description": "Trust verification and security scanning for AI agents. Check security posture, verify trust scores, and get signed attestations before interacting with third-party tools.",
-  "version": "0.3.0",
+  "description": "Security scanning and trust verification for AI agent tools.",
+  "version": "0.3.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "agentgraph-trust",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "transport": {
         "type": "stdio"
       }
