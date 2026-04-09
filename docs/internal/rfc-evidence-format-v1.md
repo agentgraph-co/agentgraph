@@ -288,7 +288,7 @@ Two distinct TTLs apply:
 
 | TTL | Controls | Typical Range |
 |---|---|---|
-| **Attestation TTL** (`expires_at` on attestation) | How long a provider's signal is valid. | 1-30 days depending on category. Static analysis: 30 days. Behavioral: 7 days. Identity: 90 days. |
+| **Attestation TTL** (`expires_at` on attestation) | How long a provider's signal is valid. | 1-30 days depending on category. Static analysis: 30 days. Behavioral: 7 days. Continuous monitoring: 24 hours (RNWY confirmed — nightly pipeline). Identity: 90 days. |
 | **Verdict TTL** (`expires_at` on verdict) | How long a gateway's decision is valid. | 1-24 hours. Short because new evidence may arrive. |
 
 A verdict MUST expire before any attestation in its evidence bundle expires.

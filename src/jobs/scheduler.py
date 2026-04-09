@@ -61,6 +61,30 @@ STARTER_PACK_INTERVAL = 30 * 24 * 60 * 60
 # Auto-follow interval (24 hours)
 AUTO_FOLLOW_INTERVAL = 24 * 60 * 60
 
+# Weekly marketing sync (runs every 6 hours, but only generates on Fridays)
+MARKETING_SYNC_INTERVAL = 6 * 60 * 60
+
+
+async def _marketing_sync_loop(interval: int = MARKETING_SYNC_INTERVAL) -> None:
+    """Job 22: Weekly marketing digest — generates Fridays, consumed by content engine."""
+    logger.info("Marketing sync started (interval=%ds, runs Fridays)", interval)
+    while True:
+        try:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            # Only generate on Fridays (weekday 4)
+            if now.weekday() == 4:
+                from src.jobs.weekly_marketing_sync import generate_weekly_digest
+                digest = await generate_weekly_digest()
+                logger.info(
+                    "Weekly marketing digest generated: %d commits, %d scan repos",
+                    digest.get("key_metrics", {}).get("commits_this_week", 0),
+                    digest.get("scan_stats", {}).get("repos_scanned", 0),
+                )
+        except Exception:
+            logger.exception("Marketing sync failed")
+        await asyncio.sleep(interval)
+
 
 async def _scheduler_loop(interval: int = SCHEDULER_INTERVAL) -> None:
     """Periodically run all scheduled jobs in the background."""
@@ -831,6 +855,12 @@ async def start_scheduler(interval: int | None = None) -> asyncio.Task | None:
                 "Reply guy auto-poster task created (interval=%ds)",
                 REPLY_POSTER_INTERVAL,
             )
+
+    # Job 22: Weekly marketing sync (Fridays)
+    asyncio.create_task(
+        _marketing_sync_loop(),
+        name="marketing-sync",
+    )
 
     return _scheduler_task
 
