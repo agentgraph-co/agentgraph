@@ -464,11 +464,14 @@ async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
                 from src.database import async_session
 
                 async with async_session() as session:
-                    from src.marketing.reply_guy.models import ReplyOpportunity
+                    from src.models import ReplyOpportunity, ReplyTarget
+
+                    import sqlalchemy as sa
+                    from datetime import datetime, timezone
 
                     # Fetch drafted replies, newest first, limit to 5 per cycle
                     result = await session.execute(
-                        __import__("sqlalchemy").select(ReplyOpportunity)
+                        sa.select(ReplyOpportunity)
                         .where(ReplyOpportunity.status == "drafted")
                         .order_by(ReplyOpportunity.drafted_at.desc())
                         .limit(5)
@@ -479,14 +482,11 @@ async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
                         logger.debug("Reply guy poster: no drafted replies")
                     else:
                         # Check daily limit
-                        from datetime import datetime, timezone
                         today_start = datetime.now(timezone.utc).replace(
                             hour=0, minute=0, second=0, microsecond=0,
                         )
                         posted_today_result = await session.execute(
-                            __import__("sqlalchemy").select(
-                                __import__("sqlalchemy").func.count()
-                            ).where(
+                            sa.select(sa.func.count()).where(
                                 ReplyOpportunity.status == "posted",
                                 ReplyOpportunity.posted_at >= today_start,
                             )
@@ -503,12 +503,8 @@ async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
                             posted = 0
                             for opp in opps[:remaining]:
                                 try:
-                                    from src.marketing.reply_guy.models import (
-                                        ReplyTarget,
-                                    )
-
                                     target_result = await session.execute(
-                                        __import__("sqlalchemy").select(ReplyTarget)
+                                        sa.select(ReplyTarget)
                                         .where(ReplyTarget.id == opp.target_id)
                                     )
                                     target = target_result.scalar_one_or_none()
