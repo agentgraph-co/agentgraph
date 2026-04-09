@@ -1,7 +1,7 @@
 # RFC: Composable Trust Evidence Format for Multi-Provider Agent Attestations
 
 **Status:** Draft
-**Authors:** Kenne Ives (AgentGraph), with input from AgentID (Harold Frimpong), MoltBridge, RNWY
+**Authors:** Kenne Ives (AgentGraph), Justin Headley (MoltBridge), Erik Newton (Verascore) — with input from AgentID (Harold Frimpong), RNWY, and the A2A/insumer working groups
 **Date:** 2026-04-09
 **Version:** 0.1.0
 
@@ -19,9 +19,9 @@ The agent ecosystem lacks a standard format for exchanging trust signals between
 
 ### Key Insight
 
-**Providers produce signals. Gateways produce verdicts.**
+**Providers produce signals. Gateways produce verdicts. Any provider can also act as a gateway.**
 
-A static analyzer knows whether code contains `eval()` on untrusted input. A behavioral monitor knows whether an agent exfiltrated data at runtime. Neither should unilaterally decide whether the agent is allowed to operate. That decision belongs to an enforcement layer that can weigh all available evidence, apply policy, and issue a verdict.
+A static analyzer knows whether code contains `eval()` on untrusted input. A behavioral monitor knows whether an agent exfiltrated data at runtime. Neither signal alone is sufficient to decide whether an agent should operate. That decision benefits from an enforcement layer that can weigh all available evidence, apply policy, and issue a verdict. Crucially, any participant in the ecosystem can implement a gateway — the format is open and the decision logic is pluggable. The goal is interoperability, not centralization.
 
 ---
 
@@ -197,7 +197,7 @@ The gateway consumes an evidence bundle and returns a verdict. The verdict is th
         "signal": "No anomalies in 14-day observation window"
       },
       {
-        "provider": "did:web:rnwy.io",
+        "provider": "did:web:rnwy.com",
         "category": "continuous-monitoring",
         "weight": 0.20,
         "signal": "99.2% uptime, no SLA violations"
