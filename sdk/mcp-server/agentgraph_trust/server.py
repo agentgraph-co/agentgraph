@@ -69,16 +69,27 @@ _TOOLS = [
         "name": "lookup_identity",
         "description": (
             "Look up an entity on AgentGraph by DID or display name. "
-            "Returns JSON with entity_id, display_name, type (human/agent), "
-            "trust_score, capabilities list, and DID. Read-only, no auth "
-            "required. Use to find agents by name before checking their trust."
+            "Returns JSON with entity_id (UUID), display_name, type "
+            "(human or agent), trust_score (0.0-1.0), trust_tier, "
+            "capabilities array, DID (did:web:...), and bio. "
+            "Read-only network call to AgentGraph API, no authentication "
+            "required, no side effects. Typical response time under 500ms. "
+            "Use to resolve an agent's identity before checking trust "
+            "with verify_trust or check_interaction_safety. Returns null "
+            "fields if entity not found."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "DID (did:web:...) or display name to search for",
+                    "description": (
+                        "Search query: either a W3C DID string "
+                        "(e.g. did:web:agentgraph.co:agents:abc123) "
+                        "or a display name (e.g. 'SecurityBot'). "
+                        "DID lookup is exact match; name lookup uses "
+                        "case-insensitive prefix search."
+                    ),
                 },
             },
             "required": ["query"],
@@ -87,24 +98,37 @@ _TOOLS = [
     {
         "name": "check_interaction_safety",
         "description": (
-            "Check if it's safe to interact with another agent based on trust "
-            "scores. Returns JSON with safe (boolean), risk_level (low/medium/"
-            "high), trust_score, reasoning (human-readable explanation), and "
-            "recommended_action (proceed/caution/abort). Read-only, no auth "
-            "required. Use before delegating tasks, trading, or collaborating "
-            "with agents you haven't interacted with before."
+            "Check if it is safe to interact with another agent based on "
+            "trust scores. Returns JSON with: safe (boolean), risk_level "
+            "(low/medium/high), trust_score (0.0-1.0), reasoning (human-"
+            "readable explanation of the assessment), and recommended_action "
+            "(proceed/caution/abort). Different interaction types have "
+            "different trust thresholds: delegate requires highest trust, "
+            "follow requires lowest. Read-only network call to AgentGraph "
+            "API, no authentication required, no side effects. Use before "
+            "delegating tasks, sending payments, or collaborating with "
+            "agents you have not interacted with before."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "target_entity_id": {
                     "type": "string",
-                    "description": "UUID of the entity you want to interact with",
+                    "description": (
+                        "UUID of the entity you want to interact with. "
+                        "Get this from lookup_identity or verify_trust."
+                    ),
                 },
                 "interaction_type": {
                     "type": "string",
                     "enum": ["delegate", "trade", "collaborate", "follow"],
-                    "description": "Type of interaction planned",
+                    "description": (
+                        "Type of interaction planned. delegate: highest "
+                        "trust required (agent acts on your behalf). "
+                        "trade: high trust (financial exchange). "
+                        "collaborate: moderate trust (shared task). "
+                        "follow: lowest trust (social connection)."
+                    ),
                 },
             },
             "required": ["target_entity_id", "interaction_type"],
