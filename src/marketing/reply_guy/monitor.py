@@ -191,6 +191,7 @@ async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
     Returns list of dicts with: uri, text, timestamp, likes.
     """
     import os
+    import urllib.parse
 
     import httpx
 
@@ -198,6 +199,8 @@ async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
     if not bearer:
         logger.debug("TWITTER_BEARER_TOKEN not set, skipping %s", handle)
         return []
+    # URL-decode in case the token was stored with %2F/%2B encoding
+    bearer = urllib.parse.unquote(bearer)
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -207,7 +210,7 @@ async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
                 headers={"Authorization": f"Bearer {bearer}"},
             )
             if user_resp.status_code != 200:
-                logger.debug("Twitter user lookup failed for %s: %s", handle, user_resp.status_code)
+                logger.info("Twitter user lookup failed for %s: %s", handle, user_resp.status_code)
                 return []
 
             user_id = user_resp.json().get("data", {}).get("id")
@@ -227,7 +230,7 @@ async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
                 },
             )
             if tweets_resp.status_code != 200:
-                logger.debug("Twitter timeline failed for %s: %s", handle, tweets_resp.status_code)
+                logger.info("Twitter timeline failed for %s: %s", handle, tweets_resp.status_code)
                 return []
 
             tweets = tweets_resp.json().get("data", [])
@@ -245,7 +248,7 @@ async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
                     "likes": metrics.get("like_count", 0),
                 })
 
-            logger.debug("Twitter: fetched %d posts for %s", len(posts), handle)
+            logger.info("Twitter: fetched %d posts for %s", len(posts), handle)
             return posts
 
     except Exception:
