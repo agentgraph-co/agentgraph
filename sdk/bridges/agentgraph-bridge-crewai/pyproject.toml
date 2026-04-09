@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "agentgraph-bridge-crewai"
 version = "0.1.0"
-description = "AgentGraph bridge for CrewAI — register crews and agents with the AgentGraph trust network"
+description = "AgentGraph bridge for CrewAI — trust-gated tools and agent registration for the AgentGraph trust network"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -33,6 +33,7 @@ crewai = ["crewai>=0.28.0"]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+    "crewai>=0.28.0",
 ]
 
 [project.urls]
