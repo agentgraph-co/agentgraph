@@ -289,6 +289,52 @@ _CAPABILITY_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _extract_rnwy_agent_id(
+    raw_metadata: dict,
+    readme_excerpt: str,
+) -> str | None:
+    """Extract an RNWY agent ID from source metadata (ERC-8004 declarations).
+
+    Checks for RNWY / ERC-8004 agent IDs in:
+    1. raw_metadata topics (e.g. "erc-8004", "rnwy-agent-<id>")
+    2. raw_metadata dep_files (pyproject.toml, package.json with rnwy fields)
+    3. README excerpt containing an RNWY agent ID pattern
+
+    Returns the RNWY agent ID string or None.
+    """
+    import re as _re
+
+    # Pattern: hex address (0x...) or RNWY-specific ID format
+    _rnwy_id_pattern = _re.compile(
+        r"(?:rnwy[_-]?agent[_-]?id|erc[_-]?8004[_-]?id|agent[_-]?id)\s*[:=]\s*[\"']?(0x[0-9a-fA-F]{40}|[a-zA-Z0-9_-]{8,64})[\"']?",
+    )
+
+    # 1. Check topics for "rnwy-agent-<id>" pattern
+    topics = raw_metadata.get("topics", [])
+    for topic in topics:
+        if isinstance(topic, str) and topic.startswith("rnwy-agent-"):
+            agent_id = topic[len("rnwy-agent-"):]
+            if agent_id:
+                return agent_id
+
+    # 2. Check dependency files for ERC-8004 / RNWY declarations
+    dep_files = raw_metadata.get("dep_files", {})
+    for _fname, content in dep_files.items():
+        if not isinstance(content, str):
+            continue
+        match = _rnwy_id_pattern.search(content)
+        if match:
+            return match.group(1)
+
+    # 3. Check README for inline RNWY agent ID
+    if readme_excerpt:
+        match = _rnwy_id_pattern.search(readme_excerpt)
+        if match:
+            return match.group(1)
+
+    return None
+
+
 def _extract_capabilities(bio: str, readme_excerpt: str) -> list[str]:
     """Extract capability categories from bio and readme text via keyword matching."""
     text = f"{bio} {readme_excerpt}".lower()
@@ -661,6 +707,27 @@ async def import_from_source(
         )
 
     await db.flush()
+
+    # Check for RNWY agent ID (ERC-8004 metadata) and store mapping
+    try:
+        rnwy_agent_id = _extract_rnwy_agent_id(result.raw_metadata, result.readme_excerpt)
+        if rnwy_agent_id:
+            from src.models import ProviderIdMapping
+
+            mapping = ProviderIdMapping(
+                id=uuid.uuid4(),
+                entity_id=agent.id,
+                provider="rnwy",
+                provider_entity_id=rnwy_agent_id,
+            )
+            db.add(mapping)
+            await db.flush()
+            logger.info(
+                "Stored RNWY agent ID mapping: entity=%s rnwy_id=%s",
+                agent.id, rnwy_agent_id,
+            )
+    except Exception:
+        logger.debug("RNWY agent ID extraction failed for %s", agent.id)
 
     # Create initial trust score based on source signals
     try:

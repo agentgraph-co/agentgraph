@@ -427,6 +427,10 @@ async def public_scan(
                 entity_trust=entity_trust,
             )
 
+    # Fetch previous cached score before running a fresh scan (for change detection)
+    old_cached = await _get_cached(owner, repo)
+    old_score: int | None = old_cached["trust_score"] if old_cached else None
+
     # Run scan
     from src.config import settings
     from src.scanner.scan import scan_repo
@@ -453,6 +457,18 @@ async def public_scan(
     # Convert to dict and cache
     data = _scan_result_to_dict(result)
     await _set_cached(owner, repo, data)
+
+    # Notify outbound webhooks if score changed (fire-and-forget)
+    new_score = data["trust_score"]
+    if new_score != old_score:
+        try:
+            import asyncio
+
+            from src.trust.outbound_webhooks import notify_scan_change
+
+            asyncio.create_task(notify_scan_change(full_name, new_score, old_score))
+        except Exception:
+            logger.debug("Failed to dispatch scan-change webhook for %s", full_name)
 
     # Sign (JCS-canonical payload for cross-implementation verification)
     payload = _build_scan_payload(full_name, data)

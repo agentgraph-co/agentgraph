@@ -345,6 +345,89 @@ async def gateway_stats() -> dict:
 # ── Webhook Endpoints ──
 
 
+class WebhookSubscribeRequest(BaseModel):
+    """Subscribe to outbound scan-change notifications for a repo."""
+    repo: str  # owner/repo format
+    callback_url: str  # URL to POST notifications to
+    provider: str  # e.g. "moltbridge"
+
+
+class WebhookSubscribeResponse(BaseModel):
+    """Confirmation of a webhook subscription."""
+    subscribed: bool
+    repo: str
+    callback_url: str
+    provider: str
+    message: str
+
+
+@router.post(
+    "/webhook/subscribe",
+    response_model=WebhookSubscribeResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def webhook_subscribe(
+    request: WebhookSubscribeRequest,
+) -> WebhookSubscribeResponse:
+    """Register an outbound webhook for scan-score-change notifications.
+
+    When the security scan score changes for the specified repo, AgentGraph
+    will POST a signed payload to the callback URL containing:
+    ``{repo, new_score, old_score, changed_at, jws}``.
+
+    Example::
+
+        POST /api/v1/gateway/webhook/subscribe
+        {"repo": "owner/repo", "callback_url": "https://api.moltbridge.ai/webhooks/scan",
+         "provider": "moltbridge"}
+    """
+    if "/" not in request.repo:
+        return WebhookSubscribeResponse(
+            subscribed=False,
+            repo=request.repo,
+            callback_url=request.callback_url,
+            provider=request.provider,
+            message="repo must be in owner/repo format",
+        )
+
+    if not request.callback_url.startswith("https://"):
+        return WebhookSubscribeResponse(
+            subscribed=False,
+            repo=request.repo,
+            callback_url=request.callback_url,
+            provider=request.provider,
+            message="callback_url must use HTTPS",
+        )
+
+    from src.trust.outbound_webhooks import register_subscription
+
+    try:
+        await register_subscription(
+            repo=request.repo,
+            callback_url=request.callback_url,
+            provider=request.provider,
+        )
+        return WebhookSubscribeResponse(
+            subscribed=True,
+            repo=request.repo,
+            callback_url=request.callback_url,
+            provider=request.provider,
+            message=(
+                "Subscription registered. You will receive POST"
+                " notifications when scan scores change."
+            ),
+        )
+    except Exception as e:
+        logger.exception("Webhook subscribe error: %s", request.repo)
+        return WebhookSubscribeResponse(
+            subscribed=False,
+            repo=request.repo,
+            callback_url=request.callback_url,
+            provider=request.provider,
+            message=f"Error: {e}",
+        )
+
+
 class WebhookRescanRequest(BaseModel):
     """Request from external provider to trigger a rescan."""
     repo: str  # owner/repo format

@@ -1,0 +1,106 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://agentgraph.co/ns/trust/v1"
+  ],
+  "type": "SecurityAttestation",
+  "version": "1.0.0",
+  "issuer": "did:web:agentgraph.co",
+  "subject": {
+    "repo": "haroldmalikfrimpong-ops/getagentid",
+    "ref": "main",
+    "commit": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+    "display_name": "GetAgentID",
+    "agent_did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+  },
+  "scan": {
+    "trust_score": 66,
+    "trust_tier": "standard",
+    "grade": "B",
+    "category_scores": {
+      "secret_hygiene": 85,
+      "code_safety": 60,
+      "data_handling": 70,
+      "filesystem_access": 55
+    },
+    "findings": {
+      "critical": 0,
+      "high": 2,
+      "medium": 5,
+      "low": 0,
+      "total": 7,
+      "details": [
+        {
+          "severity": "high",
+          "category": "filesystem_access",
+          "rule": "FS-WRITE-BROAD",
+          "message": "Broad filesystem write access without path restriction",
+          "file": "src/agent.py",
+          "line": 47
+        },
+        {
+          "severity": "high",
+          "category": "code_safety",
+          "rule": "EXEC-DYNAMIC",
+          "message": "Dynamic code execution via eval() on external input",
+          "file": "src/utils.py",
+          "line": 112
+        },
+        {
+          "severity": "medium",
+          "category": "data_handling",
+          "rule": "DATA-LOG-PII",
+          "message": "Potential PII logged without redaction",
+          "file": "src/handlers.py",
+          "line": 33
+        },
+        {
+          "severity": "medium",
+          "category": "data_handling",
+          "rule": "DATA-EXFIL-HTTP",
+          "message": "HTTP request to non-allowlisted domain constructed from user input",
+          "file": "src/agent.py",
+          "line": 89
+        },
+        {
+          "severity": "medium",
+          "category": "code_safety",
+          "rule": "DEP-UNPINNED",
+          "message": "3 dependencies unpinned in requirements.txt",
+          "file": "requirements.txt",
+          "line": 1
+        },
+        {
+          "severity": "medium",
+          "category": "filesystem_access",
+          "rule": "FS-READ-SENSITIVE",
+          "message": "Reads from home directory without explicit user consent path",
+          "file": "src/config.py",
+          "line": 22
+        },
+        {
+          "severity": "medium",
+          "category": "secret_hygiene",
+          "rule": "SECRET-ENV-FALLBACK",
+          "message": "Hardcoded fallback value for API key environment variable",
+          "file": "src/config.py",
+          "line": 8
+        }
+      ]
+    },
+    "files_scanned": 23,
+    "positive_signals": [
+      "has_readme",
+      "has_license",
+      "has_tests",
+      "no_obfuscation",
+      "pinned_python_version"
+    ],
+    "scanner_version": "0.3.0",
+    "engine": "agentgraph-trust"
+  },
+  "jws": "<signed_attestation>",
+  "jwks_url": "https://agentgraph.co/api/v1/public/scan/jwks.json",
+  "scanned_at": "2026-04-09T16:00:00Z",
+  "expires_at": "2026-05-09T16:00:00Z"
+}
