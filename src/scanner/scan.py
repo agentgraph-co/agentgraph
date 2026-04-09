@@ -712,11 +712,31 @@ async def scan_repo(
                 result.positive_signals.append("Dependency pinning")
                 break
 
-        # Filter to scannable files
+        # Load .agentgraph-scan.yml config if present
+        user_excludes: set[str] = set()
+        for item in tree:
+            if item["path"] in (".agentgraph-scan.yml", ".agentgraph-scan.yaml"):
+                cfg_content = await _fetch_file_content(owner, repo, item["path"], token)
+                if cfg_content:
+                    try:
+                        import yaml  # noqa: E402
+                        cfg = yaml.safe_load(cfg_content) or {}
+                        for pattern in cfg.get("exclude", []):
+                            user_excludes.add(str(pattern).lower())
+                    except Exception:
+                        pass
+                break
+
+        # Filter to scannable files (respecting user excludes)
+        def _user_excluded(path: str) -> bool:
+            low = path.lower()
+            return any(exc in low for exc in user_excludes)
+
         scan_files = [
             item for item in tree
             if not _should_skip_path(item["path"])
             and _is_source_file(item["path"])
+            and not _user_excluded(item["path"])
         ][:_MAX_FILES_PER_REPO]
 
         # Load allowlist once for the whole scan
