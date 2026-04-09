@@ -152,6 +152,7 @@ class Settings(BaseSettings):
     reply_guy_enabled: bool = True
     reply_guy_max_daily: int = 20
     reply_guy_monitor_interval: int = 300  # seconds
+    reply_guy_auto_post: bool = True  # auto-post drafted replies (no manual approval)
 
     # Email rate limiting & retry
     email_rate_limit_per_minute: int = 30

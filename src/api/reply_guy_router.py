@@ -329,8 +329,14 @@ async def _post_reply(
     if opp.platform == "twitter":
         from src.marketing.adapters.twitter import TwitterAdapter
 
+        # Extract tweet ID from URL — Twitter API needs just the ID,
+        # not the full URL stored in post_uri
+        tweet_id = opp.post_uri
+        if "/status/" in tweet_id:
+            tweet_id = tweet_id.split("/status/")[-1].split("?")[0]
+
         adapter = TwitterAdapter()
-        result = await adapter.reply(opp.post_uri, content)
+        result = await adapter.reply(tweet_id, content)
         return result.url if result.success else None
 
     return None

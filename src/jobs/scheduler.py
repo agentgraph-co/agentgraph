@@ -39,6 +39,7 @@ _scheduler_task: asyncio.Task | None = None
 _reply_monitor_task: asyncio.Task | None = None
 _reply_drafter_task: asyncio.Task | None = None
 _starter_pack_task: asyncio.Task | None = None
+_reply_poster_task: asyncio.Task | None = None
 _auto_follow_task: asyncio.Task | None = None
 _security_scan_task: asyncio.Task | None = None
 _api_health_task: asyncio.Task | None = None
@@ -52,6 +53,7 @@ SCHEDULER_LOCK_REFRESH = 45  # refresh interval (must be < TTL)
 # Reply Guy intervals (in seconds)
 REPLY_MONITOR_INTERVAL = 15 * 60   # 15 minutes
 REPLY_DRAFTER_INTERVAL = 30 * 60   # 30 minutes
+REPLY_POSTER_INTERVAL = 10 * 60    # 10 minutes
 
 # Bluesky starter pack refresh interval (30 days in seconds)
 STARTER_PACK_INTERVAL = 30 * 24 * 60 * 60
@@ -451,6 +453,101 @@ async def _reply_drafter_loop(interval: int = REPLY_DRAFTER_INTERVAL) -> None:
         await asyncio.sleep(interval)
 
 
+async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
+    """Job 21: Auto-post drafted replies (no manual approval needed)."""
+    logger.info("Reply guy auto-poster started (interval=%ds)", interval)
+    while True:
+        try:
+            from src.config import settings as _rg_settings
+
+            if _rg_settings.reply_guy_enabled and _rg_settings.reply_guy_auto_post:
+                from src.database import async_session
+
+                async with async_session() as session:
+                    from src.marketing.reply_guy.models import ReplyOpportunity
+
+                    # Fetch drafted replies, newest first, limit to 5 per cycle
+                    result = await session.execute(
+                        __import__("sqlalchemy").select(ReplyOpportunity)
+                        .where(ReplyOpportunity.status == "drafted")
+                        .order_by(ReplyOpportunity.drafted_at.desc())
+                        .limit(5)
+                    )
+                    opps = result.scalars().all()
+
+                    if not opps:
+                        logger.debug("Reply guy poster: no drafted replies")
+                    else:
+                        # Check daily limit
+                        from datetime import datetime, timezone
+                        today_start = datetime.now(timezone.utc).replace(
+                            hour=0, minute=0, second=0, microsecond=0,
+                        )
+                        posted_today_result = await session.execute(
+                            __import__("sqlalchemy").select(
+                                __import__("sqlalchemy").func.count()
+                            ).where(
+                                ReplyOpportunity.status == "posted",
+                                ReplyOpportunity.posted_at >= today_start,
+                            )
+                        )
+                        posted_today = posted_today_result.scalar() or 0
+
+                        remaining = _rg_settings.reply_guy_max_daily - posted_today
+                        if remaining <= 0:
+                            logger.info(
+                                "Reply guy poster: daily limit reached (%d/%d)",
+                                posted_today, _rg_settings.reply_guy_max_daily,
+                            )
+                        else:
+                            posted = 0
+                            for opp in opps[:remaining]:
+                                try:
+                                    from src.marketing.reply_guy.models import (
+                                        ReplyTarget,
+                                    )
+
+                                    target_result = await session.execute(
+                                        __import__("sqlalchemy").select(ReplyTarget)
+                                        .where(ReplyTarget.id == opp.target_id)
+                                    )
+                                    target = target_result.scalar_one_or_none()
+
+                                    from src.api.reply_guy_router import _post_reply
+                                    url = await _post_reply(opp, target)
+
+                                    if url:
+                                        opp.status = "posted"
+                                        opp.posted_at = datetime.now(timezone.utc)
+                                        opp.posted_url = url
+                                        posted += 1
+                                        logger.info(
+                                            "Reply guy auto-posted: %s -> %s",
+                                            opp.platform, url,
+                                        )
+                                    else:
+                                        opp.status = "posting_error"
+                                        logger.warning(
+                                            "Reply guy post failed: %s %s",
+                                            opp.platform, opp.post_uri,
+                                        )
+                                except Exception:
+                                    opp.status = "posting_error"
+                                    logger.exception(
+                                        "Reply guy post error: %s", opp.post_uri,
+                                    )
+
+                            await session.commit()
+                            if posted:
+                                logger.info(
+                                    "Reply guy poster: %d/%d posted",
+                                    posted, len(opps),
+                                )
+        except Exception:
+            logger.exception("Reply guy poster failed")
+        await asyncio.sleep(interval)
+
+
 async def _starter_pack_loop(interval: int = STARTER_PACK_INTERVAL) -> None:
     """Job 16: Refresh the Bluesky starter pack every 30 days."""
     import os
@@ -620,6 +717,7 @@ async def start_scheduler(interval: int | None = None) -> asyncio.Task | None:
     Safe to call multiple times -- subsequent calls are no-ops.
     """
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _reply_poster_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
     global _api_health_task, _lock_refresh_task
 
@@ -728,6 +826,15 @@ async def start_scheduler(interval: int | None = None) -> asyncio.Task | None:
                 "Reply guy drafter task created (interval=%ds)",
                 REPLY_DRAFTER_INTERVAL,
             )
+        if _reply_poster_task is None or _reply_poster_task.done():
+            _reply_poster_task = asyncio.create_task(
+                _reply_poster_loop(),
+                name="reply-guy-poster",
+            )
+            logger.info(
+                "Reply guy auto-poster task created (interval=%ds)",
+                REPLY_POSTER_INTERVAL,
+            )
 
     return _scheduler_task
 
@@ -735,6 +842,7 @@ async def start_scheduler(interval: int | None = None) -> asyncio.Task | None:
 def stop_scheduler() -> None:
     """Cancel the running scheduler task (if any)."""
     global _scheduler_task, _reply_monitor_task, _reply_drafter_task
+    global _reply_poster_task
     global _starter_pack_task, _auto_follow_task, _security_scan_task
     global _api_health_task, _lock_refresh_task
 
@@ -758,6 +866,11 @@ def stop_scheduler() -> None:
         _reply_drafter_task.cancel()
         logger.info("Reply guy drafter task cancelled")
     _reply_drafter_task = None
+
+    if _reply_poster_task is not None and not _reply_poster_task.done():
+        _reply_poster_task.cancel()
+        logger.info("Reply guy poster task cancelled")
+    _reply_poster_task = None
 
     if _starter_pack_task is not None and not _starter_pack_task.done():
         _starter_pack_task.cancel()
