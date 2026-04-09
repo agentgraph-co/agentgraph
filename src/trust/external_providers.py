@@ -11,12 +11,20 @@ and produce a single composite trust score with enforcement decisions.
 """
 from __future__ import annotations
 
+import base64
+import json
 import logging
+import time
 from dataclasses import dataclass, field
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 logger = logging.getLogger(__name__)
+
+# In-memory JWKS cache: provider_id -> (jwks_dict, fetch_timestamp)
+_jwks_cache: dict[str, tuple[dict, float]] = {}
+_JWKS_TTL = 3600  # 1 hour
 
 # Provider registry — known trust attestation providers
 PROVIDERS: list[dict] = [
@@ -46,6 +54,172 @@ PROVIDERS: list[dict] = [
         "description": "Agent identity verification and behavioral risk",
     },
 ]
+
+
+def _b64url_decode(s: str) -> bytes:
+    """Decode base64url without padding (RFC 7515 §2)."""
+    s = s.replace("-", "+").replace("_", "/")
+    # Add padding
+    pad = 4 - len(s) % 4
+    if pad != 4:
+        s += "=" * pad
+    return base64.b64decode(s)
+
+
+async def _fetch_jwks(
+    provider_id: str,
+    jwks_url: str,
+    timeout: float = 10.0,
+) -> dict | None:
+    """Fetch and cache a provider's JWKS.
+
+    Checks Redis cache first (1hr TTL), then in-memory cache, then
+    fetches from the provider's jwks_url.  Returns the JWKS dict or
+    None on failure.
+    """
+    cache_key = f"jwks:{provider_id}"
+
+    # 1. Try Redis cache
+    try:
+        from src import cache as ag_cache
+
+        cached = await ag_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        pass
+
+    # 2. Try in-memory cache
+    if provider_id in _jwks_cache:
+        jwks_data, ts = _jwks_cache[provider_id]
+        if time.monotonic() - ts < _JWKS_TTL:
+            return jwks_data
+
+    # 3. Fetch from provider
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.get(jwks_url)
+            if resp.status_code != 200:
+                logger.warning(
+                    "Failed to fetch JWKS from %s: HTTP %d",
+                    jwks_url,
+                    resp.status_code,
+                )
+                return None
+            jwks_data = resp.json()
+    except Exception as exc:
+        logger.warning("Failed to fetch JWKS from %s: %s", jwks_url, exc)
+        return None
+
+    # Store in both caches
+    _jwks_cache[provider_id] = (jwks_data, time.monotonic())
+    try:
+        from src import cache as ag_cache
+
+        await ag_cache.set(cache_key, jwks_data, ttl=_JWKS_TTL)
+    except Exception:
+        pass
+
+    return jwks_data
+
+
+def _find_ed25519_key(jwks: dict, kid: str | None = None) -> Ed25519PublicKey | None:
+    """Extract an Ed25519 public key from a JWKS dict.
+
+    If *kid* is provided, looks for a matching key; otherwise returns
+    the first Ed25519 key found.
+    """
+    keys = jwks.get("keys", [])
+    for key in keys:
+        if key.get("kty") != "OKP" or key.get("crv") != "Ed25519":
+            continue
+        if kid is not None and key.get("kid") != kid:
+            continue
+        x_bytes = _b64url_decode(key["x"])
+        if len(x_bytes) != 32:
+            continue
+        return Ed25519PublicKey.from_public_bytes(x_bytes)
+    return None
+
+
+def _verify_jws(jws_compact: str, public_key: Ed25519PublicKey) -> bool:
+    """Verify a compact JWS (header.payload.signature) with Ed25519.
+
+    Returns True if the signature is valid, False otherwise.
+    """
+    parts = jws_compact.split(".")
+    if len(parts) != 3:
+        return False
+
+    header_b64, payload_b64, sig_b64 = parts
+
+    # Verify algorithm from header
+    try:
+        header = json.loads(_b64url_decode(header_b64))
+    except Exception:
+        return False
+
+    if header.get("alg") not in ("EdDSA", "Ed25519"):
+        logger.warning("Unsupported JWS algorithm: %s", header.get("alg"))
+        return False
+
+    # Signing input is "header.payload" (ASCII)
+    signing_input = (header_b64 + "." + payload_b64).encode("ascii")
+    signature = _b64url_decode(sig_b64)
+
+    try:
+        public_key.verify(signature, signing_input)
+        return True
+    except Exception:
+        return False
+
+
+async def verify_attestation_jws(
+    provider: dict,
+    raw_jws: str | None,
+) -> bool:
+    """Verify the JWS signature on an external attestation.
+
+    Fetches the provider's JWKS, finds the matching Ed25519 key,
+    and verifies the signature.  Returns True if verification
+    succeeds, False otherwise (graceful degradation).
+    """
+    if not raw_jws:
+        return False
+
+    jwks_url = provider.get("jwks")
+    if not jwks_url:
+        logger.warning("No JWKS URL for provider %s", provider["id"])
+        return False
+
+    jwks = await _fetch_jwks(provider["id"], jwks_url)
+    if jwks is None:
+        return False
+
+    # Extract kid from JWS header if present
+    kid = None
+    try:
+        header_b64 = raw_jws.split(".")[0]
+        header = json.loads(_b64url_decode(header_b64))
+        kid = header.get("kid")
+    except Exception:
+        pass
+
+    public_key = _find_ed25519_key(jwks, kid)
+    if public_key is None:
+        logger.warning(
+            "No matching Ed25519 key in JWKS for provider %s (kid=%s)",
+            provider["id"],
+            kid,
+        )
+        return False
+
+    if _verify_jws(raw_jws, public_key):
+        logger.info("JWS signature verified for provider %s", provider["id"])
+        return True
+    else:
+        logger.warning("JWS signature verification FAILED for provider %s", provider["id"])
+        return False
 
 
 @dataclass
@@ -132,6 +306,9 @@ async def query_provider(
                 if data.get("verified"):
                     score = 0.7  # Verified = baseline trust
 
+            raw_jws = data.get("jws") or data.get("sig")
+            verified = await verify_attestation_jws(provider, raw_jws)
+
             return ExternalAttestation(
                 provider_id=provider["id"],
                 provider_name=provider["name"],
@@ -139,8 +316,8 @@ async def query_provider(
                 score=score,
                 tier=tier,
                 evidence=data,
-                verified=False,  # TODO: verify JWS signature
-                raw_jws=data.get("jws") or data.get("sig"),
+                verified=verified,
+                raw_jws=raw_jws,
             )
 
     except httpx.TimeoutException:

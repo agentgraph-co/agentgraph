@@ -1,19 +1,35 @@
 """AgentGraph bridge for LangChain — register agents and graphs in < 5 lines."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from agentgraph_bridge_langchain.client import AgentGraphClient
+from agentgraph_bridge_langchain.guard import (
+    TrustGuard,
+    TrustResult,
+    check_trust,
+    trust_gate_tools,
+    trust_gated_tool,
+)
 
-__all__ = ["AgentGraphClient", "register_agent", "register_graph"]
+__all__ = [
+    "AgentGraphClient",
+    "TrustGuard",
+    "TrustResult",
+    "check_trust",
+    "register_agent",
+    "register_graph",
+    "trust_gate_tools",
+    "trust_gated_tool",
+]
 
 
 async def register_agent(
     api_url: str,
     api_key: str,
     display_name: str,
-    capabilities: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    capabilities: list[str] | None = None,
+) -> dict[str, Any]:
     """Register a single LangChain agent with AgentGraph.
 
     Args:
@@ -37,8 +53,8 @@ async def register_graph(
     api_url: str,
     api_key: str,
     graph_name: str,
-    nodes: Optional[List[Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
+    nodes: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     """Register a LangGraph (multi-node graph) with AgentGraph.
 
     Each node dict should contain at minimum a ``"name"`` key.  An optional
@@ -55,7 +71,7 @@ async def register_graph(
     """
     client = AgentGraphClient(api_url, api_key)
     nodes = nodes or []
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for node in nodes:
         name = node.get("name", "node")
         tools = node.get("tools", [])
