@@ -9,7 +9,7 @@
 **Post type:** Text post with curl example
 
 ### 2. r/LocalLLaMA (~500K members)  
-**Framing:** "We scanned 78 of the top 100 OpenClaw skills — 3,924 security findings, 26% scored F"
+**Framing:** "We scanned 78 of the top 100 OpenClaw skills — 14,350 security findings, 32% scored F"
 **Why:** Technical audience interested in agent infrastructure
 **Self-promo rules:** Strict. Must be genuinely useful, not marketing.
 **Post type:** Results/data post, link to API in comments not title

@@ -1,16 +1,18 @@
 ---
-title: "We Scanned 25 OpenClaw Skills for Security Vulnerabilities — Here's What We Found"
-published: false
-description: "1,195 findings across 25 popular OpenClaw skills. 36% scored below 20/100. Here's the data and a free tool to check your own."
+title: "We Scanned 231 OpenClaw Skills for Security Vulnerabilities — Here's What We Found"
+published: true
+description: "14,350 findings across 231 OpenClaw skill repos. 32% scored F. 98 critical findings in 20 repos. Here's the data, free PyPI packages, and a trust gateway for enforcement."
 tags: security, ai, agents, opensource
 cover_image:
 ---
 
 AI agents are running third-party code on your machine. Last week, [Anthropic announced extra charges for OpenClaw support in Claude Code](https://techcrunch.com/2026/04/04/anthropic-says-claude-code-subscribers-will-need-to-pay-extra-for-openclaw-support/), drawing fresh attention to the ecosystem. We wanted to answer a straightforward question: how safe are the most popular OpenClaw skills?
 
+We first published results from 25 repos. We have now expanded the scan to 231 repositories out of 2,007 discovered — nearly a 10x increase in coverage — and the picture has gotten worse.
+
 ## Methodology
 
-We used AgentGraph's [open-source security scanner](https://github.com/agentgraph-co/agentgraph) to analyze 25 popular OpenClaw skill repositories from GitHub. The scanner inspects source code for:
+We used AgentGraph's [open-source security scanner](https://github.com/agentgraph-co/agentgraph) to analyze 231 OpenClaw skill repositories from GitHub (out of 2,007 discovered). The scanner inspects source code for:
 
 - **Hardcoded secrets** (API keys, tokens, passwords in source)
 - **Unsafe execution** (subprocess calls, eval/exec, shell=True)
@@ -22,32 +24,33 @@ It also detects positive signals: authentication checks, input validation, rate 
 
 ## Results Summary
 
-All 25 repositories scanned successfully. The aggregate numbers:
+All 231 repositories scanned successfully. The aggregate numbers:
 
 | Metric | Value |
 |--------|-------|
-| Repos scanned | 25 |
-| Total findings | 1,195 |
-| Critical | 25 |
-| High | 615 |
-| Medium | 555 |
-| Repos with critical findings | 4 (16%) |
-| Average trust score | 51.1 / 100 |
-| Repos scoring below 20 | 9 (36%) |
+| Repos discovered | 2,007 |
+| Repos scanned | 231 |
+| Total findings | 14,350 |
+| Critical | 98 |
+| High | 6,192 |
+| Medium | 8,045 |
+| Repos with critical findings | 20 (9%) |
+| Average trust score | 57.0 / 100 (Grade C) |
+| Repos scoring F (0-20) | 74 (32%) |
 
-Findings by category: file system access accounted for 707, unsafe execution patterns for 461, data exfiltration patterns for 26, and hardcoded secrets for 1.
+Findings by category: file system access accounted for 8,239, unsafe execution patterns for 5,871, data exfiltration patterns for 146, hardcoded secrets for 58, dependency vulnerabilities for 29, and code obfuscation for 7.
 
 ## Score Distribution
 
-| Score Range | Repos | Percentage |
-|-------------|-------|------------|
-| 0 - 20 | 9 | 36% |
-| 21 - 40 | 1 | 4% |
-| 41 - 60 | 0 | 0% |
-| 61 - 80 | 5 | 20% |
-| 81 - 100 | 10 | 40% |
+| Score Range | Grade | Repos | Percentage |
+|-------------|-------|-------|------------|
+| 81 - 100 | A / A+ | 118 | 51% |
+| 61 - 80 | B / B+ | — | — |
+| 41 - 60 | C | — | — |
+| 21 - 40 | D | — | — |
+| 0 - 20 | F | 74 | 32% |
 
-The distribution is bimodal. Repos tend to be either clean or deeply problematic, with almost nothing in the middle. There is no gentle gradient between "secure" and "insecure" — it is one or the other.
+The distribution remains bimodal. More than half of repos score A or above, but over a quarter score F. Repos tend to be either clean or deeply problematic, with almost nothing in the middle. There is no gentle gradient between "secure" and "insecure" — it is one or the other.
 
 ## Notable Findings
 
@@ -69,9 +72,21 @@ Not all skills are problematic. **tuya/tuya-openclaw-skills** scored 95/100, and
 
 When Claude Code or any AI assistant runs a third-party tool, it executes that tool's code with whatever permissions the host process has. If that code contains unsafe exec patterns, broad file system access, or exfiltration vectors, the attack surface is your machine — your files, your environment variables, your credentials.
 
-The finding categories tell the story: 461 unsafe execution patterns means eval, exec, subprocess, and shell=True calls scattered across these codebases. 707 file system access findings means code reaching into the filesystem in ways that may not be bounded.
+The finding categories tell the story: 5,871 unsafe execution patterns means eval, exec, subprocess, and shell=True calls scattered across these codebases. 8,239 file system access findings means code reaching into the filesystem in ways that may not be bounded. 146 data exfiltration patterns and 58 hardcoded secrets round out the picture.
 
 Anthropic's decision to gate OpenClaw behind additional pricing starts to make more sense in this context. The cost is not just computational — it is risk.
+
+## New: PyPI Packages and Trust Gateway
+
+Since the initial scan, we have shipped three PyPI packages:
+
+- **[agentgraph-trust](https://pypi.org/project/agentgraph-trust/)** (v0.3.1) — the MCP server for scanning tools directly from Claude Code or any MCP-compatible client
+- **[agentgraph-agt](https://pypi.org/project/agentgraph-agt/)** — the AgentGraph Trust CLI for CI pipelines and local use
+- **[open-agent-trust](https://pypi.org/project/open-agent-trust/)** — a lightweight library for embedding trust checks into any Python agent framework
+
+We have also built a **trust gateway** — an enforcement layer that sits between your agent runtime and third-party tools. Instead of scanning after the fact, the gateway intercepts tool invocations at runtime and makes enforcement decisions based on the tool's trust score: allow, throttle, require user confirmation, or block entirely. The trust tiers (detailed below) drive these decisions automatically.
+
+The gateway turns scan results into policy. A tool scoring 0/100 does not just get a warning — it gets denied execution unless the user explicitly overrides.
 
 ## Check Your Own Tools
 
@@ -136,7 +151,9 @@ You can also embed a trust badge in your README:
 The scanner and full results are open source:
 
 - **Scanner**: [github.com/agentgraph-co/agentgraph](https://github.com/agentgraph-co/agentgraph)
-- **MCP Server**: [pypi.org/project/agentgraph-trust](https://pypi.org/project/agentgraph-trust/) | [source](https://github.com/agentgraph-co/agentgraph/tree/main/sdk/mcp-server)
+- **MCP Server**: [pypi.org/project/agentgraph-trust](https://pypi.org/project/agentgraph-trust/) (v0.3.1) | [source](https://github.com/agentgraph-co/agentgraph/tree/main/sdk/mcp-server)
+- **CLI**: [pypi.org/project/agentgraph-agt](https://pypi.org/project/agentgraph-agt/)
+- **Library**: [pypi.org/project/open-agent-trust](https://pypi.org/project/open-agent-trust/)
 
 ---
 

@@ -3,11 +3,11 @@
 ## Bluesky Thread (3 posts)
 
 ### Post 1
-We scanned 78 of the top 100 OpenClaw skills. 3,924 security findings.
+We scanned 231 OpenClaw skills (out of 2,007 discovered). 14,350 security findings.
 
-35 critical across 7 repos. 26% of skills scored F (0-20). Average trust score: 63.8/100.
+98 critical across 20 repos. 32% of skills scored F (0-20). Average trust score: 57.0/100.
 
-Top categories: filesystem access (2,074 findings), unsafe exec (1,781), data exfiltration (43), hardcoded secrets (23).
+Top categories: filesystem access (8,239 findings), unsafe exec (5,871), data exfiltration (146), hardcoded secrets (58).
 
 Context-aware scanning means MCP tool servers get scored differently — filesystem access in a file server is expected. This reduced false positives dramatically.
 
@@ -35,7 +35,7 @@ We're one of 9 verified issuers in the multi-attestation working group.
 ### Option A: "Context-Aware Security Scanning for AI Agent Tools"
 - The problem: generic scanners flag MCP servers for doing their job
 - Our solution: detect MCP context, discount expected patterns
-- Data: 78 repos scanned (OpenClaw Top 100), 3,924 findings, before/after comparison
+- Data: 231 repos scanned (2,007 discovered), 14,350 findings, before/after comparison
 - How to use: curl examples, pip install
 - ~800 words
 
@@ -46,12 +46,12 @@ We're one of 9 verified issuers in the multi-attestation working group.
 - Framework integration: works with any framework
 - ~1000 words
 
-### Option C: "I Scanned 78 OpenClaw Skills — Here's What I Found"
-- Massive scale-up from the original 25-repo scan to 78 repos (OpenClaw Top 100)
-- 3,924 total findings: 35 critical, 1,633 high, 2,256 medium
-- Average trust score: 63.8/100 — 26% of skills score F, 56% score A/A+
-- Top categories: filesystem access (2,074), unsafe exec (1,781), exfiltration (43), hardcoded secrets (23)
+### Option C: "I Scanned 231 OpenClaw Skills — Here's What I Found"
+- Massive scale-up from the original 25-repo scan to 231 repos (2,007 discovered)
+- 14,350 total findings: 98 critical, 6,192 high, 8,045 medium
+- Average trust score: 57.0/100 — 32% of skills score F, 51% score A/A+
+- Top categories: filesystem access (8,239), unsafe exec (5,871), exfiltration (146), hardcoded secrets (58)
 - Constructive framing with remediation hints
 - ~1200 words
 
-**Recommended: Option C** — the scale (78 repos, nearly 4K findings) makes this far more compelling than the original 25-repo article. Most shareable data angle.
+**Recommended: Option C** — the scale (231 repos, 14K+ findings) makes this far more compelling than the original 25-repo article. Most shareable data angle.

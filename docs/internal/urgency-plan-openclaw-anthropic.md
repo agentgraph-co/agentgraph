@@ -47,7 +47,7 @@ Get AgentGraph on Anthropic's radar as the trust infrastructure layer for MCP.
 ### What TO Do
 - Publish constructive security guide for OpenClaw skill authors
 - Offer the scanner as a CI tool for skill validation
-- Reference real data (3,924 findings across 78 repos, 1,781 unsafe exec patterns, 26% score F) without blaming
+- Reference real data (14,350 findings across 231 repos, 5,871 unsafe exec patterns, 32% score F) without blaming
 - Position as "here's how to make your skills safer"
 
 ## Timeline
