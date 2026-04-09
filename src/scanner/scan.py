@@ -722,17 +722,36 @@ async def scan_repo(
         # Load allowlist once for the whole scan
         allowlist = _load_allowlist()
 
-        # Scan each file
-        for item in scan_files:
-            path = item["path"]
-            content = await _fetch_file_content(owner, repo, path, token)
-            if not content:
-                continue
+        # Scan files in parallel batches (10 concurrent fetches)
+        import asyncio
 
+        scan_concurrency = 10
+        per_file_timeout = 15.0  # seconds per file fetch
+        sem = asyncio.Semaphore(scan_concurrency)
+
+        async def _scan_one(item: dict) -> tuple:
+            """Fetch and scan a single file. Returns (findings, positives, suppressed)."""
+            path = item["path"]
+            try:
+                async with sem:
+                    content = await asyncio.wait_for(
+                        _fetch_file_content(owner, repo, path, token),
+                        timeout=per_file_timeout,
+                    )
+                if not content:
+                    return [], [], 0
+                f, p, s = _scan_content(content, path, allowlist)
+                return f, p, s
+            except (asyncio.TimeoutError, Exception):
+                return [], [], 0
+
+        tasks = [_scan_one(item) for item in scan_files]
+        scan_results = await asyncio.gather(*tasks)
+
+        for findings_list, positives_list, suppressed in scan_results:
             result.files_scanned += 1
-            findings, positives, suppressed = _scan_content(content, path, allowlist)
-            result.findings.extend(findings)
-            result.positive_signals.extend(positives)
+            result.findings.extend(findings_list)
+            result.positive_signals.extend(positives_list)
             result.suppressed_count += suppressed
 
         # Calculate trust score and per-category sub-scores
