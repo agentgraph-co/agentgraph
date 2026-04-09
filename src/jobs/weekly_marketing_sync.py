@@ -94,7 +94,74 @@ async def generate_weekly_digest() -> dict:
     except Exception:
         pass
 
-    # 5. Summarize for content engine
+    # 5. PyPI download stats
+    try:
+        import httpx
+        for pkg in ["agentgraph-trust", "agentgraph-agt", "open-agent-trust",
+                     "agentgraph-pydantic", "agentgraph-bridge-langchain"]:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(
+                        f"https://pypistats.org/api/packages/{pkg}/recent"
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json().get("data", {})
+                        digest["pypi_packages"].append({
+                            "name": pkg,
+                            "downloads_last_week": data.get("last_week", 0),
+                            "downloads_last_month": data.get("last_month", 0),
+                        })
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 6. GitHub discussion activity (A2A, insumer threads)
+    try:
+        result = subprocess.run(
+            ["gh", "api", "graphql", "-f", "query={repository(owner:\"a2aproject\",name:\"A2A\"){discussions(last:10,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number,title,comments{totalCount},updatedAt}}}}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            import json as _json
+            gh_data = _json.loads(result.stdout)
+            discussions = gh_data.get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])
+            # Only include discussions we're involved in
+            our_discussions = [d for d in discussions if d.get("number") in (1720, 1672, 1734)]
+            digest["partner_activity"] = [
+                {
+                    "thread": f"A2A #{d['number']}",
+                    "title": d["title"][:80],
+                    "comments": d["comments"]["totalCount"],
+                    "updated": d["updatedAt"],
+                }
+                for d in our_discussions
+            ]
+    except Exception:
+        pass
+
+    # 7. New entity imports this week
+    try:
+        from src.database import async_session
+        from src.models import Entity
+        import sqlalchemy as sa
+
+        async with async_session() as db:
+            result = await db.execute(
+                sa.select(sa.func.count()).where(
+                    Entity.created_at >= week_ago,
+                )
+            )
+            digest["key_metrics"]["new_entities_this_week"] = result.scalar() or 0
+    except Exception:
+        pass
+
+    # 8. Strategic context note (written by Claude Code sessions, read here)
+    context_path = Path("data/marketing_strategic_context.md")
+    if context_path.exists():
+        digest["strategic_context"] = context_path.read_text()
+
+    # 9. Summarize for content engine
     commit_count = digest["key_metrics"].get("commits_this_week", 0)
     scan_count = digest["scan_stats"].get("repos_scanned", 0)
     findings = digest["scan_stats"].get("total_findings", 0)
@@ -109,6 +176,20 @@ async def generate_weekly_digest() -> dict:
         digest["content_suggestions"].append(
             f"High development velocity: {commit_count} commits this week."
         )
+    # Flag hot partner threads
+    for activity in digest.get("partner_activity", []):
+        if activity.get("comments", 0) > 5:
+            digest["content_suggestions"].append(
+                f"Active partner thread: {activity['thread']} — "
+                f"{activity['comments']} comments. Consider referencing."
+            )
+    # Flag PyPI traction
+    for pkg in digest.get("pypi_packages", []):
+        if pkg.get("downloads_last_week", 0) > 50:
+            digest["content_suggestions"].append(
+                f"PyPI traction: {pkg['name']} — "
+                f"{pkg['downloads_last_week']} downloads last week."
+            )
 
     # Write digest
     DIGEST_PATH.parent.mkdir(parents=True, exist_ok=True)
