@@ -156,10 +156,18 @@ async def generate_weekly_digest() -> dict:
     except Exception:
         pass
 
-    # 8. Strategic context note (written by Claude Code sessions, read here)
-    context_path = Path("data/marketing_strategic_context.md")
-    if context_path.exists():
-        digest["strategic_context"] = context_path.read_text()
+    # 8. Strategic context note (written by Claude Code sessions via Redis)
+    try:
+        from src.redis_client import get_redis
+        r = get_redis()
+        context = await r.get("marketing:strategic_context")
+        if context:
+            digest["strategic_context"] = context.decode() if isinstance(context, bytes) else context
+    except Exception:
+        # Fallback: local file (for dev environments)
+        context_path = Path("data/marketing_strategic_context.md")
+        if context_path.exists():
+            digest["strategic_context"] = context_path.read_text()
 
     # 9. Summarize for content engine
     commit_count = digest["key_metrics"].get("commits_this_week", 0)
