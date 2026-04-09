@@ -45,6 +45,7 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "fs_access": "Restrict paths to allowed directories",
     "exfiltration": "Add authentication to outbound data endpoints",
     "obfuscation": "Replace obfuscated code with readable equivalent",
+    "dependency": "Update to a patched version or find an alternative package",
 }
 
 
@@ -261,6 +262,11 @@ _SAFE_SUBPROCESS_RE = re.compile(
     r"""subprocess\.(?:run|call|check_output|Popen)\s*\(\s*\[?\s*['"]""",
 )
 
+# Regex: subprocess with well-known safe commands (git, pip, npm, node, etc.)
+_SAFE_SUBPROCESS_CMDS_RE = re.compile(
+    r"""subprocess\.(?:run|call|check_output|Popen)\s*\(\s*\[\s*['"](git|pip|pip3|npm|npx|node|python|python3|go|cargo|make|cmake|docker|kubectl|terraform|helm|yarn|pnpm|mvn|gradle|rustc|gcc|g\+\+|clang|javac|ruby|bundle|rake|composer|dotnet|swift|xcodebuild|brew|apt|apt-get|yum|dnf|apk|conda|uv|ruff|black|isort|mypy|pytest|eslint|prettier|tsc|webpack|vite)['"]""",
+)
+
 # Regex: open() on a known safe path / with Path objects / read-only config
 _SAFE_OPEN_PATTERNS = [
     # Path(...).open() or Path(...).read_text() / write_text()
@@ -270,6 +276,28 @@ _SAFE_OPEN_PATTERNS = [
     # with open(..., hardcoded path) as f — context manager with string literal path
     re.compile(r"""with\s+open\s*\(\s*['"][^'"{}$]+['"]"""),
 ]
+
+# Config file extensions — reading these is almost always legitimate
+_CONFIG_FILE_EXTENSIONS = frozenset({
+    ".json", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".conf",
+    ".xml", ".properties", ".env.example", ".env.template",
+})
+
+# Safe write destinations — writing to these directories is expected behavior
+_SAFE_WRITE_DIRS = frozenset({
+    "logs", "log", "tmp", "temp", ".cache", "cache", "__pycache__",
+    ".tmp", "output", "out", "build", "dist", ".build",
+})
+
+# Regex: open() reading a config file by extension
+_CONFIG_FILE_READ_RE = re.compile(
+    r"""open\s*\([^)]*['"][\w./\\-]+\.(?:json|ya?ml|toml|cfg|ini|conf|xml|properties)['"]""",
+)
+
+# Regex: writing to a known safe directory (logs/, tmp/, .cache/, etc.)
+_SAFE_WRITE_DIR_RE = re.compile(
+    r"""open\s*\([^)]*['"](/?(?:[\w.-]+/)*(?:logs?|tmp|temp|\.cache|cache|output|out|build|dist)/[^'"]+)['"]""",
+)
 
 # Regex: safe exec/eval — e.g. ast.literal_eval, json.loads with exec in name
 _SAFE_EVAL_RE = re.compile(
@@ -281,6 +309,184 @@ _SAFE_DB_EXEC_RE = re.compile(
     r"""(?:await\s+)?(?:\w+\.)?(?:db|session|conn(?:ection)?|cursor|engine|tx|transaction)\.exec(?:ute|utescalar|utemany)\s*\(""",
     re.IGNORECASE,
 )
+
+# ---------------------------------------------------------------------------
+# Known vulnerable dependency patterns (major CVEs / critical issues)
+# Each: (package_name_pattern, vulnerable_version_pattern, severity, description)
+# ---------------------------------------------------------------------------
+_VER = r"\s*[=<>~!]=?\s*['\"]?"  # version operator shorthand
+
+_VULN_DEPS: list[tuple[str, re.Pattern[str], str, str]] = [
+    # -- Python packages --
+    (
+        "requests",
+        re.compile(r"requests" + _VER + r"2\.\d{1,2}\b"),
+        "high",
+        "requests <2.31.0 leaks Proxy-Authorization header",
+    ),
+    (
+        "urllib3",
+        re.compile(r"urllib3" + _VER + r"1\.2[0-5]\b"),
+        "high",
+        "urllib3 <1.26.18 cookie/header leak",
+    ),
+    (
+        "cryptography",
+        re.compile(
+            r"cryptography" + _VER
+            + r"(3\d*\.|[012]\.|40\.|41\.0\.[012]\b)",
+        ),
+        "critical",
+        "cryptography <41.0.3 OpenSSL vulnerabilities",
+    ),
+    (
+        "pyjwt",
+        re.compile(r"[Pp]y[Jj][Ww][Tt]" + _VER + r"[01]\."),
+        "high",
+        "PyJWT <2.0 algorithm confusion vulnerability",
+    ),
+    (
+        "django",
+        re.compile(r"[Dd]jango" + _VER + r"[0-3]\."),
+        "critical",
+        "Django <4.0 EOL with unpatched CVEs",
+    ),
+    (
+        "flask",
+        re.compile(r"[Ff]lask" + _VER + r"[01]\."),
+        "high",
+        "Flask <2.0 missing security fixes",
+    ),
+    (
+        "pillow",
+        re.compile(
+            r"[Pp]illow" + _VER + r"(9\.[0-4]\.|[0-8]\.)",
+        ),
+        "high",
+        "Pillow <9.5.0 buffer overflow CVEs",
+    ),
+    (
+        "setuptools",
+        re.compile(
+            r"setuptools" + _VER + r"(6[0-4]\.|[0-5]\d?\.)",
+        ),
+        "medium",
+        "setuptools <65.5.1 CVE-2022-40897 ReDoS",
+    ),
+    (
+        "certifi",
+        re.compile(r"certifi" + _VER + r"202[0-2]\."),
+        "high",
+        "certifi <2023.07.22 revoked e-Tugra root cert",
+    ),
+    (
+        "aiohttp",
+        re.compile(r"aiohttp" + _VER + r"3\.[0-8]\."),
+        "high",
+        "aiohttp <3.9.0 HTTP request smuggling CVEs",
+    ),
+    (
+        "jinja2",
+        re.compile(r"[Jj]inja2" + _VER + r"[0-2]\."),
+        "high",
+        "Jinja2 <3.0 sandbox escape vulnerabilities",
+    ),
+    (
+        "sqlalchemy",
+        re.compile(
+            r"[Ss][Qq][Ll][Aa]lchemy" + _VER + r"1\.[0-3]\.",
+        ),
+        "medium",
+        "SQLAlchemy <1.4 SQL injection edge cases",
+    ),
+    (
+        "lxml",
+        re.compile(r"lxml" + _VER + r"4\.[0-8]\."),
+        "high",
+        "lxml <4.9.1 CVE-2022-2309",
+    ),
+    (
+        "paramiko",
+        re.compile(r"paramiko" + _VER + r"[0-2]\."),
+        "high",
+        "paramiko <3.0 auth bypass / RCE vulnerabilities",
+    ),
+    (
+        "pyyaml",
+        re.compile(
+            r"[Pp][Yy][Yy][Aa][Mm][Ll]" + _VER + r"[0-5]\.",
+        ),
+        "critical",
+        "PyYAML <6.0 unsafe YAML deserialization",
+    ),
+    # -- Node.js packages --
+    (
+        "jsonwebtoken",
+        re.compile(r'"jsonwebtoken"\s*:\s*"[\^~]?[0-7]\.'),
+        "high",
+        "jsonwebtoken <8.5.1 algorithm confusion",
+    ),
+    (
+        "lodash",
+        re.compile(r'"lodash"\s*:\s*"[\^~]?[0-3]\.'),
+        "high",
+        "lodash <4.17.21 prototype pollution",
+    ),
+    (
+        "express",
+        re.compile(r'"express"\s*:\s*"[\^~]?[0-3]\.'),
+        "medium",
+        "express <4.x EOL, missing security patches",
+    ),
+    (
+        "axios",
+        re.compile(r'"axios"\s*:\s*"[\^~]?0\.'),
+        "medium",
+        "axios 0.x SSRF and ReDoS vulnerabilities",
+    ),
+    (
+        "node-fetch",
+        re.compile(r'"node-fetch"\s*:\s*"[\^~]?[01]\.'),
+        "medium",
+        "node-fetch <2.6.7 CVE-2022-0235",
+    ),
+    (
+        "minimist",
+        re.compile(r'"minimist"\s*:\s*"[\^~]?[01]\.[0-1]\.'),
+        "high",
+        "minimist <1.2.6 prototype pollution",
+    ),
+    (
+        "tar",
+        re.compile(r'"tar"\s*:\s*"[\^~]?[0-5]\.'),
+        "high",
+        "tar <6.1.9 arbitrary file creation",
+    ),
+    (
+        "got",
+        re.compile(r'"got"\s*:\s*"[\^~]?[0-9]\.'),
+        "medium",
+        "got <11.8.5 open redirect vulnerability",
+    ),
+    (
+        "shell-quote",
+        re.compile(r'"shell-quote"\s*:\s*"[\^~]?1\.[0-6]\.'),
+        "critical",
+        "shell-quote <1.7.3 command injection",
+    ),
+    (
+        "passport",
+        re.compile(r'"passport"\s*:\s*"[\^~]?0\.[0-5]\.'),
+        "high",
+        "passport <0.6.0 session fixation",
+    ),
+]
+
+# Dependency file names we parse
+_DEP_FILES = frozenset({
+    "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
+    "Pipfile", "package.json", "Cargo.toml", "Gemfile",
+})
 
 
 def _is_test_or_doc_file(file_path: str) -> bool:
@@ -304,14 +510,20 @@ def _is_test_or_doc_file(file_path: str) -> bool:
     return False
 
 
-def _is_safe_exec_context(line: str, finding_name: str) -> bool:
+def _is_safe_exec_context(
+    line: str, finding_name: str, file_path: str = "",
+) -> bool:
     """Check if an unsafe_exec match is actually a safe usage pattern."""
     stripped = line.strip()
+    filename = Path(file_path).name.lower() if file_path else ""
 
     # subprocess with hardcoded args → safe (but NOT if shell=True is present)
     if "subprocess" in finding_name.lower():
         has_shell_true = "shell=True" in stripped or "shell = True" in stripped
         if not has_shell_true and _SAFE_SUBPROCESS_RE.search(stripped):
+            return True
+        # subprocess with well-known safe commands (git, pip, npm, etc.)
+        if not has_shell_true and _SAFE_SUBPROCESS_CMDS_RE.search(stripped):
             return True
         # Also safe: subprocess with shell=False (explicit)
         if "shell=False" in stripped or "shell = False" in stripped:
@@ -337,10 +549,29 @@ def _is_safe_exec_context(line: str, finding_name: str) -> bool:
         if re.search(r"""(?:async\s+)?def\s+exec\s*\(""", stripped):
             return True
 
+    # eval() in __init__.py — commonly used for version parsing, e.g. eval(f.read())
+    if "eval" in finding_name.lower() and filename == "__init__.py":
+        # Only safe if it looks like version extraction
+        if re.search(r"""(?:version|__version__|VERSION)""", stripped, re.IGNORECASE):
+            return True
+
+    # exec() in migration files or setup.py — expected usage
+    if "exec" in finding_name.lower():
+        parts = Path(file_path).parts if file_path else ()
+        is_migration = any(
+            p in ("migrations", "alembic", "versions", "migrate")
+            for p in parts
+        )
+        is_setup = filename in ("setup.py", "setup.cfg", "conftest.py")
+        if is_migration or is_setup:
+            return True
+
     return False
 
 
-def _is_safe_fs_context(line: str, _finding_name: str) -> bool:
+def _is_safe_fs_context(
+    line: str, _finding_name: str, file_path: str = "",
+) -> bool:
     """Check if a file system access match is actually a safe usage pattern."""
     stripped = line.strip()
 
@@ -352,7 +583,53 @@ def _is_safe_fs_context(line: str, _finding_name: str) -> bool:
     if re.search(r"\.(?:read_text|write_text|read_bytes|write_bytes)\s*\(", stripped):
         return True
 
+    # Reading config files by extension — almost always legitimate
+    if _CONFIG_FILE_READ_RE.search(stripped):
+        return True
+
+    # Writing to known safe directories (logs/, tmp/, .cache/, etc.)
+    if _SAFE_WRITE_DIR_RE.search(stripped):
+        return True
+
+    # open() with a string literal filename containing a config extension
+    # e.g. open("settings.toml"), open("config.yml")
+    m = re.search(r"""open\s*\(\s*['"]([^'"]+)['"]""", stripped)
+    if m:
+        target_path = m.group(1)
+        target_ext = Path(target_path).suffix.lower()
+        if target_ext in _CONFIG_FILE_EXTENSIONS:
+            return True
+        # Writing to a safe directory based on path components
+        target_parts = Path(target_path).parts
+        if any(p.lower() in _SAFE_WRITE_DIRS for p in target_parts):
+            return True
+
     return False
+
+
+def _downgrade_fs_severity(
+    line: str, severity: str,
+) -> str:
+    """Downgrade fs_access severity for safer patterns like pathlib usage."""
+    stripped = line.strip()
+    # pathlib.Path usage is generally safer than raw open() — sandboxed by design
+    if "Path(" in stripped or "pathlib" in stripped:
+        if severity == "high":
+            return "medium"
+        if severity == "medium":
+            return "low"
+    return severity
+
+
+def _upgrade_shell_true_severity(
+    line: str, severity: str,
+) -> str:
+    """Upgrade severity when shell=True is present — always dangerous."""
+    stripped = line.strip()
+    if "shell=True" in stripped or "shell = True" in stripped:
+        # shell=True is always critical regardless of original severity
+        return "critical"
+    return severity
 
 
 def _scan_content(
@@ -420,12 +697,16 @@ def _scan_content(
                 if _is_allowlisted(file_path, name, allowlist):
                     continue
                 # --- Option 3: Context-aware check ---
-                if _is_safe_exec_context(line, name):
+                if _is_safe_exec_context(line, name, file_path):
                     continue
                 # Downgrade severity in test/doc/example files
                 effective_severity = severity
                 if is_test_or_doc and severity in ("critical", "high"):
                     effective_severity = "medium"
+                # Upgrade severity for shell=True (always dangerous)
+                effective_severity = _upgrade_shell_true_severity(
+                    line, effective_severity,
+                )
                 findings.append(Finding(
                     category="unsafe_exec",
                     name=name,
@@ -443,12 +724,16 @@ def _scan_content(
                 if _is_allowlisted(file_path, name, allowlist):
                     continue
                 # --- Option 3: Context-aware check ---
-                if _is_safe_fs_context(line, name):
+                if _is_safe_fs_context(line, name, file_path):
                     continue
                 # Downgrade severity in test/doc/example files
                 effective_severity = severity
                 if is_test_or_doc and severity in ("critical", "high"):
                     effective_severity = "medium"
+                # Downgrade for safer pathlib patterns
+                effective_severity = _downgrade_fs_severity(
+                    line, effective_severity,
+                )
                 findings.append(Finding(
                     category="fs_access",
                     name=name,
@@ -509,6 +794,40 @@ def _scan_content(
                 positives.append(name)
 
     return findings, positives, suppressed_count
+
+
+def _scan_dependencies(content: str, file_path: str) -> list[Finding]:
+    """Scan dependency files for known vulnerable package versions.
+
+    Parses requirements.txt, pyproject.toml, package.json, etc. and checks
+    against a curated list of packages with known critical CVEs.
+    """
+    findings: list[Finding] = []
+    filename = Path(file_path).name.lower()
+
+    if filename not in {f.lower() for f in _DEP_FILES}:
+        return findings
+
+    for pkg_name, vuln_pattern, severity, description in _VULN_DEPS:
+        # Search the entire file content for vulnerable version patterns
+        for line_num, line in enumerate(content.split("\n"), 1):
+            stripped = line.strip()
+            # Skip comments
+            if stripped.startswith(("#", "//", "*")):
+                continue
+            if vuln_pattern.search(stripped):
+                findings.append(Finding(
+                    category="dependency",
+                    name=f"Vulnerable dependency: {pkg_name}",
+                    severity=severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                    remediation=description,
+                ))
+                break  # one finding per package per file
+
+    return findings
 
 
 def _calculate_trust_score(result: ScanResult) -> int:
@@ -607,14 +926,16 @@ def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
         "obfuscation": "code_safety",
         "exfiltration": "data_handling",
         "fs_access": "filesystem_access",
+        "dependency": "dependency_health",
     }
-    severity_weights = {"critical": 25, "high": 15, "medium": 8}
+    severity_weights = {"critical": 25, "high": 15, "medium": 8, "low": 3}
 
     scores: dict[str, int] = {
         "secret_hygiene": 100,
         "code_safety": 100,
         "data_handling": 100,
         "filesystem_access": 100,
+        "dependency_health": 100,
     }
 
     # For MCP servers, expected tool patterns get discounted deductions
@@ -773,6 +1094,30 @@ async def scan_repo(
             result.findings.extend(findings_list)
             result.positive_signals.extend(positives_list)
             result.suppressed_count += suppressed
+
+        # --- Dependency vulnerability scanning ---
+        dep_file_names = {f.lower() for f in _DEP_FILES}
+        dep_files = [
+            item for item in tree
+            if Path(item["path"]).name.lower() in dep_file_names
+            and not _should_skip_path(item["path"])
+        ]
+        for dep_item in dep_files[:10]:  # cap at 10 dep files
+            try:
+                async with sem:
+                    dep_content = await asyncio.wait_for(
+                        _fetch_file_content(
+                            owner, repo, dep_item["path"], token,
+                        ),
+                        timeout=per_file_timeout,
+                    )
+                if dep_content:
+                    dep_findings = _scan_dependencies(
+                        dep_content, dep_item["path"],
+                    )
+                    result.findings.extend(dep_findings)
+            except (asyncio.TimeoutError, Exception):
+                pass
 
         # Calculate trust score and per-category sub-scores
         result.trust_score = _calculate_trust_score(result)

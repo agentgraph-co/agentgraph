@@ -164,12 +164,17 @@ async def _check_npm_from_package_json(content: str) -> DiscoveredSource:
 
 async def _check_pypi_from_pyproject(content: str) -> DiscoveredSource:
     """Parse pyproject.toml for [project] name and verify on PyPI."""
-    # Simple regex parse — avoids toml dependency
-    match = re.search(
-        r'^\[project\]\s*\n(?:.*\n)*?name\s*=\s*["\']([^"\']+)["\']',
+    # Find the [project] section, then extract name before the next section
+    section_match = re.search(
+        r"^\[project\]\s*$(.*?)(?=^\[|\Z)",
         content,
-        re.MULTILINE,
+        re.MULTILINE | re.DOTALL,
     )
+    if not section_match:
+        raise ValueError("No [project] section in pyproject.toml")
+
+    body = section_match.group(1)
+    match = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', body, re.MULTILINE)
     if not match:
         raise ValueError("No [project] name in pyproject.toml")
 
@@ -332,10 +337,18 @@ async def _check_github_from_url(
 
     owner, repo = match.group(1), match.group(2)
 
+    headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
+    try:
+        from src.config import settings
+        if settings.github_token:
+            headers["Authorization"] = f"Bearer {settings.github_token}"
+    except Exception:
+        pass
+
     async with httpx.AsyncClient(timeout=_CHECK_TIMEOUT) as client:
         resp = await client.get(
             f"https://api.github.com/repos/{owner}/{repo}",
-            headers={"Accept": "application/vnd.github+json"},
+            headers=headers,
         )
         if resp.status_code != 200:
             raise ValueError(f"GitHub repo {owner}/{repo} not found")
