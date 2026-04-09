@@ -400,12 +400,15 @@ async def webhook_rescan(
 
         async def _rescan() -> None:
             try:
-                await scan_repo(
-                    full_name=request.repo,
-                    stars=0,
-                    description="",
-                    framework="",
-                    token=token,
+                await asyncio.wait_for(
+                    scan_repo(
+                        full_name=request.repo,
+                        stars=0,
+                        description="",
+                        framework="",
+                        token=token,
+                    ),
+                    timeout=120.0,  # Hard timeout to prevent runaway scans
                 )
                 logger.info(
                     "Webhook rescan completed: %s (provider=%s, reason=%s)",
