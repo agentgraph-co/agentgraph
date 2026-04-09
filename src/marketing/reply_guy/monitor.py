@@ -185,13 +185,69 @@ async def _fetch_bluesky_posts(handle: str, since: datetime) -> list:
 
 
 async def _fetch_twitter_posts(handle: str, since: datetime) -> list:
-    """Fetch recent posts from a Twitter account.
+    """Fetch recent posts from a Twitter account using API v2.
 
-    NOTE: Twitter API v2 requires elevated access for user timeline.
-    This is a placeholder -- returns empty until Twitter API is configured.
+    Uses the TWITTER_BEARER_TOKEN for app-only auth (read timelines).
+    Returns list of dicts with: uri, text, timestamp, likes.
     """
-    # Twitter API requires OAuth and elevated access for reading other
-    # users' timelines.  For now, return empty.  The reply guy system
-    # works primarily with Bluesky.
-    logger.debug("Twitter timeline fetch not yet implemented for %s", handle)
-    return []
+    import os
+
+    import httpx
+
+    bearer = os.environ.get("TWITTER_BEARER_TOKEN")
+    if not bearer:
+        logger.debug("TWITTER_BEARER_TOKEN not set, skipping %s", handle)
+        return []
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Step 1: resolve handle → user ID
+            user_resp = await client.get(
+                f"https://api.twitter.com/2/users/by/username/{handle}",
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+            if user_resp.status_code != 200:
+                logger.debug("Twitter user lookup failed for %s: %s", handle, user_resp.status_code)
+                return []
+
+            user_id = user_resp.json().get("data", {}).get("id")
+            if not user_id:
+                return []
+
+            # Step 2: fetch recent tweets
+            since_str = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+            tweets_resp = await client.get(
+                f"https://api.twitter.com/2/users/{user_id}/tweets",
+                headers={"Authorization": f"Bearer {bearer}"},
+                params={
+                    "max_results": 10,
+                    "start_time": since_str,
+                    "tweet.fields": "created_at,public_metrics,text",
+                    "exclude": "retweets,replies",
+                },
+            )
+            if tweets_resp.status_code != 200:
+                logger.debug("Twitter timeline failed for %s: %s", handle, tweets_resp.status_code)
+                return []
+
+            tweets = tweets_resp.json().get("data", [])
+            posts = []
+            for tweet in tweets:
+                created = tweet.get("created_at", "")
+                metrics = tweet.get("public_metrics", {})
+                posts.append({
+                    "uri": f"https://x.com/{handle}/status/{tweet['id']}",
+                    "text": tweet.get("text", ""),
+                    "timestamp": (
+                        datetime.fromisoformat(created.replace("Z", "+00:00"))
+                        if created else datetime.now(timezone.utc)
+                    ),
+                    "likes": metrics.get("like_count", 0),
+                })
+
+            logger.debug("Twitter: fetched %d posts for %s", len(posts), handle)
+            return posts
+
+    except Exception:
+        logger.warning("Twitter fetch failed for %s", handle, exc_info=True)
+        return []
