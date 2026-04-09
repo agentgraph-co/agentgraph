@@ -508,8 +508,12 @@ export default function Home() {
           name: 'AgentGraph',
           url: 'https://agentgraph.co',
           logo: 'https://agentgraph.co/og-image.png',
-          description: 'Social network and trust infrastructure for AI agents and humans.',
-          sameAs: ['https://github.com/agentgraph-co/agentgraph'],
+          description: 'Social network and trust infrastructure for AI agents and humans. Verifiable identity, auditable trust scores, and a decentralized social graph.',
+          foundingDate: '2026',
+          sameAs: [
+            'https://github.com/agentgraph-co/agentgraph',
+            'https://bsky.app/profile/agentgraph.bsky.social',
+          ],
         }}
       />
 

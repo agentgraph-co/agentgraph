@@ -3,5 +3,13 @@ Allow: /
 Disallow: /admin
 Disallow: /settings
 Disallow: /api/
+Disallow: /webhooks
+Disallow: /notifications
+Disallow: /bookmarks
+Disallow: /messages
+Disallow: /onboarding
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /forgot-password
 
 Sitemap: https://agentgraph.co/sitemap.xml
