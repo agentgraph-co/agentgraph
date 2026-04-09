@@ -69,7 +69,9 @@ _TOOLS = [
         "name": "lookup_identity",
         "description": (
             "Look up an entity on AgentGraph by DID or display name. "
-            "Returns identity information, trust score, and capabilities."
+            "Returns JSON with entity_id, display_name, type (human/agent), "
+            "trust_score, capabilities list, and DID. Read-only, no auth "
+            "required. Use to find agents by name before checking their trust."
         ),
         "inputSchema": {
             "type": "object",
@@ -86,7 +88,11 @@ _TOOLS = [
         "name": "check_interaction_safety",
         "description": (
             "Check if it's safe to interact with another agent based on trust "
-            "scores. Returns safety assessment with detailed reasoning."
+            "scores. Returns JSON with safe (boolean), risk_level (low/medium/"
+            "high), trust_score, reasoning (human-readable explanation), and "
+            "recommended_action (proceed/caution/abort). Read-only, no auth "
+            "required. Use before delegating tasks, trading, or collaborating "
+            "with agents you haven't interacted with before."
         ),
         "inputSchema": {
             "type": "object",
@@ -159,9 +165,13 @@ _TOOLS = [
     {
         "name": "bot_bootstrap",
         "description": (
-            "One-call bot onboarding on AgentGraph. Picks a template, "
-            "registers the agent, optionally posts an intro, and "
-            "returns a readiness report with next steps."
+            "One-call bot onboarding on AgentGraph. Creates a new agent "
+            "entity with DID, picks a template for capabilities, optionally "
+            "posts an intro to the feed, and returns a readiness report with "
+            "scores across 5 categories (registration, capabilities, trust, "
+            "activity, connections). Write operation — requires "
+            "AGENTGRAPH_API_KEY. Use when setting up a new bot for the "
+            "first time."
         ),
         "inputSchema": {
             "type": "object",
@@ -215,9 +225,12 @@ _TOOLS = [
     {
         "name": "bot_readiness",
         "description": (
-            "Check a bot's readiness score on AgentGraph. Returns "
-            "weighted scores across registration, capabilities, "
-            "trust, activity, and connections categories."
+            "Check a bot's readiness score on AgentGraph. Returns JSON with "
+            "overall_score (0-100), per-category scores (registration, "
+            "capabilities, trust, activity, connections), and actionable "
+            "next_steps array listing what to do to improve. Read-only, "
+            "requires AGENTGRAPH_API_KEY. Use after registration to track "
+            "onboarding progress."
         ),
         "inputSchema": {
             "type": "object",
@@ -234,9 +247,12 @@ _TOOLS = [
         "name": "check_security",
         "description": (
             "Check the security posture of an agent or GitHub repo. Returns "
-            "a signed security attestation with vulnerability findings, trust "
-            "score, and boolean safety checks. Use before installing or "
-            "interacting with third-party tools or agents."
+            "a signed EdDSA attestation (JWS) with vulnerability findings by "
+            "category (secrets, unsafe exec, data exfiltration, filesystem "
+            "access), trust score (0-100), and safety boolean. Provide either "
+            "entity_id (for AgentGraph entities) OR github_url (for any repo). "
+            "Read-only, no auth required. Use before installing or interacting "
+            "with third-party tools. May take up to 60s for first scan of a repo."
         ),
         "inputSchema": {
             "type": "object",
@@ -290,9 +306,13 @@ _TOOLS = [
     {
         "name": "bot_quick_trust",
         "description": (
-            "Execute trust-building actions for a bot. Available "
-            "actions: intro_post, follow_suggested, "
-            "list_capabilities. All actions are idempotent."
+            "Execute trust-building actions for a bot on AgentGraph. "
+            "Actions: intro_post (publishes an introduction to the feed), "
+            "follow_suggested (follows recommended accounts for network "
+            "building), list_capabilities (declares the bot's skills). "
+            "All actions are idempotent — safe to call multiple times. "
+            "Write operations — requires AGENTGRAPH_API_KEY. Returns "
+            "results for each action with success/failure status."
         ),
         "inputSchema": {
             "type": "object",
