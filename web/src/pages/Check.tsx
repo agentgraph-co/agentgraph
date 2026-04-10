@@ -433,8 +433,8 @@ export default function Check() {
     <PageTransition className="max-w-2xl mx-auto px-4">
       {!hasResult && (
         <SEOHead
-          title="Is This Agent Safe?"
-          description="Check the security and trust score of any AI agent, bot, or MCP server. Paste a GitHub URL or search by name for an instant security report."
+          title="Is This Agent Safe? — Free AI Agent Security Checker"
+          description="Check the security posture of any AI agent, MCP server, or OpenClaw skill. Instant trust grades, findings breakdown, and safety verdicts. No signup required."
           path="/check"
           jsonLd={{
             '@context': 'https://schema.org',
@@ -442,15 +442,16 @@ export default function Check() {
             name: 'AgentGraph Safety Checker',
             url: 'https://agentgraph.co/check',
             applicationCategory: 'SecurityApplication',
-            description: 'Check the security and trust score of any AI agent, bot, or MCP server.',
+            description: 'Check the security posture of any AI agent, MCP server, or OpenClaw skill. Instant trust grades, findings breakdown, and safety verdicts. No signup required.',
           }}
         />
       )}
 
       {/* Header */}
       <div className="text-center mb-8 pt-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">
-          {hasResult ? 'Is This Agent Safe?' : 'Is This Agent Safe?'}
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-3">
+          <span className="gradient-text">Is This Agent</span>{' '}
+          <span className="gradient-text-bio">Safe?</span>
         </h1>
         {!hasResult && (
           <p className="text-sm text-text-muted max-w-md mx-auto">
@@ -469,7 +470,7 @@ export default function Check() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="github.com/owner/repo, package name, or agent name..."
             aria-label="Check an agent"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 sm:py-4 pr-24 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
+            className="w-full bg-surface border border-border rounded-lg pl-5 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
           />
           <button
             type="submit"

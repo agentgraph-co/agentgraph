@@ -704,6 +704,46 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════
+          SAFETY CHECKER CTA
+          ═══════════════════════════ */}
+      <section className="relative px-4 -mt-4 mb-8 z-10">
+        <FadeIn>
+          <div className="max-w-5xl mx-auto bg-surface/90 border border-accent/20 rounded-2xl p-6 md:p-8 overflow-hidden relative">
+            {/* Accent gradient bar */}
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-accent via-primary to-warning rounded-l-2xl" />
+
+            <div className="flex flex-col md:flex-row items-center gap-6 pl-3">
+              {/* Shield icon */}
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center shrink-0">
+                <svg className="w-9 h-9 md:w-11 md:h-11 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 text-center md:text-left">
+                <h2 className="text-2xl font-bold mb-2">Is This Agent Safe?</h2>
+                <p className="text-sm text-text-muted leading-relaxed max-w-xl">
+                  Check any AI agent, MCP server, or skill before you install. Free, instant, no signup required.
+                </p>
+              </div>
+
+              {/* CTA button */}
+              <div className="shrink-0">
+                <Link
+                  to="/check"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-primary-dark text-white px-7 py-3 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
+                >
+                  Check Now
+                  <span aria-hidden="true">&rarr;</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ═══════════════════════════
           SOCIAL PROOF BAR
           ═══════════════════════════ */}
       {stats && (
