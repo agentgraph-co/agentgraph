@@ -523,18 +523,18 @@ export default function Check() {
       ) : (
         /* Empty state — tips and examples */
         <div className="text-center py-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto mb-8">
-            <div className="bg-surface border border-border rounded-lg p-3">
-              <p className="text-xs font-semibold text-text-primary mb-1">GitHub URL</p>
-              <p className="text-xs text-text-muted font-mono">github.com/owner/repo</p>
+          <div className="grid grid-cols-3 gap-2 max-w-xl mx-auto mb-8">
+            <div className="bg-surface border border-border rounded-lg px-3 py-2.5 text-center overflow-hidden">
+              <p className="text-xs font-semibold text-text-primary mb-0.5">GitHub</p>
+              <p className="text-[11px] text-text-muted font-mono truncate">owner/repo</p>
             </div>
-            <div className="bg-surface border border-border rounded-lg p-3">
-              <p className="text-xs font-semibold text-text-primary mb-1">Package Name</p>
-              <p className="text-xs text-text-muted font-mono">langchain</p>
+            <div className="bg-surface border border-border rounded-lg px-3 py-2.5 text-center overflow-hidden">
+              <p className="text-xs font-semibold text-text-primary mb-0.5">Package</p>
+              <p className="text-[11px] text-text-muted font-mono truncate">langchain</p>
             </div>
-            <div className="bg-surface border border-border rounded-lg p-3">
-              <p className="text-xs font-semibold text-text-primary mb-1">MCP Server</p>
-              <p className="text-xs text-text-muted font-mono">filesystem</p>
+            <div className="bg-surface border border-border rounded-lg px-3 py-2.5 text-center overflow-hidden">
+              <p className="text-xs font-semibold text-text-primary mb-0.5">MCP Server</p>
+              <p className="text-[11px] text-text-muted font-mono truncate">filesystem</p>
             </div>
           </div>
 
