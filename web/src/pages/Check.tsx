@@ -264,7 +264,26 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
     queryKey: ['public-scan', owner, repo],
     queryFn: async () => {
       const { data } = await publicApi.get(`/public/scan/${owner}/${repo}`)
-      return data
+      // Map API response fields to component interface
+      const findings = data.findings || {}
+      const catScores = data.category_scores || {}
+      return {
+        ...data,
+        overall_score: data.trust_score ?? data.security_score ?? 0,
+        grade: scoreToGrade(data.trust_score ?? data.security_score ?? 0),
+        total_findings: findings.total ?? 0,
+        critical_findings: findings.critical ?? 0,
+        high_findings: findings.high ?? 0,
+        medium_findings: findings.medium ?? 0,
+        low_findings: findings.low ?? 0,
+        categories: Object.entries(catScores).map(([name, score]) => ({
+          name,
+          score: score as number,
+          finding_count: 0,
+        })),
+        top_findings: [],
+        provider_count: 1,
+      } as ScanResult
     },
     staleTime: 5 * 60_000,
     retry: 1,
@@ -316,7 +335,7 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'Review',
-          name: `Security Report: ${owner}/${repo}`,
+          name: `Is This Agent Safe?: ${owner}/${repo}`,
           reviewBody: `Trust Score: ${grade} (${score}/100). ${scan.total_findings} security findings.`,
           itemReviewed: {
             '@type': 'SoftwareApplication',
@@ -431,7 +450,7 @@ export default function Check() {
       {/* Header */}
       <div className="text-center mb-8 pt-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">
-          {hasResult ? 'Security Report' : 'Is This Agent Safe?'}
+          {hasResult ? 'Is This Agent Safe?' : 'Is This Agent Safe?'}
         </h1>
         {!hasResult && (
           <p className="text-sm text-text-muted max-w-md mx-auto">

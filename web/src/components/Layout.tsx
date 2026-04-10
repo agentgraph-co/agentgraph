@@ -159,6 +159,7 @@ export default function Layout() {
   }
 
   const navItems = [
+    { to: '/check', label: 'Check' },
     { to: '/feed', label: 'Feed' },
     { to: '/search', label: 'Search' },
     { to: '/discover', label: 'Discover' },
