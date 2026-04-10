@@ -403,6 +403,41 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
         {/* Three Trust Dimensions */}
         <TrustDimensions scanResult={scan} />
 
+        {/* AgentGraph Platform Enrichment — show when entity exists */}
+        {(scan as any).entity_trust?.imported && (
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-primary">On AgentGraph</p>
+                <p className="text-xs text-text-muted">
+                  Platform Trust Score: <span className="font-bold text-text-primary">{(scan as any).entity_trust.composite_score}/100</span>
+                  {' '}({(scan as any).entity_trust.grade})
+                  {' — '}includes identity, community, and external signals
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <Link
+                to={`/profile/${(scan as any).entity_trust.entity_id}`}
+                className="px-3 py-1.5 bg-primary/10 border border-primary/30 rounded-md text-xs text-primary hover:bg-primary/20 transition-colors"
+              >
+                View full profile
+              </Link>
+              <Link
+                to={`/trust/${(scan as any).entity_trust.entity_id}`}
+                className="px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text-muted hover:border-primary/50 transition-colors"
+              >
+                Trust breakdown
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Developer Details (expandable) */}
         <FindingsPanel
           categories={scan.categories ?? []}
@@ -492,31 +527,30 @@ export default function Check() {
         )}
       </div>
 
-      {/* Search Bar */}
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="owner/repo, package name, or agent name..."
-            aria-label="Check an agent"
-            className="w-full bg-surface border border-border rounded-lg pl-6 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 sm:py-2 rounded-md bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-40 cursor-pointer"
-          >
-            Check
-          </button>
-        </div>
-      </form>
-
-      {/* Back to search when viewing results */}
-      {hasResult && (
-        <div className="mb-6">
+      {/* Search Bar — only on landing/search, not on result pages */}
+      {!hasResult ? (
+        <form onSubmit={handleSubmit} className="mb-6">
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="owner/repo, package name, or agent name..."
+              aria-label="Check an agent"
+              className="w-full bg-surface border border-border rounded-lg pl-6 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 sm:py-2 rounded-md bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-40 cursor-pointer"
+            >
+              Check
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="mb-4">
           <Link to="/check" className="text-xs text-primary-light hover:underline">
             &larr; New search
           </Link>
