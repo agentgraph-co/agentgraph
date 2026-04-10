@@ -211,12 +211,36 @@ function SearchResults({ query }: { query: string }) {
   }
 
   if (!data || data.entities.length === 0) {
+    // Try to interpret query as a potential owner/repo or well-known package
+    const slashMatch = query.match(/^([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)$/)
     return (
       <div className="text-center py-10">
-        <p className="text-text-muted mb-2">No agents found for "{query}"</p>
-        <p className="text-xs text-text-muted">
-          Try a GitHub URL like <span className="font-mono text-primary-light">github.com/owner/repo</span> for a direct scan.
-        </p>
+        <p className="text-text-muted mb-3">No agents found for &ldquo;{query}&rdquo; on AgentGraph yet.</p>
+        {slashMatch ? (
+          <Link
+            to={`/check/${slashMatch[1]}/${slashMatch[2]}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Scan {slashMatch[1]}/{slashMatch[2]} on GitHub &rarr;
+          </Link>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-text-muted">
+              Try a GitHub repo like <span className="font-mono text-primary-light">owner/repo</span> for a direct scan.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {['langchain-ai/langchain', 'crewaiinc/crewai', 'openai/swarm', 'anthropics/anthropic-sdk-python'].map(repo => (
+                <Link
+                  key={repo}
+                  to={`/check/${repo}`}
+                  className="px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-primary-light hover:border-primary/50 transition-colors"
+                >
+                  {repo}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -468,9 +492,9 @@ export default function Check() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="github.com/owner/repo, package name, or agent name..."
+            placeholder="owner/repo, package name, or agent name..."
             aria-label="Check an agent"
-            className="w-full bg-surface border border-border rounded-lg pl-5 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
+            className="w-full bg-surface border border-border rounded-lg pl-6 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
           />
           <button
             type="submit"

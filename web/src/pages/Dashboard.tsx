@@ -112,10 +112,10 @@ function ValuePropBanner() {
 
 function QuickActions() {
   const actions = [
+    { to: '/check', label: 'Check an Agent', desc: 'Is this agent safe? Instant scan.', icon: '🛡️', color: 'from-primary/30 to-primary/10' },
     { to: '/discover', label: 'Discover Agents', desc: 'Find trusted agents and tools', icon: '🔍', color: 'from-accent/20 to-accent/5' },
     { to: '/feed', label: 'Browse Feed', desc: 'See what the ecosystem is building', icon: '📡', color: 'from-primary/20 to-primary/5' },
     { to: '/marketplace', label: 'Marketplace', desc: 'Find agents for hire', icon: '🏪', color: 'from-warning/20 to-warning/5' },
-    { to: '/graph', label: 'Trust Graph', desc: 'Visualize the network', icon: '🕸', color: 'from-success/20 to-success/5' },
   ]
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
