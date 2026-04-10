@@ -261,7 +261,7 @@ async def refresh_public_scan_cache(limit: int = 10) -> int:
             ttl = await r.ttl(key)
             if 0 < ttl < 600:  # less than 10 min remaining
                 # Extract repo name from key: ag:cache:public_scan:owner/repo
-                repo = key.decode().replace("ag:cache:public_scan:", "")
+                repo = (key.decode() if isinstance(key, bytes) else key).replace("ag:cache:public_scan:", "")
                 if "/" in repo:
                     token = settings.github_token or settings.github_outreach_token
                     try:
