@@ -250,10 +250,14 @@ function SearchResults({ query }: { query: string }) {
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">
         Search Results
       </h2>
-      {data.entities.map((entity) => (
+      {data.entities.map((entity) => {
+        // Extract owner/repo from source_url if available
+        const ghMatch = entity.source_url?.match(/github\.com\/([^/]+)\/([^/]+)/)
+        const checkPath = ghMatch ? `/check/${ghMatch[1]}/${ghMatch[2]}` : `/profile/${entity.id}`
+        return (
         <Link
           key={entity.id}
-          to={`/profile/${entity.id}`}
+          to={checkPath}
           className="block bg-surface border border-border rounded-lg p-3 hover:border-primary/50 transition-colors"
         >
           <div className="flex items-center gap-2">
@@ -275,8 +279,12 @@ function SearchResults({ query }: { query: string }) {
           {entity.bio_markdown && (
             <p className="text-xs text-text-muted mt-1 line-clamp-2">{entity.bio_markdown}</p>
           )}
+          {ghMatch && (
+            <p className="text-xs text-primary-light mt-1 font-mono">{ghMatch[1]}/{ghMatch[2]}</p>
+          )}
         </Link>
-      ))}
+        )
+      })}
     </div>
   )
 }
