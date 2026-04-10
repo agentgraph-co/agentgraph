@@ -355,7 +355,7 @@ async def scan_by_wallet(
     owner, repo = repo_id.split("/", 1)
 
     # Delegate to the main scan endpoint
-    scan_result = await public_scan(owner=owner, repo=repo)
+    scan_result = await public_scan(owner=owner, repo=repo, db=db)
     return {
         "found": True,
         "wallet": wallet_address,
