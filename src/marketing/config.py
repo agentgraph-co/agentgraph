@@ -124,9 +124,9 @@ marketing_settings = MarketingSettings()
 PLATFORM_SCHEDULE: dict[str, dict] = {
     "twitter": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
     "bluesky": {"posts_per_week": 2, "auto_post": True, "days": ["mon", "fri"]},
-    "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},  # karma building first
+    "reddit": {"posts_per_week": 7, "auto_post": False, "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},  # drafts daily for karma building, human posts
     "huggingface": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
-    "devto": {"posts_per_week": 0, "auto_post": False, "days": []},  # manual only
+    "devto": {"posts_per_week": 1, "auto_post": True, "days": ["thu"]},  # weekly article/update
     "linkedin": {"posts_per_week": 0, "auto_post": False, "days": []},  # not set up
     "hashnode": {"posts_per_week": 0, "auto_post": False, "days": []},  # manual only
     "github_discussions": {"posts_per_week": 0, "auto_post": False, "days": []},  # MCP ban risk
