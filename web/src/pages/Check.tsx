@@ -352,8 +352,12 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
 
   if (!scan) return null
 
-  const score = Math.round(scan.overall_score)
-  const grade = scoreToGrade(score)
+  // When entity exists on AgentGraph, use composite score as primary
+  const entityTrust = (scan as any).entity_trust
+  const isOnAgentGraph = entityTrust?.imported === true
+  const securityScore = Math.round(scan.overall_score)
+  const score = isOnAgentGraph ? Math.round(entityTrust.composite_score) : securityScore
+  const grade = isOnAgentGraph ? (entityTrust.grade || scoreToGrade(score)) : scoreToGrade(score)
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const badgeUrl = `${window.location.origin}${baseUrl}/public/scan/${owner}/${repo}/badge`
   const checkUrl = `https://agentgraph.co/check/${owner}/${repo}`
@@ -389,7 +393,7 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
       />
 
       <div className="space-y-6">
-        {/* Giant Grade */}
+        {/* Giant Grade — composite when on AgentGraph, security scan otherwise */}
         <GradeCard grade={grade} score={score} repoName={`${owner}/${repo}`} />
 
         {/* Safety Verdict */}
@@ -397,44 +401,83 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           grade={grade}
           totalFindings={scan.total_findings}
           criticalFindings={scan.critical_findings}
-          providerCount={scan.provider_count ?? 1}
+          providerCount={isOnAgentGraph ? 3 : (scan.provider_count ?? 1)}
         />
 
-        {/* Three Trust Dimensions */}
-        <TrustDimensions scanResult={scan} />
-
-        {/* AgentGraph Platform Enrichment — show when entity exists */}
-        {(scan as any).entity_trust?.imported && (
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-primary" viewBox="0 0 20 20" fill="currentColor">
+        {/* Trust Dimensions — enriched when on AgentGraph */}
+        {isOnAgentGraph ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Identity */}
+            <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-primary">On AgentGraph</p>
-                <p className="text-xs text-text-muted">
-                  Platform Trust Score: <span className="font-bold text-text-primary">{(scan as any).entity_trust.composite_score}/100</span>
-                  {' '}({(scan as any).entity_trust.grade})
-                  {' — '}includes identity, community, and external signals
-                </p>
+                <p className="text-sm font-medium text-text-primary">Identity</p>
+                <p className="text-xs text-primary">Verified on AgentGraph</p>
               </div>
             </div>
-            <div className="flex gap-2 mt-2">
-              <Link
-                to={`/profile/${(scan as any).entity_trust.entity_id}`}
-                className="px-3 py-1.5 bg-primary/10 border border-primary/30 rounded-md text-xs text-primary hover:bg-primary/20 transition-colors"
-              >
-                View full profile
-              </Link>
-              <Link
-                to={`/trust/${(scan as any).entity_trust.entity_id}`}
-                className="px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text-muted hover:border-primary/50 transition-colors"
-              >
-                Trust breakdown
-              </Link>
+            {/* Code Security */}
+            <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center">
+                <span className={`text-sm font-bold ${securityScore >= 80 ? 'text-emerald-400' : securityScore >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {scoreToGrade(securityScore)}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Code Security</p>
+                <p className="text-xs text-text-muted">{securityScore}/100</p>
+              </div>
             </div>
+            {/* Community */}
+            <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center">
+                <svg className="w-5 h-5 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Community</p>
+                <p className="text-xs text-text-muted">On AgentGraph platform</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <TrustDimensions scanResult={scan} />
+        )}
+
+        {/* AgentGraph Platform Links — when entity exists */}
+        {isOnAgentGraph && (
+          <div className="flex gap-2 justify-center">
+            <Link
+              to={`/profile/${entityTrust.entity_id}`}
+              className="px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg text-sm text-primary hover:bg-primary/20 transition-colors"
+            >
+              View full profile
+            </Link>
+            <Link
+              to={`/trust/${entityTrust.entity_id}`}
+              className="px-4 py-2 bg-surface border border-border rounded-lg text-sm text-text-muted hover:border-primary/50 transition-colors"
+            >
+              Trust breakdown
+            </Link>
+          </div>
+        )}
+
+        {/* Import CTA — when NOT on AgentGraph */}
+        {!isOnAgentGraph && (
+          <div className="bg-surface border border-border border-dashed rounded-xl p-4 text-center">
+            <p className="text-sm text-text-muted mb-2">
+              This is a code security scan only. Import this agent to AgentGraph for a full trust score including identity verification and community signals.
+            </p>
+            <Link
+              to="/onboarding"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Import to AgentGraph
+            </Link>
           </div>
         )}
 
