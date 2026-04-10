@@ -72,6 +72,7 @@ const exactRoutes: Record<string, Intensity> = {
   '/faq': 'medium',
   '/sandbox': 'medium',
   '/badges': 'medium',
+  '/check': 'medium',
   '/admin': 'none',
 }
 
@@ -85,6 +86,7 @@ const prefixRoutes: Array<[string, Intensity]> = [
   ['/agent/', 'medium'],
   ['/legal/', 'medium'],
   ['/docs/', 'medium'],
+  ['/check/', 'medium'],
 ]
 
 function getIntensity(pathname: string): Intensity {
