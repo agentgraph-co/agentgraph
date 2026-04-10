@@ -496,6 +496,33 @@ async def public_scan(
     )
 
 
+def _grade_from_score(score: int) -> str:
+    """Return letter grade from a 0-100 score."""
+    if score >= 96:
+        return "A+"
+    if score >= 81:
+        return "A"
+    if score >= 61:
+        return "B"
+    if score >= 41:
+        return "C"
+    if score >= 21:
+        return "D"
+    return "F"
+
+
+def _grade_color(grade: str) -> str:
+    """Return badge color for a letter grade."""
+    return {
+        "A+": "#14B8A6",
+        "A": "#2DD4BF",
+        "B": "#22C55E",
+        "C": "#F59E0B",
+        "D": "#F97316",
+        "F": "#EF4444",
+    }.get(grade, "#6b7280")
+
+
 @router.get(
     "/{owner}/{repo}/badge",
     dependencies=[Depends(rate_limit_reads)],
@@ -504,36 +531,50 @@ async def public_scan(
 async def scan_badge(
     owner: str,
     repo: str,
+    db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Return an SVG trust-tier badge for README embedding.
+
+    Shows the composite trust score when the repo has been imported to
+    AgentGraph (label: "Trust: A 92"). Falls back to the security scan
+    score otherwise (label: "Scan: B 74").
 
     Usage in markdown:
     ```
     ![Trust Score](https://agentgraph.co/api/v1/public/scan/owner/repo/badge)
     ```
     """
-    # Use cached data if available, otherwise show "not scanned"
-    cached = await _get_cached(owner, repo)
+    full_name = f"{owner}/{repo}"
 
-    if cached:
-        score = cached["trust_score"]
-        tier = cached["trust_tier"]
+    # Check if this repo is imported as an AgentGraph entity
+    entity_trust = await _get_entity_trust(full_name, db)
+
+    # Determine which score to show: composite trust vs security scan
+    if entity_trust and entity_trust.get("imported") and entity_trust.get("composite_score") is not None:
+        # Entity exists on AgentGraph — show composite trust score
+        score = entity_trust["composite_score"]
+        grade = entity_trust["grade"]
+        score_type = "Trust"
     else:
-        score = None
-        tier = "not scanned"
+        # No entity — fall back to security scan score
+        cached = await _get_cached(owner, repo)
+        if cached:
+            score = cached["trust_score"]
+            grade = _grade_from_score(score)
+            score_type = "Scan"
+        else:
+            score = None
+            grade = None
+            score_type = None
 
-    # Color mapping
-    colors = {
-        "verified": "#22c55e",
-        "trusted": "#3b82f6",
-        "standard": "#eab308",
-        "minimal": "#f97316",
-        "restricted": "#ef4444",
-        "blocked": "#991b1b",
-        "not scanned": "#6b7280",
-    }
-    color = colors.get(tier, "#6b7280")
-    label = f"{score}/100 {tier}" if score is not None else "not scanned"
+    # Build badge
+    if score is not None:
+        color = _grade_color(grade)
+        label = f"{score_type}: {grade} {score}"
+    else:
+        color = "#6b7280"
+        label = "not scanned"
+
     label_width = len(label) * 7 + 10
     total_width = 80 + label_width
 
@@ -542,7 +583,7 @@ async def scan_badge(
   <rect x="80" width="{label_width}" height="20" fill="{color}" rx="3"/>
   <rect x="80" width="4" height="20" fill="{color}"/>
   <text x="40" y="14" fill="#fff" font-family="Verdana,sans-serif" font-size="11"
-        text-anchor="middle">trust score</text>
+        text-anchor="middle">AgentGraph</text>
   <text x="{80 + label_width // 2}" y="14" fill="#fff" font-family="Verdana,sans-serif"
         font-size="11" text-anchor="middle">{label}</text>
 </svg>'''

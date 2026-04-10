@@ -58,7 +58,7 @@ echo "::endgroup::"
 # ---------------------------------------------------------------------------
 COMMENT_BODY="## AgentGraph Trust Scan
 
-**Grade: ${GRADE} (${SCORE}/100)** — ${SUMMARY}
+**Security Scan Grade: ${GRADE} (${SCORE}/100)** — ${SUMMARY}
 
 | Category | Score |
 |----------|-------|
@@ -66,7 +66,9 @@ ${CATEGORIES}
 
 **Findings:** ${CRITICAL} critical, ${HIGH} high, ${MEDIUM} medium, ${LOW} low
 
-[View full report](${REPORT_URL}) | [Add badge to README](${BADGE_URL})"
+[View full report](${REPORT_URL}) | [Add badge to README](${BADGE_URL})
+
+> *This is a code security scan score. [Full composite trust score](${REPORT_URL}) (including identity verification and external signals) is available on AgentGraph.*"
 
 # ---------------------------------------------------------------------------
 # 4. Post comment on PR (if enabled and this is a PR event)

@@ -43,10 +43,10 @@ _TOOLS = [
         "name": "verify_trust",
         "description": (
             "Verify an entity's trust score on AgentGraph. Returns JSON with "
-            "trust_score (0.0-1.0), trust_tier (verified/trusted/standard/"
-            "minimal/restricted/blocked), grade (A-F), and component breakdown "
-            "(identity, external signals, code security). Read-only, no auth "
-            "required. Use before interacting with unknown agents to assess risk."
+            "trust_score (0.0-1.0), trust_score_pct (0-100), grade (A+/A/B/"
+            "C/D/F letter grade), trust_tier (high/good/moderate/low), and "
+            "meets_threshold (boolean). Read-only, no auth required. Use "
+            "before interacting with unknown agents to assess risk."
         ),
         "inputSchema": {
             "type": "object",
@@ -109,15 +109,15 @@ _TOOLS = [
         "name": "check_interaction_safety",
         "description": (
             "Check if it is safe to interact with another agent based on "
-            "trust scores. Returns JSON with: safe (boolean), risk_level "
-            "(low/medium/high), trust_score (0.0-1.0), reasoning (human-"
-            "readable explanation of the assessment), and recommended_action "
-            "(proceed/caution/abort). Different interaction types have "
-            "different trust thresholds: delegate requires highest trust, "
-            "follow requires lowest. Read-only network call to AgentGraph "
-            "API, no authentication required, no side effects. Use before "
-            "delegating tasks, sending payments, or collaborating with "
-            "agents you have not interacted with before."
+            "trust scores. Returns JSON with: is_safe (boolean), risk_level "
+            "(low/medium/high), trust_score (0.0-1.0), trust_score_pct "
+            "(0-100), grade (A+/A/B/C/D/F letter grade), and recommendation "
+            "(human-readable explanation). Thresholds by interaction type: "
+            "delegate=0.6 (highest), trade=0.5, collaborate=0.4, follow=0.1 "
+            "(lowest). Read-only network call to AgentGraph API, no "
+            "authentication required, no side effects. Use before delegating "
+            "tasks, sending payments, or collaborating with agents you have "
+            "not interacted with before."
         ),
         "inputSchema": {
             "type": "object",
@@ -504,6 +504,21 @@ def _trust_tier(score: float) -> str:
     return "low"
 
 
+def _grade_from_score(score_pct: int) -> str:
+    """Return A-F letter grade from a 0-100 score."""
+    if score_pct >= 96:
+        return "A+"
+    if score_pct >= 81:
+        return "A"
+    if score_pct >= 61:
+        return "B"
+    if score_pct >= 41:
+        return "C"
+    if score_pct >= 21:
+        return "D"
+    return "F"
+
+
 async def _handle_verify_trust(args: dict) -> dict[str, Any]:
     entity_id = args["entity_id"]
     min_trust = args.get("min_trust", 0.3)
@@ -512,17 +527,22 @@ async def _handle_verify_trust(args: dict) -> dict[str, Any]:
         trust_data = await _http_get(f"/trust/{entity_id}")
         score = trust_data.get("score", 0.0)
         tier = _trust_tier(score)
+        score_pct = round(score * 100)
+        grade = _grade_from_score(score_pct)
 
         result: dict[str, Any] = {
             "entity_id": entity_id,
             "trust_score": score,
+            "trust_score_pct": score_pct,
+            "grade": grade,
             "trust_tier": tier,
             "meets_threshold": score >= min_trust,
         }
 
         if score < min_trust:
             result["warning"] = (
-                f"Trust score {score:.2f} is below minimum threshold {min_trust:.2f}. "
+                f"Trust score {score:.2f} ({score_pct}/100, grade {grade}) "
+                f"is below minimum threshold {min_trust:.2f}. "
                 "Exercise caution in interactions."
             )
 
@@ -532,6 +552,8 @@ async def _handle_verify_trust(args: dict) -> dict[str, Any]:
             "entity_id": entity_id,
             "error": f"Failed to verify trust: {e}",
             "trust_score": None,
+            "trust_score_pct": None,
+            "grade": None,
             "meets_threshold": False,
         }
 
@@ -551,6 +573,14 @@ async def _handle_lookup_identity(args: dict) -> dict[str, Any]:
 
 
 async def _handle_check_interaction_safety(args: dict) -> dict[str, Any]:
+    """Check interaction safety based on trust thresholds.
+
+    Thresholds by interaction type (0.0-1.0 scale):
+      - delegate: 0.6 (agent acts on your behalf — highest trust)
+      - trade:    0.5 (financial exchange — high trust)
+      - collaborate: 0.4 (shared task execution — moderate trust)
+      - follow:   0.1 (social connection only — lowest trust)
+    """
     target_id = args["target_entity_id"]
     interaction = args["interaction_type"]
     threshold = _SAFETY_THRESHOLDS.get(interaction, 0.5)
@@ -559,26 +589,40 @@ async def _handle_check_interaction_safety(args: dict) -> dict[str, Any]:
         trust_data = await _http_get(f"/entities/{target_id}/trust")
         score = trust_data.get("score", 0.0)
         tier = _trust_tier(score)
+        score_pct = round(score * 100)
+        grade = _grade_from_score(score_pct)
         is_safe = score >= threshold
+
+        if score >= 0.8:
+            risk_level = "low"
+        elif score >= 0.5:
+            risk_level = "medium"
+        else:
+            risk_level = "high"
 
         result: dict[str, Any] = {
             "target_entity_id": target_id,
             "interaction_type": interaction,
             "trust_score": score,
+            "trust_score_pct": score_pct,
+            "grade": grade,
             "trust_tier": tier,
+            "risk_level": risk_level,
             "safety_threshold": threshold,
             "is_safe": is_safe,
         }
 
         if not is_safe:
             result["recommendation"] = (
-                f"Trust score {score:.2f} is below the {threshold:.2f} threshold "
+                f"Trust score {score:.2f} ({score_pct}/100, grade {grade}) "
+                f"is below the {threshold:.2f} threshold "
                 f"for '{interaction}' interactions. Consider requesting additional "
                 "verification or using a lower-risk interaction type."
             )
         else:
             result["recommendation"] = (
-                f"Trust score {score:.2f} meets the {threshold:.2f} threshold. "
+                f"Trust score {score:.2f} ({score_pct}/100, grade {grade}) "
+                f"meets the {threshold:.2f} threshold. "
                 f"'{interaction}' interaction is considered safe."
             )
 
@@ -588,6 +632,8 @@ async def _handle_check_interaction_safety(args: dict) -> dict[str, Any]:
             "target_entity_id": target_id,
             "error": f"Safety check failed: {e}",
             "is_safe": False,
+            "grade": None,
+            "risk_level": "high",
             "recommendation": "Could not verify trust. Exercise extreme caution.",
         }
 
