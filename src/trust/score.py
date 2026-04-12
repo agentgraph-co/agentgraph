@@ -616,6 +616,21 @@ async def compute_trust_score(
         select(TrustScore).where(TrustScore.entity_id == entity_id)
     )
     old_score = existing.score if existing else 0.0
+
+    # Anti-drop floor: scores can never drop more than 20% in a single recompute.
+    # This prevents catastrophic score drops from transient data issues (e.g.
+    # linked account missing, cache expiry, external API down). Scores CAN still
+    # drop — just gradually, not in a cliff.
+    if old_score > 0 and score < old_score * 0.80:
+        logger.warning(
+            "Trust score anti-drop: %s would drop from %.4f to %.4f (%.0f%%), "
+            "clamping to 80%% floor (%.4f)",
+            entity_id, old_score, score,
+            (1 - score / old_score) * 100,
+            old_score * 0.80,
+        )
+        score = old_score * 0.80
+
     if existing:
         existing.score = round(score, 4)
         existing.components = components
