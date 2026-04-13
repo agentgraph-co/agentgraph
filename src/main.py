@@ -60,6 +60,7 @@ from src.api.mcp_router import router as mcp_router
 from src.api.migration_router import router as migration_router
 from src.api.moderation_router import router as moderation_router
 from src.api.notification_router import router as notification_router
+from src.api.og_router import router as og_router
 from src.api.onboarding_router import router as onboarding_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
@@ -694,6 +695,9 @@ app.include_router(jwks_router)
 
 # Public scan API — trust-tiered security scanning (no auth required)
 app.include_router(public_scan_router, prefix=settings.api_v1_prefix)
+
+# OG meta tags for social crawler previews (no auth required)
+app.include_router(og_router, prefix=settings.api_v1_prefix)
 
 # Trust gateway proxy — enforcement layer for agent tool execution
 app.include_router(trust_gateway_router, prefix=settings.api_v1_prefix)
