@@ -16,12 +16,13 @@ logger = logging.getLogger(__name__)
 _AGENTGRAPH_CONTEXT = (
     "AgentGraph is a trust verification platform for AI agents. "
     "Its free tool at agentgraph.co/check lets anyone check if an AI agent, "
-    "MCP server, or skill is safe before installing. Results are cryptographically "
-    "signed — independent of any platform. We scanned 231 OpenClaw skills and "
-    "found 14,350 security issues (32% scored F). Anthropic just temporarily "
-    "banned OpenClaw's creator — this is why independent trust verification matters. "
-    "Also: 7 PyPI packages for trust-gated tool execution across LangChain, CrewAI, "
-    "AutoGen, PydanticAI, and MCP."
+    "MCP server, or skill is safe before installing — like checking a restaurant's "
+    "health grade before eating there. Results are cryptographically signed and "
+    "independent of any platform. We scanned 231 OpenClaw skills and found 14,350 "
+    "security issues (32% scored F). Gen Z increasingly distrusts AI but can't stop "
+    "using it — independent verification answers the question they're already asking: "
+    "'is this safe?' Also: 7 PyPI packages for trust-gated tool execution across "
+    "LangChain, CrewAI, AutoGen, PydanticAI, and MCP."
 )
 
 _REPLY_PROMPT = """\
