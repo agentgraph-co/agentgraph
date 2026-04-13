@@ -81,6 +81,7 @@ class ScanResult:
     trust_score: int = 0  # 0-100, computed after scan
     category_scores: dict[str, int] = field(default_factory=dict)  # per-category 0-100
     is_mcp_server: bool = False  # context-aware: MCP servers have expected tool patterns
+    is_media_tool: bool = False  # context-aware: audio/TTS/video tools have expected fs patterns
     error: str | None = None
 
     @property
@@ -938,8 +939,11 @@ def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
         "dependency_health": 100,
     }
 
-    # For MCP servers, expected tool patterns get discounted deductions
+    # For MCP servers and media/audio tools, expected patterns get discounted
     expected_mcp_categories = {"unsafe_exec", "fs_access"} if result.is_mcp_server else set()
+    # Media/TTS/audio tools legitimately read/write files
+    if result.is_media_tool:
+        expected_mcp_categories.add("fs_access")
 
     for finding in result.findings:
         score_cat = category_map.get(finding.category)
@@ -1024,6 +1028,33 @@ async def scan_repo(
                     if mcp_match or "model-context-protocol" in low:
                         result.is_mcp_server = True
                         break
+
+        # Detect audio/TTS/media tools — filesystem access is expected
+        if not result.is_media_tool:
+            media_keywords = {
+                "tts", "text-to-speech", "speech", "audio", "voice",
+                "whisper", "synthesize", "synthesizer", "vocoder",
+                "video", "ffmpeg", "media", "sound", "wav", "mp3",
+                "transcribe", "transcription",
+            }
+            # Check repo name and description
+            repo_lower = full_name.lower()
+            desc_lower = description.lower()
+            if any(kw in repo_lower or kw in desc_lower for kw in media_keywords):
+                result.is_media_tool = True
+            # Check file patterns in tree
+            if not result.is_media_tool:
+                media_file_patterns = {
+                    ".wav", ".mp3", ".ogg", ".flac", ".m4a",
+                    ".mp4", ".avi", ".mkv", ".webm",
+                    "audio", "voice", "tts", "speech",
+                }
+                media_file_count = sum(
+                    1 for item in tree
+                    if any(p in item["path"].lower() for p in media_file_patterns)
+                )
+                if media_file_count >= 3:
+                    result.is_media_tool = True
 
         # Check for dependency pinning (lock files) in tree
         lock_files = {"requirements.txt", "poetry.lock", "package-lock.json",
