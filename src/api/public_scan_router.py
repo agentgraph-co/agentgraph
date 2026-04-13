@@ -7,6 +7,7 @@ to pre-check tools before execution.
 Endpoints:
     GET /public/scan/{owner}/{repo}   — scan a repo, return trust tier + JWS
     GET /public/scan/{owner}/{repo}/badge — SVG badge for README embedding
+    GET /public/scan/{owner}/{repo}/og-image — 1200x630 OG preview card
 """
 from __future__ import annotations
 
@@ -587,6 +588,179 @@ async def scan_badge(
   <text x="{80 + label_width // 2}" y="14" fill="#fff" font-family="Verdana,sans-serif"
         font-size="11" text-anchor="middle">{label}</text>
 </svg>'''
+
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=3600, s-maxage=86400",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+def _verdict_text(grade: str) -> str:
+    """Return a consumer-friendly safety verdict for a letter grade."""
+    if grade in ("A+", "A"):
+        return "Safe to Use"
+    if grade == "B":
+        return "Generally Safe"
+    if grade == "C":
+        return "Use with Caution"
+    if grade == "D":
+        return "Significant Risks"
+    return "Not Recommended"
+
+
+def _render_og_svg(
+    owner: str,
+    repo: str,
+    grade: str,
+    score: int,
+    critical: int,
+    high: int,
+    medium: int,
+    verdict: str,
+) -> str:
+    """Render a 1200x630 SVG Open Graph preview card."""
+    color = _grade_color(grade)
+
+    # Background gradient stops based on grade color
+    bg_dark = "#0B0F1A"
+    bg_mid = "#111827"
+
+    # Findings summary line
+    findings_parts = []
+    if critical > 0:
+        findings_parts.append(f"{critical} critical")
+    if high > 0:
+        findings_parts.append(f"{high} high")
+    if medium > 0:
+        findings_parts.append(f"{medium} medium")
+    if not findings_parts:
+        findings_line = "No critical or high findings detected."
+    else:
+        findings_line = f"Security scan: {', '.join(findings_parts)} findings."
+
+    # Escape XML entities in repo name
+    display_name = f"{owner}/{repo}".replace("&", "&amp;").replace("<", "&lt;")
+
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="{bg_dark}"/>
+      <stop offset="100%" stop-color="{bg_mid}"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="{color}" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="{color}" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gradeGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="{color}" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="{color}" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Accent glow at top -->
+  <rect width="1200" height="200" fill="url(#accent)"/>
+
+  <!-- Top bar accent line -->
+  <rect width="1200" height="4" fill="{color}" opacity="0.6"/>
+
+  <!-- AgentGraph brand (top-left) -->
+  <text x="60" y="62" fill="#9CA3AF" font-family="system-ui,-apple-system,sans-serif"
+        font-size="20" font-weight="600" letter-spacing="0.05em">AGENTGRAPH</text>
+  <text x="232" y="62" fill="#6B7280" font-family="system-ui,-apple-system,sans-serif"
+        font-size="16" font-weight="400">Security Scan</text>
+
+  <!-- Repo name -->
+  <text x="60" y="160" fill="#F9FAFB" font-family="system-ui,-apple-system,sans-serif"
+        font-size="42" font-weight="700">{display_name}</text>
+
+  <!-- Grade circle -->
+  <circle cx="600" cy="340" r="120" fill="url(#gradeGlow)" stroke="{color}"
+          stroke-width="4" stroke-opacity="0.5"/>
+  <text x="600" y="365" fill="{color}" font-family="system-ui,-apple-system,sans-serif"
+        font-size="100" font-weight="800" text-anchor="middle">{grade}</text>
+
+  <!-- Score below grade -->
+  <text x="600" y="500" fill="#D1D5DB" font-family="system-ui,-apple-system,sans-serif"
+        font-size="36" font-weight="600" text-anchor="middle">{score} / 100</text>
+
+  <!-- Verdict -->
+  <text x="600" y="545" fill="{color}" font-family="system-ui,-apple-system,sans-serif"
+        font-size="24" font-weight="500" text-anchor="middle">{verdict}</text>
+
+  <!-- Findings summary (bottom-left) -->
+  <text x="60" y="590" fill="#9CA3AF" font-family="system-ui,-apple-system,sans-serif"
+        font-size="18">{findings_line}</text>
+
+  <!-- CTA (bottom-right) -->
+  <text x="1140" y="590" fill="#6B7280" font-family="system-ui,-apple-system,sans-serif"
+        font-size="18" text-anchor="end">agentgraph.co/check</text>
+</svg>'''
+
+
+@router.get(
+    "/{owner}/{repo}/og-image",
+    dependencies=[Depends(rate_limit_reads)],
+    response_class=Response,
+)
+async def scan_og_image(
+    owner: str,
+    repo: str,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Return a 1200x630 SVG Open Graph preview card for social sharing.
+
+    Shows the letter grade, score, safety verdict, and findings summary.
+    Used as the ``og:image`` in ``/check/:owner/:repo`` pages so that
+    links shared on Twitter, Slack, Discord, and iMessage render a rich
+    preview card with the trust grade.
+    """
+    full_name = f"{owner}/{repo}"
+
+    # Check if this repo is imported as an AgentGraph entity
+    entity_trust = await _get_entity_trust(full_name, db)
+
+    # Determine score source: composite trust vs security scan
+    critical = 0
+    high = 0
+    medium = 0
+    if entity_trust and entity_trust.get("imported") and entity_trust.get("composite_score") is not None:
+        score = entity_trust["composite_score"]
+        grade = entity_trust["grade"]
+    else:
+        cached = await _get_cached(owner, repo)
+        if cached:
+            score = cached["trust_score"]
+            grade = _grade_from_score(score)
+            findings = cached.get("findings", {})
+            critical = findings.get("critical", 0)
+            high = findings.get("high", 0)
+            medium = findings.get("medium", 0)
+        else:
+            # No scan data — return a generic "not scanned" card
+            score = 0
+            grade = "?"
+            critical = 0
+            high = 0
+            medium = 0
+
+    verdict = _verdict_text(grade) if grade != "?" else "Not Yet Scanned"
+
+    svg = _render_og_svg(
+        owner=owner,
+        repo=repo,
+        grade=grade,
+        score=score,
+        critical=critical,
+        high=high,
+        medium=medium,
+        verdict=verdict,
+    )
 
     return Response(
         content=svg,

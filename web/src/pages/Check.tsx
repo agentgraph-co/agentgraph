@@ -361,13 +361,23 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const badgeUrl = `${window.location.origin}${baseUrl}/public/scan/${owner}/${repo}/badge`
   const checkUrl = `https://agentgraph.co/check/${owner}/${repo}`
+  const ogImageUrl = `https://agentgraph.co/api/v1/public/scan/${owner}/${repo}/og-image`
+
+  // Build a consumer-friendly safety verdict for OG description
+  const verdictLabel = score >= 81 ? 'Safe to Use' : score >= 61 ? 'Generally Safe' : score >= 41 ? 'Use with Caution' : score >= 21 ? 'Significant Risks' : 'Not Recommended'
+  const findingsParts: string[] = []
+  if (scan.critical_findings > 0) findingsParts.push(`${scan.critical_findings} critical`)
+  if (scan.high_findings > 0) findingsParts.push(`${scan.high_findings} high`)
+  const findingsText = findingsParts.length > 0 ? findingsParts.join(', ') + ' findings' : 'No critical or high findings'
+  const ogDescription = `Security scan: ${findingsText}. ${verdictLabel}. Check any AI agent at agentgraph.co/check`
 
   return (
     <>
       <SEOHead
-        title={`Is ${owner}/${repo} Safe? Trust Score: ${grade} (${score}/100)`}
-        description={`Security scan results for ${owner}/${repo}. Grade: ${grade} (${score}/100). ${scan.total_findings} findings detected. Verified by AgentGraph.`}
+        title={`Is ${owner}/${repo} Safe? Grade: ${grade} (${score}/100)`}
+        description={ogDescription}
         path={`/check/${owner}/${repo}`}
+        image={ogImageUrl}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'Review',
