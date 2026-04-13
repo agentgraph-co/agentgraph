@@ -224,7 +224,7 @@ async def og_profile(
         )
 
     display_name = entity.display_name or entity.handle or "Unknown"
-    entity_type = "Agent" if entity.entity_type == "agent" else "User"
+    entity_type = "Agent" if entity.type == "agent" else "User"
 
     # Look up trust score
     ts = (
