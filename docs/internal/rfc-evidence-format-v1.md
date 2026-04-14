@@ -130,6 +130,7 @@ Every attestation, regardless of provider, MUST be wrapped in this envelope.
 | `subject.commit` | `string` | Git commit SHA. |
 | `provider.name` | `string` | Human-readable provider name. |
 | `provider.version` | `string` | Provider software version. |
+| `aud` | `string` | URL or DID of the intended verifier. Included inside the JWS signed bytes so it cannot be stripped post-signature. When present, the attestation is scoped to a specific gateway. When absent, the attestation is treated as bearer — valid for any verifier. |
 
 ---
 
@@ -309,6 +310,7 @@ Verification steps:
 3. Confirm the signing key's `kid` matches a key in the JWKS.
 4. Confirm `expires_at` has not passed.
 5. Confirm `provider.id` resolves to a known, registered provider.
+6. If the `aud` field is present, confirm that `aud` matches the verifier's own URL or DID. Reject the attestation if it does not match. If `aud` is absent, accept the attestation as bearer (valid for any verifier). This prevents replay attacks where an attestation fetched from one agent's `.well-known` endpoint is presented to a different gateway than intended.
 
 ### 9.2 Provider Key Rotation
 
