@@ -112140,6 +112140,3009 @@
       "positive_signals": [],
       "findings": [],
       "discovery_source": "search:openclaw-in-name"
+    },
+    "agentshire/agentshire": {
+      "repo": "Agentshire/Agentshire",
+      "description": "OpenClaw plugin that visualizes AI agents as 3D NPCs in a game town \u2014 with social simulation, a map editor, and a character workshop.",
+      "framework": "openclaw",
+      "stars": 51,
+      "primary_language": "TypeScript",
+      "files_scanned": 200,
+      "has_readme": true,
+      "has_license": true,
+      "has_tests": true,
+      "trust_score": 0,
+      "error": null,
+      "findings_count": 337,
+      "critical_count": 0,
+      "high_count": 222,
+      "medium_count": 115,
+      "positive_signals": [
+        "Dependency pinning",
+        "Input validation",
+        "CORS configuration",
+        "Error handling",
+        "Helmet / security headers",
+        "Rate limiting",
+        "Type safety"
+      ],
+      "findings": [
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 75
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 170
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 195
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 287
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 345
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 348
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 349
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 350
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/ActivityStream.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 5
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 79
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 85
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 90
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 116
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 131
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 150
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 177
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 185
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 203
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 211
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/CitizenManager.ts",
+          "line_number": 219
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/DirectorBridge.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/DirectorBridge.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/DirectorBridge.ts",
+          "line_number": 7
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/DirectorBridge.ts",
+          "line_number": 111
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/DirectorBridge.ts",
+          "line_number": 216
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/EventTranslator.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/EventTranslator.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/EventTranslator.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/NpcEventQueue.ts",
+          "line_number": 2
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/ReconnectManager.ts",
+          "line_number": 19
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/RouteManager.ts",
+          "line_number": 2
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/RouteManager.ts",
+          "line_number": 45
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/bridge/RouteManager.ts",
+          "line_number": 61
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/bridge/ToolVfxMapper.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/ActivityStream.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/CitizenManager.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/CitizenManager.test.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/EventTranslator.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/EventTranslator.test.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/EventTranslator.test.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/NpcEventQueue.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/RouteManager.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/bridge/__tests__/RouteManager.test.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/__tests__/editor-serve-megapack.test.ts",
+          "line_number": 63
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/__tests__/hook-translator.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/__tests__/hook-translator.test.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/auto-config.ts",
+          "line_number": 17
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/auto-config.ts",
+          "line_number": 35
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/auto-config.ts",
+          "line_number": 64
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/auto-config.ts",
+          "line_number": 130
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/channel.ts",
+          "line_number": 170
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/channel.ts",
+          "line_number": 187
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/channel.ts",
+          "line_number": 240
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/channel.ts",
+          "line_number": 263
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/chat-asset-resolver.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/chat-session-watcher.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-agent-manager.ts",
+          "line_number": 50
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-agent-manager.ts",
+          "line_number": 113
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-agent-manager.ts",
+          "line_number": 123
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-agent-manager.ts",
+          "line_number": 172
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-chat-router.ts",
+          "line_number": 48
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/citizen-chat-router.ts",
+          "line_number": 56
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/editor-serve.ts",
+          "line_number": 168
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/editor-serve.ts",
+          "line_number": 974
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/hook-translator.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/hook-translator.ts",
+          "line_number": 2
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 60
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 67
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 138
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 155
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 173
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 221
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 234
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/plan-manager.ts",
+          "line_number": 593
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/session-history.ts",
+          "line_number": 489
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/session-log-watcher.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/subagent-tracker.ts",
+          "line_number": 5
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/subagent-tracker.ts",
+          "line_number": 45
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/subagent-tracker.ts",
+          "line_number": 59
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/subagent-tracker.ts",
+          "line_number": 69
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/subagent-tracker.ts",
+          "line_number": 81
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "src/plugin/tools.ts",
+          "line_number": 33
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "exec() call (Python)",
+          "severity": "high",
+          "file_path": "src/plugin/town-session.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 2
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 91
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 192
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 350
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 354
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 355
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 356
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 364
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 514
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/plugin/ws-server.ts",
+          "line_number": 647
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "src/town-souls.ts",
+          "line_number": 41
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/audio/AmbientSoundManager.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/audio/BGMManager.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/CharacterModelRegistry.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/CharacterModelRegistry.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/CharacterModelRegistry.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/GameProtocol.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/GameProtocol.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/IWorldDataSource.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/MockDataSource.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/MockDataSource.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/MockDataSource.ts",
+          "line_number": 11
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/data/MockDataSource.ts",
+          "line_number": 12
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/TownConfigStore.ts",
+          "line_number": 42
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/TownConfigStore.ts",
+          "line_number": 108
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/__tests__/extractSoulId.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/__tests__/publishedToTownView.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/__tests__/publishedToTownView.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/data/__tests__/publishedToTownView.test.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/AssetPalette.ts",
+          "line_number": 1
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/editor/CustomAssetUpload.ts",
+          "line_number": 311
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/editor/CustomAssetUpload.ts",
+          "line_number": 312
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/editor/EditorAssetLoader.ts",
+          "line_number": 42
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/editor/EditorScene.ts",
+          "line_number": 775
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen-main.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/AnimMappingDialog.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CharacterStage.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CharacterStage.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenRoster.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenRoster.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenRoster.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenWorkshop.ts",
+          "line_number": 21
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenWorkshop.ts",
+          "line_number": 22
+        },
+        {
+          "category": "exfiltration",
+          "name": "HTTP POST with sensitive data",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/CitizenWorkshop.ts",
+          "line_number": 104
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/citizen/ModelPicker.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/main.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 11
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 15
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 16
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 17
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 19
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 20
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/editor/preview-main.ts",
+          "line_number": 21
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/engine/Engine.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/engine/Input.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/engine/Input.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DailyScheduler.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DialogManager.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DialogManager.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DialogManager.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/DialogManager.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/EventDispatcher.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/EventDispatcher.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/GameClock.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 15
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 16
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 17
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 19
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 20
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 21
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 22
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 23
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 24
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 25
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 29
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 30
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 32
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 33
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 34
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 35
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 43
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 45
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 103
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 130
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 209
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 549
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 621
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 645
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 649
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/MainScene.ts",
+          "line_number": 1019
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 11
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/SceneBootstrap.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/WeatherSystem.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/WeatherSystem.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/DialogManager.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/DialogManager.test.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/DialogManager.test.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/EventDispatcher.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/EventDispatcher.test.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/GameClock.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/ModeManager.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/ModeManager.test.ts",
+          "line_number": 40
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/SceneBootstrap.loadConfig.test.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/SceneBootstrap.loadConfig.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/SceneBootstrap.loadConfig.test.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/SceneSwitcher.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/__tests__/SceneSwitcher.test.ts",
+          "line_number": 5
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/minigame/BanweiGame.ts",
+          "line_number": 203
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/minigame/BanweiGame.ts",
+          "line_number": 226
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/BanweiNpcEffects.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/BanweiRenderer.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/BanweiRenderer.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/BanweiRenderer.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/MinigameSlot.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/minigame/MinigameSlot.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/MuseumBuilder.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/OfficeBuilder.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/OfficeBuilder.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/ScreenRenderer.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/TownBuilder.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/VehicleManager.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/VehicleManager.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/scene/WhiteboardRenderer.ts",
+          "line_number": 2
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/visual/AssetLoader.ts",
+          "line_number": 169
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/visual/AssetLoader.ts",
+          "line_number": 250
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/visual/AssetLoader.ts",
+          "line_number": 297
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/visual/TimeOfDayLighting.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/visual/TimeOfDayLighting.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/visual/WeatherEffects.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/BaseOrchestrator.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/BriefingOrchestrator.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/BriefingOrchestrator.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/BriefingOrchestrator.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/BriefingOrchestrator.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/CelebrationOrchestrator.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/CelebrationOrchestrator.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/CelebrationOrchestrator.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 15
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 16
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 19
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/Choreographer.ts",
+          "line_number": 20
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/ModeManager.ts",
+          "line_number": 1
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/workflow/ModeManager.ts",
+          "line_number": 71
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 9
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 11
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SceneSwitcher.ts",
+          "line_number": 15
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SummonOrchestrator.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SummonOrchestrator.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SummonOrchestrator.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SummonOrchestrator.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/SummonOrchestrator.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 4
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 7
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 11
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 12
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 15
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 16
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 17
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 21
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 22
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 23
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 24
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/game/workflow/WorkflowHandler.ts",
+          "line_number": 758
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/hooks/useWebSocket.ts",
+          "line_number": 84
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/main.ts",
+          "line_number": 164
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/narrative/MockDialog.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/ActivityJournal.test.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/ActivityJournal.ts",
+          "line_number": 1
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/ActivityJournal.ts",
+          "line_number": 5
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/AgentBrain.ts",
+          "line_number": 14
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/AgentBrain.ts",
+          "line_number": 17
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/AgentBrain.ts",
+          "line_number": 18
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/CasualEncounter.ts",
+          "line_number": 13
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/CitizenChatManager.ts",
+          "line_number": 6
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/CitizenChatManager.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/DailyBehavior.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/DailyBehavior.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/DialogueScripts.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/EncounterManager.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 2
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 4
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 178
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 360
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 677
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/NPC.ts",
+          "line_number": 821
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/NPCManager.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/RoutineTemplates.ts",
+          "line_number": 10
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/TownJournal.ts",
+          "line_number": 8
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/npc/TownJournal.ts",
+          "line_number": 9
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/npc/TownJournal.ts",
+          "line_number": 163
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "town-frontend/src/npc/TownJournal.ts",
+          "line_number": 193
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/ui/ChatPanel.ts",
+          "line_number": 3
+        },
+        {
+          "category": "fs_access",
+          "name": "Path traversal risk (../ in string)",
+          "severity": "high",
+          "file_path": "town-frontend/src/ui/InputBar.ts",
+          "line_number": 7
+        }
+      ],
+      "discovery_source": "topic:openclaw"
+    },
+    "sonicbotman/lobster-press": {
+      "repo": "SonicBotMan/lobster-press",
+      "description": "\ud83e\udd9e LobsterPress\uff08\u9f99\u867e\u997c\uff09 - Cognitive Memory System for AI Agents \u57fa\u4e8e\u8ba4\u77e5\u79d1\u5b66\u7684 LLM \u6c38\u4e45\u8bb0\u5fc6\u5f15\u64ce",
+      "framework": "openclaw",
+      "stars": 29,
+      "primary_language": "Python",
+      "files_scanned": 149,
+      "has_readme": true,
+      "has_license": true,
+      "has_tests": true,
+      "trust_score": 100,
+      "error": null,
+      "findings_count": 69,
+      "critical_count": 2,
+      "high_count": 0,
+      "medium_count": 67,
+      "positive_signals": [
+        "Logging / audit trail",
+        "Dependency pinning",
+        "Input validation",
+        "CORS configuration",
+        "Error handling",
+        "Authentication check",
+        "Rate limiting",
+        "Authorization check",
+        "Cryptographic verification",
+        "Type safety"
+      ],
+      "findings": [
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 433
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 521
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 970
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1008
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1021
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1032
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1046
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1055
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1061
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1066
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1079
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1097
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1110
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1169
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1203
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1246
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1314
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1318
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1320
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1333
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1335
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1339
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1342
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1346
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1393
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1419
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1422
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1444
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1449
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1466
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1472
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1475
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1481
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1530
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1544
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1609
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1627
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1631
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1634
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "index.ts",
+          "line_number": 1639
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "shell=True (Python)",
+          "severity": "critical",
+          "file_path": "scripts/publish_checklist.py",
+          "line_number": 18
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "shell=True (Python)",
+          "severity": "critical",
+          "file_path": "scripts/publish_checklist.py",
+          "line_number": 201
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "scripts/tfidf_scorer.py",
+          "line_number": 114
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "scripts/tfidf_scorer.py",
+          "line_number": 324
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "scripts/token_counter.py",
+          "line_number": 137
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "scripts/token_counter.py",
+          "line_number": 138
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/extractive_summarizer.py",
+          "line_number": 216
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/incremental_compressor.py",
+          "line_number": 66
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/incremental_compressor.py",
+          "line_number": 192
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/incremental_compressor.py",
+          "line_number": 240
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/incremental_compressor.py",
+          "line_number": 265
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/lobster_press_v111.py",
+          "line_number": 306
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/lobster_press_v120.py",
+          "line_number": 305
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/lobster_press_v124.py",
+          "line_number": 670
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/lobster_press_v124.py",
+          "line_number": 678
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/semantic_dedup.py",
+          "line_number": 262
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/tfidf_scorer.py",
+          "line_number": 112
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/tfidf_scorer.py",
+          "line_number": 328
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/token_counter.py",
+          "line_number": 137
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/token_counter.py",
+          "line_number": 138
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file read (Python)",
+          "severity": "medium",
+          "file_path": "skill/lobster-press/scripts/token_counter.py",
+          "line_number": 358
+        },
+        {
+          "category": "fs_access",
+          "name": "Unrestricted file write (Python)",
+          "severity": "medium",
+          "file_path": "src/migration/importer.py",
+          "line_number": 253
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/pipeline/tfidf_scorer.py",
+          "line_number": 106
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/pipeline/tfidf_scorer.py",
+          "line_number": 356
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "src/prompts.py",
+          "line_number": 108
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "tests/ts/index.test.ts",
+          "line_number": 140
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "tests/ts/index.test.ts",
+          "line_number": 144
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "tests/ts/index.test.ts",
+          "line_number": 156
+        },
+        {
+          "category": "unsafe_exec",
+          "name": "Command.new / system (Ruby)",
+          "severity": "medium",
+          "file_path": "tests/ts/index.test.ts",
+          "line_number": 160
+        }
+      ],
+      "discovery_source": "topic:openclaw"
+    },
+    "sonicbotman/openclaw-portable": {
+      "repo": "SonicBotMan/openclaw-portable",
+      "description": "\ud83d\udd0c \u5373\u63d2\u5373\u7528\u7684\u4fbf\u643a\u5f0f OpenClaw\uff0c\u63d2\u5728 Windows/Linux/Mac \u7535\u8111\u4e0a\u5373\u53ef\u4f7f\u7528",
+      "framework": "openclaw",
+      "stars": 37,
+      "primary_language": ".bat",
+      "files_scanned": 20,
+      "has_readme": true,
+      "has_license": true,
+      "has_tests": true,
+      "trust_score": 70,
+      "error": null,
+      "findings_count": 7,
+      "critical_count": 0,
+      "high_count": 0,
+      "medium_count": 7,
+      "positive_signals": [],
+      "findings": [
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "install-models.js",
+          "line_number": 73
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "install-models.js",
+          "line_number": 94
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "install-models.js",
+          "line_number": 102
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "install-models.js",
+          "line_number": 123
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "start.bat",
+          "line_number": 215
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "start.sh",
+          "line_number": 332
+        },
+        {
+          "category": "fs_access",
+          "name": "fs.readFileSync / writeFileSync (Node.js)",
+          "severity": "medium",
+          "file_path": "start.sh",
+          "line_number": 365
+        }
+      ],
+      "discovery_source": "search:openclaw-in-name"
+    },
+    "arall/claude-openclaw": {
+      "repo": "arall/claude-openclaw",
+      "description": "",
+      "framework": "openclaw",
+      "stars": 6,
+      "primary_language": "Python",
+      "files_scanned": 1,
+      "has_readme": true,
+      "has_license": true,
+      "has_tests": false,
+      "trust_score": 77,
+      "error": null,
+      "findings_count": 1,
+      "critical_count": 0,
+      "high_count": 1,
+      "medium_count": 0,
+      "positive_signals": [
+        "Input validation"
+      ],
+      "findings": [
+        {
+          "category": "unsafe_exec",
+          "name": "subprocess.run / Popen (Python)",
+          "severity": "high",
+          "file_path": "claude-openclaw.py",
+          "line_number": 59
+        }
+      ],
+      "discovery_source": "search:openclaw-in-name"
     }
   },
   "errors": {
@@ -113905,5 +116908,5 @@
     "ksmith211/openclaw-xmpp": "Could not fetch repo tree (may be empty or private)",
     "prompt-security/openclaw-scanner": "Could not fetch repo tree (may be empty or private)"
   },
-  "last_index": 1913
+  "last_index": 3
 }

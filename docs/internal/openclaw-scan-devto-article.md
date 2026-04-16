@@ -1,6 +1,7 @@
 ---
 title: "We Scanned 231 OpenClaw Skills for Security Vulnerabilities — Here's What We Found"
 published: true
+canonical_url: https://agentgraph.co/blog/openclaw-scan
 description: "14,350 findings across 231 OpenClaw skill repos. 32% scored F. 98 critical findings in 20 repos. Here's the data, free PyPI packages, and a trust gateway for enforcement."
 tags: security, ai, agents, opensource
 cover_image:
@@ -9,6 +10,12 @@ cover_image:
 AI agents are running third-party code on your machine. Last week, [Anthropic announced extra charges for OpenClaw support in Claude Code](https://techcrunch.com/2026/04/04/anthropic-says-claude-code-subscribers-will-need-to-pay-extra-for-openclaw-support/), drawing fresh attention to the ecosystem. We wanted to answer a straightforward question: how safe are the most popular OpenClaw skills?
 
 We first published results from 25 repos. We have now expanded the scan to 231 repositories out of 2,007 discovered — nearly a 10x increase in coverage — and the picture has gotten worse.
+
+## Why Independent Trust Verification Matters Now
+
+Anthropic just temporarily banned OpenClaw's creator from accessing Claude ([TechCrunch, April 10](https://techcrunch.com/2026/04/10/anthropic-temporarily-banned-openclaws-creator-from-accessing-claude/)). Whether you agree with their decision or not, it highlights a structural gap: platform trust is revocable. There's no independent way to verify whether an AI agent or tool is safe to use.
+
+That's why we built **[agentgraph.co/check](https://agentgraph.co/check)** — a free, instant safety checker for any AI agent, MCP server, or skill. Paste a URL, get a letter grade. The result is a cryptographically signed attestation that you can verify yourself. No platform controls the score.
 
 ## Methodology
 
@@ -154,6 +161,30 @@ The scanner and full results are open source:
 - **MCP Server**: [pypi.org/project/agentgraph-trust](https://pypi.org/project/agentgraph-trust/) (v0.3.1) | [source](https://github.com/agentgraph-co/agentgraph/tree/main/sdk/mcp-server)
 - **CLI**: [pypi.org/project/agentgraph-agt](https://pypi.org/project/agentgraph-agt/)
 - **Library**: [pypi.org/project/open-agent-trust](https://pypi.org/project/open-agent-trust/)
+
+## Try It Now
+
+**[agentgraph.co/check](https://agentgraph.co/check)** — Paste any GitHub repo URL, MCP server name, or agent package and get an instant letter grade. No signup, no API key, no cost. The result is a signed attestation you can independently verify.
+
+**7 PyPI packages** available now:
+
+| Package | Purpose |
+|---------|---------|
+| [agentgraph-trust](https://pypi.org/project/agentgraph-trust/) | MCP server — scan tools from Claude Code or any MCP client |
+| [agentgraph-agt](https://pypi.org/project/agentgraph-agt/) | CLI for CI pipelines and local scanning |
+| [open-agent-trust](https://pypi.org/project/open-agent-trust/) | Lightweight library for embedding trust checks in any Python agent |
+| [agentgraph-scanner](https://pypi.org/project/agentgraph-scanner/) | Core scanning engine |
+| [agentgraph-attestation](https://pypi.org/project/agentgraph-attestation/) | Cryptographic attestation signing and verification |
+| [agentgraph-gateway](https://pypi.org/project/agentgraph-gateway/) | Trust gateway enforcement layer |
+| [agentgraph-badges](https://pypi.org/project/agentgraph-badges/) | Trust badge generation for READMEs |
+
+**[GitHub Action](https://github.com/agentgraph-co/agentgraph-trust-action)** — Add trust scanning to any CI pipeline. Runs on every PR, blocks merges that introduce tools below your trust threshold. Drop it into your workflow in two lines:
+
+```yaml
+- uses: agentgraph-co/agentgraph-trust-action@v1
+  with:
+    fail-below: 50
+```
 
 ---
 

@@ -36,6 +36,7 @@ Then ask your AI assistant:
 
 | Tool | Description |
 |------|-------------|
+| `check_trust_tier` | Scan a GitHub repo and get trust tier with recommended rate limits. No auth required. |
 | `check_security` | Check security posture of an agent or GitHub repo. Returns signed attestation with findings, trust score, and safety checks. |
 | `verify_trust` | Check an entity's trust score and verification status |
 | `lookup_identity` | Look up an entity by DID or display name |
