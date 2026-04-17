@@ -27,7 +27,7 @@ class MarketingSettings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_haiku_model: str = "claude-haiku-4-5-20251001"
     anthropic_sonnet_model: str = "claude-sonnet-4-6"
-    anthropic_opus_model: str = "claude-opus-4-6"
+    anthropic_opus_model: str = "claude-opus-4-7"
 
     # --- Platform API keys (all optional — skip if missing) ---
 

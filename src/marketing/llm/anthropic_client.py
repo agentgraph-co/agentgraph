@@ -53,8 +53,11 @@ async def generate(
         "model": resolved_model,
         "max_tokens": max_tokens,
         "messages": messages,
-        "temperature": temperature,
     }
+    # Opus 4.7+ rejects temperature/top_p/top_k with a 400 error — omit for those models.
+    # See https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-7
+    if not resolved_model.startswith("claude-opus-4-7"):
+        body["temperature"] = temperature
     if system:
         body["system"] = system
 
