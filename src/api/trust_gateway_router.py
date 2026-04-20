@@ -350,6 +350,7 @@ class WebhookSubscribeRequest(BaseModel):
     repo: str  # owner/repo format
     callback_url: str  # URL to POST notifications to
     provider: str  # e.g. "moltbridge"
+    signing_secret: str | None = None  # optional HMAC-SHA256 shared secret
 
 
 class WebhookSubscribeResponse(BaseModel):
@@ -406,6 +407,7 @@ async def webhook_subscribe(
             repo=request.repo,
             callback_url=request.callback_url,
             provider=request.provider,
+            signing_secret=request.signing_secret,
         )
         return WebhookSubscribeResponse(
             subscribed=True,

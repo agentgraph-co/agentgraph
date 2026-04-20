@@ -2,9 +2,22 @@
 
 When a security scan result changes for a watched repo, we POST to registered
 callback URLs (e.g. MoltBridge). Fire-and-forget with 10s timeout.
+
+Signature scheme: every outbound event carries a JWS in the body (verifiable via
+our JWKS at /.well-known/jwks.json). Subscriptions may also register a shared
+HMAC signing secret; if present, the outbound request additionally carries:
+
+    X-Partner-Signature: sha256=<hex>  (HMAC-SHA256 over the raw JSON body)
+    X-Partner-Timestamp: <ISO-8601>    (±5 minute window, receiver enforced)
+
+This symmetric scheme matches the MoltBridge/VeroQ Shield partner contract and
+lets partners verify without fetching our JWKS on every call.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -40,11 +53,16 @@ async def register_subscription(
     repo: str,
     callback_url: str,
     provider: str,
+    signing_secret: str | None = None,
 ) -> dict:
     """Register an outbound webhook subscription for a repo.
 
     Stores in Redis as a list of dicts under ``outbound_webhook:<repo>``.
-    Returns the subscription record.
+    Returns the subscription record (without the signing_secret).
+
+    If ``signing_secret`` is provided, the outbound POST will additionally
+    carry ``X-Partner-Signature`` / ``X-Partner-Timestamp`` headers computed
+    with HMAC-SHA256 over the raw body.
     """
     from src import cache
 
@@ -54,6 +72,8 @@ async def register_subscription(
         "provider": provider,
         "registered_at": datetime.now(timezone.utc).isoformat(),
     }
+    if signing_secret:
+        record["signing_secret"] = signing_secret
 
     existing = await _get_subscriptions(repo)
 
@@ -67,10 +87,11 @@ async def register_subscription(
     # Store with no expiry (0 = persist)
     await cache.set(f"{_WEBHOOK_PREFIX}{repo}", existing, ttl=0)
     logger.info(
-        "Registered outbound webhook: repo=%s provider=%s url=%s",
-        repo, provider, callback_url,
+        "Registered outbound webhook: repo=%s provider=%s url=%s hmac=%s",
+        repo, provider, callback_url, bool(signing_secret),
     )
-    return record
+    # Return a sanitized copy without the secret
+    return {k: v for k, v in record.items() if k != "signing_secret"}
 
 
 async def notify_scan_change(
@@ -94,9 +115,11 @@ async def notify_scan_change(
 
     now = datetime.now(timezone.utc).isoformat()
 
-    # Build payload and sign it
+    # Canonical event type for partner routing is "scan-change" (per A2A partner
+    # spec). Keep legacy "ScanScoreChanged" as an alias for older consumers.
     payload_dict = {
-        "type": "ScanScoreChanged",
+        "type": "scan-change",
+        "legacy_type": "ScanScoreChanged",
         "repo": repo,
         "new_score": new_score,
         "old_score": old_score,
@@ -106,33 +129,48 @@ async def notify_scan_change(
     jws = create_jws(payload_bytes)
 
     body = {
+        "type": "scan-change",
         "repo": repo,
         "new_score": new_score,
         "old_score": old_score,
         "changed_at": now,
         "jws": jws,
     }
+    # Serialize once — HMAC must be computed over the exact bytes sent on the wire
+    # so the receiver can verify byte-for-byte.
+    body_bytes = json.dumps(body, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
     for sub in subscriptions:
         callback_url = sub.get("callback_url")
         provider = sub.get("provider", "unknown")
+        signing_secret = sub.get("signing_secret")
         if not callback_url:
             continue
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "AgentGraph-Webhook/1.0",
+            "X-AgentGraph-Event": "scan-change",
+        }
+        if signing_secret:
+            mac = hmac.new(
+                signing_secret.encode("utf-8"),
+                body_bytes,
+                hashlib.sha256,
+            ).hexdigest()
+            headers["X-Partner-Signature"] = f"sha256={mac}"
+            headers["X-Partner-Timestamp"] = now
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
                     callback_url,
-                    json=body,
-                    headers={
-                        "Content-Type": "application/json",
-                        "User-Agent": "AgentGraph-Webhook/1.0",
-                        "X-AgentGraph-Event": "scan.score.changed",
-                    },
+                    content=body_bytes,
+                    headers=headers,
                 )
             logger.info(
-                "Outbound webhook delivered: repo=%s provider=%s status=%d",
-                repo, provider, resp.status_code,
+                "Outbound webhook delivered: repo=%s provider=%s status=%d hmac=%s",
+                repo, provider, resp.status_code, bool(signing_secret),
             )
         except httpx.TimeoutException:
             logger.warning(
