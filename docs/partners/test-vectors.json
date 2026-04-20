@@ -1,0 +1,58 @@
+{
+  "$schema": "https://agentgraph.co/schemas/partner-webhook-test-vectors-v1.json",
+  "description": "Canonical known-good test vectors for the AgentGraph partner webhook HMAC contract. Use these to unit-test your receiver before wiring live traffic. See webhook-contract.md for the full spec.",
+  "hmac_algorithm": "sha256",
+  "canonical_serialization": {
+    "json_separators": [",", ":"],
+    "sort_keys": true,
+    "encoding": "utf-8",
+    "note": "HMAC is computed over the exact raw body bytes as sent on the wire. Python: json.dumps(body, separators=(',', ':'), sort_keys=True).encode('utf-8'). The JWS value in the body is treated as an opaque string for the purposes of this test — signature placeholders are fine."
+  },
+  "vectors": [
+    {
+      "name": "score_increase",
+      "description": "A repo's score rose from 71 to 82. Both old_score and new_score present.",
+      "signing_secret": "moltbridge-shared-secret-example-2026",
+      "body": {
+        "type": "scan-change",
+        "repo": "agentgraph-co/agentgraph",
+        "new_score": 82,
+        "old_score": 71,
+        "changed_at": "2026-04-20T22:00:00+00:00",
+        "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXUyJ9..SIGNATURE_PLACEHOLDER"
+      },
+      "canonical_body_bytes_utf8": "{\"changed_at\":\"2026-04-20T22:00:00+00:00\",\"jws\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXUyJ9..SIGNATURE_PLACEHOLDER\",\"new_score\":82,\"old_score\":71,\"repo\":\"agentgraph-co/agentgraph\",\"type\":\"scan-change\"}",
+      "headers": {
+        "Content-Type": "application/json",
+        "User-Agent": "AgentGraph-Webhook/1.0",
+        "X-AgentGraph-Event": "scan-change",
+        "X-Partner-Signature": "sha256=8aadf95373494541c1a7fe0a56c286f541ee4177adc6e2ead9c5d272ca3a3172",
+        "X-Partner-Timestamp": "2026-04-20T22:00:00+00:00"
+      },
+      "expected_signature": "sha256=8aadf95373494541c1a7fe0a56c286f541ee4177adc6e2ead9c5d272ca3a3172"
+    },
+    {
+      "name": "first_scan_null_old_score",
+      "description": "First time this repo was scanned — old_score is explicitly null.",
+      "signing_secret": "moltbridge-shared-secret-example-2026",
+      "body": {
+        "type": "scan-change",
+        "repo": "owner/other-repo",
+        "new_score": 55,
+        "old_score": null,
+        "changed_at": "2026-04-20T22:05:00+00:00",
+        "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXUyJ9..SIGNATURE_PLACEHOLDER_2"
+      },
+      "canonical_body_bytes_utf8": "{\"changed_at\":\"2026-04-20T22:05:00+00:00\",\"jws\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXUyJ9..SIGNATURE_PLACEHOLDER_2\",\"new_score\":55,\"old_score\":null,\"repo\":\"owner/other-repo\",\"type\":\"scan-change\"}",
+      "headers": {
+        "Content-Type": "application/json",
+        "User-Agent": "AgentGraph-Webhook/1.0",
+        "X-AgentGraph-Event": "scan-change",
+        "X-Partner-Signature": "sha256=916f80c01f6716fca72a9b1a6eeb318bced0379206aae91ab0834f8b0a17d428",
+        "X-Partner-Timestamp": "2026-04-20T22:05:00+00:00"
+      },
+      "expected_signature": "sha256=916f80c01f6716fca72a9b1a6eeb318bced0379206aae91ab0834f8b0a17d428"
+    }
+  ],
+  "reproduce_in_python": "import hmac, hashlib, json\nsecret = 'moltbridge-shared-secret-example-2026'\nbody = {'type':'scan-change','repo':'agentgraph-co/agentgraph','new_score':82,'old_score':71,'changed_at':'2026-04-20T22:00:00+00:00','jws':'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXUyJ9..SIGNATURE_PLACEHOLDER'}\nraw = json.dumps(body, separators=(',', ':'), sort_keys=True).encode('utf-8')\nprint('sha256=' + hmac.new(secret.encode('utf-8'), raw, hashlib.sha256).hexdigest())"
+}
