@@ -127,7 +127,14 @@ class Settings(BaseSettings):
     trust_recompute_interval_seconds: int = 6 * 60 * 60  # 6 hours
 
     # GitHub API token (for higher rate limits in source import)
+    # Legacy PAT — used only if GitHub App credentials below are not configured.
     github_token: str | None = None
+
+    # GitHub App credentials (preferred over PAT — private key does not expire)
+    # See src/github_auth.py for the token-minting flow.
+    github_app_id: str | None = None
+    github_app_private_key: str | None = None  # full PEM (may have escaped \n)
+    github_app_installation_id: str | None = None
 
     # Admin account email (used for bot ownership, alerts, marketing)
     admin_email: str = "admin@agentgraph.co"

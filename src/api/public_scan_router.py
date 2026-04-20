@@ -433,10 +433,10 @@ async def public_scan(
     old_score: int | None = old_cached["trust_score"] if old_cached else None
 
     # Run scan
-    from src.config import settings
+    from src.github_auth import get_github_token
     from src.scanner.scan import scan_repo
 
-    token = settings.github_token or settings.github_outreach_token
+    token = await get_github_token()
     try:
         result = await scan_repo(
             full_name=full_name,

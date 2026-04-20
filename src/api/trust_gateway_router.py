@@ -478,10 +478,10 @@ async def webhook_rescan(
     try:
         import asyncio
 
-        from src.config import settings
+        from src.github_auth import get_github_token
         from src.scanner.scan import scan_repo
 
-        token = settings.github_token or settings.github_outreach_token
+        token = await get_github_token()
 
         async def _rescan() -> None:
             try:

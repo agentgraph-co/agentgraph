@@ -304,7 +304,8 @@ async def run_batch_scan(
         from_github: if True, discover repos via GitHub API.
                      If False, read from DB.
     """
-    token = settings.github_outreach_token or settings.github_token
+    from src.github_auth import get_github_token
+    token = await get_github_token()
 
     if from_github:
         repos = await _discover_from_github(token, limit)

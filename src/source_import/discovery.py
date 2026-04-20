@@ -339,9 +339,10 @@ async def _check_github_from_url(
 
     headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
     try:
-        from src.config import settings
-        if settings.github_token:
-            headers["Authorization"] = f"Bearer {settings.github_token}"
+        from src.github_auth import get_github_token
+        token = await get_github_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
     except Exception:
         pass
 

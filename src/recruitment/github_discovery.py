@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import settings
 from src.models import RecruitmentProspect
 
 logger = logging.getLogger(__name__)
@@ -43,10 +42,11 @@ _SKIP_NAME_PREFIXES = ("awesome-", "awesome_")
 _SKIP_NAME_KEYWORDS = {"awesome", "list", "curated", "collection", "resources"}
 
 
-def _github_headers() -> dict[str, str]:
+async def _github_headers() -> dict[str, str]:
     """Build GitHub API headers with optional auth."""
+    from src.github_auth import get_github_token
     headers = {"Accept": "application/vnd.github+json"}
-    token = settings.github_outreach_token or settings.github_token
+    token = await get_github_token()
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
@@ -109,7 +109,7 @@ async def _search_github(
             "order": "desc",
             "per_page": 100,
         }
-        resp = await client.get(url, headers=_github_headers(), params=params)
+        resp = await client.get(url, headers=await _github_headers(), params=params)
 
         if resp.status_code == 403:
             logger.warning("GitHub rate limit hit during discovery")

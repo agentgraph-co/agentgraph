@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import settings
 from src.models import Entity, FrameworkSecurityScan
 
 logger = logging.getLogger(__name__)
@@ -64,7 +63,8 @@ async def run_security_scan(
                 return latest
 
     # Run the scan — use any available GitHub token for rate limits
-    token = settings.github_token or settings.github_outreach_token
+    from src.github_auth import get_github_token
+    token = await get_github_token()
     try:
         from src.scanner.scan import scan_repo
 
@@ -263,7 +263,8 @@ async def refresh_public_scan_cache(limit: int = 10) -> int:
                 # Extract repo name from key: ag:cache:public_scan:owner/repo
                 repo = (key.decode() if isinstance(key, bytes) else key).replace("ag:cache:public_scan:", "")
                 if "/" in repo:
-                    token = settings.github_token or settings.github_outreach_token
+                    from src.github_auth import get_github_token
+                    token = await get_github_token()
                     try:
                         await scan_repo(
                             full_name=repo,

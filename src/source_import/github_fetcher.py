@@ -6,7 +6,6 @@ import re
 
 import httpx
 
-from src.config import settings
 from src.source_import.types import SourceImportResult
 
 logger = logging.getLogger(__name__)
@@ -71,11 +70,14 @@ async def fetch_github(owner: str, repo: str, url: str) -> SourceImportResult:
         SourceFetchError: If the repository is not found, rate-limited,
             or a network error occurs.
     """
+    from src.github_auth import get_github_token
+
     api_base = f"https://api.github.com/repos/{owner}/{repo}"
     headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
 
-    if settings.github_token:
-        headers["Authorization"] = f"Bearer {settings.github_token}"
+    token = await get_github_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
