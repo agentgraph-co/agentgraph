@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.database import async_session
+from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
+from src.marketing.content.ai_tells import check as check_ai_tells
 from src.marketing.llm.router import generate as llm_generate
 from src.models import ReplyOpportunity
 
@@ -90,13 +92,14 @@ async def _draft_single(opp: ReplyOpportunity) -> None:
         tone_hint=_TONE_HINTS.get(opp.platform, "conversational"),
     )
 
+    base_system = (
+        "You are a technical expert writing a reply on social media. "
+        "Output ONLY the reply text. No quotes, no preamble, no explanation."
+    )
     result = await llm_generate(
         prompt,
         content_type="engagement_reply",
-        system=(
-            "You are a technical expert writing a reply on social media. "
-            "Output ONLY the reply text. No quotes, no preamble, no explanation."
-        ),
+        system=base_system + VOICE_PROMPT_FRAGMENT,
         max_tokens=200,
         temperature=0.7,
     )
@@ -104,6 +107,37 @@ async def _draft_single(opp: ReplyOpportunity) -> None:
     if result.error:
         logger.warning("LLM error drafting reply: %s", result.error)
         return
+
+    # AI-tell linter — retry once with hint if first draft trips it.
+    tell_check = check_ai_tells(result.text, platform=opp.platform, strict=True)
+    if not tell_check.passed:
+        logger.info(
+            "Reply draft tripped AI-tell linter for %s (%s); retrying",
+            opp.id, tell_check.reasons,
+        )
+        retry_prompt = (
+            f"{prompt}\n\n## Previous draft was rejected by the voice linter\n"
+            f"{tell_check.hint()}\n"
+            f"Write a new reply that does not have those issues."
+        )
+        retry = await llm_generate(
+            retry_prompt,
+            content_type="engagement_reply",
+            system=base_system + VOICE_PROMPT_FRAGMENT,
+            max_tokens=200,
+            temperature=0.7,
+        )
+        if not retry.error and retry.text:
+            second = check_ai_tells(retry.text, platform=opp.platform, strict=True)
+            if second.passed:
+                result = retry
+            else:
+                logger.warning(
+                    "Reply draft still tripping linter after retry for %s; "
+                    "shipping retry anyway",
+                    opp.id,
+                )
+                result = retry
 
     draft = result.text.strip().strip('"').strip("'")
 

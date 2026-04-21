@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.marketing.config import marketing_settings
+from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
+from src.marketing.content.ai_tells import check as check_ai_tells
 from src.marketing.content.tone import ToneProfile, get_tone
 from src.marketing.content.topics import Topic, get_angle, pick_topic
 from src.marketing.llm.cost_tracker import estimate_cost
@@ -81,6 +83,67 @@ class GeneratedContent:
 def content_hash(text: str) -> str:
     """SHA-256 hash for deduplication."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+async def _generate_with_voice_check(
+    prompt: str,
+    *,
+    system: str,
+    content_type: str,
+    max_tokens: int,
+    temperature: float | None = None,
+    platform: str = "generic",
+):
+    """Generate content with one retry if the AI-tell linter rejects the draft.
+
+    Adds VOICE_PROMPT_FRAGMENT to the system prompt so the model avoids the
+    tells in the first place. If the first draft still fails the linter,
+    retries once with the linter's regeneration hint appended. If retry
+    also fails, returns the better of the two drafts and logs a warning —
+    we never block content entirely on a tell, only nudge it.
+    """
+    augmented_system = system + VOICE_PROMPT_FRAGMENT
+    kwargs: dict = {
+        "system": augmented_system,
+        "content_type": content_type,
+        "max_tokens": max_tokens,
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+
+    result = await llm_generate(prompt, **kwargs)
+    if result.error or not result.text:
+        return result
+
+    first_check = check_ai_tells(result.text, platform=platform, strict=True)
+    if first_check.passed:
+        return result
+
+    # Retry with hint
+    logger.info(
+        "AI-tell linter rejected first draft for %s (reasons=%s); retrying",
+        platform, first_check.reasons,
+    )
+    retry_prompt = (
+        f"{prompt}\n\n## Previous draft was rejected by the voice linter\n"
+        f"{first_check.hint()}\n"
+        f"Write a new draft that does not have those issues."
+    )
+    retry = await llm_generate(retry_prompt, **kwargs)
+    if retry.error or not retry.text:
+        return result  # fall back to first draft
+
+    second_check = check_ai_tells(retry.text, platform=platform, strict=True)
+    if second_check.passed:
+        return retry
+
+    logger.warning(
+        "AI-tell linter rejected both drafts for %s (first=%s, retry=%s); "
+        "shipping retry anyway",
+        platform, first_check.reasons, second_check.reasons,
+    )
+    # Ship retry — usually closer to passing even if not perfect
+    return retry
 
 
 def build_utm_link(
@@ -228,9 +291,12 @@ async def generate_proactive(
     if platform in ("devto", "hashnode"):
         content_type = f"{platform}_article"
 
-    result = await llm_generate(
-        prompt, content_type=content_type, system=tone.system_prompt,
+    result = await _generate_with_voice_check(
+        prompt,
+        system=tone.system_prompt,
+        content_type=content_type,
         max_tokens=_max_tokens_for_platform(platform),
+        platform=platform,
     )
 
     if result.error:
@@ -362,9 +428,13 @@ async def generate_reactive(
         f"{_GLOBAL_KNOWLEDGE}"
     )
 
-    result = await llm_generate(
-        prompt, content_type="reply", system=tone.system_prompt,
-        max_tokens=256, temperature=0.8,
+    result = await _generate_with_voice_check(
+        prompt,
+        system=tone.system_prompt,
+        content_type="reply",
+        max_tokens=256,
+        temperature=0.8,
+        platform=platform,
     )
 
     if result.error:

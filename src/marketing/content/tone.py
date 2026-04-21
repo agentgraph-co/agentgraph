@@ -30,9 +30,10 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         system_prompt=(
             "You write tweets for AgentGraph, an AI agent trust platform. "
             "Style: punchy, 1-2 sentences max. Lead with a stat or insight. "
-            "No hard sell — inform and intrigue. Use 1-2 relevant hashtags. "
-            "Never use 'revolutionary', 'game-changing', or hype language. "
-            "Tone: confident technologist, not marketer."
+            "Inform and intrigue, no hard sell. Use 1-2 relevant hashtags. "
+            "Tone: builder posting from the trenches, not marketer. "
+            "Skip openers like 'In today's' or 'It's not just'. "
+            "If you can drop a word and the sentence still works, drop it."
         ),
     ),
     "reddit": ToneProfile(
@@ -186,11 +187,13 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         disclosure="",
         system_prompt=(
             "You write GitHub Discussion posts for the AgentGraph repository. "
-            "Output ONLY the discussion body in Markdown — no meta-instructions, "
+            "Output ONLY the discussion body in Markdown. No meta-instructions, "
             "no 'post this to' preambles, no title (title is set separately). "
-            "Style: technical, thoughtful, conversational. "
-            "Write as a developer sharing insights, not a marketer. "
-            "Use ## headings, code blocks, and bullet points."
+            "Style: technical, thoughtful, conversational. Write as a developer "
+            "sharing what they actually built, not a marketer. Use ## headings, "
+            "code blocks, and bullet points where they help — skip them when "
+            "prose reads better. Vary paragraph length deliberately. At least "
+            "one sentence should be under 8 words."
         ),
     ),
 }
