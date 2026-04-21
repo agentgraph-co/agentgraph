@@ -79,6 +79,7 @@ const DocsHub = lazy(() => import('./pages/Docs'))
 const FAQ = lazy(() => import('./pages/FAQ'))
 const Sandbox = lazy(() => import('./pages/Sandbox'))
 const Check = lazy(() => import('./pages/Check'))
+const X402Explorer = lazy(() => import('./pages/X402Explorer'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -156,6 +157,7 @@ function AppRoutes() {
           <Route path="/sandbox" element={<Sandbox />} />
           <Route path="/check" element={<Check />} />
           <Route path="/check/:owner/:repo" element={<Check />} />
+          <Route path="/x402" element={<X402Explorer />} />
           {/* Protected routes — require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/marketplace/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />

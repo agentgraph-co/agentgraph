@@ -84,6 +84,7 @@ from src.api.trust_gateway_router import router as trust_gateway_router
 from src.api.trust_router import router as trust_router
 from src.api.webhook_router import router as webhook_router
 from src.api.ws_router import router as ws_router
+from src.api.x402_router import router as x402_router
 from src.config import settings
 from src.feeds.bluesky.feed_router import router as bluesky_feed_router
 from src.logging_config import setup_logging
@@ -663,6 +664,7 @@ app.include_router(subscription_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_explainer_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
+app.include_router(x402_router, prefix=settings.api_v1_prefix)
 app.include_router(disputes_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(mcp_router, prefix=settings.api_v1_prefix)

@@ -11,6 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
+from src.attestation.composed_slot import (
+    ScanInputs,
+    build_agentgraph_slot,
+    compute_evidence_hash,
+)
 from src.database import get_db
 from src.models import Entity, FrameworkSecurityScan, TrustScore
 from src.signing import KID, canonicalize, create_jws
@@ -221,3 +226,100 @@ async def get_security_attestation(
         key_id=KID,
         jwks_url="https://agentgraph.co/.well-known/jwks.json",
     )
+
+
+# ── composed-slot v1 (APS interop) ────────────────────────────────────
+#
+# This is the *published interop shape* for the three-signal composition
+# (APS composed-v1 envelope — coordinated on A2A #1734 / agentid-aps-interop#5).
+#
+# Distinct from the native attestation above: native includes the full rubric
+# output (positive_signals, etc.). The slot exposes only the locked contract
+# fields. overall_grade stays proprietary; consumers MAY treat it as opaque.
+
+@router.get(
+    "/entities/{entity_id}/attestation/composed-slot",
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def get_composed_slot(
+    entity_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return the ``agentgraph-scan-v1-structural`` slot for *entity_id*.
+
+    Designed to be dropped into the APS composed-v1 envelope as the
+    ``static_analysis`` signal. Does NOT expose AgentGraph's internal
+    scoring weights — only the published gate vocabulary + letter grade.
+    """
+    # Look up entity
+    result = await db.execute(
+        select(Entity).where(Entity.id == entity_id, Entity.is_active.is_(True)),
+    )
+    entity = result.scalar_one_or_none()
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Latest security scan
+    scan_result = await db.execute(
+        select(FrameworkSecurityScan)
+        .where(FrameworkSecurityScan.entity_id == entity_id)
+        .order_by(FrameworkSecurityScan.scanned_at.desc())
+        .limit(1),
+    )
+    scan = scan_result.scalar_one_or_none()
+    if not scan:
+        raise HTTPException(
+            status_code=404,
+            detail="No security scan available for this entity",
+        )
+
+    vulns = scan.vulnerabilities if isinstance(scan.vulnerabilities, dict) else {}
+
+    # Trust score (for overall_grade)
+    trust_result = await db.execute(
+        select(TrustScore).where(TrustScore.entity_id == entity_id),
+    )
+    trust = trust_result.scalar_one_or_none()
+    # Scanner emits 0-100; TrustScore.score is 0-1. Prefer scan trust_score.
+    trust_0_to_100 = int(vulns.get("trust_score", 0))
+    if not trust_0_to_100 and trust:
+        trust_0_to_100 = int(round((trust.score or 0) * 100))
+
+    # Category scores (public fraction-of-100 per gate)
+    category_scores = vulns.get("category_scores") or {}
+
+    # Flat findings counts (scanner already rolls these up)
+    findings_counts = {
+        "critical": int(vulns.get("critical_count", 0)),
+        "high": int(vulns.get("high_count", 0)),
+        "medium": int(vulns.get("medium_count", 0)),
+        "secrets": int(vulns.get("secret_count", 0)),
+        "dep_critical": int(vulns.get("dep_critical_count", 0)),
+        "dep_high": int(vulns.get("dep_high_count", 0)),
+        "static_analysis": int(vulns.get("static_analysis_count", 0)),
+    }
+
+    # Evidence hash — canonical hash over the native attestation payload,
+    # so the slot's evidence_hash references a replayable, signed artifact.
+    native_payload = _build_payload(entity, scan, trust)
+    evidence_hash = compute_evidence_hash(canonicalize(native_payload))
+    evidence_url = (
+        f"https://agentgraph.co/api/v1/entities/{entity.id}/attestation/security"
+    )
+
+    inputs = ScanInputs(
+        entity_id=str(entity.id),
+        entity_did=None,  # Derive from entity_id; external DIDs handled in future
+        source_url=entity.source_url or "",
+        source_type=entity.source_type,
+        framework=scan.framework,
+        artifact_ref=vulns.get("artifact_ref") or "",
+        scanned_at=scan.scanned_at,
+        scanner_version=str(vulns.get("scanner_version", "unknown")),
+        trust_score_0_to_100=trust_0_to_100,
+        category_scores=category_scores,
+        findings=findings_counts,
+        evidence_hash=evidence_hash,
+        evidence_url=evidence_url,
+    )
+    return build_agentgraph_slot(inputs)
