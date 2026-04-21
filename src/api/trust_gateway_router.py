@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -279,6 +279,237 @@ async def gateway_check(
     )
 
 
+# ── Mutation-boundary re-check (6th gate) ─────────────────────────────────
+#
+# Per the SINT 6-gate conformance model (a2aproject/A2A#1672):
+#   1. Identity resolution
+#   2. Token binding
+#   3. Scope evaluation
+#   4. Freshness / revocation
+#   5. Parameter non-widening
+#   6. Mutation-boundary re-check  ← this endpoint
+#
+# Semantics match AgentID's /re-verify (harold, Apr 21 2026): lightweight,
+# short TTL, no-store. Consumer calls this immediately before a mutation to
+# confirm the previously-issued decision still holds at the enforcement
+# point (not just at gateway check time).
+#
+# Design:
+# - Reads from the signed scan cache ONLY — never triggers a fresh scan.
+#   "Lightweight" is the whole point; fresh scans are a separate concern
+#   (see /gateway/webhook/rescan for provider-triggered rescans).
+# - TTL scales with action_class (irreversible = shortest window).
+# - Response carries Cache-Control: no-store — verdicts never cache.
+# - Verdict is JWS-signed (EdDSA) so the mutation executor can log it.
+#
+# If no cached attestation exists, we return verified=false with
+# reason="no_attestation" — the consumer must establish a trust baseline
+# via /gateway/check first. This preserves the fail-closed property the
+# 6th gate is there to guarantee.
+
+_REVERIFY_VERDICT_TTL = {
+    "irreversible": 30,    # 30s — matches AgentID semantics
+    "compensable":  120,   # 2min
+    "reversible":   300,   # 5min
+}
+
+_REVERIFY_MAX_SCAN_AGE = {
+    "irreversible": 600,   # 10 min
+    "compensable":  1800,  # 30 min
+    "reversible":   3600,  # 1 hr — aligns with public scan cache TTL
+}
+
+
+class ReverifyRequest(BaseModel):
+    """Pre-mutation re-verification request.
+
+    Called by the mutation executor immediately before performing an
+    irreversible / compensable / reversible action to confirm trust
+    still holds at the mutation boundary.
+    """
+    repo: str  # owner/repo format
+    action_class: str = "reversible"  # irreversible | compensable | reversible
+    min_tier: str = "standard"
+
+
+class ReverifyDecision(BaseModel):
+    """Signed re-verification verdict with short TTL and no-store semantics."""
+    verified: bool
+    repo: str
+    action_class: str
+    trust_score: int
+    trust_tier: str
+    grade: str
+    reason: str
+    scan_age_seconds: int
+    max_valid_until: str
+    cached: bool
+    jws: str
+    issued_at: str
+    check_ms: float
+
+
+@router.post(
+    "/re-verify",
+    response_model=ReverifyDecision,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def gateway_re_verify(
+    request: ReverifyRequest,
+    response: Response,
+) -> ReverifyDecision:
+    """Mutation-boundary re-check — 6th gate per SINT conformance model.
+
+    Consumer calls this *immediately before* a mutation to confirm the
+    previously-issued trust decision still holds at the enforcement point.
+    Lightweight by design: reads only cached scan state, never triggers
+    a fresh scan.
+
+    Verdict TTL scales with action_class:
+      - irreversible: 30s
+      - compensable:  120s
+      - reversible:   300s
+
+    Response is ``Cache-Control: no-store`` — verdicts never cache downstream.
+
+    Example::
+
+        POST /api/v1/gateway/re-verify
+        {"repo": "owner/repo", "action_class": "irreversible", "min_tier": "standard"}
+
+        → {"verified": true, "trust_tier": "trusted", "max_valid_until": "...",
+           "jws": "...", "scan_age_seconds": 120}
+    """
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+
+    start = time.monotonic()
+
+    if "/" not in request.repo:
+        raise HTTPException(400, "repo must be in owner/repo format")
+    if request.action_class not in _REVERIFY_VERDICT_TTL:
+        raise HTTPException(
+            400,
+            f"action_class must be one of {list(_REVERIFY_VERDICT_TTL.keys())}",
+        )
+
+    owner, repo = request.repo.split("/", 1)
+    now = datetime.now(timezone.utc)
+    ttl_seconds = _REVERIFY_VERDICT_TTL[request.action_class]
+    max_scan_age = _REVERIFY_MAX_SCAN_AGE[request.action_class]
+    max_valid_until = (now + timedelta(seconds=ttl_seconds)).isoformat()
+
+    await _increment_metric("reverify:total")
+    await _increment_metric(f"reverify:action:{request.action_class}")
+
+    from src.api.public_scan_router import _get_cached
+    cached = await _get_cached(owner, repo)
+
+    if not cached:
+        reason = (
+            "no_attestation — call /gateway/check to establish a trust baseline"
+        )
+        verdict_payload = {
+            "type": "MutationBoundaryReverify",
+            "issuer": {"id": "did:web:agentgraph.co", "name": "AgentGraph"},
+            "subject": {"repo": request.repo},
+            "verified": False,
+            "action_class": request.action_class,
+            "reason": reason,
+            "issued_at": now.isoformat(),
+            "max_valid_until": max_valid_until,
+        }
+        jws = create_jws(canonicalize(verdict_payload))
+        await _increment_metric("reverify:failed")
+        await _increment_metric("reverify:no_attestation")
+
+        return ReverifyDecision(
+            verified=False,
+            repo=request.repo,
+            action_class=request.action_class,
+            trust_score=0,
+            trust_tier="unknown",
+            grade="F",
+            reason=reason,
+            scan_age_seconds=-1,
+            max_valid_until=max_valid_until,
+            cached=False,
+            jws=jws,
+            issued_at=now.isoformat(),
+            check_ms=round((time.monotonic() - start) * 1000, 1),
+        )
+
+    scan_age = 0
+    scanned_at_str = cached.get("scanned_at")
+    if scanned_at_str:
+        try:
+            scanned_at = datetime.fromisoformat(
+                scanned_at_str.replace("Z", "+00:00"),
+            )
+            if scanned_at.tzinfo is None:
+                scanned_at = scanned_at.replace(tzinfo=timezone.utc)
+            scan_age = int((now - scanned_at).total_seconds())
+        except (ValueError, TypeError):
+            scan_age = max_scan_age + 1  # unparseable → treat as stale
+
+    score = cached["trust_score"]
+    tier = cached["trust_tier"]
+    grade = _score_to_grade(score)
+
+    if scan_age > max_scan_age:
+        verified = False
+        reason = (
+            f"scan_stale: evidence is {scan_age}s old; "
+            f"{request.action_class} actions require <{max_scan_age}s"
+        )
+        await _increment_metric("reverify:failed")
+        await _increment_metric("reverify:stale")
+    elif not _tier_meets_minimum(tier, request.min_tier):
+        verified = False
+        reason = f"tier_below_minimum: {tier} < {request.min_tier}"
+        await _increment_metric("reverify:failed")
+        await _increment_metric("reverify:tier_below")
+    else:
+        verified = True
+        reason = (
+            f"tier {tier} holds for {request.action_class} action; "
+            f"evidence {scan_age}s old"
+        )
+        await _increment_metric("reverify:passed")
+
+    verdict_payload = {
+        "type": "MutationBoundaryReverify",
+        "issuer": {"id": "did:web:agentgraph.co", "name": "AgentGraph"},
+        "subject": {"repo": request.repo, "id": f"github:{request.repo}"},
+        "verified": verified,
+        "action_class": request.action_class,
+        "trust_score": score,
+        "trust_tier": tier,
+        "grade": grade,
+        "scan_age_seconds": scan_age,
+        "issued_at": now.isoformat(),
+        "max_valid_until": max_valid_until,
+        "reason": reason,
+    }
+    jws = create_jws(canonicalize(verdict_payload))
+
+    return ReverifyDecision(
+        verified=verified,
+        repo=request.repo,
+        action_class=request.action_class,
+        trust_score=score,
+        trust_tier=tier,
+        grade=grade,
+        reason=reason,
+        scan_age_seconds=scan_age,
+        max_valid_until=max_valid_until,
+        cached=True,
+        jws=jws,
+        issued_at=now.isoformat(),
+        check_ms=round((time.monotonic() - start) * 1000, 1),
+    )
+
+
 @router.get(
     "/stats",
     dependencies=[Depends(rate_limit_reads)],
@@ -319,6 +550,7 @@ async def gateway_stats() -> dict:
         "docs": "https://agentgraph.co/docs/trust-gateway",
         "endpoints": {
             "check": "POST /api/v1/gateway/check",
+            "re_verify": "POST /api/v1/gateway/re-verify",
             "webhook_rescan": "POST /api/v1/gateway/webhook/rescan",
             "stats": "GET /api/v1/gateway/stats",
         },
