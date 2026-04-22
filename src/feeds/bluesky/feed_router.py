@@ -30,17 +30,61 @@ FEED_KEY = "bluesky:feed:ai-agent-news"
 
 @router.get("/.well-known/did.json")
 async def did_document() -> JSONResponse:
-    """Serve the DID document for this feed generator service."""
+    """Serve the DID document for did:web:<domain>.
+
+    In addition to the Bluesky feed-generator service entry, this document
+    publishes the Ed25519 verification key used to sign AgentGraph
+    attestations (JWS, CTEF outer envelope) and the ``#gateway-reverify``
+    service endpoint referenced as ``aud`` in CTEF envelopes.
+
+    The verification key material is served byte-identical at
+    ``/.well-known/jwks.json``; this document binds it into DID-Core form
+    so ``did:web:<domain>#agentgraph-security-v1`` resolves for verifiers.
+    """
+    # Lazy import to avoid a circular dependency with src.signing at module load.
+    from src.signing import get_jwk
+
+    pub_jwk = get_jwk()  # {kty, crv, x, kid, use, alg}
+    did = FEED_GENERATOR_DID  # did:web:<domain>
+    signing_vm_id = f"{did}#{pub_jwk['kid']}"
+
     return JSONResponse(
         content={
-            "@context": ["https://www.w3.org/ns/did/v1"],
-            "id": FEED_GENERATOR_DID,
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1",
+            ],
+            "id": did,
+            "verificationMethod": [
+                {
+                    "id": signing_vm_id,
+                    "type": "JsonWebKey2020",
+                    "controller": did,
+                    "publicKeyJwk": pub_jwk,
+                }
+            ],
+            "assertionMethod": [signing_vm_id],
+            "authentication": [signing_vm_id],
             "service": [
                 {
-                    "id": "#bsky_fg",
+                    "id": f"{did}#bsky_fg",
                     "type": "BskyFeedGenerator",
                     "serviceEndpoint": f"https://{settings.domain}",
-                }
+                },
+                {
+                    "id": f"{did}#gateway-reverify",
+                    "type": "TrustGatewayReverify",
+                    "serviceEndpoint": (
+                        f"https://{settings.domain}/api/v1/gateway/re-verify"
+                    ),
+                },
+                {
+                    "id": f"{did}#jwks",
+                    "type": "JsonWebKeySet",
+                    "serviceEndpoint": (
+                        f"https://{settings.domain}/.well-known/jwks.json"
+                    ),
+                },
             ],
         },
         headers={"Cache-Control": "public, max-age=3600"},
