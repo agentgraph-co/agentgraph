@@ -35,12 +35,22 @@ async def get(key: str) -> Any | None:
 
 
 async def set(key: str, value: Any, ttl: int = TTL_MEDIUM) -> None:
-    """Cache a value with TTL. Silently fails if Redis is unavailable."""
+    """Cache a value with TTL. ``ttl<=0`` means persist indefinitely.
+
+    Silently fails if Redis is unavailable. ``ex=0`` is rejected by Redis
+    with ``invalid expire time``, so callers passing ``ttl=0`` must be
+    translated to an expiry-less ``SET``.
+    """
     try:
         from src.redis_client import get_redis
 
         r = get_redis()
-        await r.set(f"{_PREFIX}{key}", json.dumps(value, default=str), ex=ttl)
+        payload = json.dumps(value, default=str)
+        key_full = f"{_PREFIX}{key}"
+        if ttl and ttl > 0:
+            await r.set(key_full, payload, ex=ttl)
+        else:
+            await r.set(key_full, payload)
     except Exception:
         pass
 
