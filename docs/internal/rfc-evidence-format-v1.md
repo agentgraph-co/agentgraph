@@ -2,8 +2,19 @@
 
 **Status:** Draft
 **Authors:** Kenne Ives (AgentGraph), Justin Headley (MoltBridge), Erik Newton (Verascore), Alexander Lawson (Revettr) — with input from AgentID (Harold Frimpong), RNWY, Concordia Protocol, Sanctuary Framework, and the A2A/insumer working groups
-**Date:** 2026-04-11
-**Version:** 0.2.0
+**v0.3 contributors:** aeoess (APS — delegation_chain_root composition), QueBallSharken (BBIS — claim-model closure + Final Refusal-Capable Boundary Event primitive), yuqiang-JEP (Target Determinability framing)
+**Date:** 2026-04-23
+**Version:** 0.3.0
+
+---
+
+### Changes in v0.3
+
+1. **§4.6 Delegation Chain Composition (new).** Introduces optional `delegation_chain_root` and `delegation_depth` fields at the attestation-envelope level for composing with APS-shaped bilateral delegation receipts. Content-addressed; same inputs → same hash across implementations. Validated byte-for-byte against the APS `bilateral-delegation` fixture (10 JCS test vectors, all passing).
+2. **§6.3 EnforcementVerdict Claim Model (new).** Adds the minimum fixed surface a gateway asserts when it signs a verdict: `action`, `evidence_basis`, `admissibility_result`, `validity_window`, `forwardability`. Closes the claim-model gap @QueBallSharken identified on A2A#1734 — signed verdicts now carry determinable semantics, not just provenance.
+3. **§6.4 Backward Compatibility Commitment (new).** The verdict family (`allow`, `conditional_allow`, `provisional_allow`, `block`, `refer`) is now explicitly closed. Additions require a version bump; no silent widening.
+4. **Cross-spec alignment.** The EnforcementVerdict is now explicitly what gets emitted *at* the Final Refusal-Capable Boundary Event (the primitive named on corpollc/qntm#7). Claim model + boundary-event primitive compose: the boundary is *where* the verdict is issued; the claim model is *what* the verdict asserts.
+5. **§4 Canonical form.** The envelope's canonical form for content addressing is RFC 8785 JCS — all codepoints above U+001F emitted as literal UTF-8, null values preserved, integer-valued floats normalized.
 
 ---
 
@@ -199,6 +210,37 @@ Attestations MAY reference upstream evidence via the `references` array:
 
 v1 scope is single back-pointer references. Full DAG traversal is deferred to v2 -- the consensus from the A2A thread is that it is overkill for the initial release.
 
+### 4.6 Delegation Chain Composition (v0.3)
+
+Where an attestation sits inside a bilateral delegation chain (e.g., an APS-shaped delegation receipt, an in-toto Decision Receipt v0.1 predicate, or any chain the gateway wants to consume alongside the attestation itself), the envelope MAY include:
+
+```json
+"delegation": {
+  "delegation_chain_root": "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a",
+  "delegation_depth": 2,
+  "canonicalization": "RFC-8785"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `delegation_chain_root` | `string` (hex) | Yes | Content-addressed hash of the canonical delegation chain. Emitted as the SHA-256 of the JCS canonical bytes of the chain representation the issuing system uses. |
+| `delegation_depth` | `integer` | Yes | Number of hops in the chain at the point this attestation was issued. |
+| `canonicalization` | `string` | No (defaults to `"RFC-8785"`) | The canonical form used. v0.3 pins RFC 8785 JCS; future versions may add alternatives. |
+
+**Composition claim.** Two independent implementations (e.g., AgentGraph and APS) producing receipts over the *same* delegation chain MUST emit the *same* `delegation_chain_root` byte-for-byte. This is the content-addressed binding that makes cross-provider composition work — a verifier that consumes both receipts can confirm they reference the same delegation state without either issuer trusting the other's internal logic.
+
+**Canonical form.** The canonical bytes over which `delegation_chain_root` is hashed MUST follow RFC 8785 (JSON Canonicalization Scheme):
+
+- Keys sorted by Unicode code point.
+- Non-ASCII characters above U+001F emitted as literal UTF-8 bytes (not `\uXXXX` escapes).
+- `null` values preserved at every depth.
+- Integer-valued floats normalized to integers (ECMA-262 §7.1.12.1).
+
+**Interop fixture.** Implementations MUST validate their canonicalizer against the APS `bilateral-delegation` fixture at `aeoess/agent-passport-system/fixtures/bilateral-delegation/canonicalize-fixture-v1.json`. AgentGraph's reference implementation lives at `src/signing.py::canonicalize_jcs_strict`; the regression test at `tests/test_jcs_canonicalize_aps_interop.py` locks 22 assertions (10 canonical-byte vectors × 2 + 1 keypair + 1 vector-count invariant).
+
+**Alignment with APS vocabulary.** Field names in the delegation chain itself (not this envelope) SHOULD align with the canonical registry at `aeoess/agent-governance-vocabulary` where the two overlap. Divergences should surface on the registry side rather than forking.
+
 ---
 
 ## 5. Evidence Bundle
@@ -304,6 +346,62 @@ Conditions use a `verb:scope` format:
 - `monitor:<category>` -- Require ongoing monitoring from a provider in this category
 - `require:<attestation_type>` -- Block until this attestation type is provided
 - `expire:<duration>` -- Verdict is valid for shorter than default TTL
+
+### 6.3 Claim Model — Minimum Fixed Surface (v0.3)
+
+A signed `EnforcementVerdict` is a claim, not a record of execution. A gateway that signs one is asserting specific admissibility semantics — not merely asserting that its policy logic ran. Provenance and integrity without determinable claim semantics leave verdicts ambiguous in exactly the way a downstream consumer cannot afford.
+
+From v0.3 forward, every `EnforcementVerdict` MUST carry the following five dimensions. These form the minimum fixed surface of the claim model; domain-specific extensions are permitted, but the five below are required and their semantics are closed.
+
+```json
+"claim": {
+  "action": {
+    "type": "mutation:platform_access",
+    "target": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    "scope": "urn:agentgraph:platform:feed:write"
+  },
+  "evidence_basis": {
+    "bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "delegation_chain_root": "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a",
+    "constraint_evaluation_hash": "sha256:b2c6f0e4..."
+  },
+  "admissibility_result": "conditional_allow",
+  "validity_window": {
+    "not_before": "2026-04-23T16:05:01Z",
+    "not_after": "2026-04-23T17:05:01Z",
+    "binding_mode": "authority_within_window_evidence_after"
+  },
+  "forwardability": {
+    "mode": "local",
+    "forwardable_to": [],
+    "delegation_path": null
+  }
+}
+```
+
+| # | Dimension | Required | What the Gateway is Claiming |
+|---|---|---|---|
+| 1 | `action` | Yes | The specific mutation attempt this verdict is about: `type` (verb), `target` (subject DID or resource URN), `scope` (the capability being asserted or denied). Not "the gateway ran policy"; "the gateway decided *this* action for *this* target." |
+| 2 | `evidence_basis` | Yes | Content-addressed references to every input the decision was bound to at the boundary event: `bundle_hash` (the evidence bundle — §5), and OPTIONALLY `delegation_chain_root` (§4.6) and any `constraint_evaluation_hash` produced by upstream policy layers. A verifier replays canonicalization, confirms hashes, and knows exactly what the gateway decided against. |
+| 3 | `admissibility_result` | Yes | The verdict from the closed family in §6.1 (`allow` / `conditional_allow` / `provisional_allow` / `block` / `refer`). See §6.4 for the backward-compatibility commitment. |
+| 4 | `validity_window` | Yes | The temporal binding force. Within `[not_before, not_after]` the verdict is **authority**; outside that window it is **evidence** — it records that an admissibility decision was made, but it does not grant present authority. `binding_mode` MUST be one of: `authority_within_window_evidence_after` (default), `authority_within_window_expired_after` (hard cutoff; past `not_after` the verdict is not even evidence), or `sequence_bound` (validity tied to a sequence baseline per §13.1, not a wall-clock window). |
+| 5 | `forwardability` | Yes | Whether this verdict can be consumed by a downstream enforcement point other than the issuing gateway. `mode` is one of: `local` (default — this gateway only, this target, this boundary), `bounded` (forwardable only to enforcement points listed in `forwardable_to`), or `delegatable` (forwardable along a declared `delegation_path`). `local` is the default; widening requires the issuer to state the path explicitly. |
+
+**Why this closure matters.** Without these dimensions, a gateway signature proves only that "something ran and was willing to sign." The claim-model closure converts a signed verdict into a **determinable claim**: the consumer can say precisely which outcome the issuer asserted, against which inputs, under which time binding, with which forwarding scope. This maps directly onto the Target Determinability framing developed at yuqiang-JEP's JEP receipt work (`https://zenodo.org/records/19678205`): a verdict that cannot distinguish which outcome it is claiming is a Target Determinability failure.
+
+**Relation to the Final Refusal-Capable Boundary Event.** The primitive named on corpollc/qntm#7 — the Final Refusal-Capable Boundary Event — is *where* the `EnforcementVerdict` is produced: the last refusal-capable boundary in scope before the irreversible mutation authority, at which the live admissibility basis is bound to this specific mutation attempt. Identity assertions, capability tokens, delegation chains, and constraint evaluations are evidentiary contributions to the `evidence_basis` (dimension 2). They do not become present authority merely by being carried forward; they matter only insofar as their truth survives to the boundary or is re-established there. The `EnforcementVerdict` is what the primitive emits; this RFC does not replace the primitive, it specifies the wire format for its output.
+
+**Domain extensions.** Implementations MAY add fields under `claim.<namespace>.<field>` for domain-specific semantics. Unknown extensions MUST NOT change the interpretation of the five required dimensions; a verifier that does not recognize an extension MUST still validate the verdict using the required dimensions alone.
+
+### 6.4 Backward Compatibility Commitment (v0.3)
+
+The verdict family in §6.1 is **closed**. From v0.3 forward:
+
+1. **No silent widening.** Adding a new verdict string (e.g., `quarantine`, `rate_limit`) requires a CTEF version bump (MAJOR if it redefines existing verdicts' meaning; MINOR if it adds a new value alongside them).
+2. **No silent narrowing.** Removing a verdict string requires a MAJOR version bump and a deprecation window (6 months, per §12 item 4).
+3. **No silent redefinition.** Changing the semantics of an existing verdict value requires a MAJOR version bump.
+
+A gateway MAY refuse to issue verdicts in categories it does not support — for example, a gateway that never produces `refer` decisions MAY document that and always emit one of the other four — but the wire format value space remains fixed. This gives integrators a stable contract: if CTEF v0.3 says `conditional_allow` means "permitted with restrictions listed in `conditions`", that meaning is durable across all v0.3.x minor and patch versions.
 
 ---
 
@@ -486,13 +584,21 @@ Produces `ComplianceRiskAttestation` envelopes from regulatory screening pipelin
 
 4. **Versioning.** ~~How do we handle breaking changes?~~ **Resolved:** Semver on the envelope schema. Gateways MUST support current major version N and previous major version N-1 during a 6-month deprecation window. Providers SHOULD emit the latest version but MAY emit N-1 during the transition.
 
+### Resolved in v0.3
+
+5. **Claim-model closure for signed verdicts.** ~~What is a gateway normatively claiming when it signs an `EnforcementVerdict`?~~ **Resolved (§6.3):** Five required dimensions — `action`, `evidence_basis`, `admissibility_result`, `validity_window`, `forwardability`. Signed verdicts now carry determinable semantics, not just provenance. Cross-references the Final Refusal-Capable Boundary Event primitive from corpollc/qntm#7 and yuqiang-JEP's Target Determinability framing.
+
+6. **Delegation chain composition.** ~~How does a CTEF envelope reference an APS-shaped delegation chain without either system trusting the other's internal logic?~~ **Resolved (§4.6):** Content-addressed `delegation_chain_root` over RFC 8785 JCS canonical bytes. Same inputs → same hash across implementations; validated byte-for-byte against the APS bilateral-delegation fixture.
+
+7. **Verdict family stability.** ~~Can the verdict family silently grow or narrow?~~ **Resolved (§6.4):** Family is closed. Additions require a version bump (MINOR for additive, MAJOR for semantic changes). No silent widening.
+
 ### Still Open
 
-5. **Incentives.** Should providers be compensated for producing attestations? If so, this RFC should define a payment claim field. Deferred to post-v1.
+8. **Incentives.** Should providers be compensated for producing attestations? If so, this RFC should define a payment claim field. Deferred to post-v1.
 
-6. **Cross-gateway verdict portability.** When gateway A issues a verdict, can gateway B trust it? Or must B re-evaluate the evidence bundle independently? Related to the gateway-as-provider pattern.
+9. **Cross-gateway verdict portability.** When gateway A issues a verdict, can gateway B trust it? Or must B re-evaluate the evidence bundle independently? Partially addressed by §6.3 `forwardability`, but the trust boundary between gateways in the `bounded`/`delegatable` modes still needs normative language. Deferred to v0.4.
 
-7. **Attestation size limits.** Should the envelope define a maximum payload size? Large behavioral observation windows could produce multi-MB payloads.
+10. **Attestation size limits.** Should the envelope define a maximum payload size? Large behavioral observation windows could produce multi-MB payloads.
 
 ---
 
