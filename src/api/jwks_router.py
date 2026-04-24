@@ -143,12 +143,13 @@ _CTE_ENVELOPE_EXAMPLE = {
         "https://agentgraph.co/ns/trust-evidence/v1",
     ],
     "type": "TrustAttestation",
-    "version": "0.3.0",
+    "version": "0.3.1",
+    "claim_category": "authority",
     "provider": {
         "id": "did:web:agentgraph.co",
         "name": "AgentGraph Trust Scanner",
         "category": "static_analysis",
-        "version": "0.3.0",
+        "version": "0.3.1",
     },
     "subject": {
         "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
@@ -175,13 +176,97 @@ _CTE_ENVELOPE_EXAMPLE = {
     "expires_at": "2026-04-23T01:00:00Z",
 }
 
+# v0.3.1 negative-path vector: scope violation.
+# Envelope declares claim_category="identity" but carries authority-layer
+# fields (delegation). A conformant verifier MUST return
+# INVALID_CLAIM_SCOPE before any semantic evaluation.
+_CTE_SCOPE_VIOLATION_EXAMPLE = {
+    "@context": [
+        "https://www.w3.org/ns/credentials/v2",
+        "https://agentgraph.co/ns/trust-evidence/v1",
+    ],
+    "type": "TrustAttestation",
+    "version": "0.3.1",
+    "claim_category": "identity",
+    "provider": {
+        "id": "did:web:agentgraph.co",
+        "name": "AgentGraph Trust Scanner",
+        "category": "static_analysis",
+        "version": "0.3.1",
+    },
+    "subject": {
+        "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    },
+    "attestation": {
+        "type": "IdentityAttestation",
+        "confidence": 0.9,
+        "payload": {"key_status": "active"},
+    },
+    "delegation": {
+        "delegation_chain_root": (
+            "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a"
+        ),
+        "delegation_depth": 2,
+        "canonicalization": "RFC-8785",
+    },
+    "issued_at": "2026-04-23T00:00:00Z",
+    "expires_at": "2026-04-23T01:00:00Z",
+}
+
+# v0.3.1 negative-path vector: composition failure.
+# Two authority-layer delegation chains with disjoint scopes. Monotonic
+# narrowing produces an empty intersection, so a conformant verifier MUST
+# return INVALID_COMPOSITION before semantic evaluation.
+_CTE_COMPOSITION_FAILURE_EXAMPLE = {
+    "@context": [
+        "https://www.w3.org/ns/credentials/v2",
+        "https://agentgraph.co/ns/trust-evidence/v1",
+    ],
+    "type": "TrustAttestation",
+    "version": "0.3.1",
+    "claim_category": "authority",
+    "provider": {
+        "id": "did:web:agentgraph.co",
+        "name": "AgentGraph Trust Scanner",
+        "category": "static_analysis",
+        "version": "0.3.1",
+    },
+    "subject": {
+        "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    },
+    "attestation": {
+        "type": "AuthorityComposition",
+        "confidence": 0.7,
+        "payload": {"composition_type": "multi_chain"},
+    },
+    "delegation": {
+        "chains": [
+            {
+                "delegation_chain_root": (
+                    "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a"
+                ),
+                "scope": "urn:agentgraph:platform:feed:write",
+            },
+            {
+                "delegation_chain_root": (
+                    "b11a72b09b8184e3cc4620e0d5fe0926f6fecfb8cd35c2ef364c5761647c43b4"
+                ),
+                "scope": "urn:agentgraph:platform:marketplace:buy",
+            },
+        ],
+        "canonicalization": "RFC-8785",
+    },
+    "issued_at": "2026-04-23T00:00:00Z",
+    "expires_at": "2026-04-23T01:00:00Z",
+}
+
 _CTE_VERDICT_EXAMPLE = {
     "type": "EnforcementVerdict",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "gateway": {
         "id": "did:web:agentgraph.co#gateway",
         "name": "AgentGraph Trust Gateway",
-        "version": "0.3.0",
+        "version": "0.3.1",
     },
     "claim": {
         "action": {
@@ -234,13 +319,19 @@ async def cte_test_vectors() -> JSONResponse:
     """
     envelope_bytes = canonicalize_jcs_strict(_CTE_ENVELOPE_EXAMPLE)
     verdict_bytes = canonicalize_jcs_strict(_CTE_VERDICT_EXAMPLE)
+    scope_violation_bytes = canonicalize_jcs_strict(_CTE_SCOPE_VIOLATION_EXAMPLE)
+    composition_failure_bytes = canonicalize_jcs_strict(
+        _CTE_COMPOSITION_FAILURE_EXAMPLE
+    )
 
     envelope_sha = hashlib.sha256(envelope_bytes).hexdigest()
     verdict_sha = hashlib.sha256(verdict_bytes).hexdigest()
+    scope_violation_sha = hashlib.sha256(scope_violation_bytes).hexdigest()
+    composition_failure_sha = hashlib.sha256(composition_failure_bytes).hexdigest()
 
     return JSONResponse(
         content={
-            "version": "0.3.0",
+            "version": "0.3.1",
             "spec": "CTEF (Composable Trust Evidence Format)",
             "contract": {
                 "canonicalization": "RFC 8785 (JSON Canonicalization Scheme)",
@@ -258,39 +349,199 @@ async def cte_test_vectors() -> JSONResponse:
                     "src.signing.canonicalize_jcs_strict "
                     "(agentgraph-co/agentgraph)"
                 ),
-                "reference_fixture": (
-                    "aeoess/agent-passport-system/fixtures/bilateral-delegation/"
-                    "canonicalize-fixture-v1.json "
-                    "— 10 JCS vectors; AgentGraph passes 10/10 byte-exact."
-                ),
+                "reference_fixtures": [
+                    {
+                        "source": (
+                            "aeoess/agent-passport-system/fixtures/bilateral-delegation/"
+                            "canonicalize-fixture-v1.json"
+                        ),
+                        "vectors": 10,
+                        "status": "AgentGraph passes 10/10 byte-exact",
+                        "test": "tests/test_jcs_canonicalize_aps_interop.py",
+                    },
+                    {
+                        "source": "https://aeoess.com/fixtures/rotation-attestation/",
+                        "vectors": 5,
+                        "status": "AgentGraph passes 5/5 byte-exact (live-fetch dual-lock)",
+                        "test": "tests/test_aps_rotation_attestation_interop.py",
+                    },
+                ],
                 "rfc": (
                     "See docs/internal/rfc-evidence-format-v1.md in "
-                    "agentgraph-co/agentgraph for the full CTEF v0.3 spec."
+                    "agentgraph-co/agentgraph for the full CTEF v0.3.1 spec."
                 ),
+            },
+            "claim_model": {
+                "claim_category": {
+                    "closed_set": [
+                        "identity",
+                        "transport",
+                        "authority",
+                        "continuity",
+                    ],
+                    "required_on_envelope": True,
+                    "note": (
+                        "Outer discriminator for the claim-layer semantics. "
+                        "Added in v0.3.1. A claim carrying fields outside "
+                        "its declared category MUST be rejected with "
+                        "INVALID_CLAIM_SCOPE before semantic evaluation."
+                    ),
+                },
+                "composition_rules": {
+                    "identity": (
+                        "Key binding — same DID across claims, same "
+                        "resolution path. Two verifiers given the same "
+                        "identity claim must resolve the same key."
+                    ),
+                    "transport": (
+                        "Identity-key binding — the identity signs the "
+                        "transport key. Transport-layer claims compose "
+                        "onto the identity they reference."
+                    ),
+                    "authority": (
+                        "Monotonic narrowing — effective scope after a "
+                        "delegation chain is the greatest lower bound "
+                        "(intersection) of every scope in the chain. "
+                        "Content-addressed via delegation_chain_root. "
+                        "Two claims with disjoint scopes produce "
+                        "INVALID_COMPOSITION."
+                    ),
+                    "continuity": (
+                        "Rotation-attestation chain — history-stability "
+                        "under rotation, content-addressed over the "
+                        "rotation event sequence. An SMSH-style tier "
+                        "trajectory is a superset-with-projection: "
+                        "reduces to a scalar under an AGT-compatible "
+                        "projection but carries richer evidence that "
+                        "is not lost under the projection."
+                    ),
+                },
+                "superset_with_projection_principle": (
+                    "When one layer's representation can project to a "
+                    "simpler shape a partner verifier expects (e.g. "
+                    "SMSH trajectory → AGT trust_score scalar), declare "
+                    "the superset form and the projection explicitly. "
+                    "Lossy projections between layer representations "
+                    "are where silent divergence lives; an explicit "
+                    "superset-with-projection avoids it."
+                ),
+            },
+            "error_codes": {
+                "INVALID_CLAIM_SCOPE": {
+                    "triggers_on": (
+                        "Claim carries fields outside its declared "
+                        "claim_category (e.g. identity-categorized "
+                        "claim carrying authority-layer delegation)."
+                    ),
+                    "ordering": (
+                        "Structural failure precedes semantic evaluation. "
+                        "Fail-closed is mandatory before any layer-specific "
+                        "logic runs."
+                    ),
+                    "test_vector": "scope_violation_vector (below)",
+                },
+                "INVALID_COMPOSITION": {
+                    "triggers_on": (
+                        "Well-typed claims at each layer cannot be combined "
+                        "under the layer's composition rule (e.g. disjoint "
+                        "authority scopes, broken rotation chain, unresolvable "
+                        "identity-to-transport binding). Distinct from "
+                        "INVALID_CLAIM_SCOPE — no per-claim scope violation "
+                        "has occurred; the composition is what fails."
+                    ),
+                    "ordering": (
+                        "Structural failure precedes semantic evaluation. "
+                        "Same ordering constraint as INVALID_CLAIM_SCOPE."
+                    ),
+                    "test_vector": "composition_failure_vector (below)",
+                },
+            },
+            "reserved_values": {
+                "claim_category.envelope": {
+                    "status": "reserved",
+                    "committed_in": "v0.3.2 or v0.3.1 errata",
+                    "note": (
+                        "Fifth-layer regulatory-envelope attestation "
+                        "(Hive Civilization contribution). Composition "
+                        "rule: zero-knowledge attestation of envelope "
+                        "membership, content-addressed over the "
+                        "verifier's attestation-registry snapshot. "
+                        "Specification forthcoming."
+                    ),
+                },
+                "evidence_basis.evidence_type.payment_execution": {
+                    "status": "reserved",
+                    "committed_in": "v0.3.2 or v0.3.1 errata",
+                    "note": (
+                        "Payment-execution receipt as an independent "
+                        "signal type (HiveCompute x402 contribution). "
+                        "Answers 'consideration was exchanged' — "
+                        "distinct from 'task result matches spec' (SAR). "
+                        "Expected fields: eip3009_authorization_hash, "
+                        "base_tx_hash, wallet_did, amount_usdc, issued_at. "
+                        "Specification forthcoming."
+                    ),
+                },
             },
             "envelope_vector": {
                 "note": (
-                    "Example CTEF v0.3 TrustAttestation envelope with "
-                    "delegation_chain_root composition per §4.6. A partner "
-                    "verifier MUST reproduce canonical_bytes_utf8 and "
-                    "canonical_sha256 exactly; divergence indicates a "
-                    "canonicalizer drift that would break bilateral composition."
+                    "Example CTEF v0.3.1 TrustAttestation envelope "
+                    "(claim_category=authority) with delegation_chain_root "
+                    "composition per §4.6. A partner verifier MUST "
+                    "reproduce canonical_bytes_utf8 and canonical_sha256 "
+                    "exactly; divergence indicates a canonicalizer drift "
+                    "that would break bilateral composition."
                 ),
                 "input_object": _CTE_ENVELOPE_EXAMPLE,
                 "canonical_bytes_utf8": envelope_bytes.decode("utf-8"),
                 "canonical_sha256": envelope_sha,
+                "expected_result": "pass",
             },
             "verdict_vector": {
                 "note": (
-                    "Example CTEF v0.3 EnforcementVerdict with the 5-dimension "
-                    "claim-model surface per §6.3 (action, evidence_basis, "
-                    "admissibility_result, validity_window, forwardability). "
-                    "A partner that consumes AgentGraph verdicts should verify "
-                    "canonical_sha256 matches what they compute locally."
+                    "Example CTEF v0.3.1 EnforcementVerdict with the "
+                    "5-dimension claim-model surface per §6.3 (action, "
+                    "evidence_basis, admissibility_result, validity_window, "
+                    "forwardability). A partner that consumes AgentGraph "
+                    "verdicts should verify canonical_sha256 matches what "
+                    "they compute locally."
                 ),
                 "input_object": _CTE_VERDICT_EXAMPLE,
                 "canonical_bytes_utf8": verdict_bytes.decode("utf-8"),
                 "canonical_sha256": verdict_sha,
+                "expected_result": "pass",
+            },
+            "scope_violation_vector": {
+                "note": (
+                    "Negative-path vector (v0.3.1). Envelope declares "
+                    "claim_category='identity' but carries authority-layer "
+                    "delegation fields. A conformant verifier MUST reject "
+                    "with INVALID_CLAIM_SCOPE before semantic evaluation "
+                    "— structural failure precedes any layer-specific "
+                    "logic. Canonical bytes are reproducible; the "
+                    "expected_result is fail-closed, not pass."
+                ),
+                "input_object": _CTE_SCOPE_VIOLATION_EXAMPLE,
+                "canonical_bytes_utf8": scope_violation_bytes.decode("utf-8"),
+                "canonical_sha256": scope_violation_sha,
+                "expected_result": "fail-closed",
+                "expected_error_code": "INVALID_CLAIM_SCOPE",
+            },
+            "composition_failure_vector": {
+                "note": (
+                    "Negative-path vector (v0.3.1). Two authority-layer "
+                    "delegation chains with disjoint scopes "
+                    "(feed:write vs marketplace:buy). Monotonic narrowing "
+                    "produces an empty intersection, so a conformant "
+                    "verifier MUST reject with INVALID_COMPOSITION before "
+                    "semantic evaluation. Canonical bytes are reproducible; "
+                    "the expected_result is fail-closed, not pass."
+                ),
+                "input_object": _CTE_COMPOSITION_FAILURE_EXAMPLE,
+                "canonical_bytes_utf8": composition_failure_bytes.decode("utf-8"),
+                "canonical_sha256": composition_failure_sha,
+                "expected_result": "fail-closed",
+                "expected_error_code": "INVALID_COMPOSITION",
             },
         },
         headers={
