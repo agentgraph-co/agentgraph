@@ -418,13 +418,41 @@ async def cte_test_vectors() -> JSONResponse:
                 },
                 "superset_with_projection_principle": (
                     "When one layer's representation can project to a "
-                    "simpler shape a partner verifier expects (e.g. "
-                    "SMSH trajectory → AGT trust_score scalar), declare "
+                    "simpler shape a partner verifier expects, declare "
                     "the superset form and the projection explicitly. "
                     "Lossy projections between layer representations "
                     "are where silent divergence lives; an explicit "
-                    "superset-with-projection avoids it."
+                    "superset-with-projection avoids it. This is the "
+                    "composition principle for every layer, not only "
+                    "a one-off example — every future layer addition "
+                    "should template safe downgrade this way."
                 ),
+                "projection_family_examples": [
+                    {
+                        "layer": "authority",
+                        "superset": "delegation_chain_root (content-addressed chain)",
+                        "projection": "AGT trust_score (scalar)",
+                        "loses": "chain depth, per-hop scope narrowing, intermediate principals",
+                    },
+                    {
+                        "layer": "continuity",
+                        "superset": "rotation-attestation chain (ordered event sequence)",
+                        "projection": "has_rotated: bool",
+                        "loses": "rotation timing, migration_type, attestor identity",
+                    },
+                    {
+                        "layer": "continuity",
+                        "superset": "continuity receipts (trajectory over kid history)",
+                        "projection": "last_seen_kid (scalar key identifier)",
+                        "loses": "prior kids, rotation reasons, issuance timestamps",
+                    },
+                    {
+                        "layer": "identity",
+                        "superset": "multi-anchor resolution path (JWKS + DNS + WebPKI)",
+                        "projection": "resolved_did (scalar identifier)",
+                        "loses": "anchor diversity, federation trust tier, AGT metadata",
+                    },
+                ],
             },
             "error_codes": {
                 "INVALID_CLAIM_SCOPE": {
@@ -460,12 +488,46 @@ async def cte_test_vectors() -> JSONResponse:
                 "claim_category.envelope": {
                     "status": "reserved",
                     "committed_in": "v0.3.2 or v0.3.1 errata",
+                    "composition_rule_variants": [
+                        {
+                            "name": "zero_knowledge_membership",
+                            "use_when": (
+                                "The envelope identity itself must stay "
+                                "private from the verifier (envelope name "
+                                "is sensitive, not just the member list)."
+                            ),
+                            "shape": (
+                                "ZK proof of membership in the "
+                                "attestation-registry snapshot, "
+                                "content-addressed over the snapshot root."
+                            ),
+                        },
+                        {
+                            "name": "signed_snapshot_attestation",
+                            "use_when": (
+                                "The envelope is public; only the member "
+                                "list is sensitive. Cheaper, no ZK runtime "
+                                "dependency, still unlinkable across members."
+                            ),
+                            "shape": (
+                                "Issuer signature over "
+                                "{subject, registry_root, "
+                                "asserted_membership: true} where "
+                                "registry_root is the content-addressed "
+                                "snapshot identifier at attestation time."
+                            ),
+                        },
+                    ],
                     "note": (
                         "Fifth-layer regulatory-envelope attestation "
-                        "(Hive Civilization contribution). Composition "
-                        "rule: zero-knowledge attestation of envelope "
-                        "membership, content-addressed over the "
-                        "verifier's attestation-registry snapshot. "
+                        "(Hive Civilization contribution). Implementations "
+                        "pick by privacy requirement: ZK for private "
+                        "envelope identity, signed-snapshot when only the "
+                        "member list needs unlinkability. Both variants "
+                        "will be named in the v0.3.2 normative rule table. "
+                        "APS (aeoess/agent-passport-system) has committed "
+                        "to adopting the same claim_category value in "
+                        "adapter mappings when it lands. "
                         "Specification forthcoming."
                     ),
                 },
