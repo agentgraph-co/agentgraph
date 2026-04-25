@@ -144,7 +144,7 @@ _CTE_ENVELOPE_EXAMPLE = {
     ],
     "type": "TrustAttestation",
     "version": "0.3.1",
-    "claim_category": "authority",
+    "claim_type": "authority",
     "provider": {
         "id": "did:web:agentgraph.co",
         "name": "AgentGraph Trust Scanner",
@@ -177,7 +177,7 @@ _CTE_ENVELOPE_EXAMPLE = {
 }
 
 # v0.3.1 negative-path vector: scope violation.
-# Envelope declares claim_category="identity" but carries authority-layer
+# Envelope declares claim_type="identity" but carries authority-layer
 # fields (delegation). A conformant verifier MUST return
 # INVALID_CLAIM_SCOPE before any semantic evaluation.
 _CTE_SCOPE_VIOLATION_EXAMPLE = {
@@ -187,7 +187,7 @@ _CTE_SCOPE_VIOLATION_EXAMPLE = {
     ],
     "type": "TrustAttestation",
     "version": "0.3.1",
-    "claim_category": "identity",
+    "claim_type": "identity",
     "provider": {
         "id": "did:web:agentgraph.co",
         "name": "AgentGraph Trust Scanner",
@@ -224,7 +224,7 @@ _CTE_COMPOSITION_FAILURE_EXAMPLE = {
     ],
     "type": "TrustAttestation",
     "version": "0.3.1",
-    "claim_category": "authority",
+    "claim_type": "authority",
     "provider": {
         "id": "did:web:agentgraph.co",
         "name": "AgentGraph Trust Scanner",
@@ -372,7 +372,7 @@ async def cte_test_vectors() -> JSONResponse:
                 ),
             },
             "claim_model": {
-                "claim_category": {
+                "claim_type": {
                     "closed_set": [
                         "identity",
                         "transport",
@@ -458,7 +458,7 @@ async def cte_test_vectors() -> JSONResponse:
                 "INVALID_CLAIM_SCOPE": {
                     "triggers_on": (
                         "Claim carries fields outside its declared "
-                        "claim_category (e.g. identity-categorized "
+                        "claim_type (e.g. identity-categorized "
                         "claim carrying authority-layer delegation)."
                     ),
                     "ordering": (
@@ -485,7 +485,7 @@ async def cte_test_vectors() -> JSONResponse:
                 },
             },
             "reserved_values": {
-                "claim_category.envelope": {
+                "claim_type.envelope": {
                     "status": "reserved",
                     "committed_in": "v0.3.2 or v0.3.1 errata",
                     "composition_rule_variants": [
@@ -526,7 +526,7 @@ async def cte_test_vectors() -> JSONResponse:
                         "member list needs unlinkability. Both variants "
                         "will be named in the v0.3.2 normative rule table. "
                         "APS (aeoess/agent-passport-system) has committed "
-                        "to adopting the same claim_category value in "
+                        "to adopting the same claim_type value in "
                         "adapter mappings when it lands. "
                         "Specification forthcoming."
                     ),
@@ -548,7 +548,7 @@ async def cte_test_vectors() -> JSONResponse:
             "envelope_vector": {
                 "note": (
                     "Example CTEF v0.3.1 TrustAttestation envelope "
-                    "(claim_category=authority) with delegation_chain_root "
+                    "(claim_type=authority) with delegation_chain_root "
                     "composition per §4.6. A partner verifier MUST "
                     "reproduce canonical_bytes_utf8 and canonical_sha256 "
                     "exactly; divergence indicates a canonicalizer drift "
@@ -576,7 +576,7 @@ async def cte_test_vectors() -> JSONResponse:
             "scope_violation_vector": {
                 "note": (
                     "Negative-path vector (v0.3.1). Envelope declares "
-                    "claim_category='identity' but carries authority-layer "
+                    "claim_type='identity' but carries authority-layer "
                     "delegation fields. A conformant verifier MUST reject "
                     "with INVALID_CLAIM_SCOPE before semantic evaluation "
                     "— structural failure precedes any layer-specific "

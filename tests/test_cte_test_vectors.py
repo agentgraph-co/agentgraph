@@ -14,14 +14,14 @@ canonicalization loop across APS bilateral delegation, APS continuity
 rotation, and our own published CTEF envelope/verdict/negative shapes.
 
 v0.3.1 additions tested here:
-  - ``claim_category`` closed-set discriminator on the envelope.
+  - ``claim_type`` closed-set discriminator on the envelope.
   - ``composition_rules`` per-layer declaration.
   - ``INVALID_CLAIM_SCOPE`` / ``INVALID_COMPOSITION`` error codes with
     structural-failure-precedes-semantic-evaluation ordering.
   - Negative-path test vectors (scope_violation, composition_failure)
     reproducible byte-for-byte; partner verifiers check their verdict
     against the ``expected_error_code`` field.
-  - Reserved values for ``claim_category.envelope`` (regulatory-envelope
+  - Reserved values for ``claim_type.envelope`` (regulatory-envelope
     attestation, Hive contribution) and
     ``evidence_basis.evidence_type.payment_execution`` (HiveCompute
     x402 receipt contribution).
@@ -32,7 +32,7 @@ import asyncio
 import hashlib
 import json
 
-_CLAIM_CATEGORY_CLOSED_SET = {"identity", "transport", "authority", "continuity"}
+_CLAIM_TYPE_CLOSED_SET = {"identity", "transport", "authority", "continuity"}
 _ADMISSIBILITY_CLOSED_SET = {
     "allow",
     "conditional_allow",
@@ -75,11 +75,11 @@ def test_cte_test_vectors_reproducible():
     assert hashlib.sha256(env_canonical).hexdigest() == env["canonical_sha256"]
     assert env["expected_result"] == "pass"
 
-    # v0.3.1: envelope MUST declare claim_category from the closed set.
-    assert "claim_category" in env["input_object"]
-    assert env["input_object"]["claim_category"] in _CLAIM_CATEGORY_CLOSED_SET
+    # v0.3.1: envelope MUST declare claim_type from the closed set.
+    assert "claim_type" in env["input_object"]
+    assert env["input_object"]["claim_type"] in _CLAIM_TYPE_CLOSED_SET
     # The happy-path envelope carries authority-layer delegation.
-    assert env["input_object"]["claim_category"] == "authority"
+    assert env["input_object"]["claim_type"] == "authority"
 
     # Envelope must carry the v0.3 delegation composition field.
     assert "delegation" in env["input_object"]
@@ -124,14 +124,14 @@ def test_cte_v031_claim_model_contract():
     doc = json.loads(resp.body)
 
     claim_model = doc["claim_model"]
-    assert set(claim_model["claim_category"]["closed_set"]) == (
-        _CLAIM_CATEGORY_CLOSED_SET
+    assert set(claim_model["claim_type"]["closed_set"]) == (
+        _CLAIM_TYPE_CLOSED_SET
     )
-    assert claim_model["claim_category"]["required_on_envelope"] is True
+    assert claim_model["claim_type"]["required_on_envelope"] is True
 
     # Composition rule must be declared for every layer in the closed set.
     rules = claim_model["composition_rules"]
-    assert set(rules.keys()) == _CLAIM_CATEGORY_CLOSED_SET
+    assert set(rules.keys()) == _CLAIM_TYPE_CLOSED_SET
 
 
 def test_cte_v031_error_codes_declared():
@@ -169,11 +169,11 @@ def test_cte_v031_scope_violation_vector_reproduces():
     assert sv["expected_result"] == "fail-closed"
     assert sv["expected_error_code"] == "INVALID_CLAIM_SCOPE"
 
-    # Structural condition: claim_category=identity but carries
+    # Structural condition: claim_type=identity but carries
     # authority-layer delegation. A conformant verifier MUST detect this
     # structurally before any semantic evaluation.
     obj = sv["input_object"]
-    assert obj["claim_category"] == "identity"
+    assert obj["claim_type"] == "identity"
     assert "delegation" in obj
     assert "delegation_chain_root" in obj["delegation"]
 
@@ -200,7 +200,7 @@ def test_cte_v031_composition_failure_vector_reproduces():
     # Monotonic narrowing produces an empty intersection, so a conformant
     # verifier cannot compose to a single effective scope.
     obj = cf["input_object"]
-    assert obj["claim_category"] == "authority"
+    assert obj["claim_type"] == "authority"
     chains = obj["delegation"]["chains"]
     assert len(chains) >= 2
     scopes = [c["scope"] for c in chains]
@@ -220,8 +220,8 @@ def test_cte_v031_reserved_values_published():
 
     reserved = doc["reserved_values"]
     # Hive regulatory-envelope layer, committed on A2A#1672.
-    assert "claim_category.envelope" in reserved
-    assert reserved["claim_category.envelope"]["status"] == "reserved"
+    assert "claim_type.envelope" in reserved
+    assert reserved["claim_type.envelope"]["status"] == "reserved"
     # HiveCompute x402 payment-execution receipt, committed on
     # insumer-examples#1.
     assert "evidence_basis.evidence_type.payment_execution" in reserved
