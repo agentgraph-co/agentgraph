@@ -3,8 +3,38 @@
 **Status:** Draft
 **Authors:** Kenne Ives (AgentGraph), Justin Headley (MoltBridge), Erik Newton (Verascore), Alexander Lawson (Revettr) — with input from AgentID (Harold Frimpong), RNWY, Concordia Protocol, Sanctuary Framework, and the A2A/insumer working groups
 **v0.3 contributors:** aeoess (APS — delegation_chain_root composition), QueBallSharken (BBIS — claim-model closure + Final Refusal-Capable Boundary Event primitive), yuqiang-JEP (Target Determinability framing)
-**Date:** 2026-04-23
-**Version:** 0.3.0
+**Date:** 2026-04-24
+**Version:** 0.3.1
+
+---
+
+### Editorial post-freeze updates (2026-04-25)
+
+After v0.3.1 freeze, three coordination items landed without a version bump:
+
+- **Field rename: `claim_category` → `claim_type`** (commit `agentgraph-co/agentgraph@69ad94d`). Harold (AgentID, identity-layer WG owner) shipped his `/verify` endpoint with `claim_type` as the discriminator name. AgentGraph + APS (aeoess) renamed to converge on the same name. Five-way convergence at the field-name level: AgentGraph + AgentID + APS + @nobulex/crypto (TS) + HiveTrust (with two-axis namespace resolution: CTEF envelope-level `claim_type` = layer discriminator; HiveTrust internal-schema `claim_type` = role/capability/audit, distinct envelope levels, no wire collision).
+- **Envelope reservation refined.** The reserved `claim_type.envelope` value now publishes both composition-rule variants in the live endpoint: `zero_knowledge_membership` (envelope identity private) and `signed_snapshot_attestation` (envelope public, only member list sensitive). Implementations pick by privacy regime; both will be normative in v0.3.2.
+- **Projection family codified.** §6.7 superset-with-projection promoted from one-off example to composition principle, with four worked examples in `claim_model.projection_family_examples`: authority (chain → AGT scalar), continuity (rotation-chain → has_rotated bool), continuity (receipts → last_seen_kid scalar), identity (multi-anchor path → resolved_did scalar). Each names what the projection loses, so verifiers that only consume the projection know they are operating on a known-lossy view.
+
+### v0.3.2 punch list (open, not yet authored)
+
+- **§6.3.1 Per-layer validity_window defaults** — surfaced by lawcontinue on A2A#1786 (long-running distributed inference). identity = `sequence_bound` to session; transport = `authority_within_window_evidence_after`, short renewable; authority = `authority_within_window_expired_after`, bounded by delegation; continuity = `sequence_bound` to rotation-event sequence. Avoids mid-inference re-verification on long sessions.
+- **§claim_type.envelope full composition rule** — unlocks when Hive Civilization IP work clears. Both ZK and signed-snapshot variants spec'd normatively.
+- **§evidence_basis.evidence_type.payment_execution full shape** — HiveCompute x402 receipt, expected fields `eip3009_authorization_hash`, `base_tx_hash`, `wallet_did`, `amount_usdc`, `issued_at`. Lands when HiveCompute clears Doug Borthwick's bar (live JWKS + signed envelope + reproducible by `multi-attest-verify.js`).
+- **AGT → CTEF ingest vector + reciprocal CTEF → AGT** — surfaced by lawcontinue. Coordinates with Microsoft AGT ADR-0007 cross-reference; AGT governance contact still pending.
+- **HiveTrust → CTEF mapping worked example** — `X-HiveTrust-DID` = identity layer, SMSH tier trajectory = continuity layer with monotonic-narrowing trajectory and AGT-compatible projection. Referenced inline in §6.7; deserves its own §6.5.x worked-example subsection.
+
+---
+
+### Changes in v0.3.1
+
+1. **§6.5 Claim Type Discriminator (new).** Envelope now carries a required `claim_type` field with closed set `{identity, transport, authority, continuity}`. Resolves the silent-divergence gap xsa520 named on A2A#1672: a well-typed claim carried at the wrong layer can no longer be confused for a scope violation *or* for a valid claim — it is rejected structurally before semantic evaluation.
+2. **§6.5 Composition Rules (new).** Every layer declares its composition rule in a normative table: identity = key binding; transport = identity-key binding; authority = monotonic narrowing (intersection, content-addressed via `delegation_chain_root`); continuity = rotation-attestation chain. Two conformant verifiers given the same inputs MUST arrive at the same composed result. Layers unable to declare a deterministic composition rule are underspecified and cannot be used in the model (framing adopted from aeoess).
+3. **§6.6 Error Codes (new).** Two structural error codes for fail-closed before semantic evaluation: `INVALID_CLAIM_SCOPE` (claim carried outside its declared category) and `INVALID_COMPOSITION` (well-typed claims at each layer cannot be combined under the layer's composition rule — e.g. disjoint authority scopes). Same ordering constraint: structural failure precedes semantic evaluation. Adopted from aeoess on A2A#1672.
+4. **§6.7 Superset-with-Projection Principle (new).** When one layer's representation can project to a simpler shape a partner verifier expects (e.g. HiveTrust SMSH tier trajectory → AGT `trust_score` scalar), declare the superset form and the projection explicitly. Lossy projections between layer representations are where silent divergence lives; an explicit superset-with-projection avoids it.
+5. **Reserved Values (new section).** Pre-announced names that partners can safely rely on for interop: `claim_type.envelope` (fifth-layer regulatory-envelope attestation, Hive Civilization contribution, specification forthcoming) and `evidence_basis.evidence_type.payment_execution` (HiveCompute x402 receipt, contributed on insumer-examples#1).
+6. **Test-vector additions.** Two negative-path vectors published at `/.well-known/cte-test-vectors.json`: `scope_violation_vector` (must return `INVALID_CLAIM_SCOPE`) and `composition_failure_vector` (must return `INVALID_COMPOSITION`). Canonical bytes + SHA-256 pinned; partner verifiers prove fail-closed on structural violation, not just on signature failure.
+7. **Reference fixtures expanded.** In addition to the APS bilateral-delegation set (snapshot, 10 vectors), the APS rotation-attestation set at `aeoess.com/fixtures/rotation-attestation/` (live-fetch, 5 vectors) is locked into the regression harness with dual-lock on pinned-vs-published SHA-256. Three independent canonicalization harnesses now close the loop: bilateral delegation (authority), rotation attestation (continuity), self-published CTEF vectors (envelope/verdict/negative).
 
 ---
 
@@ -405,6 +435,50 @@ A gateway MAY refuse to issue verdicts in categories it does not support — for
 
 ---
 
+### 6.5 Claim Type Discriminator and Composition Rules (v0.3.1)
+
+From v0.3.1 forward, every TrustAttestation envelope MUST carry a `claim_type` field drawn from the following closed set:
+
+| `claim_type` | Layer | Composition rule |
+|------------------|-------|------------------|
+| `identity`       | Identity     | Key binding — same DID across claims, same resolution path. Two verifiers given the same identity claim MUST resolve the same key. |
+| `transport`      | Transport    | Identity-key binding — the identity signs the transport key. Transport-layer claims compose onto the identity they reference. |
+| `authority`      | Authority    | Monotonic narrowing — effective scope after a delegation chain is the greatest lower bound (intersection) of every scope in the chain. Content-addressed via `delegation_chain_root`. Two chains with disjoint scopes produce `INVALID_COMPOSITION`. |
+| `continuity`     | Continuity   | Rotation-attestation chain — history-stability under rotation, content-addressed over the rotation event sequence. An SMSH-style tier trajectory is a superset-with-projection (see §6.7). |
+
+**Why the discriminator.** Without an outer `claim_type`, a verifier receiving a well-typed claim cannot distinguish "this claim belongs at identity layer" from "this claim belongs at authority layer but is missing fields". The discriminator names the layer structurally so a wrong-layer claim is rejected before semantic evaluation.
+
+**Normative: composition determinism.** Two conformant verifiers given the same inputs MUST arrive at the same composed result. A layer whose composition rule cannot be declared deterministically is underspecified and cannot be used in the model. When a new layer is added to the closed set (v0.3.2 and beyond), its composition rule MUST be declared in the normative table above.
+
+**Normative: required field.** From v0.3.1, `claim_type` is REQUIRED on the TrustAttestation envelope. A v0.3.0 envelope (no `claim_type`) consumed by a v0.3.1 verifier SHOULD be treated as a legacy envelope under whatever layer semantics the verifier previously assumed, but MUST NOT be promoted to a v0.3.1 composition.
+
+### 6.6 Error Codes (v0.3.1)
+
+Two structural error codes fire before any semantic evaluation. Both share the same ordering constraint: **structural failure precedes semantic evaluation**. A verifier that evaluates a layer's semantic logic on a structurally-invalid envelope is non-conformant.
+
+| Code | Trigger | Distinct from |
+|------|---------|---------------|
+| `INVALID_CLAIM_SCOPE` | Claim carries fields outside its declared `claim_type` (e.g. identity-categorized claim carrying authority-layer `delegation`). | `INVALID_COMPOSITION` (the claim *is* well-typed for its category; the composition is what fails). |
+| `INVALID_COMPOSITION` | Well-typed claims at each layer cannot be combined under the layer's composition rule (e.g. disjoint authority scopes, broken rotation chain, unresolvable identity-to-transport binding). | `INVALID_CLAIM_SCOPE` (no per-claim scope violation has occurred; the composition is what fails). |
+
+**Why two codes, not one.** Overloading one code across both surfaces masks the silent-divergence class @xsa520 named on A2A#1672: a verifier that only looks at per-claim scope cannot detect a composition-level failure when every individual claim is well-typed. Separating the codes surfaces that class at the error-code level, not just at the semantic level.
+
+**Test vectors.** Negative-path vectors for both codes are published at `/.well-known/cte-test-vectors.json` (fields `scope_violation_vector` and `composition_failure_vector`). Each vector provides canonical bytes + SHA-256 + `expected_result: "fail-closed"` + `expected_error_code`. Partner verifiers prove fail-closed on structural violation by running their verifier against the vector and asserting the correct error code, not just on signature failure.
+
+### 6.7 Superset-with-Projection Principle (v0.3.1)
+
+When one layer's representation can project to a simpler shape that a partner verifier expects, the RICHER representation declares both the superset form AND the projection explicitly. Lossy projections between layer representations are where silent divergence lives; an explicit superset-with-projection avoids it.
+
+**Worked example — HiveTrust ↔ AGT.** The HiveTrust SMSH tier trajectory is a structured object carrying ordered tier transitions over time. Microsoft AGT's identity federation expects a scalar `trust_score`. Under this principle:
+
+- The SMSH tier trajectory is the **superset form** — the full evidence HiveTrust composes under its continuity-layer rule.
+- The projection to `trust_score` is declared explicitly: an AGT-compatible reduction that takes the current tier and projects to the AGT scalar via a published mapping.
+- A partner that trusts only the AGT scalar reads the projection. A partner that needs the full trajectory reads the superset. Neither reads lossy evidence without knowing it is lossy.
+
+The principle applies beyond this example: any time a CTEF envelope carries a richer structure than a partner expects, the projection to the simpler shape SHOULD be declared in the envelope so the partner reads the right thing, not whatever they happen to parse successfully.
+
+---
+
 ## 7. Confidence Weighting
 
 Gateways SHOULD apply weighting to attestations based on the following factors.
@@ -569,6 +643,19 @@ Produces `SovereigntyAttestation` envelopes assessing agent autonomy posture acr
 Produces `ComplianceRiskAttestation` envelopes from regulatory screening pipelines. Covers OFAC/EU/UN sanctions lists, domain hygiene, IP reputation, and wallet screening. Provider DID: `did:web:revettr.com`, signing algorithm: ES256, kid: `revettr-attest-v1`. Compliance attestations use hard_fail semantics (see Section 8.1).
 
 > **Note:** Verascore (`did:web:verascore.io`) also functions as a gateway/aggregator in addition to its continuous monitoring provider role. It can consume evidence bundles from other providers and produce enforcement verdicts.
+
+---
+
+## Reserved Values (v0.3.1)
+
+The following names are RESERVED for forthcoming specification extensions. Partners MUST NOT bind these names to alternative semantics in interim versions; the reservations protect the interop graph from collision when the full specifications land.
+
+| Reserved name | Status | Committed in | Source |
+|---------------|--------|--------------|--------|
+| `claim_type.envelope` | Reserved | Fifth-layer regulatory-envelope attestation. Specification forthcoming — Hive Civilization contribution. Proposed composition rule: zero-knowledge attestation of envelope membership, content-addressed over the verifier's attestation-registry snapshot. Low-exposure by design: the composition rule does not require exposing underlying evidence. | A2A#1672 (srotzin, 2026-04-24) |
+| `evidence_basis.evidence_type.payment_execution` | Reserved | Payment-execution receipt as an independent signal type. Answers "consideration was exchanged" — distinct from "task result matches spec" (SAR). Expected fields: `eip3009_authorization_hash`, `base_tx_hash`, `wallet_did`, `amount_usdc`, `issued_at`. Specification forthcoming — HiveCompute x402 contribution. | insumer-examples#1 (srotzin, 2026-04-24) |
+
+A verifier implementing v0.3.1 MAY treat a claim carrying a reserved name as structurally valid but semantically unsupported, returning a specification-forthcoming advisory rather than `INVALID_CLAIM_SCOPE`. Once the full specification for a reserved name lands, the advisory becomes a standard claim-category or evidence-type check.
 
 ---
 
