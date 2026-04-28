@@ -127,8 +127,8 @@ const INTEROP_ROWS: InteropRow[] = [
     maintainer: 'Steve Rotzin',
     language: 'Python',
     byteMatch:
-      '✓ alignment confirmed; HAHS schema + epoch-based continuity primitive contributed for v0.3.2',
-    claimTypeLive: '✓',
+      '✓ 4/4 byte-exact + SHA-256-exact on inline vectors (A2A #1786, 2026-04-28); HAHS + epoch primitive for v0.3.2',
+    claimTypeLive: '✓ verifier live at hive-gamification.onrender.com',
   },
 ]
 
