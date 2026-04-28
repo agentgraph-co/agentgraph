@@ -706,13 +706,24 @@ async def interop_harness() -> JSONResponse:
                     "name": "HiveTrust",
                     "maintainer": "@srotzin",
                     "language": "Python",
-                    "bilateral_delegation_byte_match": (
-                        "alignment confirmed; HAHS fixture incoming for v0.3.2"
+                    "inline_vector_byte_match": (
+                        "4/4 byte-exact + SHA-256-exact (envelope, verdict, "
+                        "scope_violation, composition_failure) — A2A #1786 "
+                        "comment 2026-04-28"
                     ),
-                    "rotation_attestation_byte_match": None,
+                    "bilateral_delegation_byte_match": (
+                        "alignment confirmed; APS bilateral-delegation + "
+                        "rotation-attestation runs queued"
+                    ),
+                    "rotation_attestation_byte_match": "queued",
                     "claim_type_live": True,
+                    "verifier_url": (
+                        "https://hive-gamification.onrender.com/v1/compliance/verify/{attestation_id}"
+                    ),
+                    "ed25519_pubkey": (
+                        "12de746d51fca019c5c64685f2688a0e4a57ab532f6f6c67d44494de43f4c408"
+                    ),
                     "schema_url": "https://hivemorph.onrender.com/openapi.json",
-                    "audit_url": "https://hivemorph.onrender.com/v1/morph/audit/recent",
                 },
             ],
             "in_flight": [
@@ -761,8 +772,9 @@ async def interop_harness() -> JSONResponse:
             },
             "summary": {
                 "implementations_byte_match_validated": 5,
+                "implementations_inline_vector_byte_match_validated": 2,
                 "languages": 2,
-                "independent_canonicalizers": 4,
+                "independent_canonicalizers": 5,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
                 "fail_closed_negative_paths": 2,
             },
