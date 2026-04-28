@@ -90,6 +90,29 @@ class ScanMetadata(BaseModel):
     is_mcp_server: bool = False  # context-aware: expected tool patterns discounted
 
 
+class ScoreTimelinePoint(BaseModel):
+    recorded_at: str
+    score: int
+
+
+class FrameworkScanItem(BaseModel):
+    framework: str
+    scan_result: str
+    scanned_at: str
+    vulnerabilities_count: int
+
+
+class ScanHistoryResponse(BaseModel):
+    repo: str
+    entity_id: str | None = None
+    score_timeline: list[ScoreTimelinePoint] = []
+    framework_scans: list[FrameworkScanItem] = []
+    jws: str | None = None
+    algorithm: str = "EdDSA"
+    key_id: str = KID
+    jwks_url: str = "https://agentgraph.co/.well-known/jwks.json"
+
+
 class PublicScanResponse(BaseModel):
     repo: str
     trust_score: int  # Security scan score (0-100) — code-level analysis only
@@ -497,6 +520,161 @@ async def public_scan(
     )
 
 
+_HISTORY_CACHE_PREFIX = "public_scan_history:"
+_HISTORY_CACHE_TTL = 3600  # 1 hour
+
+
+async def _lookup_entity_by_repo(repo: str, db: AsyncSession):
+    """Resolve an `owner/repo` slug to an Entity row, or None."""
+    from src.models import Entity
+
+    return (
+        await db.execute(
+            select(Entity).where(
+                Entity.is_active.is_(True),
+                Entity.source_url.ilike(f"%github.com/{repo}%"),
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+@router.get(
+    "/{owner}/{repo}/history",
+    response_model=ScanHistoryResponse,
+    dependencies=[Depends(rate_limit_reads)],
+)
+async def public_scan_history(
+    owner: str,
+    repo: str,
+    db: AsyncSession = Depends(get_db),
+) -> ScanHistoryResponse:
+    """Return the score timeline + per-framework scan history for a repo.
+
+    Living-record proof: AgentGraph publishes the trail of every score
+    change and every framework-level scan, not a one-shot PDF. If the
+    repo is not yet imported as an AgentGraph entity, returns an empty
+    payload (HTTP 200) — the page will show a "first scan" empty state.
+    """
+    full_name = f"{owner}/{repo}"
+
+    if not all(c.isalnum() or c in "-_." for c in owner):
+        raise HTTPException(400, "Invalid owner")
+    if not repo.replace("-", "").replace("_", "").replace(".", "").isalnum():
+        raise HTTPException(400, "Invalid repo name")
+
+    from src import cache
+
+    cache_key = f"{_HISTORY_CACHE_PREFIX}{full_name}"
+    cached = await cache.get(cache_key)
+    if cached:
+        payload = dict(cached)
+        payload_for_jws = {
+            "@context": "https://schema.agentgraph.co/attestation/scan-history/v1",
+            "type": "ScanHistoryAttestation",
+            "subject": {"id": f"github:{full_name}", "repo": full_name},
+            "issuedAt": datetime.now(timezone.utc).isoformat(),
+            "expiresAt": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            "history": {
+                "entityId": payload.get("entity_id"),
+                "scoreTimeline": payload.get("score_timeline", []),
+                "frameworkScans": payload.get("framework_scans", []),
+            },
+        }
+        jws = create_jws(canonicalize(payload_for_jws))
+        return ScanHistoryResponse(
+            repo=full_name,
+            entity_id=payload.get("entity_id"),
+            score_timeline=[ScoreTimelinePoint(**p) for p in payload.get("score_timeline", [])],
+            framework_scans=[FrameworkScanItem(**f) for f in payload.get("framework_scans", [])],
+            jws=jws,
+        )
+
+    entity = await _lookup_entity_by_repo(full_name, db)
+    if entity is None:
+        empty_payload = {"entity_id": None, "score_timeline": [], "framework_scans": []}
+        await cache.set(cache_key, empty_payload, ttl=_HISTORY_CACHE_TTL)
+        empty_for_jws = {
+            "@context": "https://schema.agentgraph.co/attestation/scan-history/v1",
+            "type": "ScanHistoryAttestation",
+            "subject": {"id": f"github:{full_name}", "repo": full_name},
+            "issuedAt": datetime.now(timezone.utc).isoformat(),
+            "expiresAt": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            "history": {
+                "entityId": None,
+                "scoreTimeline": [],
+                "frameworkScans": [],
+            },
+        }
+        jws = create_jws(canonicalize(empty_for_jws))
+        return ScanHistoryResponse(repo=full_name, entity_id=None, jws=jws)
+
+    from src.models import FrameworkSecurityScan, TrustScoreHistory
+
+    score_rows = (
+        await db.execute(
+            select(TrustScoreHistory)
+            .where(TrustScoreHistory.entity_id == entity.id)
+            .order_by(TrustScoreHistory.recorded_at.asc())
+        )
+    ).scalars().all()
+
+    scan_rows = (
+        await db.execute(
+            select(FrameworkSecurityScan)
+            .where(FrameworkSecurityScan.entity_id == entity.id)
+            .order_by(FrameworkSecurityScan.scanned_at.asc())
+        )
+    ).scalars().all()
+
+    score_timeline = [
+        {
+            "recorded_at": row.recorded_at.isoformat() if row.recorded_at else "",
+            "score": round((row.score or 0.0) * 100) if (row.score or 0.0) <= 1 else int(row.score),
+        }
+        for row in score_rows
+    ]
+    framework_scans = [
+        {
+            "framework": row.framework,
+            "scan_result": row.scan_result,
+            "scanned_at": row.scanned_at.isoformat() if row.scanned_at else "",
+            "vulnerabilities_count": (
+                len(row.vulnerabilities) if isinstance(row.vulnerabilities, list) else 0
+            ),
+        }
+        for row in scan_rows
+    ]
+
+    payload = {
+        "entity_id": str(entity.id),
+        "score_timeline": score_timeline,
+        "framework_scans": framework_scans,
+    }
+    await cache.set(cache_key, payload, ttl=_HISTORY_CACHE_TTL)
+
+    payload_for_jws = {
+        "@context": "https://schema.agentgraph.co/attestation/scan-history/v1",
+        "type": "ScanHistoryAttestation",
+        "subject": {"id": f"github:{full_name}", "repo": full_name},
+        "issuedAt": datetime.now(timezone.utc).isoformat(),
+        "expiresAt": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "history": {
+            "entityId": payload["entity_id"],
+            "scoreTimeline": score_timeline,
+            "frameworkScans": framework_scans,
+        },
+    }
+    jws = create_jws(canonicalize(payload_for_jws))
+
+    return ScanHistoryResponse(
+        repo=full_name,
+        entity_id=payload["entity_id"],
+        score_timeline=[ScoreTimelinePoint(**p) for p in score_timeline],
+        framework_scans=[FrameworkScanItem(**f) for f in framework_scans],
+        jws=jws,
+    )
+
+
 def _grade_from_score(score: int) -> str:
     """Return letter grade from a 0-100 score."""
     if score >= 96:
@@ -551,7 +729,11 @@ async def scan_badge(
     entity_trust = await _get_entity_trust(full_name, db)
 
     # Determine which score to show: composite trust vs security scan
-    if entity_trust and entity_trust.get("imported") and entity_trust.get("composite_score") is not None:
+    if (
+        entity_trust
+        and entity_trust.get("imported")
+        and entity_trust.get("composite_score") is not None
+    ):
         # Entity exists on AgentGraph — show composite trust score
         score = entity_trust["composite_score"]
         grade = entity_trust["grade"]
@@ -645,7 +827,11 @@ def _render_og_svg(
     # Escape XML entities in repo name
     display_name = f"{owner}/{repo}".replace("&", "&amp;").replace("<", "&lt;")
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    svg_open = (
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        'width="1200" height="630" viewBox="0 0 1200 630">'
+    )
+    return f'''{svg_open}
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="{bg_dark}"/>
@@ -729,7 +915,11 @@ async def scan_og_image(
     critical = 0
     high = 0
     medium = 0
-    if entity_trust and entity_trust.get("imported") and entity_trust.get("composite_score") is not None:
+    if (
+        entity_trust
+        and entity_trust.get("imported")
+        and entity_trust.get("composite_score") is not None
+    ):
         score = entity_trust["composite_score"]
         grade = entity_trust["grade"]
     else:

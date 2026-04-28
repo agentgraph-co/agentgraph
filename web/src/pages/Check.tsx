@@ -20,6 +20,7 @@ import { scoreToGrade, getGradeInfo } from '../components/trust/gradeSystem'
 import GradeCard from '../components/check/GradeCard'
 import SafetySummary from '../components/check/SafetySummary'
 import FindingsPanel from '../components/check/FindingsPanel'
+import ScanHistoryPanel from '../components/check/ScanHistoryPanel'
 import ShareCard from '../components/check/ShareCard'
 import { Pulse } from '../components/Skeleton'
 
@@ -500,6 +501,9 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           badgeUrl={badgeUrl}
           checkUrl={checkUrl}
         />
+
+        {/* Living-record history — score timeline + framework scan badges */}
+        <ScanHistoryPanel owner={owner} repo={repo} />
 
         {/* Share + CTAs */}
         <ShareCard owner={owner} repo={repo} grade={grade} score={score} />
