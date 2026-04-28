@@ -26,36 +26,59 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _common  # noqa: E402
 
-BAZAAR_LISTINGS_URL = "https://bazaar.x402.org/api/v1/listings"
+BAZAAR_LISTINGS_URL = "https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources"
 TARGETS_PATH = _common.DATA_DIR / "x402-targets.json"
 RESULTS_PATH = _common.DATA_DIR / "x402-results.json"
 PROGRESS_PATH = _common.DATA_DIR / "x402-progress.json"
 
 
 def discover() -> list[dict]:
-    """Fetch the Bazaar listings index. Does NOT hit per-endpoint URLs."""
+    """Fetch the Bazaar listings via CDP discovery API. Paginated, no auth."""
     import httpx
 
-    with httpx.Client(timeout=30.0) as client:
-        r = client.get(BAZAAR_LISTINGS_URL)
-        r.raise_for_status()
-        data = r.json()
+    targets: list[dict] = []
+    offset = 0
+    page_size = 1000  # max per CDP docs
+    seen: set[str] = set()
+    policy = _common.RateLimitPolicy("x402")
 
-    # Shape is in flux — Bazaar has changed response structure before.
-    # Normalize to a flat list of {name, endpoint_url, description, price_usdc}.
-    listings = data.get("listings") or data.get("items") or data.get("data") or []
-    targets = []
-    for item in listings:
-        endpoint = item.get("endpoint") or item.get("url") or item.get("resource")
-        if not endpoint:
-            continue
-        targets.append({
-            "name": item.get("name") or item.get("title") or endpoint,
-            "endpoint_url": endpoint,
-            "description": item.get("description", ""),
-            "price_usdc": item.get("price") or item.get("price_usdc"),
-            "operator": item.get("operator") or item.get("maintainer"),
-        })
+    with httpx.Client(timeout=30.0) as client:
+        while True:
+            r = client.get(
+                BAZAAR_LISTINGS_URL,
+                params={"type": "http", "limit": page_size, "offset": offset},
+            )
+            r.raise_for_status()
+            data = r.json()
+            items = data.get("items") or []
+            for item in items:
+                endpoint = item.get("resource") or item.get("endpoint") or item.get("url")
+                if not endpoint or endpoint in seen:
+                    continue
+                seen.add(endpoint)
+                meta = item.get("metadata") or {}
+                accepts = item.get("accepts") or []
+                # Operator: closest signal is the payTo wallet on the first accept option
+                pay_to = None
+                if accepts and isinstance(accepts[0], dict):
+                    pay_to = accepts[0].get("payTo") or accepts[0].get("pay_to")
+                targets.append({
+                    "name": meta.get("description", endpoint).split(".")[0][:80] or endpoint,
+                    "endpoint_url": endpoint,
+                    "description": meta.get("description", ""),
+                    "input_schema": meta.get("input"),
+                    "output_schema": meta.get("output"),
+                    "accepts": accepts,
+                    "pay_to": pay_to,
+                    "last_updated": item.get("lastUpdated"),
+                    "x402_version": item.get("x402Version"),
+                })
+            pagination = data.get("pagination") or {}
+            total = pagination.get("total")
+            offset += len(items)
+            if not items or (total is not None and offset >= total):
+                break
+            policy.wait()
     return targets
 
 

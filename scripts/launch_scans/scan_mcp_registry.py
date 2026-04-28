@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import _common  # noqa: E402
 
-REGISTRY_URL = "https://registry.modelcontextprotocol.io/v1/servers"
+REGISTRY_URL = "https://registry.modelcontextprotocol.io/v0/servers"
 TARGETS_PATH = _common.DATA_DIR / "mcp-registry-targets.json"
 RESULTS_PATH = _common.DATA_DIR / "mcp-registry-results.json"
 PROGRESS_PATH = _common.DATA_DIR / "mcp-registry-progress.json"
@@ -34,30 +34,49 @@ def discover() -> list[dict]:
     targets: list[dict] = []
     cursor: str | None = None
     policy = _common.RateLimitPolicy("mcp")
+    seen_names: set[str] = set()
 
     with httpx.Client(timeout=30.0) as client:
         while True:
-            params = {"limit": 100}
+            params: dict = {"limit": 100}
             if cursor:
                 params["cursor"] = cursor
             r = client.get(REGISTRY_URL, params=params)
             r.raise_for_status()
             data = r.json()
             servers = data.get("servers") or data.get("data") or []
-            for s in servers:
-                repo = (
-                    s.get("repository") or s.get("repo_url") or s.get("source_url")
-                )
-                if not repo:
+            for entry in servers:
+                # v0 shape wraps the server: {"server": {...}, "_meta": {...}}
+                # v0.1 may be flat. Handle both.
+                s = entry.get("server") if isinstance(entry, dict) and "server" in entry else entry
+                meta = entry.get("_meta", {}) if isinstance(entry, dict) else {}
+                official = meta.get("io.modelcontextprotocol.registry/official", {})
+                name = s.get("name") or s.get("id")
+                # Dedupe — registry returns multiple versions of same server
+                if not name or name in seen_names:
                     continue
+                seen_names.add(name)
+                # Repository URL can live in several places
+                repo_obj = s.get("repository")
+                if isinstance(repo_obj, dict):
+                    repo = repo_obj.get("url")
+                else:
+                    repo = repo_obj or s.get("repo_url") or s.get("source_url")
+                # Some servers are remote-only (URL endpoints, no GitHub repo)
+                remotes = s.get("remotes") or []
+                remote_url = remotes[0].get("url") if remotes and isinstance(remotes[0], dict) else None
                 targets.append({
-                    "name": s.get("name") or s.get("id"),
+                    "name": name,
                     "repository_url": repo,
+                    "remote_url": remote_url,
                     "description": s.get("description", ""),
-                    "publisher": s.get("publisher") or s.get("author"),
+                    "publisher": (s.get("publisher") or s.get("author") or {}),
                     "version": s.get("version"),
+                    "title": s.get("title"),
+                    "status": official.get("status"),
                 })
-            cursor = (data.get("metadata") or {}).get("next_cursor")
+            metadata = data.get("metadata") or {}
+            cursor = metadata.get("next_cursor") or metadata.get("nextCursor")
             if not cursor or not servers:
                 break
             policy.wait()
@@ -71,16 +90,19 @@ def scan_one(target: dict) -> dict:
     from src.scanner.scan import scan_repo  # noqa: WPS433
 
     repo_url = target["repository_url"]
+    full_name = _common.extract_owner_repo(repo_url)
+    if not full_name:
+        return {"name": target["name"], "repository_url": repo_url, "skipped": "non_github_repo"}
     try:
-        result = asyncio.run(scan_repo(repo_url))
+        token = _common.load_secret("GITHUB_TOKEN")
+        result = asyncio.run(scan_repo(full_name, framework="mcp", token=token))
+        summary = _common.summarize_scan_result(result)
         return {
             "name": target["name"],
             "repository_url": repo_url,
-            "trust_score": result.trust_score,
-            "scan_result": result.scan_result,
-            "critical": result.critical_count,
-            "high": result.high_count,
+            "full_name": full_name,
             "framework": "mcp",
+            **summary,
         }
     except Exception as exc:  # noqa: BLE001
         return {
@@ -116,10 +138,10 @@ def main() -> int:
     done = set(progress.get("done", []))
 
     for i, target in enumerate(targets):
-        key = target["repository_url"]
+        key = target["name"]  # dedupe by server name (some targets have no repo_url)
         if key in done:
             continue
-        print(f"[mcp] {i+1}/{len(targets)}: {target['name']}")
+        print(f"[mcp] {i+1}/{len(targets)}: {key}")
         results.append(scan_one(target))
         done.add(key)
         _common.write_json_atomic(PROGRESS_PATH, {"done": sorted(done)})

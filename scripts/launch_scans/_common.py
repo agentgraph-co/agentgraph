@@ -106,3 +106,31 @@ def require_py39() -> None:
     """The build machine is Python 3.9.6 — bail on older."""
     if sys.version_info < (3, 9):  # noqa: UP036
         raise RuntimeError("scripts require Python 3.9+")
+
+
+def extract_owner_repo(url: str | None) -> str | None:
+    """Extract 'owner/repo' from any GitHub URL flavor (https, git+, ssh)."""
+    if not url:
+        return None
+    import re
+    m = re.search(r"github\.com[:/]+([^/]+)/([^/.\s]+)", url)
+    if not m:
+        return None
+    return f"{m.group(1)}/{m.group(2)}"
+
+
+def summarize_scan_result(result: Any) -> dict:
+    """Convert a ScanResult to a JSON-serializable summary."""
+    return {
+        "trust_score": getattr(result, "trust_score", 0),
+        "findings_count": len(getattr(result, "findings", []) or []),
+        "critical": getattr(result, "critical_count", 0),
+        "high": getattr(result, "high_count", 0),
+        "files_scanned": getattr(result, "files_scanned", 0),
+        "primary_language": getattr(result, "primary_language", ""),
+        "has_readme": getattr(result, "has_readme", False),
+        "has_license": getattr(result, "has_license", False),
+        "has_tests": getattr(result, "has_tests", False),
+        "is_mcp_server": getattr(result, "is_mcp_server", False),
+        "scan_error": getattr(result, "error", None),
+    }

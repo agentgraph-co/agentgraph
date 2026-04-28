@@ -84,16 +84,19 @@ def scan_one(target: dict) -> dict:
     repo_url = target.get("repository_url")
     if not repo_url:
         return {"name": target["name"], "skipped": "no_repository_url"}
+    full_name = _common.extract_owner_repo(repo_url)
+    if not full_name:
+        return {"name": target["name"], "repository_url": repo_url, "skipped": "non_github_repo"}
     try:
-        result = asyncio.run(scan_repo(repo_url))
+        token = _common.load_secret("GITHUB_TOKEN")
+        result = asyncio.run(scan_repo(full_name, token=token))
+        summary = _common.summarize_scan_result(result)
         return {
             "name": target["name"],
             "repository_url": repo_url,
-            "trust_score": result.trust_score,
-            "scan_result": result.scan_result,
-            "critical": result.critical_count,
-            "high": result.high_count,
+            "full_name": full_name,
             "source_type": "npm",
+            **summary,
         }
     except Exception as exc:  # noqa: BLE001
         return {"name": target["name"], "repository_url": repo_url, "error": str(exc)}
