@@ -630,3 +630,145 @@ async def agent_trust() -> JSONResponse:
             "Access-Control-Allow-Origin": "*",
         },
     )
+
+
+@router.get("/.well-known/interop-harness.json")
+async def interop_harness() -> JSONResponse:
+    """Consolidated CTEF v0.3.1 byte-match interop harness state.
+
+    Single artifact summarizing every implementation that has byte-match
+    validated against the published test vectors. Requested by aeoess for
+    A2A WG #1786 sponsorship readiness — partners and maintainers can
+    fetch one URL to see the full cross-implementation harness state.
+
+    Updated whenever a new implementation byte-match-validates.
+    """
+    return JSONResponse(
+        content={
+            "spec": "CTEF (Composable Trust Evidence Format)",
+            "spec_version": "0.3.1",
+            "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
+            "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
+            "as_of": "2026-04-28",
+            "implementations": [
+                {
+                    "name": "AgentGraph",
+                    "maintainer": "@kenneives",
+                    "language": "Python",
+                    "bilateral_delegation_byte_match": "10/10",
+                    "rotation_attestation_byte_match": "5/5 (live-fetch)",
+                    "claim_type_live": True,
+                    "claim_type_endpoint": (
+                        "https://agentgraph.co/.well-known/cte-test-vectors.json"
+                    ),
+                    "test_files": [
+                        "tests/test_jcs_canonicalize_aps_interop.py",
+                        "tests/test_aps_rotation_attestation_interop.py",
+                        "tests/test_cte_test_vectors.py",
+                    ],
+                },
+                {
+                    "name": "Agent Passport System (APS)",
+                    "maintainer": "@aeoess",
+                    "language": "Python",
+                    "bilateral_delegation_byte_match": (
+                        "publishes the fixture set"
+                    ),
+                    "rotation_attestation_byte_match": (
+                        "publishes the fixture set"
+                    ),
+                    "claim_type_live": True,
+                    "fixture_repo": (
+                        "https://github.com/aeoess/agent-passport-system"
+                    ),
+                },
+                {
+                    "name": "AgentID",
+                    "maintainer": "@haroldmalikfrimpong-ops",
+                    "language": "Python",
+                    "bilateral_delegation_byte_match": "10/10 (32/32 tests)",
+                    "rotation_attestation_byte_match": None,
+                    "claim_type_live": True,
+                    "claim_type_endpoint": (
+                        "https://getagentid.dev/api/v1/agents/verify"
+                    ),
+                },
+                {
+                    "name": "@nobulex/crypto",
+                    "maintainer": "@arian-gogani",
+                    "language": "TypeScript",
+                    "bilateral_delegation_byte_match": "10/10",
+                    "rotation_attestation_byte_match": "verifier testing in flight",
+                    "claim_type_live": False,
+                    "package": "@nobulex/crypto (npm)",
+                },
+                {
+                    "name": "HiveTrust",
+                    "maintainer": "@srotzin",
+                    "language": "Python",
+                    "bilateral_delegation_byte_match": (
+                        "alignment confirmed; HAHS fixture incoming for v0.3.2"
+                    ),
+                    "rotation_attestation_byte_match": None,
+                    "claim_type_live": True,
+                    "schema_url": "https://hivemorph.onrender.com/openapi.json",
+                    "audit_url": "https://hivemorph.onrender.com/v1/morph/audit/recent",
+                },
+            ],
+            "in_flight": [
+                {
+                    "name": "Vorim AI",
+                    "maintainer": "@kwame",
+                    "language": "TypeScript",
+                    "ietf_draft": "draft-vorim-vaip-00",
+                    "status": "byte-match validation in flight as 6th implementation",
+                },
+                {
+                    "name": "Concordia",
+                    "maintainer": "@erik-newton",
+                    "language": "Python",
+                    "status": (
+                        "PR #10 to haroldmalikfrimpong-ops/agentid-aps-interop "
+                        "approved with 131/131 checks; Concordia v1.0.0 fixtures + "
+                        "verify.py repair"
+                    ),
+                },
+                {
+                    "name": "lawcontinue distributed-inference reference",
+                    "maintainer": "@lawcontinue",
+                    "status": (
+                        "245-step sequence_bound case in coordination with APS for "
+                        "v0.3.2 §6.3.1 worked example"
+                    ),
+                },
+            ],
+            "negative_path_vectors": {
+                "scope_violation": {
+                    "expected_error_code": "INVALID_CLAIM_SCOPE",
+                    "purpose": (
+                        "structural-before-semantic ordering — claim carrying "
+                        "fields outside its declared claim_type MUST be rejected "
+                        "before semantic evaluation"
+                    ),
+                },
+                "composition_failure": {
+                    "expected_error_code": "INVALID_COMPOSITION",
+                    "purpose": (
+                        "scope-narrowing-only invariant — child scope MUST NOT "
+                        "expand parent scope; composition failure is fail-closed"
+                    ),
+                },
+            },
+            "summary": {
+                "implementations_byte_match_validated": 5,
+                "languages": 2,
+                "independent_canonicalizers": 4,
+                "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
+                "fail_closed_negative_paths": 2,
+            },
+        },
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
