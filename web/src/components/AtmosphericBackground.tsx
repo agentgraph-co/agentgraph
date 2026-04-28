@@ -74,6 +74,7 @@ const exactRoutes: Record<string, Intensity> = {
   '/badges': 'medium',
   '/check': 'medium',
   '/x402': 'medium',
+  '/state-of-agent-security-2026': 'medium',
   '/admin': 'none',
 }
 
