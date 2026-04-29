@@ -701,6 +701,11 @@ async def interop_harness() -> JSONResponse:
                     "rotation_attestation_byte_match": "verifier testing in flight",
                     "claim_type_live": False,
                     "package": "@nobulex/crypto (npm)",
+                    "merged_into": (
+                        "Microsoft Agent Governance Toolkit "
+                        "(microsoft/agent-governance-toolkit#1333, "
+                        "OpenSSF passing badge, 2026-04 week)"
+                    ),
                 },
                 {
                     "name": "HiveTrust",
@@ -750,6 +755,17 @@ async def interop_harness() -> JSONResponse:
                     "status": (
                         "245-step sequence_bound case in coordination with APS for "
                         "v0.3.2 §6.3.1 worked example"
+                    ),
+                },
+                {
+                    "name": "msaleme x402 conformance harness",
+                    "maintainer": "@msaleme",
+                    "status": (
+                        "planning v4.5 with claim_type-tagged compliance output; "
+                        "JCS byte-match against agentgraph-co/agentgraph@69ad94d; "
+                        "41 existing x402 tests cover continuity-layer "
+                        "evidence_basis.evidence_type.payment_execution lane; "
+                        "A2A #1672 comment 2026-04-29"
                     ),
                 },
             ],
