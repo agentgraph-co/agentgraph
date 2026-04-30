@@ -287,10 +287,11 @@ async def test_suspend_self_fails(client: AsyncClient, db):
 
 @pytest.mark.asyncio
 async def test_trust_methodology_v2(client: AsyncClient):
-    """Trust methodology reflects v2 with reputation weight."""
+    """Trust methodology reflects v6 weights (identity/external/scan/age)."""
     resp = await client.get("/api/v1/trust/methodology")
     assert resp.status_code == 200
     text = resp.json()["methodology"]
-    assert "0.35 * verification" in text
-    assert "0.15 * reputation" in text
-    assert "Peer Reviews" in text
+    # v6 formula: identity 35% + external 35% + scan 20% + age 10%
+    assert "0.35*identity" in text
+    assert "0.20*scan" in text
+    assert "0.10*age" in text

@@ -140,7 +140,13 @@ async def test_trust_score_component_details(client: AsyncClient):
         assert "raw" in component
         assert "weight" in component
         assert "contribution" in component
-        assert component["weight"] > 0
+        assert component["weight"] >= 0
+
+    # v6: only verification, age, external_reputation, scan_score have non-zero weights
+    weighted_components = {"verification", "age", "external_reputation", "scan_score"}
+    for name in weighted_components:
+        if name in details:
+            assert details[name]["weight"] > 0
 
     # Contributions should sum to approximately the total score
     total_contribution = sum(c["contribution"] for c in details.values())
@@ -213,7 +219,8 @@ async def test_contest_other_user_score_fails(client: AsyncClient):
 async def test_trust_methodology(client: AsyncClient):
     resp = await client.get("/api/v1/trust/methodology")
     assert resp.status_code == 200
-    assert "verification" in resp.json()["methodology"].lower()
+    # v6 methodology uses "Identity" / "verify" / "verifiable" instead of "verification"
+    assert "verif" in resp.json()["methodology"].lower()
 
 
 @pytest.mark.asyncio
