@@ -245,7 +245,6 @@ async def test_trust_v2_community_factor_with_attestations(db: AsyncSession):
     # Compute without attestations
     ts1 = await compute_trust_score(db, target.id)
     assert ts1.components["community"] == 0.0
-    score_without_attestations = ts1.score
 
     # Add an attestation with weight 0.8
     db.add(TrustAttestation(
@@ -257,10 +256,10 @@ async def test_trust_v2_community_factor_with_attestations(db: AsyncSession):
     ))
     await db.flush()
 
-    # Recompute — community should now be > 0
+    # v6: community is tracked but COMMUNITY_WEIGHT=0 (disabled pre-traction);
+    # so the raw component rises but it does not yet move the total score.
     ts2 = await compute_trust_score(db, target.id)
     assert ts2.components["community"] > 0.0
-    assert ts2.score > score_without_attestations
 
 
 @pytest.mark.asyncio

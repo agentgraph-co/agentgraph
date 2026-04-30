@@ -105,5 +105,6 @@ def test_verification_weights():
 
     assert VERIFICATION_WEIGHTS["verified_oauth"] == 1.0
     assert VERIFICATION_WEIGHTS["verified_challenge"] == 0.85
-    assert VERIFICATION_WEIGHTS["unverified_claim"] == 0.0
+    # unverified_claim retained at 0.25 — partial credit for self-reported handles
+    assert VERIFICATION_WEIGHTS["unverified_claim"] == 0.25
     assert VERIFICATION_WEIGHTS["pending"] == 0.0
