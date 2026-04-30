@@ -649,12 +649,25 @@ async def interop_harness() -> JSONResponse:
             "spec_version": "0.3.1",
             "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
             "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
-            "as_of": "2026-04-28",
+            "as_of": "2026-04-30",
+            "role_taxonomy": {
+                "evidence_provider": (
+                    "Issues claim_type-tagged attestations against the CTEF "
+                    "envelope; appears as the upstream signer in a verifier's "
+                    "trust chain."
+                ),
+                "enforcement_gateway": (
+                    "Receives evidence bundles, evaluates against policy, "
+                    "returns JWS-signed verdicts (certified true/false + "
+                    "attestation). Sits downstream of evidence providers."
+                ),
+            },
             "implementations": [
                 {
                     "name": "AgentGraph",
                     "maintainer": "@kenneives",
                     "language": "Python",
+                    "role": "evidence_provider",
                     "bilateral_delegation_byte_match": "10/10",
                     "rotation_attestation_byte_match": "5/5 (live-fetch)",
                     "claim_type_live": True,
@@ -671,6 +684,7 @@ async def interop_harness() -> JSONResponse:
                     "name": "Agent Passport System (APS)",
                     "maintainer": "@aeoess",
                     "language": "Python",
+                    "role": "evidence_provider",
                     "bilateral_delegation_byte_match": (
                         "publishes the fixture set"
                     ),
@@ -686,6 +700,7 @@ async def interop_harness() -> JSONResponse:
                     "name": "AgentID",
                     "maintainer": "@haroldmalikfrimpong-ops",
                     "language": "Python",
+                    "role": "evidence_provider",
                     "bilateral_delegation_byte_match": "10/10 (32/32 tests)",
                     "rotation_attestation_byte_match": None,
                     "claim_type_live": True,
@@ -697,6 +712,7 @@ async def interop_harness() -> JSONResponse:
                     "name": "@nobulex/crypto",
                     "maintainer": "@arian-gogani",
                     "language": "TypeScript",
+                    "role": "evidence_provider",
                     "bilateral_delegation_byte_match": "10/10",
                     "rotation_attestation_byte_match": "verifier testing in flight",
                     "claim_type_live": False,
@@ -711,6 +727,7 @@ async def interop_harness() -> JSONResponse:
                     "name": "HiveTrust",
                     "maintainer": "@srotzin",
                     "language": "Python",
+                    "role": "evidence_provider",
                     "inline_vector_byte_match": (
                         "4/4 byte-exact + SHA-256-exact (envelope, verdict, "
                         "scope_violation, composition_failure) — A2A #1786 "
@@ -729,6 +746,27 @@ async def interop_harness() -> JSONResponse:
                         "12de746d51fca019c5c64685f2688a0e4a57ab532f6f6c67d44494de43f4c408"
                     ),
                     "schema_url": "https://hivemorph.onrender.com/openapi.json",
+                },
+                {
+                    "name": "ArkForge Trust Layer",
+                    "maintainer": "@desiorac",
+                    "language": "Python",
+                    "role": "enforcement_gateway",
+                    "inline_vector_byte_match": (
+                        "4/4 byte-exact (canonical + SHA-256) — qntm#7 PR #14, "
+                        "2026-04-30"
+                    ),
+                    "constraint_evaluation_vectors": (
+                        "3 scenarios delivered (within-limit delta=250, "
+                        "near-miss delta=5, exceeded delta=-150) — facet/limit/"
+                        "actual/delta shape from corpollc/qntm#6"
+                    ),
+                    "claim_type_live": True,
+                    "did": "did:web:trust.arkforge.tech",
+                    "verifier_url": "https://trust.arkforge.tech/v1/proxy",
+                    "self_verification_script": (
+                        "specs/test-vectors/verify_execution_attestation_arkforge.py"
+                    ),
                 },
             ],
             "in_flight": [
@@ -768,6 +806,29 @@ async def interop_harness() -> JSONResponse:
                         "A2A #1672 comment 2026-04-29"
                     ),
                 },
+                {
+                    "name": "x-foxbook (Foxbook)",
+                    "maintainer": "@cloakmaster",
+                    "status": (
+                        "filed A2A #1803 proposing public log + cryptographic "
+                        "identity check as claim_type: identity provider; JCS "
+                        "byte-match run against v0.3.1 vectors in flight — A2A "
+                        "#1672 comment 2026-04-30"
+                    ),
+                },
+                {
+                    "name": "AEP (Agentic Exchange Protocol)",
+                    "maintainer": "@Pineapples100",
+                    "language": "spec draft",
+                    "status": (
+                        "T0–T3 trust tier model + /.well-known/aep-manifest.json "
+                        "for org-level trust boundaries on SMTP/iCal/messaging "
+                        "surfaces; tier-transition proofs would compose as "
+                        "authority-layer claims in CTEF envelope; "
+                        "https://github.com/pmyers-abundance/aep — A2A #1734 "
+                        "comment 2026-04-30"
+                    ),
+                },
             ],
             "negative_path_vectors": {
                 "scope_violation": {
@@ -787,10 +848,12 @@ async def interop_harness() -> JSONResponse:
                 },
             },
             "summary": {
-                "implementations_byte_match_validated": 5,
-                "implementations_inline_vector_byte_match_validated": 2,
+                "implementations_byte_match_validated": 6,
+                "implementations_inline_vector_byte_match_validated": 3,
+                "evidence_providers": 5,
+                "enforcement_gateways": 1,
                 "languages": 2,
-                "independent_canonicalizers": 5,
+                "independent_canonicalizers": 6,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
                 "fail_closed_negative_paths": 2,
             },
