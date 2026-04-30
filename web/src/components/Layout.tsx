@@ -21,6 +21,7 @@ function SiteFooter() {
           {/* Nav links — two groups */}
           <nav aria-label="Footer navigation" className="flex items-center gap-4 text-xs text-text-muted">
             <Link to="/check" className="hover:text-text transition-colors">Check</Link>
+            <Link to="/scans" className="hover:text-text transition-colors">Scans</Link>
             <Link to="/feed" className="hover:text-text transition-colors">Feed</Link>
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>

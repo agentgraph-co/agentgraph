@@ -1,12 +1,13 @@
 """Public scan catalog — browseable index of every scan we've run.
 
-Surfaces the launch-scan datasets (x402 / MCP / npm / PyPI) as a single
-paginated catalog so journalists, partners, and any reader can browse
-the receipts behind the State of Agent Security 2026 numbers.
+Surfaces the launch-scan datasets (x402 / MCP / npm / PyPI / OpenClaw)
+as a single paginated catalog so journalists, partners, and any reader
+can browse the receipts behind the State of Agent Security 2026 numbers.
 
-The launch scans live as JSON reports under data/launch-scans/. This
-router reads them lazily, normalizes into a unified row shape, caches
-the aggregated index in memory, and serves paginated/filtered views.
+The launch scans live as JSON reports under data/launch-scans/ and
+data/. This router reads them lazily, normalizes into a unified row
+shape, caches the aggregated index in memory, and serves paginated /
+filtered views.
 
 Living-record proof: AgentGraph publishes the trail, not a frozen PDF.
 """
@@ -26,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public/scan-catalog", tags=["public-scan"])
 
-_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "launch-scans"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_DATA_DIR = _PROJECT_ROOT / "data" / "launch-scans"
+_OPENCLAW_REPORT = _PROJECT_ROOT / "data" / "openclaw_scan_report_full.json"
 
 _CATALOG_CACHE: dict[str, Any] | None = None
 
@@ -80,6 +83,23 @@ def _normalize_row(surface: str, raw: dict) -> CatalogRow:
             has_x402_header=raw.get("has_x402_header"),
             http_status=raw.get("http_status"),
         )
+    if surface == "openclaw":
+        # OpenClaw uses different field names — `repo` for owner/name,
+        # `critical_count` / `high_count` instead of `critical` / `high`,
+        # `error` instead of `scan_error`.
+        full_name = raw.get("repo", "")
+        return CatalogRow(
+            surface="openclaw",
+            name=full_name,
+            full_name=full_name,
+            repository_url=f"https://github.com/{full_name}" if full_name else None,
+            trust_score=raw.get("trust_score"),
+            critical=raw.get("critical_count"),
+            high=raw.get("high_count"),
+            findings_count=raw.get("findings_count"),
+            primary_language=raw.get("primary_language"),
+            scan_error=raw.get("error"),
+        )
     # mcp / npm / pypi all share repo-scan shape
     return CatalogRow(
         surface=surface,
@@ -97,8 +117,7 @@ def _normalize_row(surface: str, raw: dict) -> CatalogRow:
     )
 
 
-def _load_surface(surface: str, filename: str) -> list[CatalogRow]:
-    path = _DATA_DIR / filename
+def _load_surface(surface: str, path: Path, results_key: str = "results") -> list[CatalogRow]:
     if not path.exists():
         logger.warning("scan_catalog: missing %s", path)
         return []
@@ -107,7 +126,7 @@ def _load_surface(surface: str, filename: str) -> list[CatalogRow]:
     except Exception as e:
         logger.error("scan_catalog: failed to parse %s: %s", path, e)
         return []
-    results = data.get("results", data) if isinstance(data, dict) else data
+    results = data.get(results_key, data) if isinstance(data, dict) else data
     if not isinstance(results, list):
         return []
     return [_normalize_row(surface, r) for r in results if isinstance(r, dict)]
@@ -115,12 +134,15 @@ def _load_surface(surface: str, filename: str) -> list[CatalogRow]:
 
 def _build_catalog() -> dict[str, Any]:
     rows: list[CatalogRow] = []
-    rows += _load_surface("x402", "x402-results.json")
-    rows += _load_surface("mcp", "mcp-registry-results.json")
-    rows += _load_surface("npm", "npm-agents-results.json")
-    rows += _load_surface("pypi", "pypi-agents-results.json")
+    rows += _load_surface("x402", _DATA_DIR / "x402-results.json")
+    rows += _load_surface("mcp", _DATA_DIR / "mcp-registry-results.json")
+    rows += _load_surface("npm", _DATA_DIR / "npm-agents-results.json")
+    rows += _load_surface("pypi", _DATA_DIR / "pypi-agents-results.json")
+    # OpenClaw 500-skills scan uses a different file shape: top-level
+    # 'repos' key instead of 'results'.
+    rows += _load_surface("openclaw", _OPENCLAW_REPORT, results_key="repos")
 
-    by_surface = {s: 0 for s in ("x402", "mcp", "npm", "pypi")}
+    by_surface = {s: 0 for s in ("x402", "mcp", "npm", "pypi", "openclaw")}
     for r in rows:
         by_surface[r.surface] = by_surface.get(r.surface, 0) + 1
 

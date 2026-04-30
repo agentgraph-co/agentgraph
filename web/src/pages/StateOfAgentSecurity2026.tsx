@@ -688,11 +688,20 @@ export default function StateOfAgentSecurity2026() {
                 (RFC 8785). Verify the SHA-256s match. Fail-closed on the negative-path vectors.
                 There is no AgentGraph-private side channel.
               </p>
-              <p className="text-sm text-text-muted leading-relaxed">
+              <p className="text-sm text-text-muted leading-relaxed mb-4">
                 Scans run between April 21–28, 2026. Every scan attestation is signed with Ed25519
                 (JWS, RFC 7515) and verifiable against the public JWKS endpoint. Dreamspace
                 generation used non-adversarial prompts only; generated Solidity was archived but
                 never deployed to Base mainnet.
+              </p>
+              <Link
+                to="/scans"
+                className="inline-flex items-center gap-2 text-sm text-primary-light hover:text-primary transition-colors font-mono"
+              >
+                Browse all 35,689 scans →
+              </Link>
+              <p className="text-xs text-text-muted mt-2">
+                Living record. Every row reproducible. Not a frozen PDF.
               </p>
             </div>
           </FadeIn>
@@ -733,6 +742,9 @@ export default function StateOfAgentSecurity2026() {
               </a>
               <Link to="/check" className="text-text-muted hover:text-primary-light transition-colors">
                 /check
+              </Link>
+              <Link to="/scans" className="text-text-muted hover:text-primary-light transition-colors">
+                /scans (catalog)
               </Link>
             </div>
           </FadeIn>

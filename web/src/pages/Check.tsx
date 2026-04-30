@@ -509,13 +509,18 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
         <ShareCard owner={owner} repo={repo} grade={grade} score={score} />
 
         {/* Scan metadata */}
-        <div className="text-center text-xs text-text-muted pb-4">
+        <div className="text-center text-xs text-text-muted pb-2">
           Scanned {scan.cached ? '(cached)' : ''} {new Date(scan.scanned_at).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
           })}
           {' '}by AgentGraph Security Scanner
+        </div>
+        <div className="text-center pb-4">
+          <Link to="/scans" className="text-xs text-primary-light hover:underline">
+            How does this compare? Browse our full scan corpus &rarr;
+          </Link>
         </div>
       </div>
     </>
@@ -637,9 +642,12 @@ export default function Check() {
             </div>
           </div>
 
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-text-muted mb-2">
             Free, no account required. Results are cached for 1 hour.
           </p>
+          <Link to="/scans" className="text-xs text-primary-light hover:underline">
+            Or browse all 35,689 scans we&rsquo;ve already run &rarr;
+          </Link>
         </div>
       )}
     </PageTransition>

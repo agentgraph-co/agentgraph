@@ -650,6 +650,20 @@ async def interop_harness() -> JSONResponse:
             "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
             "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
             "as_of": "2026-04-30",
+            "evidence_taxonomy": {
+                "substrate": (
+                    "JCS canonicalizer byte-match across independent "
+                    "implementations on signed fixtures. Multi-source-proven "
+                    "as of 2026-04-30 via 7 independent canonicalizers."
+                ),
+                "verifier_conformance": (
+                    "claim_type discrimination, composition contracts, "
+                    "negative-path semantics. Per-implementation work that "
+                    "lands per role-taxonomy slot. Citation-graph framing "
+                    "from msaleme (A2A #1786, 2026-04-30) — substrate and "
+                    "verifier conformance are separable evidence categories."
+                ),
+            },
             "role_taxonomy": {
                 "evidence_provider": (
                     "Issues claim_type-tagged attestations against the CTEF "
@@ -768,6 +782,29 @@ async def interop_harness() -> JSONResponse:
                         "specs/test-vectors/verify_execution_attestation_arkforge.py"
                     ),
                 },
+                {
+                    "name": "msaleme clean-room canonicalizer",
+                    "maintainer": "@msaleme",
+                    "language": "Python",
+                    "role": "substrate_verifier",
+                    "canonicalizer": "trailofbits/rfc8785.py v0.1.4",
+                    "byte_match_aggregate": (
+                        "19/19 byte-exact + SHA-256-exact across three fixture "
+                        "sources: AgentGraph CTEF v0.3.1 inline (4/4), APS "
+                        "bilateral-delegation (10/10), APS rotation-attestation "
+                        "(5/5) — A2A #1786 comment 2026-04-30"
+                    ),
+                    "implementation_independence": (
+                        "Zero implementation overlap with AgentGraph / APS / "
+                        "AgentID / Nobulex / HiveTrust — closes the 'everyone "
+                        "running the same canonicalizer library' objection"
+                    ),
+                    "verifier_reference_artifact": (
+                        "~150 lines of Python over rfc8785.py; offered as "
+                        "standalone WG-citation artifact"
+                    ),
+                    "claim_type_live": False,
+                },
             ],
             "in_flight": [
                 {
@@ -796,14 +833,17 @@ async def interop_harness() -> JSONResponse:
                     ),
                 },
                 {
-                    "name": "msaleme x402 conformance harness",
+                    "name": "msaleme x402 conformance harness (claim_type module)",
                     "maintainer": "@msaleme",
                     "status": (
-                        "planning v4.5 with claim_type-tagged compliance output; "
-                        "JCS byte-match against agentgraph-co/agentgraph@69ad94d; "
-                        "41 existing x402 tests cover continuity-layer "
-                        "evidence_basis.evidence_type.payment_execution lane; "
-                        "A2A #1672 comment 2026-04-29"
+                        "substrate-layer byte-match completed and promoted to "
+                        "the implementations list (7th impl, substrate_verifier "
+                        "role, 19/19 across three fixture sources via "
+                        "trailofbits/rfc8785.py). Verifier-conformance work for "
+                        "claim_type-tagged compliance scoped against the "
+                        "experimental-ext repo once it opens for test-vector "
+                        "contributions; delivery window not yet scoped. A2A "
+                        "#1786 comment 2026-04-30"
                     ),
                 },
                 {
@@ -848,12 +888,13 @@ async def interop_harness() -> JSONResponse:
                 },
             },
             "summary": {
-                "implementations_byte_match_validated": 6,
-                "implementations_inline_vector_byte_match_validated": 3,
+                "implementations_byte_match_validated": 7,
+                "implementations_inline_vector_byte_match_validated": 4,
                 "evidence_providers": 5,
                 "enforcement_gateways": 1,
+                "substrate_verifiers": 1,
                 "languages": 2,
-                "independent_canonicalizers": 6,
+                "independent_canonicalizers": 7,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
                 "fail_closed_negative_paths": 2,
             },

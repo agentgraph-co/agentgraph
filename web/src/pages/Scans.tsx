@@ -3,7 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 
-type Surface = 'x402' | 'mcp' | 'npm' | 'pypi'
+type Surface = 'x402' | 'mcp' | 'npm' | 'pypi' | 'openclaw'
 type Severity = 'critical' | 'high' | 'clean' | 'skipped'
 type Sort = 'default' | 'score-asc' | 'score-desc' | 'name'
 
@@ -140,7 +140,7 @@ export default function Scans() {
             />
             <SummaryCard
               label="Independent receipts"
-              value="33,678"
+              value={data.summary.total_scans.toLocaleString()}
               hint="every row reproducible"
             />
           </section>
@@ -168,6 +168,7 @@ export default function Scans() {
             <option value="">All surfaces</option>
             <option value="x402">x402 Bazaar</option>
             <option value="mcp">MCP Registry</option>
+            <option value="openclaw">OpenClaw skills</option>
             <option value="npm">npm</option>
             <option value="pypi">PyPI</option>
           </select>
@@ -290,6 +291,7 @@ function CatalogRowComponent({ row }: { row: CatalogRow }) {
   const surfaceColor: Record<string, string> = {
     x402: 'bg-blue-500/15 text-blue-300',
     mcp: 'bg-purple-500/15 text-purple-300',
+    openclaw: 'bg-pink-500/15 text-pink-300',
     npm: 'bg-red-500/15 text-red-300',
     pypi: 'bg-yellow-500/15 text-yellow-300',
   }
