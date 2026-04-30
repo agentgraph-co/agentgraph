@@ -80,6 +80,7 @@ const FAQ = lazy(() => import('./pages/FAQ'))
 const Sandbox = lazy(() => import('./pages/Sandbox'))
 const Check = lazy(() => import('./pages/Check'))
 const X402Explorer = lazy(() => import('./pages/X402Explorer'))
+const Scans = lazy(() => import('./pages/Scans'))
 const StateOfAgentSecurity2026 = lazy(() => import('./pages/StateOfAgentSecurity2026'))
 
 const queryClient = new QueryClient({
@@ -158,6 +159,7 @@ function AppRoutes() {
           <Route path="/sandbox" element={<Sandbox />} />
           <Route path="/check" element={<Check />} />
           <Route path="/check/:owner/:repo" element={<Check />} />
+          <Route path="/scans" element={<Scans />} />
           <Route path="/x402" element={<X402Explorer />} />
           <Route path="/state-of-agent-security-2026" element={<StateOfAgentSecurity2026 />} />
           {/* Protected routes — require authentication */}
