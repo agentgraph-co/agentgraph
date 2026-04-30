@@ -805,6 +805,26 @@ async def interop_harness() -> JSONResponse:
                     ),
                     "claim_type_live": False,
                 },
+                {
+                    "name": "Foxbook",
+                    "maintainer": "@cloakmaster",
+                    "language": "TypeScript",
+                    "role": "evidence_provider",
+                    "claim_type_layer": "identity",
+                    "canonicalizer": "canonicalize@2.1.0 (erdtman RFC 8785 reference impl)",
+                    "inline_vector_byte_match": (
+                        "4/4 SHA-256-exact against agentgraph-co/agentgraph@69ad94d "
+                        "— A2A #1672 comment 2026-04-30"
+                    ),
+                    "claim_type_live": True,
+                    "did_method": "did:foxbook:{ULID}",
+                    "transparency_log": "https://transparency.foxbook.dev",
+                    "byte_match_report": (
+                        "https://github.com/cloakmaster/foxbook/blob/9e392c5/"
+                        "ops/evidence/2026-04-30-ctef-v0.3.1-byte-match.md"
+                    ),
+                    "wg_proposal": "A2A #1803",
+                },
             ],
             "in_flight": [
                 {
@@ -847,16 +867,6 @@ async def interop_harness() -> JSONResponse:
                     ),
                 },
                 {
-                    "name": "x-foxbook (Foxbook)",
-                    "maintainer": "@cloakmaster",
-                    "status": (
-                        "filed A2A #1803 proposing public log + cryptographic "
-                        "identity check as claim_type: identity provider; JCS "
-                        "byte-match run against v0.3.1 vectors in flight — A2A "
-                        "#1672 comment 2026-04-30"
-                    ),
-                },
-                {
                     "name": "AEP (Agentic Exchange Protocol)",
                     "maintainer": "@Pineapples100",
                     "language": "spec draft",
@@ -888,13 +898,13 @@ async def interop_harness() -> JSONResponse:
                 },
             },
             "summary": {
-                "implementations_byte_match_validated": 7,
-                "implementations_inline_vector_byte_match_validated": 4,
-                "evidence_providers": 5,
+                "implementations_byte_match_validated": 8,
+                "implementations_inline_vector_byte_match_validated": 5,
+                "evidence_providers": 6,
                 "enforcement_gateways": 1,
                 "substrate_verifiers": 1,
                 "languages": 2,
-                "independent_canonicalizers": 7,
+                "independent_canonicalizers": 8,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
                 "fail_closed_negative_paths": 2,
             },
