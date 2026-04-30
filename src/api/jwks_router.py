@@ -667,13 +667,26 @@ async def interop_harness() -> JSONResponse:
             "role_taxonomy": {
                 "evidence_provider": (
                     "Issues claim_type-tagged attestations against the CTEF "
-                    "envelope; appears as the upstream signer in a verifier's "
-                    "trust chain."
+                    "envelope; produces JCS-canonicalized signed evidence; "
+                    "appears as the upstream signer in a verifier's trust "
+                    "chain."
                 ),
                 "enforcement_gateway": (
-                    "Receives evidence bundles, evaluates against policy, "
-                    "returns JWS-signed verdicts (certified true/false + "
-                    "attestation). Sits downstream of evidence providers."
+                    "Evaluation-only: receives evidence bundles, evaluates "
+                    "against policy, returns JWS-signed verdicts (certified "
+                    "true/false + attestation). No evidence emission, no "
+                    "canonicalization dependency. Verifies existing proofs "
+                    "and issues policy decisions only — does not re-sign or "
+                    "re-canonicalize. Sits downstream of evidence providers. "
+                    "Per arkforge framing, A2A #1734 comment 2026-04-30."
+                ),
+                "substrate_verifier": (
+                    "Independent canonicalizer + fixture-validation runner "
+                    "with no implementation overlap with the providers it "
+                    "verifies. Reproduces SHA-256s without issuing or "
+                    "evaluating evidence. Closes the 'everyone running the "
+                    "same canonicalizer library' objection for sponsorship "
+                    "review weighting."
                 ),
             },
             "implementations": [
