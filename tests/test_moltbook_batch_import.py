@@ -56,7 +56,13 @@ async def test_batch_import_creates_entities(db: AsyncSession):
 @pytest.mark.asyncio
 async def test_batch_import_dedup(db: AsyncSession):
     """Running twice does not duplicate imports."""
+    import random
+
+    # Seed RNG so the scout's shuffle picks the same profiles on both calls,
+    # otherwise dedup never has overlapping inputs to skip.
+    random.seed(42)
     await run_batch_import(db, limit=5)
+    random.seed(42)
     r2 = await run_batch_import(db, limit=5)
     assert r2["skipped_duplicate"] > 0
 
