@@ -99,7 +99,8 @@ async def test_trust_badge_svg_no_trust_score(client, db):
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
     body = resp.text
-    assert ">0 " in body or ">0<" in body  # score 0 on 0-100 scale
+    # Score 0 with letter grade: badge value text is now "F 0"
+    assert ">F 0<" in body
 
 
 @pytest.mark.asyncio
@@ -110,29 +111,31 @@ async def test_trust_badge_color_gray(client, db):
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#6C7086" in resp.text  # muted gray — new/unverified
+    # Unified A-F system: score 0.15 maps to F-grade red
+    assert "#EF4444" in resp.text
 
 
 @pytest.mark.asyncio
 async def test_trust_badge_color_amber(client, db):
-    """Trust score 0.3-0.6 produces an amber badge (tier-1)."""
+    """Trust score in C-grade range produces an amber badge."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.45)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#F59E0B" in resp.text  # amber — emerging
+    assert "#F59E0B" in resp.text  # amber — C grade (Fair)
 
 
 @pytest.mark.asyncio
 async def test_trust_badge_color_teal(client, db):
-    """Trust score 0.6-0.8 produces a primary teal badge (tier-2)."""
+    """Trust score in B-grade range produces a green badge."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.70)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "#0D9488" in resp.text  # primary teal — trusted
+    # B-grade (61-80) is green-500 in unified system; primary teal still appears in label bg
+    assert "#22C55E" in resp.text
 
 
 @pytest.mark.asyncio
@@ -148,10 +151,11 @@ async def test_trust_badge_color_bright_teal(client, db):
 
 @pytest.mark.asyncio
 async def test_trust_badge_unverified_text(client, db):
-    """An entity without an operator shows 'unverified'."""
+    """Score 0.50 renders the C letter grade in the badge value text."""
     _, entity_id = await _setup_user(client)
     await _set_trust_score(db, entity_id, 0.50)
 
     resp = await client.get(f"/api/v1/badges/trust/{entity_id}.svg")
     assert resp.status_code == 200
-    assert "unverified" in resp.text
+    # Badge no longer renders "unverified" copy — letter grade replaced status text
+    assert ">C 50<" in resp.text

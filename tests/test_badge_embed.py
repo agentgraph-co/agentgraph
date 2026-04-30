@@ -118,9 +118,10 @@ async def test_embed_badge_json(client, db):
     assert data["entity_id"] == entity_id
     assert data["entity_name"] == "EmbedBadgeUser"
     assert data["trust_score"] == 0.85
-    assert data["trust_tier"] == "high"
+    # trust_tier is now a letter grade (unified A-F system); badge_color is teal-400 for A
+    assert data["trust_tier"] == "A"
     assert isinstance(data["is_verified"], bool)
-    assert data["badge_color"] == "#2196F3"
+    assert data["badge_color"] == "#2DD4BF"
     assert data["schema_version"] == 1
 
 
@@ -129,10 +130,10 @@ async def test_embed_badge_json_trust_tiers(client, db):
     """JSON format returns correct tier labels for different score ranges."""
     _, entity_id = await _setup_user(client)
 
-    # High tier (>= 0.8)
+    # A grade (>= 0.81)
     await _set_trust_score(db, entity_id, 0.90)
     resp = await client.get(f"/api/v1/badges/embed/{entity_id}?format=json")
-    assert resp.json()["trust_tier"] == "high"
+    assert resp.json()["trust_tier"] == "A"
 
 
 # --- Edge cases ---
@@ -155,7 +156,8 @@ async def test_embed_badge_no_trust_score(client, db):
     assert resp.status_code == 200
     data = resp.json()
     assert data["trust_score"] == 0.0
-    assert data["trust_tier"] == "low"
+    # Score 0 maps to F in unified A-F grade system
+    assert data["trust_tier"] == "F"
 
 
 @pytest.mark.asyncio
