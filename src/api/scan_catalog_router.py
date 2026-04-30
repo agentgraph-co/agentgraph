@@ -55,6 +55,8 @@ class CatalogRow(BaseModel):
 class CatalogSummary(BaseModel):
     total_scans: int
     by_surface: dict[str, int]
+    by_surface_critical: dict[str, int] = {}
+    by_surface_high: dict[str, int] = {}
     repo_scans_total: int
     repo_scans_with_critical: int
     repo_scans_with_high: int
@@ -143,9 +145,16 @@ def _build_catalog() -> dict[str, Any]:
         "openclaw", _DATA_DIR / "openclaw-results.json", results_key="repos"
     )
 
-    by_surface = {s: 0 for s in ("x402", "mcp", "npm", "pypi", "openclaw")}
+    surfaces = ("x402", "mcp", "npm", "pypi", "openclaw")
+    by_surface = {s: 0 for s in surfaces}
+    by_surface_critical = {s: 0 for s in surfaces}
+    by_surface_high = {s: 0 for s in surfaces}
     for r in rows:
         by_surface[r.surface] = by_surface.get(r.surface, 0) + 1
+        if (r.critical or 0) > 0:
+            by_surface_critical[r.surface] = by_surface_critical.get(r.surface, 0) + 1
+        if (r.high or 0) > 0:
+            by_surface_high[r.surface] = by_surface_high.get(r.surface, 0) + 1
 
     repo_rows = [r for r in rows if r.surface != "x402"]
     repo_with_critical = sum(1 for r in repo_rows if (r.critical or 0) > 0)
@@ -156,6 +165,8 @@ def _build_catalog() -> dict[str, Any]:
     summary = CatalogSummary(
         total_scans=len(rows),
         by_surface=by_surface,
+        by_surface_critical=by_surface_critical,
+        by_surface_high=by_surface_high,
         repo_scans_total=len(repo_rows),
         repo_scans_with_critical=repo_with_critical,
         repo_scans_with_high=repo_with_high,

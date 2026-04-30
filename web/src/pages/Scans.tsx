@@ -28,6 +28,8 @@ interface CatalogRow {
 interface CatalogSummary {
   total_scans: number
   by_surface: Record<string, number>
+  by_surface_critical: Record<string, number>
+  by_surface_high: Record<string, number>
   repo_scans_total: number
   repo_scans_with_critical: number
   repo_scans_with_high: number
@@ -122,26 +124,34 @@ export default function Scans() {
         </header>
 
         {data && (
-          <section className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <SummaryCard
               label="Total scans"
               value={data.summary.total_scans.toLocaleString()}
-              hint="across 4 surfaces"
-            />
-            <SummaryCard
-              label="Repo scans"
-              value={data.summary.repo_scans_total.toLocaleString()}
-              hint={`${data.summary.repo_scans_with_critical} critical, ${data.summary.repo_scans_with_high} high`}
+              hint="across 5 surfaces"
             />
             <SummaryCard
               label="x402 endpoints"
               value={data.summary.x402_endpoints_total.toLocaleString()}
-              hint={`${data.summary.x402_compliant} compliant (${((data.summary.x402_compliant / Math.max(data.summary.x402_endpoints_total, 1)) * 100).toFixed(2)}%)`}
+              hint={`${data.summary.x402_compliant} compliant · ${((data.summary.x402_compliant / Math.max(data.summary.x402_endpoints_total, 1)) * 100).toFixed(2)}%`}
             />
             <SummaryCard
-              label="Independent receipts"
-              value={data.summary.total_scans.toLocaleString()}
-              hint="every row reproducible"
+              label="MCP servers"
+              value={(data.summary.by_surface.mcp ?? 0).toLocaleString()}
+              hint={`${data.summary.by_surface_critical.mcp ?? 0} critical · ${data.summary.by_surface_high.mcp ?? 0} high`}
+            />
+            <SummaryCard
+              label="OpenClaw skills"
+              value={(data.summary.by_surface.openclaw ?? 0).toLocaleString()}
+              hint={`${data.summary.by_surface_critical.openclaw ?? 0} critical · ${data.summary.by_surface_high.openclaw ?? 0} high`}
+            />
+            <SummaryCard
+              label="npm + PyPI"
+              value={(
+                (data.summary.by_surface.npm ?? 0) +
+                (data.summary.by_surface.pypi ?? 0)
+              ).toLocaleString()}
+              hint={`${(data.summary.by_surface_critical.npm ?? 0) + (data.summary.by_surface_critical.pypi ?? 0)} critical · ${(data.summary.by_surface_high.npm ?? 0) + (data.summary.by_surface_high.pypi ?? 0)} high`}
             />
           </section>
         )}
