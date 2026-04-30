@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional, Type
+from typing import Any
 
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -37,9 +37,9 @@ class TrustVerifyTool(BaseTool):
         "Returns whether the entity meets the minimum trust threshold. "
         "Input: entity_id (str), optional min_score (float, default 0.5)."
     )
-    args_schema: Type[BaseModel] = TrustVerifyInput
+    args_schema: type[BaseModel] = TrustVerifyInput
     base_url: str = DEFAULT_BASE_URL
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     def _run(self, entity_id: str, min_score: float = 0.5, **kwargs: Any) -> str:
         """Synchronous wrapper around async verify_trust."""
@@ -73,7 +73,10 @@ class TrustVerifyTool(BaseTool):
 
         if result:
             return f"TRUSTED: Entity {entity_id} meets the minimum trust score of {min_score}."
-        return f"UNTRUSTED: Entity {entity_id} does NOT meet the minimum trust score of {min_score}."
+        return (
+            f"UNTRUSTED: Entity {entity_id} does NOT meet the minimum trust "
+            f"score of {min_score}."
+        )
 
     async def _arun(self, entity_id: str, min_score: float = 0.5, **kwargs: Any) -> str:
         """Async trust verification."""
@@ -85,14 +88,17 @@ class TrustVerifyTool(BaseTool):
         )
         if result:
             return f"TRUSTED: Entity {entity_id} meets the minimum trust score of {min_score}."
-        return f"UNTRUSTED: Entity {entity_id} does NOT meet the minimum trust score of {min_score}."
+        return (
+            f"UNTRUSTED: Entity {entity_id} does NOT meet the minimum trust "
+            f"score of {min_score}."
+        )
 
 
 class SecurityScanInput(BaseModel):
     """Input schema for SecurityScanTool."""
 
     repo: str = Field(description="Repository to scan (e.g. 'owner/repo')")
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None,
         description="Optional GitHub token for private repos",
     )
@@ -111,11 +117,11 @@ class SecurityScanTool(BaseTool):
         "Returns vulnerability counts and severity levels. "
         "Input: repo (str, e.g. 'owner/repo'), optional token (str)."
     )
-    args_schema: Type[BaseModel] = SecurityScanInput
+    args_schema: type[BaseModel] = SecurityScanInput
     base_url: str = DEFAULT_BASE_URL
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
-    def _run(self, repo: str, token: Optional[str] = None, **kwargs: Any) -> str:
+    def _run(self, repo: str, token: str | None = None, **kwargs: Any) -> str:
         """Synchronous wrapper around async run_security_scan."""
         try:
             loop = asyncio.get_running_loop()
@@ -147,7 +153,7 @@ class SecurityScanTool(BaseTool):
 
         return str(result)
 
-    async def _arun(self, repo: str, token: Optional[str] = None, **kwargs: Any) -> str:
+    async def _arun(self, repo: str, token: str | None = None, **kwargs: Any) -> str:
         """Async security scan."""
         result = await run_security_scan(
             repo,

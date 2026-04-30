@@ -79,9 +79,10 @@ async def generate_weekly_digest() -> dict:
 
     # 4. Reply guy stats
     try:
+        import sqlalchemy as sa
+
         from src.database import async_session
         from src.models import ReplyOpportunity
-        import sqlalchemy as sa
 
         async with async_session() as db:
             result = await db.execute(
@@ -118,14 +119,20 @@ async def generate_weekly_digest() -> dict:
 
     # 6. GitHub discussion activity (A2A, insumer threads)
     try:
+        gh_query = (
+            'query={repository(owner:"a2aproject",name:"A2A")'
+            "{discussions(last:10,orderBy:{field:UPDATED_AT,direction:DESC})"
+            "{nodes{number,title,comments{totalCount},updatedAt}}}}"
+        )
         result = subprocess.run(
-            ["gh", "api", "graphql", "-f", "query={repository(owner:\"a2aproject\",name:\"A2A\"){discussions(last:10,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number,title,comments{totalCount},updatedAt}}}}"],
+            ["gh", "api", "graphql", "-f", gh_query],
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode == 0:
             import json as _json
             gh_data = _json.loads(result.stdout)
-            discussions = gh_data.get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])
+            repo_data = gh_data.get("data", {}).get("repository", {})
+            discussions = repo_data.get("discussions", {}).get("nodes", [])
             # Only include discussions we're involved in
             our_discussions = [d for d in discussions if d.get("number") in (1720, 1672, 1734)]
             digest["partner_activity"] = [
@@ -142,9 +149,10 @@ async def generate_weekly_digest() -> dict:
 
     # 7. New entity imports this week
     try:
+        import sqlalchemy as sa
+
         from src.database import async_session
         from src.models import Entity
-        import sqlalchemy as sa
 
         async with async_session() as db:
             result = await db.execute(
@@ -162,7 +170,9 @@ async def generate_weekly_digest() -> dict:
         r = get_redis()
         context = await r.get("marketing:strategic_context")
         if context:
-            digest["strategic_context"] = context.decode() if isinstance(context, bytes) else context
+            digest["strategic_context"] = (
+                context.decode() if isinstance(context, bytes) else context
+            )
     except Exception:
         # Fallback: local file (for dev environments)
         context_path = Path("data/marketing_strategic_context.md")

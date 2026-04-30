@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any
 
 import httpx
 from langchain_core.callbacks import BaseCallbackHandler
@@ -32,7 +32,7 @@ class AgentGraphTrustCallback(BaseCallbackHandler):
         self.base_url = base_url.rstrip("/")
         self.report_results = report_results
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -40,8 +40,8 @@ class AgentGraphTrustCallback(BaseCallbackHandler):
 
     def on_chain_start(
         self,
-        serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        serialized: dict[str, Any],
+        inputs: dict[str, Any],
         **kwargs: Any,
     ) -> None:
         chain_name = serialized.get("name", serialized.get("id", ["unknown"])[-1])
@@ -49,7 +49,7 @@ class AgentGraphTrustCallback(BaseCallbackHandler):
 
     def on_chain_end(
         self,
-        outputs: Dict[str, Any],
+        outputs: dict[str, Any],
         **kwargs: Any,
     ) -> None:
         logger.info("AgentGraph: chain_end did=%s", self.did)
@@ -87,7 +87,7 @@ async def verify_trust(
     entity_id: str,
     min_score: float = 0.5,
     base_url: str = DEFAULT_BASE_URL,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> bool:
     """Check if an entity meets the minimum trust threshold.
 
@@ -100,7 +100,7 @@ async def verify_trust(
     Returns:
         True if the entity's trust score meets or exceeds min_score.
     """
-    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -135,9 +135,9 @@ def get_trust_badge_url(
 
 async def run_security_scan(
     repo: str,
-    token: Optional[str] = None,
+    token: str | None = None,
     base_url: str = DEFAULT_BASE_URL,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> dict:
     """Run a security scan on a repository via the AgentGraph API.
 
@@ -150,11 +150,11 @@ async def run_security_scan(
     Returns:
         Dict with scan results including vulnerability counts and severity.
     """
-    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
-    payload: Dict[str, Any] = {"repo": repo}
+    payload: dict[str, Any] = {"repo": repo}
     if token:
         payload["token"] = token
 

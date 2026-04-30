@@ -488,10 +488,11 @@ async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
                 from src.database import async_session
 
                 async with async_session() as session:
-                    from src.models import ReplyOpportunity, ReplyTarget
+                    from datetime import datetime, timezone
 
                     import sqlalchemy as sa
-                    from datetime import datetime, timezone
+
+                    from src.models import ReplyOpportunity, ReplyTarget
 
                     # Fetch drafted replies, newest first, limit to 5 per cycle
                     result = await session.execute(

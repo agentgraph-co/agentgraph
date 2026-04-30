@@ -847,7 +847,9 @@ def _calculate_trust_score(result: ScanResult) -> int:
     # For MCP servers and media/audio tools, discount expected patterns
     # These are intentional capabilities, not vulnerabilities
     if result.is_mcp_server or result.is_media_tool:
-        expected_categories = {"fs_access", "unsafe_exec"} if result.is_mcp_server else {"fs_access"}
+        expected_categories = (
+            {"fs_access", "unsafe_exec"} if result.is_mcp_server else {"fs_access"}
+        )
         actual_critical = sum(
             1 for f in result.findings
             if f.severity == "critical" and f.category not in expected_categories

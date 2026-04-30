@@ -12,7 +12,6 @@ import os
 import sys
 from datetime import datetime, timezone
 
-
 # Curated list of AI agent builders / MCP authors / framework maintainers on Bluesky
 # Update this list as you discover more accounts
 CURATED_ACCOUNTS = [
@@ -122,10 +121,10 @@ def main() -> None:
 
     rkey = starter_pack.uri.split("/")[-1]
     pack_url = f"https://bsky.app/starter-pack/{client.me.did}/{rkey}"
-    print(f"\nStarter Pack created!")
+    print("\nStarter Pack created!")
     print(f"  URI: {starter_pack.uri}")
     print(f"  URL: {pack_url}")
-    print(f"\nShare this URL in posts and onboarding flows.")
+    print("\nShare this URL in posts and onboarding flows.")
 
 
 if __name__ == "__main__":

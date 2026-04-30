@@ -1,8 +1,9 @@
 """Tests for Docker Hub fetcher."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.source_import.docker_fetcher import fetch_docker, parse_docker_url
 from src.source_import.errors import SourceFetchError, SourceParseError

@@ -282,7 +282,7 @@ async def main() -> None:
 
     # Print summary
     print("\n" + "=" * 90)
-    print(f"\nOPENCLAW SECURITY SCAN SUMMARY")
+    print("\nOPENCLAW SECURITY SCAN SUMMARY")
     print(f"{'='*40}")
     print(f"Repos scanned:        {len(scanned)}/{len(OPENCLAW_SKILLS)}")
     print(f"Total findings:       {total_findings}")
@@ -295,11 +295,11 @@ async def main() -> None:
     print(f"\nReport: {OUTPUT_PATH}")
 
     if categories:
-        print(f"\nFindings by category:")
+        print("\nFindings by category:")
         for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
             print(f"  {cat:<20} {count}")
 
-    print(f"\nScore distribution:")
+    print("\nScore distribution:")
     for bucket, count in score_dist.items():
         bar = "#" * count
         print(f"  {bucket:<8} {count:>3} {bar}")

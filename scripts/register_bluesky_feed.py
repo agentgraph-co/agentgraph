@@ -56,11 +56,11 @@ def main() -> None:
     feed_uri = response.uri
     feed_url = f"https://bsky.app/profile/{client.me.did}/feed/{feed_rkey}"
 
-    print(f"\nFeed registered!")
+    print("\nFeed registered!")
     print(f"  URI: {feed_uri}")
     print(f"  URL: {feed_url}")
     print(f"\nSet BLUESKY_DID={client.me.did} in your .env")
-    print(f"Set BLUESKY_FEED_ENABLED=true to start the subscriber")
+    print("Set BLUESKY_FEED_ENABLED=true to start the subscriber")
 
 
 if __name__ == "__main__":

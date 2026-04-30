@@ -295,9 +295,9 @@ async def main() -> None:
         "postgresql+asyncpg://localhost:5432/agentgraph_staging",
     )
     engine = create_async_engine(db_url)
-    Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with Session() as db:
+    async with session_factory() as db:
         added = 0
         skipped = 0
         for t in TARGETS:

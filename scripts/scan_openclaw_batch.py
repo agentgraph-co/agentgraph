@@ -16,11 +16,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -42,7 +41,7 @@ API_RETRY_WAIT = 60           # seconds to wait on 403/429
 API_MAX_RETRIES = 3           # max retries per API call
 
 
-def _load_github_token() -> Optional[str]:
+def _load_github_token() -> str | None:
     """Load GITHUB_TOKEN from env or .env.secrets."""
     token = os.environ.get("GITHUB_TOKEN")
     if token:
@@ -58,7 +57,7 @@ def _load_github_token() -> Optional[str]:
     return None
 
 
-def _gh_api_headers(token: Optional[str]) -> Dict[str, str]:
+def _gh_api_headers(token: str | None) -> dict[str, str]:
     """Build headers for GitHub REST API."""
     headers = {"Accept": "application/vnd.github+json"}
     if token:
@@ -68,9 +67,9 @@ def _gh_api_headers(token: Optional[str]) -> Dict[str, str]:
 
 async def _github_search(
     query: str,
-    token: Optional[str],
+    token: str | None,
     max_pages: int = 5,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Search GitHub repos via REST API with pagination and rate limit handling.
 
     Returns list of dicts with keys: full_name, description, stargazers_count.
@@ -78,7 +77,7 @@ async def _github_search(
     import httpx
 
     headers = _gh_api_headers(token)
-    repos: List[Dict[str, Any]] = []
+    repos: list[dict[str, Any]] = []
     page = 1
 
     async with httpx.AsyncClient(timeout=30) as client:
@@ -147,15 +146,15 @@ async def _github_search(
     return repos
 
 
-async def discover_repos(token: Optional[str]) -> List[Dict[str, Any]]:
+async def discover_repos(token: str | None) -> list[dict[str, Any]]:
     """Discover OpenClaw repos using multiple search strategies.
 
     Returns deduplicated list of repo dicts.
     """
-    seen: Set[str] = set()
-    all_repos: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    all_repos: list[dict[str, Any]] = []
 
-    def _add(repos: List[Dict[str, Any]], source: str) -> int:
+    def _add(repos: list[dict[str, Any]], source: str) -> int:
         added = 0
         for r in repos:
             key = r["full_name"].lower()
@@ -194,7 +193,7 @@ async def discover_repos(token: Optional[str]) -> List[Dict[str, Any]]:
     return all_repos
 
 
-def _load_existing_report() -> Dict[str, Any]:
+def _load_existing_report() -> dict[str, Any]:
     """Load existing scan report (from hand-picked scan) if present."""
     if EXISTING_REPORT.exists():
         try:
@@ -204,7 +203,7 @@ def _load_existing_report() -> Dict[str, Any]:
     return {}
 
 
-def _load_progress() -> Dict[str, Any]:
+def _load_progress() -> dict[str, Any]:
     """Load batch progress file for resume capability."""
     if PROGRESS_PATH.exists():
         try:
@@ -214,13 +213,13 @@ def _load_progress() -> Dict[str, Any]:
     return {"scanned": {}, "errors": {}, "last_index": -1}
 
 
-def _save_progress(progress: Dict[str, Any]) -> None:
+def _save_progress(progress: dict[str, Any]) -> None:
     """Save progress after each repo scan."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PROGRESS_PATH.write_text(json.dumps(progress, indent=2))
 
 
-def _result_to_dict(r: ScanResult) -> Dict[str, Any]:
+def _result_to_dict(r: ScanResult) -> dict[str, Any]:
     """Convert ScanResult to serializable dict."""
     return {
         "repo": r.repo,
@@ -267,8 +266,8 @@ async def main() -> None:
 
     # ── Phase 2: Deduplicate with existing scans ───────────────────────────
     existing_report = _load_existing_report()
-    already_scanned: Set[str] = set()
-    existing_results: List[Dict[str, Any]] = []
+    already_scanned: set[str] = set()
+    existing_results: list[dict[str, Any]] = []
 
     if existing_report:
         for repo_data in existing_report.get("repos", []):
@@ -305,7 +304,7 @@ async def main() -> None:
     print(f"\n{'Repo':<55} {'Score':>5} {'Crit':>4} {'High':>4} {'Med':>4} {'Files':>5} {'Status'}")
     print("-" * 95)
 
-    batch_results: List[Dict[str, Any]] = []
+    batch_results: list[dict[str, Any]] = []
     errors = 0
     start = time.time()
 
@@ -363,7 +362,7 @@ async def main() -> None:
     print("=" * 70)
 
     # Combine existing results + batch results + previous progress results
-    merged_repos: Dict[str, Dict[str, Any]] = {}
+    merged_repos: dict[str, dict[str, Any]] = {}
 
     # Add existing report results
     for rd in existing_results:
@@ -401,7 +400,7 @@ async def main() -> None:
     repos_with_critical = sum(1 for r in scanned if r.get("critical_count", 0) > 0)
 
     # Category breakdown
-    categories: Dict[str, int] = {}
+    categories: dict[str, int] = {}
     for r in scanned:
         for f in r.get("findings", []):
             cat = f.get("category", "unknown")
@@ -473,11 +472,11 @@ async def main() -> None:
     print(f"Progress:    {PROGRESS_PATH}")
 
     if categories:
-        print(f"\nFindings by category:")
+        print("\nFindings by category:")
         for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
             print(f"  {cat:<20} {count}")
 
-    print(f"\nScore distribution:")
+    print("\nScore distribution:")
     for bucket, count in score_dist.items():
         bar = "#" * count
         print(f"  {bucket:<8} {count:>3} {bar}")

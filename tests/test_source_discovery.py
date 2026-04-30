@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import json
-
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.source_import.discovery import discover_related_sources
-from src.source_import.types import DiscoveredSource, SourceImportResult
+from src.source_import.types import SourceImportResult
 
 
 def _github_result(

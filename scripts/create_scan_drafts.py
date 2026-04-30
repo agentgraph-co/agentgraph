@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -88,7 +87,6 @@ async def main() -> None:
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
     load_dotenv(Path(__file__).resolve().parent.parent / ".env.secrets", override=True)
 
-    from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.database import async_session
     from src.marketing.draft_queue import enqueue_draft

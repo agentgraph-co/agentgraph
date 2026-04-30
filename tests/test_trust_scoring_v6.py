@@ -10,10 +10,6 @@ Tests the complete trust scoring pipeline including:
 """
 from __future__ import annotations
 
-import math
-
-import pytest
-
 from src.trust.score import (
     ACTIVITY_WEIGHT,
     AGE_WEIGHT,
@@ -24,7 +20,6 @@ from src.trust.score import (
     VERIFICATION_WEIGHT,
     _verification_factor,
 )
-
 
 # ── Weight Configuration ──
 
@@ -145,7 +140,15 @@ def test_human_scan_redistribution():
     s_human = 0.0
 
     # Weights should still sum to 1.0
-    human_total = v_human + AGE_WEIGHT + ACTIVITY_WEIGHT + REPUTATION_WEIGHT + COMMUNITY_WEIGHT + e_human + s_human
+    human_total = (
+        v_human
+        + AGE_WEIGHT
+        + ACTIVITY_WEIGHT
+        + REPUTATION_WEIGHT
+        + COMMUNITY_WEIGHT
+        + e_human
+        + s_human
+    )
     assert abs(human_total - 1.0) < 0.001, f"Human weights sum to {human_total}"
 
 
@@ -272,7 +275,6 @@ def test_aggregate_empty_scores():
 def test_attestation_weight_not_falsy():
     """Verify the sybil fix: att.weight or 0.5 is NOT used."""
     # This is a code-level check — ensure the pattern doesn't exist
-    import ast
 
     with open("src/trust/score.py") as f:
         source = f.read()

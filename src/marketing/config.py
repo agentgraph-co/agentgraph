@@ -124,7 +124,8 @@ marketing_settings = MarketingSettings()
 PLATFORM_SCHEDULE: dict[str, dict] = {
     "twitter": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
     "bluesky": {"posts_per_week": 2, "auto_post": True, "days": ["mon", "fri"]},
-    "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},  # DISABLED until May 1 — account karma is -1, dead channel
+    # DISABLED until May 1 — account karma is -1, dead channel
+    "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},
     "huggingface": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
     "devto": {"posts_per_week": 1, "auto_post": True, "days": ["thu"]},  # weekly article/update
     "linkedin": {"posts_per_week": 0, "auto_post": False, "days": []},  # not set up

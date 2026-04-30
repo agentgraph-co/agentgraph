@@ -1,17 +1,15 @@
 """Unit tests for agentgraph_langchain trust module."""
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 import respx
-
 from agentgraph_langchain.trust import (
     AgentGraphTrustCallback,
     get_trust_badge_url,
     run_security_scan,
     verify_trust,
 )
-
 
 BASE = "https://agentgraph.co/api/v1"
 
