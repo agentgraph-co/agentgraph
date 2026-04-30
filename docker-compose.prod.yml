@@ -47,6 +47,7 @@ services:
       --forwarded-allow-ips="172.16.0.0/12"
     volumes:
       - ./digest_history.json:/app/digest_history.json:ro
+      - ./data/launch-scans:/app/data/launch-scans:ro
     depends_on:
       postgres:
         condition: service_healthy
