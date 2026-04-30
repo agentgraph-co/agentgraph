@@ -29,7 +29,6 @@ router = APIRouter(prefix="/public/scan-catalog", tags=["public-scan"])
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _DATA_DIR = _PROJECT_ROOT / "data" / "launch-scans"
-_OPENCLAW_REPORT = _PROJECT_ROOT / "data" / "openclaw_scan_report_full.json"
 
 _CATALOG_CACHE: dict[str, Any] | None = None
 
@@ -140,7 +139,9 @@ def _build_catalog() -> dict[str, Any]:
     rows += _load_surface("pypi", _DATA_DIR / "pypi-agents-results.json")
     # OpenClaw 500-skills scan uses a different file shape: top-level
     # 'repos' key instead of 'results'.
-    rows += _load_surface("openclaw", _OPENCLAW_REPORT, results_key="repos")
+    rows += _load_surface(
+        "openclaw", _DATA_DIR / "openclaw-results.json", results_key="repos"
+    )
 
     by_surface = {s: 0 for s in ("x402", "mcp", "npm", "pypi", "openclaw")}
     for r in rows:
