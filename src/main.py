@@ -65,13 +65,13 @@ from src.api.onboarding_router import router as onboarding_router
 from src.api.org_router import router as org_router
 from src.api.profile_router import router as profile_router
 from src.api.public_scan_router import router as public_scan_router
-from src.api.scan_catalog_router import router as scan_catalog_router
 from src.api.ratelimit_router import router as ratelimit_router
 from src.api.recruitment_router import router as recruitment_router
 from src.api.reply_guy_router import router as reply_guy_router
 from src.api.safety_hardening_router import router as safety_hardening_router
 from src.api.safety_router import router as safety_router
 from src.api.sandbox_router import router as sandbox_router
+from src.api.scan_catalog_router import router as scan_catalog_router
 from src.api.search_router import router as search_router
 from src.api.security_attestation_router import router as security_attestation_router
 from src.api.semantic_search_router import router as semantic_search_router

@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from src.api.rate_limit import rate_limit_reads
@@ -186,7 +186,10 @@ async def scan_catalog(
     if sort == "score-desc":
         filtered = sorted(filtered, key=lambda r: r.trust_score or -1, reverse=True)
     elif sort == "score-asc":
-        filtered = sorted(filtered, key=lambda r: r.trust_score if r.trust_score is not None else 999)
+        filtered = sorted(
+            filtered,
+            key=lambda r: r.trust_score if r.trust_score is not None else 999,
+        )
     elif sort == "name":
         filtered = sorted(filtered, key=lambda r: (r.name or "").lower())
 
