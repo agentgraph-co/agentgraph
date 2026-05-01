@@ -671,7 +671,12 @@ async def interop_harness() -> JSONResponse:
                     "their canonical sources, run through @nobulex/crypto, "
                     "compare SHA-256 against expected hashes, and emit "
                     "verification receipts. Lifts the substrate-evidence "
-                    "claim from 'stated and validated' to 'reader-runnable.'"
+                    "claim from 'stated and validated' to 'reader-runnable.' "
+                    "On 2026-05-01, APS independently re-ran both scripts "
+                    "and posted PASS receipts (10/10 + 4/4 incl negative-"
+                    "path) mirrored at aeoess/aps-conformance-suite/cross-"
+                    "impl-receipts/ — substrate evidence now lives in two "
+                    "independent repos with no maintainer re-run dependency."
                 ),
             },
             "role_taxonomy": {
@@ -964,6 +969,50 @@ async def interop_harness() -> JSONResponse:
                 "independent_canonicalizers": 8,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
                 "fail_closed_negative_paths": 2,
+                "reader_runnable_verifiers": 2,
+                "cross_repository_receipt_mirrors": 2,
+            },
+            "cross_validation_receipts": {
+                "agentgraph_to_aps_via_nobulex": {
+                    "verifier_repo": "https://github.com/arian-gogani/nobulex",
+                    "verifier_script": "scripts/verify-aps-byte-match.mjs",
+                    "fixture_source": (
+                        "https://github.com/aeoess/agent-passport-system/blob/"
+                        "main/fixtures/bilateral-delegation/"
+                        "canonicalize-fixture-v1.json"
+                    ),
+                    "result": "10/10 PASS",
+                    "third_party_rerun": (
+                        "APS-side rerun 2026-05-01T16:59:33Z; receipt "
+                        "mirrored at aeoess/aps-conformance-suite/cross-"
+                        "impl-receipts/"
+                    ),
+                    "seed_sha256": (
+                        "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a"
+                    ),
+                },
+                "ctef_v031_via_nobulex": {
+                    "verifier_repo": "https://github.com/arian-gogani/nobulex",
+                    "verifier_script": "scripts/verify-ctef-byte-match.mjs",
+                    "fixture_source": "https://agentgraph.co/.well-known/cte-test-vectors.json",
+                    "fixture_version": "0.3.1",
+                    "fixture_commit": "agentgraph-co/agentgraph@69ad94d",
+                    "result": (
+                        "4/4 PASS including both negative-path vectors "
+                        "(INVALID_CLAIM_SCOPE, INVALID_COMPOSITION)"
+                    ),
+                    "third_party_rerun": (
+                        "APS-side rerun 2026-05-01T17:03:08Z; receipt "
+                        "mirrored at aeoess/aps-conformance-suite/cross-"
+                        "impl-receipts/"
+                    ),
+                },
+                "reciprocal_property": (
+                    "@nobulex/crypto canonicalizeJson against APS-emitted "
+                    "fixture produces byte-identical SHA-256 to APS SDK "
+                    "canonicalizeJCS at every vector — substrate-layer "
+                    "interop is proven symmetric, not just one-directional."
+                ),
             },
         },
         headers={
