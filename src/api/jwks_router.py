@@ -649,12 +649,14 @@ async def interop_harness() -> JSONResponse:
             "spec_version": "0.3.1",
             "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
             "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
-            "as_of": "2026-04-30",
+            "as_of": "2026-05-01",
             "evidence_taxonomy": {
                 "substrate": (
                     "JCS canonicalizer byte-match across independent "
                     "implementations on signed fixtures. Multi-source-proven "
-                    "as of 2026-04-30 via 7 independent canonicalizers."
+                    "as of 2026-05-01 via 8 independent canonicalizers + 2 "
+                    "publicly-runnable verification scripts (Nobulex "
+                    "verify-aps-byte-match.mjs + verify-ctef-byte-match.mjs)."
                 ),
                 "verifier_conformance": (
                     "claim_type discrimination, composition contracts, "
@@ -662,6 +664,14 @@ async def interop_harness() -> JSONResponse:
                     "lands per role-taxonomy slot. Citation-graph framing "
                     "from msaleme (A2A #1786, 2026-04-30) — substrate and "
                     "verifier conformance are separable evidence categories."
+                ),
+                "reproducibility": (
+                    "Anyone-can-clone reproducibility added 2026-04-30 via "
+                    "Nobulex scripts that pull APS + CTEF fixtures from "
+                    "their canonical sources, run through @nobulex/crypto, "
+                    "compare SHA-256 against expected hashes, and emit "
+                    "verification receipts. Lifts the substrate-evidence "
+                    "claim from 'stated and validated' to 'reader-runnable.'"
                 ),
             },
             "role_taxonomy": {
@@ -741,6 +751,11 @@ async def interop_harness() -> JSONResponse:
                     "language": "TypeScript",
                     "role": "evidence_provider",
                     "bilateral_delegation_byte_match": "10/10",
+                    "ctef_inline_byte_match": (
+                        "4/4 SHA-256-exact including both negative-path "
+                        "vectors (INVALID_CLAIM_SCOPE, INVALID_COMPOSITION) "
+                        "— A2A #1786 comment 2026-04-30"
+                    ),
                     "rotation_attestation_byte_match": "verifier testing in flight",
                     "claim_type_live": False,
                     "package": "@nobulex/crypto (npm)",
@@ -748,6 +763,35 @@ async def interop_harness() -> JSONResponse:
                         "Microsoft Agent Governance Toolkit "
                         "(microsoft/agent-governance-toolkit#1333, "
                         "OpenSSF passing badge, 2026-04 week)"
+                    ),
+                    "reproducibility_scripts": {
+                        "aps_bilateral_delegation": (
+                            "https://github.com/arian-gogani/nobulex/blob/main/"
+                            "scripts/verify-aps-byte-match.mjs"
+                        ),
+                        "ctef_v031_inline": (
+                            "https://github.com/arian-gogani/nobulex/blob/main/"
+                            "scripts/verify-ctef-byte-match.mjs"
+                        ),
+                        "receipt_artifacts": (
+                            "aps-byte-match-receipt.json + "
+                            "ctef-byte-match-receipt.json in repo root"
+                        ),
+                        "instructions": (
+                            "Anyone can clone arian-gogani/nobulex and run "
+                            "`node scripts/verify-aps-byte-match.mjs` and "
+                            "`node scripts/verify-ctef-byte-match.mjs` to "
+                            "reproduce 10/10 APS + 4/4 CTEF byte-match "
+                            "without any AgentGraph or APS code path"
+                        ),
+                    },
+                    "aaif_filing": (
+                        "aaif/project-proposals#20 (Nobulex, filed "
+                        "2026-04-30) — Growth-stage proposal positioning "
+                        "Nobulex bilateral-receipt primitive as accountability "
+                        "infrastructure layered on the CTEF substrate; cites "
+                        "AgentGraph as harness maintainer + 8 byte-match "
+                        "implementations as cross-organization adoption proof"
                     ),
                 },
                 {
