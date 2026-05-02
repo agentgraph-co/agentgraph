@@ -971,8 +971,50 @@ async def interop_harness() -> JSONResponse:
                 "fail_closed_negative_paths": 2,
                 "reader_runnable_verifiers": 2,
                 "cross_repository_receipt_mirrors": 2,
+                "automated_mirror_sync": True,
             },
             "cross_validation_receipts": {
+                "receipt_sources": {
+                    "primary": {
+                        "repo": "https://github.com/arian-gogani/nobulex",
+                        "role": "originating verifier",
+                        "maintainer": "@arian-gogani",
+                        "files": [
+                            "aps-byte-match-receipt.json",
+                            "ctef-byte-match-receipt.json",
+                        ],
+                    },
+                    "mirror": {
+                        "repo": (
+                            "https://github.com/aeoess/aps-conformance-suite/"
+                            "tree/main/cross-impl-receipts"
+                        ),
+                        "role": "third-party mirror with byte-exact SHA-256 verification",
+                        "maintainer": "@aeoess",
+                        "sync": (
+                            "Daily-poll GitHub Action at "
+                            ".github/workflows/sync-cross-impl-receipts.yml — "
+                            "schedule 00:00 UTC, workflow_dispatch wired for "
+                            "ad-hoc triggers"
+                        ),
+                        "files_pinned_2026_05_02": {
+                            "aps-byte-match-receipt.json": (
+                                "a4d63359574a7408cac8dd3c132586cff611535c4c8f"
+                                "074ed3556a61cf165443"
+                            ),
+                            "ctef-byte-match-receipt.json": (
+                                "2e8afc85080ed64fe539c913410f2343d10cba8c5b17"
+                                "f61cc8a7d19e4fa11216"
+                            ),
+                            "ctef-vectors.json": (
+                                "b655d1b3e7aeccb8b75517c1efc46d2dbf6759dea075"
+                                "81a1b39d4ab59baa7046"
+                            ),
+                            "source_commit": "arian-gogani/nobulex@d68fcee",
+                            "fetched_at": "2026-05-02T00:18:49Z",
+                        },
+                    },
+                },
                 "agentgraph_to_aps_via_nobulex": {
                     "verifier_repo": "https://github.com/arian-gogani/nobulex",
                     "verifier_script": "scripts/verify-aps-byte-match.mjs",
@@ -985,7 +1027,7 @@ async def interop_harness() -> JSONResponse:
                     "third_party_rerun": (
                         "APS-side rerun 2026-05-01T16:59:33Z; receipt "
                         "mirrored at aeoess/aps-conformance-suite/cross-"
-                        "impl-receipts/"
+                        "impl-receipts/aps-byte-match-receipt.json"
                     ),
                     "seed_sha256": (
                         "4f3d8defea1e82c1705c35d97ee4db046c6313ba83855a7d0de04a44f04c834a"
@@ -1004,7 +1046,7 @@ async def interop_harness() -> JSONResponse:
                     "third_party_rerun": (
                         "APS-side rerun 2026-05-01T17:03:08Z; receipt "
                         "mirrored at aeoess/aps-conformance-suite/cross-"
-                        "impl-receipts/"
+                        "impl-receipts/ctef-byte-match-receipt.json"
                     ),
                 },
                 "reciprocal_property": (
@@ -1012,6 +1054,15 @@ async def interop_harness() -> JSONResponse:
                     "fixture produces byte-identical SHA-256 to APS SDK "
                     "canonicalizeJCS at every vector — substrate-layer "
                     "interop is proven symmetric, not just one-directional."
+                ),
+                "verifiability_property": (
+                    "Reviewers can pull receipt artifacts from EITHER "
+                    "arian-gogani/nobulex (originating) OR "
+                    "aeoess/aps-conformance-suite (third-party mirror) and "
+                    "reproduce the byte-match independently. SHA-256 of "
+                    "each mirrored file is documented at the mirror surface "
+                    "with the source-commit pin. Closes the maintainer-"
+                    "rerun-dependency gap entirely."
                 ),
             },
         },
