@@ -649,7 +649,7 @@ async def interop_harness() -> JSONResponse:
             "spec_version": "0.3.1",
             "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
             "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
-            "as_of": "2026-05-01",
+            "as_of": "2026-05-04",
             "evidence_taxonomy": {
                 "substrate": (
                     "JCS canonicalizer byte-match across independent "
@@ -939,6 +939,72 @@ async def interop_harness() -> JSONResponse:
                         "authority-layer claims in CTEF envelope; "
                         "https://github.com/pmyers-abundance/aep — A2A #1734 "
                         "comment 2026-04-30"
+                    ),
+                },
+                {
+                    "name": "Dominion Observatory",
+                    "maintainer": "@vdineshk",
+                    "role_target": "evidence_provider",
+                    "claim_type_layer": "behavioral",
+                    "did_target": "did:web:dominion-observatory.sgdata.workers.dev",
+                    "verifier_endpoint": (
+                        "https://dominion-observatory.sgdata.workers.dev/"
+                        "benchmark/{mcp-server-id}"
+                    ),
+                    "production_scale": (
+                        "Behaviorally monitoring 4,586 MCP servers since "
+                        "April 2026; tier distribution 8 Platinum / 3 Silver "
+                        "/ 4 Bronze / 27 Unrated (rest insufficient_data)"
+                    ),
+                    "ttl_cap": "7 days (per A2A #1734 normative MUST proposal)",
+                    "schema_proposed": (
+                        "claim_type: behavioral; tier: Platinum|Silver|Bronze|"
+                        "Unrated; payload.{trust_grade, success_rate, "
+                        "avg_latency_ms, basis}; data_sufficiency.{sample_count,"
+                        " observation_window_days}"
+                    ),
+                    "status": (
+                        "Proposed at A2A #1734 2026-05-04. Format accepted as "
+                        "v0.3.2 §4.5 behavioral claim_type canonical reference; "
+                        "byte-match fixture publication via reader-runnable "
+                        "verifier-script pattern (Path A) targeted for v0.3.2 "
+                        "inline-vector window mid-May"
+                    ),
+                },
+                {
+                    "name": "openclaw-skill-quality-analyzer (Miaoqu AI)",
+                    "maintainer": "@jingchang0623-crypto / AIwalker",
+                    "role_target": "evidence_provider",
+                    "claim_type_layer": "behavioral",
+                    "claim_subtype_target": "maintenance_health",
+                    "repo": (
+                        "https://github.com/jingchang0623-crypto/"
+                        "openclaw-skill-quality-analyzer"
+                    ),
+                    "complementary_to": (
+                        "AgentGraph security scanner — five-dimension "
+                        "scoring (security/docs/tests/maintenance/compatibility)"
+                        " complements security-only static analysis"
+                    ),
+                    "operator_evidence": (
+                        "90-day production deployment running 25 OpenClaw "
+                        "skills; concrete failure observations cited at "
+                        "agentgraph-co/agentgraph#17 (telemetry-leaking RSS "
+                        "skill, hardcoded API keys with shell=True SEO skill, "
+                        "fork/upstream permission confusion in GitHub "
+                        "automation skill)"
+                    ),
+                    "maintenance_health_metric_proposal": (
+                        "commit_recency + commit_frequency + change_magnitude"
+                        " + maintainer_continuity — proposed for adoption as "
+                        "v0.4 §6.x.y maintenance_health claim_subtype under "
+                        "behavioral layer"
+                    ),
+                    "status": (
+                        "Welcomed at agentgraph-co/agentgraph#17 2026-05-04 "
+                        "as Chinese-market operator-side voice + complementary "
+                        "evidence_provider; byte-match validation against "
+                        "CTEF v0.3.1 inline vectors invited"
                     ),
                 },
             ],
