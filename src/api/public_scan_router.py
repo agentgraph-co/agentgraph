@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.rate_limit import rate_limit_reads
+from src.api.rate_limit import rate_limit_history_reads, rate_limit_reads
 from src.database import get_db
 from src.signing import KID, canonicalize, create_jws
 
@@ -541,7 +541,7 @@ async def _lookup_entity_by_repo(repo: str, db: AsyncSession):
 @router.get(
     "/{owner}/{repo}/history",
     response_model=ScanHistoryResponse,
-    dependencies=[Depends(rate_limit_reads)],
+    dependencies=[Depends(rate_limit_history_reads)],
 )
 async def public_scan_history(
     owner: str,

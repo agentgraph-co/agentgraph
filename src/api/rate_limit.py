@@ -222,6 +222,25 @@ async def rate_limit_reads(request: Request) -> None:
             )
 
 
+async def rate_limit_history_reads(request: Request) -> None:
+    """Tighter limit for /history endpoint.
+
+    Each call does live-fetch + JCS canonicalize + JWS sign + DB lookup.
+    Capped at settings.rate_limit_history_reads_per_minute (default 10/min/IP)
+    to keep launch-week press traffic from saturating the JWS signing path.
+    """
+    ip = _get_client_ip(request)
+    limit = settings.rate_limit_history_reads_per_minute
+    key = f"history_read:{ip}"
+    if not await _limiter.check(key, limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers=_rate_limit_response(0, limit),
+        )
+    await _set_rate_limit_headers(request, key, limit)
+
+
 async def rate_limit_writes(request: Request) -> None:
     ip = _get_client_ip(request)
     limit = settings.rate_limit_writes_per_minute

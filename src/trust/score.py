@@ -38,6 +38,30 @@ COMMUNITY_WEIGHT = 0.0      # DISABLED — re-enable when attestations exist
 EXTERNAL_WEIGHT = 0.35      # GitHub/npm/PyPI are the strongest signals
 SCAN_WEIGHT = 0.20          # security scanning is core feature
 
+# Weight isolation invariant: no single signal can exceed MAX_SINGLE_WEIGHT
+# of the composite. Prevents a single dimension from dominating a score
+# even after future re-enablements (v7+). Enforced at import time so a
+# regression to the weights file fails fast in CI rather than silently
+# in production.
+MAX_SINGLE_WEIGHT = 0.40
+_ALL_WEIGHTS = {
+    "VERIFICATION_WEIGHT": VERIFICATION_WEIGHT,
+    "AGE_WEIGHT": AGE_WEIGHT,
+    "ACTIVITY_WEIGHT": ACTIVITY_WEIGHT,
+    "REPUTATION_WEIGHT": REPUTATION_WEIGHT,
+    "COMMUNITY_WEIGHT": COMMUNITY_WEIGHT,
+    "EXTERNAL_WEIGHT": EXTERNAL_WEIGHT,
+    "SCAN_WEIGHT": SCAN_WEIGHT,
+}
+_weight_sum = sum(_ALL_WEIGHTS.values())
+assert abs(_weight_sum - 1.0) < 0.001, (
+    f"Trust weights must sum to 1.0; got {_weight_sum:.4f}"
+)
+_oversized = {n: w for n, w in _ALL_WEIGHTS.items() if w > MAX_SINGLE_WEIGHT}
+assert not _oversized, (
+    f"Trust weight isolation violated (max {MAX_SINGLE_WEIGHT}): {_oversized}"
+)
+
 # Age cap: 1 year
 AGE_CAP_DAYS = 365
 

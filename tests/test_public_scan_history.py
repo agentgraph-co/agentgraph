@@ -122,14 +122,15 @@ async def test_history_returns_populated_timeline(client, db):
 
 @pytest.mark.asyncio
 async def test_history_is_rate_limited(client):
-    """The endpoint is wired to rate_limit_reads (per-IP). Hammer it past
-    the configured limit and expect a 429."""
+    """The endpoint is wired to rate_limit_history_reads (tighter than
+    generic /reads since each call does live-fetch + JWS sign). Hammer
+    it past the configured limit and expect a 429."""
     from src.api.rate_limit import _limiter
     from src.config import settings
 
     # Tighten the limit just for this test and clear any inherited counters.
-    original = settings.rate_limit_reads_per_minute
-    settings.rate_limit_reads_per_minute = 3
+    original = settings.rate_limit_history_reads_per_minute
+    settings.rate_limit_history_reads_per_minute = 3
     await _limiter.clear_all()
     try:
         url = HISTORY_URL.format(owner="rl", repo=f"check-{uuid.uuid4().hex[:6]}")
@@ -139,5 +140,5 @@ async def test_history_is_rate_limited(client):
             statuses.append(r.status_code)
         assert 429 in statuses, f"expected a 429 in {statuses}"
     finally:
-        settings.rate_limit_reads_per_minute = original
+        settings.rate_limit_history_reads_per_minute = original
         await _limiter.clear_all()
