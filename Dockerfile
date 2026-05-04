@@ -22,6 +22,12 @@ COPY docs/ docs/
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# Pre-create writable runtime dirs so Docker's volume-mount auto-creation
+# (which runs as root) doesn't shadow them with root-owned parents.
+# `data/launch-scans` is mounted :ro at runtime; the digest writer needs
+# `data/` to be writable by appuser.
+RUN mkdir -p /app/data /app/data/launch-scans
+
 # Run as non-root user
 RUN useradd -m -r appuser && chown -R appuser:appuser /app
 USER appuser
