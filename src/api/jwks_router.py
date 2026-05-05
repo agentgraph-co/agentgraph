@@ -649,7 +649,7 @@ async def interop_harness() -> JSONResponse:
             "spec_version": "0.3.1",
             "spec_anchor": "https://agentgraph.co/.well-known/cte-test-vectors.json",
             "wg_proposal": "https://github.com/a2aproject/A2A/issues/1786",
-            "as_of": "2026-05-04",
+            "as_of": "2026-05-05",
             "evidence_taxonomy": {
                 "substrate": (
                     "JCS canonicalizer byte-match across independent "
@@ -1148,10 +1148,92 @@ async def interop_harness() -> JSONResponse:
                         "4/4 PASS including both negative-path vectors "
                         "(INVALID_CLAIM_SCOPE, INVALID_COMPOSITION)"
                     ),
-                    "third_party_rerun": (
-                        "APS-side rerun 2026-05-01T17:03:08Z; receipt "
-                        "mirrored at aeoess/aps-conformance-suite/cross-"
-                        "impl-receipts/ctef-byte-match-receipt.json"
+                    "independent_reproductions": [
+                        {
+                            "party": "Nobulex (origin)",
+                            "date": "2026-04-30",
+                            "result": "4/4 PASS",
+                        },
+                        {
+                            "party": "APS (aeoess)",
+                            "date": "2026-05-01T17:03:08Z",
+                            "result": "4/4 PASS",
+                            "receipt_mirror": (
+                                "aeoess/aps-conformance-suite/cross-impl-"
+                                "receipts/ctef-byte-match-receipt.json"
+                            ),
+                        },
+                        {
+                            "party": "Dominion Observatory (vdineshk)",
+                            "date": "2026-05-05",
+                            "result": "4/4 PASS",
+                            "receipt_committed": (
+                                "vdineshk/daee-engine: dominion-observatory/"
+                                "conformance-receipts/2026-05-05-ctef-v031-"
+                                "byte-match-receipt.json"
+                            ),
+                        },
+                    ],
+                },
+                "canonical_bytes_diff_v032": {
+                    "fixture_source_pr": "https://github.com/corpollc/qntm/pull/15",
+                    "fixture_path": (
+                        "specs/test-vectors/canonical-bytes-diff-v032.json"
+                    ),
+                    "verifier_script": (
+                        "specs/test-vectors/verify_canonical_bytes_diff.py"
+                    ),
+                    "result": "5/5 PASS (hash divergence + collision + canonical immunity)",
+                    "independent_reproductions": [
+                        {
+                            "party": "AgentGraph",
+                            "date": "2026-05-01",
+                            "result": "5/5 PASS",
+                        },
+                        {
+                            "party": "APS (aeoess)",
+                            "date": "2026-05-04",
+                            "result": "5/5 + 5 cross-language byte-equality PASS (10/10)",
+                            "receipt_mirror": (
+                                "aeoess/aps-conformance-suite@e48ec05: "
+                                "fixtures/canonical-bytes/canonical-bytes-"
+                                "diff-v032.json (file-level sha256 "
+                                "84df9e0a634eba40f5388872bed4f028a240e0c2f2d"
+                                "646755ecbdfb6b8ee0e42 byte-matches qntm "
+                                "source) + runners/ts/canonical-bytes-qntm-"
+                                "v0.3.2.test.ts cross-language regression "
+                                "(TS JCS path produces output byte-identical "
+                                "to Python json.dumps(sort_keys=True, "
+                                "separators=(\",\", \":\")))"
+                            ),
+                        },
+                    ],
+                    "cross_language_proof": (
+                        "TS JCS canonicalizer + Python json.dumps with "
+                        "sort_keys=True + separators=(\",\", \":\") produce "
+                        "byte-identical output for the plain-string field "
+                        "shape this fixture uses. Pre-emptive guard against "
+                        "the same off-by-one termination class that hit "
+                        "ArkForge Merkle-chain in production."
+                    ),
+                },
+                "section_a_cross_validation_triangle": {
+                    "structure": (
+                        "Three impls / one fixture / four verifier code paths"
+                    ),
+                    "aps_README_anchor": (
+                        "https://github.com/aeoess/aps-conformance-suite/"
+                        "blob/e48ec05/README.md"
+                    ),
+                    "aps_test_state": (
+                        "37/37 + 10/10 canonical-bytes (1 skip baseline) on "
+                        "main as of 2026-05-04"
+                    ),
+                    "section_a_cite_strategy": (
+                        "APS README §A-aligned section currently quotes "
+                        "comment-permalink as reference; flips to 'Mirrors "
+                        "CTEF v0.3.2 §A as published <date>, <section name>' "
+                        "once v0.3.2 ships mid-May"
                     ),
                 },
                 "reciprocal_property": (
@@ -1163,11 +1245,15 @@ async def interop_harness() -> JSONResponse:
                 "verifiability_property": (
                     "Reviewers can pull receipt artifacts from EITHER "
                     "arian-gogani/nobulex (originating) OR "
-                    "aeoess/aps-conformance-suite (third-party mirror) and "
-                    "reproduce the byte-match independently. SHA-256 of "
+                    "aeoess/aps-conformance-suite (third-party mirror) OR "
+                    "vdineshk/daee-engine (third independent reproduction) "
+                    "and reproduce the byte-match independently. SHA-256 of "
                     "each mirrored file is documented at the mirror surface "
                     "with the source-commit pin. Closes the maintainer-"
-                    "rerun-dependency gap entirely."
+                    "rerun-dependency gap entirely. Three independent "
+                    "reproduction surfaces as of 2026-05-05 — the substrate "
+                    "evidence claim now stands without ANY single party in "
+                    "the trust path."
                 ),
             },
         },
