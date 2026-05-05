@@ -944,31 +944,70 @@ async def interop_harness() -> JSONResponse:
                 {
                     "name": "Dominion Observatory",
                     "maintainer": "@vdineshk",
-                    "role_target": "evidence_provider",
+                    "role": "evidence_provider",
                     "claim_type_layer": "behavioral",
-                    "did_target": "did:web:dominion-observatory.sgdata.workers.dev",
-                    "verifier_endpoint": (
+                    "did": "did:web:dominion-observatory.sgdata.workers.dev",
+                    "evidence_uri_pattern": (
                         "https://dominion-observatory.sgdata.workers.dev/"
-                        "benchmark/{mcp-server-id}"
+                        "v1/behavioral-evidence/{server-id}"
+                    ),
+                    "fallback_uri_pattern": (
+                        "https://dominion-observatory.sgdata.workers.dev/"
+                        "benchmark/{server-id}"
+                    ),
+                    "tier_distribution_endpoint": (
+                        "https://dominion-observatory.sgdata.workers.dev/"
+                        "api/sla-tier"
                     ),
                     "production_scale": (
                         "Behaviorally monitoring 4,586 MCP servers since "
-                        "April 2026; tier distribution 8 Platinum / 3 Silver "
-                        "/ 4 Bronze / 27 Unrated (rest insufficient_data)"
+                        "April 2026; live tier distribution per /api/sla-tier: "
+                        "8 Platinum / 0 Gold / 3 Silver / 4 Bronze / 27 "
+                        "Unrated (rest insufficient_data)"
                     ),
-                    "ttl_cap": "7 days (per A2A #1734 normative MUST proposal)",
-                    "schema_proposed": (
-                        "claim_type: behavioral; tier: Platinum|Silver|Bronze|"
-                        "Unrated; payload.{trust_grade, success_rate, "
-                        "avg_latency_ms, basis}; data_sufficiency.{sample_count,"
-                        " observation_window_days}"
+                    "evidence_pattern": "Path C — URI-reference, not fixture-embedding",
+                    "rationale": (
+                        "Behavioral evidence degrades on hours-to-days under "
+                        "the 7-day TTL cap; static fixtures are stale by "
+                        "definition. URI-reference preserves substrate-and-"
+                        "primitive separation: substrate (CTEF v0.3.2) "
+                        "defines envelope; primitive (Observatory) defines "
+                        "the live measurement. Symmetric to how identity + "
+                        "authority claim_types reference live DID resolvers "
+                        "rather than ship cached identity fixtures."
                     ),
+                    "ttl_cap": "7 days (CTEF v0.3.2 §1.5 normative MUST)",
+                    "tier_mapping": {
+                        "Platinum": {"trust_tier": "trusted", "confidence_min": 0.9},
+                        "Gold": {"trust_tier": "trusted", "confidence_min": 0.85},
+                        "Silver": {"trust_tier": "standard", "confidence_min": 0.7},
+                        "Bronze": {"trust_tier": "minimal", "confidence_min": 0.5},
+                        "Unrated": {
+                            "trust_tier": "restricted",
+                            "note": "insufficient_data, NOT failing posture",
+                        },
+                    },
+                    "live_verification_examples": {
+                        "platinum": (
+                            "/v1/behavioral-evidence/sg-cpf-calculator-mcp"
+                        ),
+                        "silver_with_degradation": (
+                            "identifiable via /api/trust-delta"
+                        ),
+                        "unrated_insufficient_data": (
+                            "served with explicit sample_count + "
+                            "observation_window_days"
+                        ),
+                        "negative_path_malformed": (
+                            "/benchmark/{nonexistent-server} returns "
+                            "documented 404 envelope"
+                        ),
+                    },
                     "status": (
-                        "Proposed at A2A #1734 2026-05-04. Format accepted as "
-                        "v0.3.2 §4.5 behavioral claim_type canonical reference; "
-                        "byte-match fixture publication via reader-runnable "
-                        "verifier-script pattern (Path A) targeted for v0.3.2 "
-                        "inline-vector window mid-May"
+                        "Registered 2026-05-04 PM per A2A #1734 sequencing. "
+                        "URI-reference pattern locked for CTEF v0.3.2 §4.5; "
+                        "spec-text draft + litepaper §3.4 citation pending "
+                        "vdineshk review pre-publish."
                     ),
                 },
                 {
