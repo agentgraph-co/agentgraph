@@ -1242,6 +1242,45 @@ async def interop_harness() -> JSONResponse:
                     "canonicalizeJCS at every vector — substrate-layer "
                     "interop is proven symmetric, not just one-directional."
                 ),
+                "aeoess_verifier_runs_2026_05_05": {
+                    "source": (
+                        "aeoess re-ran both Nobulex verifier scripts from "
+                        "arian-gogani/nobulex/scripts/ on 2026-05-05; "
+                        "freshly-generated receipts posted in A2A #1786 "
+                        "thread comment dated 2026-05-05"
+                    ),
+                    "aps_byte_match": {
+                        "verifier": "verify-aps-byte-match.mjs",
+                        "spec": "JCS — RFC 8785",
+                        "canonicalization": (
+                            "APS SDK canonicalizeJCS (src/core/canonical-jcs.ts)"
+                        ),
+                        "vectors": 10,
+                        "result": "10/10 byte-match",
+                        "receipt_sha256": (
+                            "5e31d6cf37d6a4ee7459a631a289733308c50f01b1f85db4c15370406a3e6dda"
+                        ),
+                    },
+                    "ctef_byte_match": {
+                        "verifier": "verify-ctef-byte-match.mjs",
+                        "version": "0.3.1",
+                        "vectors": 4,
+                        "result": "4/4 byte-match",
+                        "receipt_sha256": (
+                            "a14e6db4477989a1f5c0d60078b0efcc4dc9dd7e3cd1276c4480bdd95b52bcfb"
+                        ),
+                        "negative_path_codes": [
+                            "INVALID_CLAIM_SCOPE",
+                            "INVALID_COMPOSITION",
+                        ],
+                    },
+                    "discoverability": (
+                        "Both verifier scripts linked from "
+                        "aeoess/aps-conformance-suite/fixtures/canonical-"
+                        "bytes/README.md per aeoess 2026-05-05 — future "
+                        "verifiers locate them at source"
+                    ),
+                },
                 "verifiability_property": (
                     "Reviewers can pull receipt artifacts from EITHER "
                     "arian-gogani/nobulex (originating) OR "
@@ -1253,7 +1292,10 @@ async def interop_harness() -> JSONResponse:
                     "rerun-dependency gap entirely. Three independent "
                     "reproduction surfaces as of 2026-05-05 — the substrate "
                     "evidence claim now stands without ANY single party in "
-                    "the trust path."
+                    "the trust path. aeoess's 2026-05-05 verifier-run "
+                    "receipts (recorded in aeoess_verifier_runs_2026_05_05 "
+                    "block above) demonstrate the property is exercisable "
+                    "on demand, not historical."
                 ),
             },
         },
