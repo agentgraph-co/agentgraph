@@ -76,7 +76,12 @@ def _get_adapters() -> dict[str, AbstractPlatformAdapter]:
     from src.marketing.adapters.bluesky import BlueskyAdapter
     from src.marketing.adapters.devto import DevtoAdapter
     from src.marketing.adapters.discord_bot import DiscordAdapter
-    from src.marketing.adapters.github_discussions import GitHubDiscussionsAdapter
+
+    # github_discussions adapter intentionally NOT registered — disabled at
+    # adapter-map level after 6 prompt-template discussions leaked through
+    # the pipeline (deleted 2026-05-11). Config already had auto_post: False
+    # for "MCP ban risk"; this is belt-and-suspenders. Re-enable only after
+    # the template-vs-body validation gate in Task #65 lands.
     from src.marketing.adapters.hashnode import HashnodeAdapter
     from src.marketing.adapters.huggingface import HuggingFaceAdapter
     from src.marketing.adapters.linkedin import LinkedInAdapter
@@ -91,7 +96,7 @@ def _get_adapters() -> dict[str, AbstractPlatformAdapter]:
         "linkedin": LinkedInAdapter(),
         "discord": DiscordAdapter(),
         "devto": DevtoAdapter(),
-        "github_discussions": GitHubDiscussionsAdapter(),
+        # "github_discussions": GitHubDiscussionsAdapter(),  # disabled — see import comment above
         "huggingface": HuggingFaceAdapter(),
         "telegram": TelegramAdapter(),
         "hashnode": HashnodeAdapter(),
