@@ -250,9 +250,11 @@ export default function StateOfAgentSecurity2026() {
                 Check any agent
               </Link>
               <a
-                href="#"
+                href="/state-of-agent-security-2026-v1.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-surface border border-border text-text px-6 py-3.5 rounded-xl text-base font-semibold hover:border-primary/50 transition-colors"
-                aria-label="Read the full report (PDF) — link coming soon"
+                aria-label="Read the full report — PDF download"
               >
                 Read the full report (PDF)
               </a>
