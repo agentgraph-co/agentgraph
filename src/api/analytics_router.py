@@ -23,6 +23,7 @@ ALLOWED_EVENT_TYPES = {
     "login_start",
     "login_complete",
     "ios_waitlist",
+    "newsletter_signup",
 }
 
 FUNNEL_ORDER = [
@@ -35,6 +36,11 @@ FUNNEL_ORDER = [
 
 
 # --- Schemas ---
+
+
+class NewsletterSignupRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    source: str = Field(..., max_length=64)
 
 
 class TrackEventRequest(BaseModel):
@@ -111,6 +117,35 @@ async def track_event(
         intent=body.intent,
         referrer=body.referrer,
         extra_metadata=body.metadata or {},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.add(event)
+    await db.flush()
+    return {"status": "ok"}
+
+
+@router.post(
+    "/newsletter-signup",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_writes)],
+)
+async def newsletter_signup(
+    body: NewsletterSignupRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Capture a quarterly-newsletter signup. No auth required.
+
+    Stores email + source in analytics_events.extra_metadata until a proper
+    newsletter_signups table lands (see task #69 follow-up).
+    """
+    event = AnalyticsEvent(
+        event_type="newsletter_signup",
+        session_id=f"newsletter-{body.source}",
+        page=f"/{body.source}",
+        intent="subscribe",
+        referrer=request.headers.get("referer"),
+        extra_metadata={"email": body.email, "source": body.source},
         ip_address=request.client.host if request.client else None,
     )
     db.add(event)

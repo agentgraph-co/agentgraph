@@ -174,14 +174,12 @@ export default function StateOfAgentSecurity2026() {
     setSignupState('submitting')
     setSignupError(null)
     try {
-      const res = await fetch('/api/v1/marketing/launch-signup', {
+      const res = await fetch('/api/v1/analytics/newsletter-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), source: 'state-of-agent-security-2026' }),
       })
-      // Treat any 2xx OR a 404 (endpoint not yet wired) as success for the staging UX —
-      // we'll surface real errors once the backend lands.
-      if (res.ok || res.status === 404) {
+      if (res.ok) {
         setSignupState('ok')
         setEmail('')
       } else {
@@ -190,10 +188,8 @@ export default function StateOfAgentSecurity2026() {
         setSignupState('error')
       }
     } catch (err) {
-      // Network error — still show ok state on staging since backend is stubbed.
-      setSignupState('ok')
-      setEmail('')
-      void err
+      setSignupError(err instanceof Error ? err.message : 'Network error')
+      setSignupState('error')
     }
   }
 
@@ -265,8 +261,9 @@ export default function StateOfAgentSecurity2026() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-text-muted hover:text-primary-light px-4 py-3.5 rounded-xl text-base transition-colors"
+                aria-label="View the public CTEF test vectors (raw JSON, Ed25519 signed)"
               >
-                Verify the receipts &rarr;
+                View test vectors (JSON) &rarr;
               </a>
             </div>
           </FadeIn>
@@ -626,10 +623,10 @@ export default function StateOfAgentSecurity2026() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center pl-3">
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">Get the report when it goes live</h2>
+                  <h2 className="text-2xl font-bold mb-2">Get the next quarterly update</h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    May 12, 2026. PDF + raw scan attestations + reproducibility artifacts. One
-                    email when it ships, no list spam.
+                    <em>State of Agent Security Q3 2026</em> drops August 12. New scan corpus,
+                    spec progress, and CTEF v0.3.3 / v0.4 deltas. One email per quarter, no list spam.
                   </p>
                 </div>
 
@@ -656,14 +653,14 @@ export default function StateOfAgentSecurity2026() {
                       ? 'Submitting...'
                       : signupState === 'ok'
                         ? 'Subscribed ✓'
-                        : 'Email me when it goes live'}
+                        : 'Subscribe'}
                   </button>
                 </form>
               </div>
 
               {signupState === 'ok' && (
                 <p className="text-xs text-success mt-3 pl-3">
-                  Thanks — we&apos;ll email you on May 12.
+                  Thanks — you&apos;ll hear from us when Q3 2026 ships.
                 </p>
               )}
               {signupState === 'error' && signupError && (
