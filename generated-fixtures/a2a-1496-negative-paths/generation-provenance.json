@@ -1,14 +1,14 @@
 {
   "generator": "agentgraph-co/agentgraph scripts/gen_a2a_1496_negative_paths.py",
-  "canonicalization": "RFC 8785 (JCS), nulls preserved (matches src.signing.canonicalize_jcs_strict; same byte output as trailofbits/rfc8785.py and @nobulex/crypto canonicalize)",
-  "signature_scheme": "Ed25519 over canonicalizeJCS(link minus signature), no sha256 wrap (per aeoess format note 1 on A2A #1786, 2026-05-13)",
-  "signature_encoding": "base64url, no padding",
-  "field_name_convention": "CTEF v0.3.2 §A: camelCase validityWindow with snake_case not_before/not_after; chain-level max_depth",
+  "canonicalization": "RFC 8785 JCS with null values preserved; byte-identical to aeoess/aps-conformance-suite fixtures/composition/a2a-1496-negative-paths/lib.ts canonicalizeJCS() on the value subset exercised by these fixtures (objects, arrays, strings, integers, ISO 8601 timestamps)",
+  "signature_scheme": "Ed25519 over canonicalizeJCS(link minus signature) directly, no sha256 wrap; signature serialized as hex (128 chars)",
+  "delegator_delegatee_format": "Ed25519 public key hex (64 chars)",
+  "field_name_convention": "CTEF v0.3.2 §A: camelCase validityWindow with snake_case not_before/not_after; scope.action_categories array; chain-level max_depth; optional input.now for deterministic validity clock",
   "validator_check_order": [
     "depth",
-    "validity",
-    "signature",
-    "scope"
+    "validity (per link root→leaf)",
+    "signature (per link)",
+    "scope_narrowing (non-root)"
   ],
   "ed25519_seeds_hex": {
     "root": "0101010101010101010101010101010101010101010101010101010101010101",
@@ -27,12 +27,13 @@
   "reference_times": {
     "not_before_valid": "2026-05-01T00:00:00Z",
     "not_after_valid": "2026-12-31T23:59:59Z",
-    "not_after_expired": "2024-12-31T23:59:59Z"
+    "not_after_expired": "2024-12-31T23:59:59Z",
+    "fixed_now": "2026-05-13T18:00:00Z"
   },
   "fixture_intent": {
-    "01-scope-expansion": "Triggers INVALID_CLAIM_SCOPE after passing depth + validity + signature",
-    "02-depth-violation": "Triggers DELEGATION_DEPTH_EXCEEDED — first check in order",
-    "03-signature-substitution": "Triggers INVALID_SIGNATURE after passing depth + validity",
-    "04-validity-expired": "Triggers VALIDITY_EXPIRED after passing depth"
+    "01-scope-expansion": "INVALID_CLAIM_SCOPE on chain[1] after passing depth + validity (both links) + signature (both links) + scope (chain[0] is root, skipped)",
+    "02-depth-violation": "DELEGATION_DEPTH_EXCEEDED (chain.length=4 > max_depth=3) — first check in order",
+    "03-signature-substitution": "INVALID_SIGNATURE on chain[1] after passing depth + validity (both links) + signature (chain[0])",
+    "04-validity-expired": "VALIDITY_EXPIRED on chain[0] after passing depth"
   }
 }

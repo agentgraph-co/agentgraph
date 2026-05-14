@@ -1,58 +1,67 @@
 {
   "name": "depth-violation",
-  "description": "Chain of length 4 with max_depth=3. chain.length > max_depth fires DELEGATION_DEPTH_EXCEEDED before validity, signature, or scope are evaluated. All four links are nevertheless validly signed and within validity window so the depth check is demonstrably short-circuiting.",
+  "description": "Chain of length 4 with max_depth=3. chain.length > max_depth fires DELEGATION_DEPTH_EXCEEDED as the first check. All four links are nevertheless validly signed and within validity window so the depth check is demonstrably short-circuiting before validity/signature/scope are evaluated.",
   "input": {
     "chain": [
       {
-        "issuer": "did:web:agentgraph.co",
-        "subject": "did:web:agent-a.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "delegatee": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "FALI9jSeW2HK-oHHFQ8mwBAI-Fnh8YQB_hAHSS7b3xGZdQ028hQ5bIlxjensrLC5i4DgTnhagxNETkrkmyt5BQ"
+        "signature": "091f4da9ae31193b2c699ff0a1318f530c11553156c9552ac9e523444b6be1a2f49b14af3cc7bb665261037d8aa3b9f5560e5827345be9b81a7b88ac6860800b"
       },
       {
-        "issuer": "did:web:agent-a.example.com",
-        "subject": "did:web:agent-b.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "delegatee": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "2eqYkYJffmyGhOo5kVBGChh71UJe8XZncA6j-rZCap4-e3U2iu-f_tokr30BRjY0AY6XIqz-NDC2hPjaMRI9Cg"
+        "signature": "c8f470e3dcfcd4fa671a8884af52dae10d56cbe7ba7559a763f2fb2b83ceed7773a91e6d004d232c86504df766f782c8fad671c1ac3d8103839d71fb0d7f460f"
       },
       {
-        "issuer": "did:web:agent-b.example.com",
-        "subject": "did:web:agent-c.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+        "delegatee": "ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "D1POIqbRrsQUhcbhxyn5XXS1CTYewJiVAhsEs_fi-9w81PE6tNKG1E12_ttmw8HgG2wW_YKUhDhbHg1vDQOtAQ"
+        "signature": "f03c90e7918b2d6061b1daea27c7bd744b4969ca7fe3f3cafc2f857d196d8ff2c507be7ed6840807d72dc4b996c81f114fdcc3556225c931b1f2b87ca95faf07"
       },
       {
-        "issuer": "did:web:agent-c.example.com",
-        "subject": "did:web:agent-d.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+        "delegatee": "6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "RN94qn__eLCTLh9D4wsCgB4_TP3KTV6vCaesIpVj0ELF_2LYzVhZ67GJRKJO-peMEuWDluLNQ5BsSgVemNnnCw"
+        "signature": "680d00e052dff189477c458ef02b8ddb48a414b8a980823d9b96453635091aefe0b603e9d5fbc99801c697418bea7b28b2e4fdd3df8dc5fc91ccb98ab9d2ed0b"
       }
     ],
-    "max_depth": 3
+    "max_depth": 3,
+    "now": "2026-05-13T18:00:00Z"
   },
   "expected_error_code": "DELEGATION_DEPTH_EXCEEDED"
 }

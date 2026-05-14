@@ -2,23 +2,39 @@
 
 Targets: aeoess/aps-conformance-suite#3 — fixtures/composition/a2a-1496-negative-paths/
 
-Per aeoess's format notes on A2A #1786 (2026-05-13):
-  1. Signature: Ed25519 over canonicalizeJCS(link minus signature) directly, NO sha256 wrap.
-  2. Canonicalization: RFC 8785 JCS with null values preserved.
-  3. Field names: camelCase `validityWindow.not_after` (CTEF v0.3.2 §A spelling).
-  4. Depth check: chain-level `chain.length > max_depth`.
-  Validator check order: depth → validity → signature → scope.
-  One targeted violation per fixture; first check in order fires.
+Shape conforms to aeoess's validator at
+fixtures/composition/a2a-1496-negative-paths/lib.ts:
 
-Reproducibility: keys derived from deterministic Ed25519 seeds (see SEEDS below).
+  NegativePathDelegation = {
+    delegator: string  // Ed25519 PUBLIC KEY hex (64 chars)
+    delegatee: string  // Ed25519 PUBLIC KEY hex
+    scope: { action_categories: string[]; [k: string]: unknown }
+    validityWindow: { not_before?: string; not_after: string }
+    signature: string  // Ed25519 HEX signature (128 chars)
+  }
+
+  NegativePathInput = {
+    chain: NegativePathDelegation[]
+    max_depth?: number
+    now?: string   // ISO 8601 UTC for deterministic VALIDITY_EXPIRED
+  }
+
+Validator check order:
+  1. Depth (chain.length > max_depth)
+  2. Per link root → leaf:
+     a. validityWindow.not_after < now           → VALIDITY_EXPIRED
+     b. Ed25519 verify signature                  → INVALID_SIGNATURE
+     c. (non-root) action_categories expansion    → INVALID_CLAIM_SCOPE
+
+Each fixture exercises EXACTLY ONE targeted violation; earlier checks
+all pass cleanly. Pass `input.now` so fixtures are deterministic vs
+real-time clock.
+
+Reproducibility: deterministic Ed25519 seeds (see SEEDS below).
 Re-running this script produces byte-identical fixtures.
-
-Output: ./generated-fixtures/{01-scope-expansion,02-depth-violation,
-03-signature-substitution,04-validity-expired}.fixture.json + generation-provenance.json
 """
 from __future__ import annotations
 
-import base64
 import json
 import math
 from pathlib import Path
@@ -27,7 +43,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
-# --- JCS canonicalization (matches src.signing.canonicalize_jcs_strict) ---
+# --- JCS canonicalization (RFC 8785, null-preserving) ---
 
 
 def _normalize_for_jcs_strict(obj: object) -> object:
@@ -44,15 +60,17 @@ def _normalize_for_jcs_strict(obj: object) -> object:
 
 
 def canonicalize_jcs_strict(payload: object) -> bytes:
-    """RFC 8785 JCS with null values preserved."""
+    """RFC 8785 JCS with null values preserved.
+
+    Byte-identical to aeoess's `canonicalizeJCS()` in
+    fixtures/composition/a2a-1496-negative-paths/lib.ts for the subset
+    of values exercised by these fixtures (objects, arrays, strings,
+    integers, ISO 8601 timestamps; no floats, no Unicode-non-ASCII keys).
+    """
     cleaned = _normalize_for_jcs_strict(payload)
     return json.dumps(
         cleaned, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode("utf-8")
-
-
-def b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
 def keypair_from_seed_hex(seed_hex: str) -> Ed25519PrivateKey:
@@ -78,80 +96,79 @@ SEEDS = {
 }
 
 KEYS = {label: keypair_from_seed_hex(seed) for label, seed in SEEDS.items()}
+PUBS = {label: public_key_hex(key) for label, key in KEYS.items()}
 
-# --- DIDs ---
-
-ROOT_DID = "did:web:agentgraph.co"
-AGENT_A_DID = "did:web:agent-a.example.com"
-AGENT_B_DID = "did:web:agent-b.example.com"
-AGENT_C_DID = "did:web:agent-c.example.com"
-AGENT_D_DID = "did:web:agent-d.example.com"
-
-# --- Reference times (chosen so fixtures are stable across v0.3.2 publish window) ---
+# --- Reference times ---
 
 NOT_BEFORE = "2026-05-01T00:00:00Z"
-NOT_AFTER_VALID = "2026-12-31T23:59:59Z"  # well after v0.3.2 publish
-NOT_AFTER_EXPIRED = "2024-12-31T23:59:59Z"  # well in the past
+NOT_AFTER_VALID = "2026-12-31T23:59:59Z"
+NOT_AFTER_EXPIRED = "2024-12-31T23:59:59Z"
+FIXED_NOW = "2026-05-13T18:00:00Z"  # deterministic clock for all fixtures
 
 
-# --- Chain link builder (sign over canonical(link minus signature)) ---
+# --- Chain link builder ---
 
 
 def build_link(
-    issuer: str,
-    subject: str,
-    scope: list[str],
+    delegator_label: str,
+    delegatee_label: str,
+    action_categories: list[str],
     not_before: str,
     not_after: str,
-    signing_key: Ed25519PrivateKey,
 ) -> dict:
-    """Build a delegation chain link with a valid Ed25519 signature.
+    """Build a delegation link signed by the delegator's key, per validator
+    semantics in lib.ts:
 
-    Per aeoess format note 1: Ed25519 over canonicalizeJCS(link minus signature)
-    directly, no sha256 wrap.
+      signature = ed25519_sign(
+          delegator_private_key,
+          canonicalizeJCS(link minus signature)
+      ).hex()
     """
     link_unsigned = {
-        "issuer": issuer,
-        "subject": subject,
-        "scope": scope,
+        "delegator": PUBS[delegator_label],
+        "delegatee": PUBS[delegatee_label],
+        "scope": {"action_categories": action_categories},
         "validityWindow": {
             "not_before": not_before,
             "not_after": not_after,
         },
     }
     canonical = canonicalize_jcs_strict(link_unsigned)
-    sig = signing_key.sign(canonical)
-    return {**link_unsigned, "signature": b64url(sig)}
+    sig = KEYS[delegator_label].sign(canonical)
+    return {**link_unsigned, "signature": sig.hex()}
 
 
 # --- Fixture 1: scope expansion → INVALID_CLAIM_SCOPE ---
 
 
 def fixture_scope_expansion() -> dict:
-    """Chain[0] grants {data:read}; chain[1] expands to {data:read, data:write}.
+    """chain[1] expands action_categories beyond chain[0]'s grant.
 
-    All links validly signed, all within validity window, chain.length=2 ≤ max_depth=3.
-    Depth + validity + signature checks all pass; scope check fires.
+    chain.length=2 ≤ max_depth=3 (depth passes).
+    All links within validityWindow vs now (validity passes).
+    All signatures valid (signature passes).
+    chain[1] action_categories {data:read, data:write} ⊄ chain[0]'s {data:read}.
+    → INVALID_CLAIM_SCOPE on chain[1].
     """
     link0 = build_link(
-        ROOT_DID, AGENT_A_DID, ["data:read"],
-        NOT_BEFORE, NOT_AFTER_VALID, KEYS["root"],
+        "root", "agent_a", ["data:read"], NOT_BEFORE, NOT_AFTER_VALID,
     )
     link1 = build_link(
-        AGENT_A_DID, AGENT_B_DID, ["data:read", "data:write"],
-        NOT_BEFORE, NOT_AFTER_VALID, KEYS["agent_a"],
+        "agent_a", "agent_b", ["data:read", "data:write"],
+        NOT_BEFORE, NOT_AFTER_VALID,
     )
     return {
         "name": "scope-expansion",
         "description": (
-            "Chain of length 2 where link[1] expands the scope set granted by "
-            "link[0] (data:read → {data:read, data:write}). All links validly "
-            "signed and within validity window; chain.length=2 ≤ max_depth=3 so "
-            "depth + validity + signature checks pass before scope check fires."
+            "Chain of length 2 where chain[1] expands action_categories "
+            "beyond chain[0]'s grant ({data:read} → {data:read, data:write}). "
+            "Depth + validity + signature all pass; scope-narrowing check "
+            "fires on chain[1] vs chain[0]."
         ),
         "input": {
             "chain": [link0, link1],
             "max_depth": 3,
+            "now": FIXED_NOW,
         },
         "expected_error_code": "INVALID_CLAIM_SCOPE",
     }
@@ -161,36 +178,31 @@ def fixture_scope_expansion() -> dict:
 
 
 def fixture_depth_violation() -> dict:
-    """Chain of length 4 with max_depth=3.
+    """chain.length=4 > max_depth=3. Depth fires first.
 
-    First check (depth) fires before validity, signature, or scope are evaluated.
-    All links nevertheless validly signed + within validity to demonstrate that
-    depth short-circuits cleanly.
+    All 4 links nevertheless validly signed + within validity to
+    demonstrate depth short-circuits cleanly before later checks.
     """
     scope = ["data:read"]
-    chain = []
-    # root -> agent_a -> agent_b -> agent_c -> agent_d (4 hops, chain.length=4)
-    signing_pairs = [
-        (ROOT_DID, AGENT_A_DID, KEYS["root"]),
-        (AGENT_A_DID, AGENT_B_DID, KEYS["agent_a"]),
-        (AGENT_B_DID, AGENT_C_DID, KEYS["agent_b"]),
-        (AGENT_C_DID, AGENT_D_DID, KEYS["agent_c"]),
+    chain = [
+        build_link("root", "agent_a", scope, NOT_BEFORE, NOT_AFTER_VALID),
+        build_link("agent_a", "agent_b", scope, NOT_BEFORE, NOT_AFTER_VALID),
+        build_link("agent_b", "agent_c", scope, NOT_BEFORE, NOT_AFTER_VALID),
+        build_link("agent_c", "agent_d", scope, NOT_BEFORE, NOT_AFTER_VALID),
     ]
-    for issuer, subject, key in signing_pairs:
-        chain.append(build_link(
-            issuer, subject, scope, NOT_BEFORE, NOT_AFTER_VALID, key,
-        ))
     return {
         "name": "depth-violation",
         "description": (
-            "Chain of length 4 with max_depth=3. chain.length > max_depth fires "
-            "DELEGATION_DEPTH_EXCEEDED before validity, signature, or scope are "
-            "evaluated. All four links are nevertheless validly signed and within "
-            "validity window so the depth check is demonstrably short-circuiting."
+            "Chain of length 4 with max_depth=3. chain.length > max_depth "
+            "fires DELEGATION_DEPTH_EXCEEDED as the first check. All four "
+            "links are nevertheless validly signed and within validity "
+            "window so the depth check is demonstrably short-circuiting "
+            "before validity/signature/scope are evaluated."
         ),
         "input": {
             "chain": chain,
             "max_depth": 3,
+            "now": FIXED_NOW,
         },
         "expected_error_code": "DELEGATION_DEPTH_EXCEEDED",
     }
@@ -200,40 +212,40 @@ def fixture_depth_violation() -> dict:
 
 
 def fixture_signature_substitution() -> dict:
-    """Chain[1]'s signature is replaced with a valid Ed25519 signature over
-    unrelated canonical bytes (still produced by the correct signing key, but
-    not over link[1]'s own canonical form).
+    """chain[1]'s signature is replaced with a valid-shape Ed25519 sig over
+    unrelated canonical bytes (still produced by the correct delegator key,
+    just not over chain[1]'s own canonical form).
 
-    chain.length=2 ≤ max_depth=3 and validityWindow is current, so depth +
-    validity pass; signature check fires before scope.
+    chain.length=2 ≤ max_depth=3 (depth passes).
+    Validity passes for both links.
+    chain[0] signature valid.
+    chain[1] signature fails verification.
+    → INVALID_SIGNATURE on chain[1].
     """
     link0 = build_link(
-        ROOT_DID, AGENT_A_DID, ["data:read"],
-        NOT_BEFORE, NOT_AFTER_VALID, KEYS["root"],
+        "root", "agent_a", ["data:read"], NOT_BEFORE, NOT_AFTER_VALID,
     )
-    # Build a normal link[1] first to establish its un-substituted shape.
     link1 = build_link(
-        AGENT_A_DID, AGENT_B_DID, ["data:read"],
-        NOT_BEFORE, NOT_AFTER_VALID, KEYS["agent_a"],
+        "agent_a", "agent_b", ["data:read"], NOT_BEFORE, NOT_AFTER_VALID,
     )
-    # Substitute link[1]'s signature with a sig over unrelated canonical bytes.
+    # Substitute link1's signature with a sig over unrelated canonical bytes.
     decoy_canonical = canonicalize_jcs_strict({"unrelated": "payload"})
     decoy_sig = KEYS["agent_a"].sign(decoy_canonical)
-    link1["signature"] = b64url(decoy_sig)
+    link1["signature"] = decoy_sig.hex()
     return {
         "name": "signature-substitution",
         "description": (
-            "Chain of length 2 where link[1]'s signature is replaced with an "
-            "Ed25519 signature over unrelated canonical bytes "
-            "(JCS of `{\"unrelated\":\"payload\"}`). The signature is still "
-            "produced by the correct signing key (agent_a) but does not "
-            "cover link[1]'s own canonical form. chain.length=2 ≤ max_depth=3 "
-            "and validityWindow is current, so depth + validity pass; signature "
-            "check fires before scope."
+            "Chain of length 2 where chain[1]'s signature is replaced with "
+            "an Ed25519 signature over canonicalizeJCS({\"unrelated\":"
+            "\"payload\"}). The signature is produced by the correct "
+            "delegator private key (agent_a) but does not cover chain[1]'s "
+            "own canonical form. Depth + validity pass for both links + "
+            "chain[0] signature valid; chain[1] signature verification fails."
         ),
         "input": {
             "chain": [link0, link1],
             "max_depth": 3,
+            "now": FIXED_NOW,
         },
         "expected_error_code": "INVALID_SIGNATURE",
     }
@@ -243,34 +255,39 @@ def fixture_signature_substitution() -> dict:
 
 
 def fixture_validity_expired() -> dict:
-    """Single-link chain where validityWindow.not_after is 2024-12-31 (past).
+    """Single-link chain where validityWindow.not_after is 2024-12-31 (past
+    relative to FIXED_NOW=2026-05-13).
 
-    chain.length=1 ≤ max_depth=3 so depth passes; validity check fires before
-    signature or scope evaluation.
+    chain.length=1 ≤ max_depth=3 (depth passes).
+    chain[0].validityWindow.not_after < now → fires VALIDITY_EXPIRED.
+    Signature is nevertheless validly produced (validity short-circuits
+    before signature check).
     """
     link0 = build_link(
-        ROOT_DID, AGENT_A_DID, ["data:read"],
-        "2024-01-01T00:00:00Z", NOT_AFTER_EXPIRED, KEYS["root"],
+        "root", "agent_a", ["data:read"],
+        "2024-01-01T00:00:00Z", NOT_AFTER_EXPIRED,
     )
     return {
         "name": "validity-expired",
         "description": (
-            "Chain of length 1 where the single link's validityWindow.not_after "
-            "is 2024-12-31T23:59:59Z (well in the past). chain.length=1 ≤ "
-            "max_depth=3 so depth passes; validity check fires before signature "
-            "or scope evaluation. The signature is nevertheless validly produced "
-            "over canonicalizeJCS(link minus signature) so the validity check "
-            "is demonstrably short-circuiting before the signature check."
+            "Chain of length 1 where chain[0].validityWindow.not_after is "
+            "2024-12-31T23:59:59Z (well in the past relative to the "
+            "deterministic clock now=2026-05-13T18:00:00Z). chain.length=1 "
+            "≤ max_depth=3 so depth passes; validity check fires before "
+            "signature evaluation. Signature is nevertheless validly "
+            "produced over canonicalizeJCS(link minus signature) so the "
+            "validity check is demonstrably short-circuiting."
         ),
         "input": {
             "chain": [link0],
             "max_depth": 3,
+            "now": FIXED_NOW,
         },
         "expected_error_code": "VALIDITY_EXPIRED",
     }
 
 
-# --- Provenance file (so any verifier can confirm reproducibility) ---
+# --- Provenance ---
 
 
 def provenance() -> dict:
@@ -279,43 +296,40 @@ def provenance() -> dict:
             "agentgraph-co/agentgraph scripts/gen_a2a_1496_negative_paths.py"
         ),
         "canonicalization": (
-            "RFC 8785 (JCS), nulls preserved (matches "
-            "src.signing.canonicalize_jcs_strict; same byte output as "
-            "trailofbits/rfc8785.py and @nobulex/crypto canonicalize)"
+            "RFC 8785 JCS with null values preserved; byte-identical to "
+            "aeoess/aps-conformance-suite "
+            "fixtures/composition/a2a-1496-negative-paths/lib.ts "
+            "canonicalizeJCS() on the value subset exercised by these "
+            "fixtures (objects, arrays, strings, integers, ISO 8601 timestamps)"
         ),
         "signature_scheme": (
-            "Ed25519 over canonicalizeJCS(link minus signature), no sha256 wrap "
-            "(per aeoess format note 1 on A2A #1786, 2026-05-13)"
+            "Ed25519 over canonicalizeJCS(link minus signature) directly, "
+            "no sha256 wrap; signature serialized as hex (128 chars)"
         ),
-        "signature_encoding": "base64url, no padding",
+        "delegator_delegatee_format": "Ed25519 public key hex (64 chars)",
         "field_name_convention": (
             "CTEF v0.3.2 §A: camelCase validityWindow with snake_case "
-            "not_before/not_after; chain-level max_depth"
+            "not_before/not_after; scope.action_categories array; "
+            "chain-level max_depth; optional input.now for deterministic "
+            "validity clock"
         ),
-        "validator_check_order": ["depth", "validity", "signature", "scope"],
+        "validator_check_order": [
+            "depth", "validity (per link root→leaf)",
+            "signature (per link)", "scope_narrowing (non-root)",
+        ],
         "ed25519_seeds_hex": SEEDS,
-        "ed25519_public_keys_hex": {
-            label: public_key_hex(key) for label, key in KEYS.items()
-        },
+        "ed25519_public_keys_hex": PUBS,
         "reference_times": {
             "not_before_valid": NOT_BEFORE,
             "not_after_valid": NOT_AFTER_VALID,
             "not_after_expired": NOT_AFTER_EXPIRED,
+            "fixed_now": FIXED_NOW,
         },
         "fixture_intent": {
-            "01-scope-expansion": (
-                "Triggers INVALID_CLAIM_SCOPE after passing depth + validity + "
-                "signature"
-            ),
-            "02-depth-violation": (
-                "Triggers DELEGATION_DEPTH_EXCEEDED — first check in order"
-            ),
-            "03-signature-substitution": (
-                "Triggers INVALID_SIGNATURE after passing depth + validity"
-            ),
-            "04-validity-expired": (
-                "Triggers VALIDITY_EXPIRED after passing depth"
-            ),
+            "01-scope-expansion": "INVALID_CLAIM_SCOPE on chain[1] after passing depth + validity (both links) + signature (both links) + scope (chain[0] is root, skipped)",
+            "02-depth-violation": "DELEGATION_DEPTH_EXCEEDED (chain.length=4 > max_depth=3) — first check in order",
+            "03-signature-substitution": "INVALID_SIGNATURE on chain[1] after passing depth + validity (both links) + signature (chain[0])",
+            "04-validity-expired": "VALIDITY_EXPIRED on chain[0] after passing depth",
         },
     }
 
@@ -330,7 +344,6 @@ def main() -> None:
         ("03-signature-substitution.fixture.json", fixture_signature_substitution()),
         ("04-validity-expired.fixture.json", fixture_validity_expired()),
     ]
-
     for filename, payload in fixtures:
         out = outdir / filename
         out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")

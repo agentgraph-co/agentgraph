@@ -1,34 +1,39 @@
 {
   "name": "signature-substitution",
-  "description": "Chain of length 2 where link[1]'s signature is replaced with an Ed25519 signature over unrelated canonical bytes (JCS of `{\"unrelated\":\"payload\"}`). The signature is still produced by the correct signing key (agent_a) but does not cover link[1]'s own canonical form. chain.length=2 ≤ max_depth=3 and validityWindow is current, so depth + validity pass; signature check fires before scope.",
+  "description": "Chain of length 2 where chain[1]'s signature is replaced with an Ed25519 signature over canonicalizeJCS({\"unrelated\":\"payload\"}). The signature is produced by the correct delegator private key (agent_a) but does not cover chain[1]'s own canonical form. Depth + validity pass for both links + chain[0] signature valid; chain[1] signature verification fails.",
   "input": {
     "chain": [
       {
-        "issuer": "did:web:agentgraph.co",
-        "subject": "did:web:agent-a.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "delegatee": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "FALI9jSeW2HK-oHHFQ8mwBAI-Fnh8YQB_hAHSS7b3xGZdQ028hQ5bIlxjensrLC5i4DgTnhagxNETkrkmyt5BQ"
+        "signature": "091f4da9ae31193b2c699ff0a1318f530c11553156c9552ac9e523444b6be1a2f49b14af3cc7bb665261037d8aa3b9f5560e5827345be9b81a7b88ac6860800b"
       },
       {
-        "issuer": "did:web:agent-a.example.com",
-        "subject": "did:web:agent-b.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "delegatee": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "rpaQG-IVMLp6IyvHklfuOHiGKCTW6Zn0C2Aa1lfVUVXGvQn3V6CgLw9A2ezXWf2ca5UQ7e1dr6XQe3z14rqGCg"
+        "signature": "ae96901be21530ba7a232bc79257ee3878862824d6e999f40b601ad657d55155c6bd09f757a0a02f0f40d9ecd759fd9c6b9510eded5dafa5d07b7cf5e2ba860a"
       }
     ],
-    "max_depth": 3
+    "max_depth": 3,
+    "now": "2026-05-13T18:00:00Z"
   },
   "expected_error_code": "INVALID_SIGNATURE"
 }

@@ -1,22 +1,25 @@
 {
   "name": "validity-expired",
-  "description": "Chain of length 1 where the single link's validityWindow.not_after is 2024-12-31T23:59:59Z (well in the past). chain.length=1 ≤ max_depth=3 so depth passes; validity check fires before signature or scope evaluation. The signature is nevertheless validly produced over canonicalizeJCS(link minus signature) so the validity check is demonstrably short-circuiting before the signature check.",
+  "description": "Chain of length 1 where chain[0].validityWindow.not_after is 2024-12-31T23:59:59Z (well in the past relative to the deterministic clock now=2026-05-13T18:00:00Z). chain.length=1 ≤ max_depth=3 so depth passes; validity check fires before signature evaluation. Signature is nevertheless validly produced over canonicalizeJCS(link minus signature) so the validity check is demonstrably short-circuiting.",
   "input": {
     "chain": [
       {
-        "issuer": "did:web:agentgraph.co",
-        "subject": "did:web:agent-a.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "delegatee": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2024-01-01T00:00:00Z",
           "not_after": "2024-12-31T23:59:59Z"
         },
-        "signature": "Fwz3lHKcjxCMjX7cDqTO4Ni1OwKDru0-sCNMzkNQ7-13CQDQPxh5_Hu9urql199CMcOLIq6LB1fATccZKts8Bw"
+        "signature": "e0c74fa605660d05094986bfe6075cc18b02acd7c7e2511e62c0ccda2276ee5542e63de94d4935ba8d5980251287bb2c5a39e552c71cd927913a23978c4c0f02"
       }
     ],
-    "max_depth": 3
+    "max_depth": 3,
+    "now": "2026-05-13T18:00:00Z"
   },
   "expected_error_code": "VALIDITY_EXPIRED"
 }

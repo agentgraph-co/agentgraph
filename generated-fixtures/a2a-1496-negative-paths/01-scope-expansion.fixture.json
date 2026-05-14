@@ -1,35 +1,40 @@
 {
   "name": "scope-expansion",
-  "description": "Chain of length 2 where link[1] expands the scope set granted by link[0] (data:read → {data:read, data:write}). All links validly signed and within validity window; chain.length=2 ≤ max_depth=3 so depth + validity + signature checks pass before scope check fires.",
+  "description": "Chain of length 2 where chain[1] expands action_categories beyond chain[0]'s grant ({data:read} → {data:read, data:write}). Depth + validity + signature all pass; scope-narrowing check fires on chain[1] vs chain[0].",
   "input": {
     "chain": [
       {
-        "issuer": "did:web:agentgraph.co",
-        "subject": "did:web:agent-a.example.com",
-        "scope": [
-          "data:read"
-        ],
+        "delegator": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "delegatee": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "scope": {
+          "action_categories": [
+            "data:read"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "FALI9jSeW2HK-oHHFQ8mwBAI-Fnh8YQB_hAHSS7b3xGZdQ028hQ5bIlxjensrLC5i4DgTnhagxNETkrkmyt5BQ"
+        "signature": "091f4da9ae31193b2c699ff0a1318f530c11553156c9552ac9e523444b6be1a2f49b14af3cc7bb665261037d8aa3b9f5560e5827345be9b81a7b88ac6860800b"
       },
       {
-        "issuer": "did:web:agent-a.example.com",
-        "subject": "did:web:agent-b.example.com",
-        "scope": [
-          "data:read",
-          "data:write"
-        ],
+        "delegator": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "delegatee": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+        "scope": {
+          "action_categories": [
+            "data:read",
+            "data:write"
+          ]
+        },
         "validityWindow": {
           "not_before": "2026-05-01T00:00:00Z",
           "not_after": "2026-12-31T23:59:59Z"
         },
-        "signature": "FGDUuNVmY5btmnDwOkzrh3kTtAmblsE1YOrYo7Z5091RQajKXMiBPtHw305xfcxJ6nk8fFtIujYmpo0BXDpXBA"
+        "signature": "0e0c8bde45246c46ad1884d64fd283c36d7050ce01a2d0de68c25cc01fcf5240a1de163d5ca3a592c1a4138fc38b4904cbcbb8dfc9fc2f50a827253a8dc71d0b"
       }
     ],
-    "max_depth": 3
+    "max_depth": 3,
+    "now": "2026-05-13T18:00:00Z"
   },
   "expected_error_code": "INVALID_CLAIM_SCOPE"
 }
