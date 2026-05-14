@@ -1,0 +1,38 @@
+{
+  "generator": "agentgraph-co/agentgraph scripts/gen_a2a_1496_negative_paths.py",
+  "canonicalization": "RFC 8785 (JCS), nulls preserved (matches src.signing.canonicalize_jcs_strict; same byte output as trailofbits/rfc8785.py and @nobulex/crypto canonicalize)",
+  "signature_scheme": "Ed25519 over canonicalizeJCS(link minus signature), no sha256 wrap (per aeoess format note 1 on A2A #1786, 2026-05-13)",
+  "signature_encoding": "base64url, no padding",
+  "field_name_convention": "CTEF v0.3.2 §A: camelCase validityWindow with snake_case not_before/not_after; chain-level max_depth",
+  "validator_check_order": [
+    "depth",
+    "validity",
+    "signature",
+    "scope"
+  ],
+  "ed25519_seeds_hex": {
+    "root": "0101010101010101010101010101010101010101010101010101010101010101",
+    "agent_a": "0202020202020202020202020202020202020202020202020202020202020202",
+    "agent_b": "0303030303030303030303030303030303030303030303030303030303030303",
+    "agent_c": "0404040404040404040404040404040404040404040404040404040404040404",
+    "agent_d": "0505050505050505050505050505050505050505050505050505050505050505"
+  },
+  "ed25519_public_keys_hex": {
+    "root": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "agent_a": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+    "agent_b": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+    "agent_c": "ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+    "agent_d": "6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1"
+  },
+  "reference_times": {
+    "not_before_valid": "2026-05-01T00:00:00Z",
+    "not_after_valid": "2026-12-31T23:59:59Z",
+    "not_after_expired": "2024-12-31T23:59:59Z"
+  },
+  "fixture_intent": {
+    "01-scope-expansion": "Triggers INVALID_CLAIM_SCOPE after passing depth + validity + signature",
+    "02-depth-violation": "Triggers DELEGATION_DEPTH_EXCEEDED — first check in order",
+    "03-signature-substitution": "Triggers INVALID_SIGNATURE after passing depth + validity",
+    "04-validity-expired": "Triggers VALIDITY_EXPIRED after passing depth"
+  }
+}

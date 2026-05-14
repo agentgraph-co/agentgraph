@@ -1,0 +1,35 @@
+{
+  "name": "scope-expansion",
+  "description": "Chain of length 2 where link[1] expands the scope set granted by link[0] (data:read → {data:read, data:write}). All links validly signed and within validity window; chain.length=2 ≤ max_depth=3 so depth + validity + signature checks pass before scope check fires.",
+  "input": {
+    "chain": [
+      {
+        "issuer": "did:web:agentgraph.co",
+        "subject": "did:web:agent-a.example.com",
+        "scope": [
+          "data:read"
+        ],
+        "validityWindow": {
+          "not_before": "2026-05-01T00:00:00Z",
+          "not_after": "2026-12-31T23:59:59Z"
+        },
+        "signature": "FALI9jSeW2HK-oHHFQ8mwBAI-Fnh8YQB_hAHSS7b3xGZdQ028hQ5bIlxjensrLC5i4DgTnhagxNETkrkmyt5BQ"
+      },
+      {
+        "issuer": "did:web:agent-a.example.com",
+        "subject": "did:web:agent-b.example.com",
+        "scope": [
+          "data:read",
+          "data:write"
+        ],
+        "validityWindow": {
+          "not_before": "2026-05-01T00:00:00Z",
+          "not_after": "2026-12-31T23:59:59Z"
+        },
+        "signature": "FGDUuNVmY5btmnDwOkzrh3kTtAmblsE1YOrYo7Z5091RQajKXMiBPtHw305xfcxJ6nk8fFtIujYmpo0BXDpXBA"
+      }
+    ],
+    "max_depth": 3
+  },
+  "expected_error_code": "INVALID_CLAIM_SCOPE"
+}

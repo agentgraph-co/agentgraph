@@ -1,0 +1,22 @@
+{
+  "name": "validity-expired",
+  "description": "Chain of length 1 where the single link's validityWindow.not_after is 2024-12-31T23:59:59Z (well in the past). chain.length=1 ≤ max_depth=3 so depth passes; validity check fires before signature or scope evaluation. The signature is nevertheless validly produced over canonicalizeJCS(link minus signature) so the validity check is demonstrably short-circuiting before the signature check.",
+  "input": {
+    "chain": [
+      {
+        "issuer": "did:web:agentgraph.co",
+        "subject": "did:web:agent-a.example.com",
+        "scope": [
+          "data:read"
+        ],
+        "validityWindow": {
+          "not_before": "2024-01-01T00:00:00Z",
+          "not_after": "2024-12-31T23:59:59Z"
+        },
+        "signature": "Fwz3lHKcjxCMjX7cDqTO4Ni1OwKDru0-sCNMzkNQ7-13CQDQPxh5_Hu9urql199CMcOLIq6LB1fATccZKts8Bw"
+      }
+    ],
+    "max_depth": 3
+  },
+  "expected_error_code": "VALIDITY_EXPIRED"
+}

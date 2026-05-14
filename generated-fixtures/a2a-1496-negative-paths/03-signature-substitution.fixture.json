@@ -1,0 +1,34 @@
+{
+  "name": "signature-substitution",
+  "description": "Chain of length 2 where link[1]'s signature is replaced with an Ed25519 signature over unrelated canonical bytes (JCS of `{\"unrelated\":\"payload\"}`). The signature is still produced by the correct signing key (agent_a) but does not cover link[1]'s own canonical form. chain.length=2 ≤ max_depth=3 and validityWindow is current, so depth + validity pass; signature check fires before scope.",
+  "input": {
+    "chain": [
+      {
+        "issuer": "did:web:agentgraph.co",
+        "subject": "did:web:agent-a.example.com",
+        "scope": [
+          "data:read"
+        ],
+        "validityWindow": {
+          "not_before": "2026-05-01T00:00:00Z",
+          "not_after": "2026-12-31T23:59:59Z"
+        },
+        "signature": "FALI9jSeW2HK-oHHFQ8mwBAI-Fnh8YQB_hAHSS7b3xGZdQ028hQ5bIlxjensrLC5i4DgTnhagxNETkrkmyt5BQ"
+      },
+      {
+        "issuer": "did:web:agent-a.example.com",
+        "subject": "did:web:agent-b.example.com",
+        "scope": [
+          "data:read"
+        ],
+        "validityWindow": {
+          "not_before": "2026-05-01T00:00:00Z",
+          "not_after": "2026-12-31T23:59:59Z"
+        },
+        "signature": "rpaQG-IVMLp6IyvHklfuOHiGKCTW6Zn0C2Aa1lfVUVXGvQn3V6CgLw9A2ezXWf2ca5UQ7e1dr6XQe3z14rqGCg"
+      }
+    ],
+    "max_depth": 3
+  },
+  "expected_error_code": "INVALID_SIGNATURE"
+}
