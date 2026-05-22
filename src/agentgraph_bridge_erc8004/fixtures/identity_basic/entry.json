@@ -1,0 +1,10 @@
+{
+  "registry": "identity",
+  "entry_id": 1,
+  "submitter": "0xabababababababababababababababababababab",
+  "subject_did": "did:web:agent.example.com",
+  "data_b64": "eyJjbGFpbV90eXBlIjoiaWRlbnRpdHkiLCJzdWJqZWN0X2RpZCI6ImRpZDp3ZWI6YWdlbnQuZXhhbXBsZS5jb20iLCJwcm92aWRlcl9kaWQiOiJkaWQ6d2ViOnJlZ2lzdHJhci5leGFtcGxlLmNvbSIsImlzc3VlZF9hdCI6IjIwMjYtMDUtMjJUMTI6MDA6MDArMDA6MDAiLCJleHBpcmVzX2F0IjoiMjAzMC0wNS0yMlQxMjowMDowMCswMDowMCIsInBheWxvYWQiOnsic3ViIjoiZGlkOndlYjphZ2VudC5leGFtcGxlLmNvbSIsInZlcmlmaWVkX21ldGhvZCI6ImRpZDp3ZWI6YWdlbnQuZXhhbXBsZS5jb20ja2V5LTEiLCJjcmVkZW50aWFsX2lkIjoidmM6aWRlbnRpdHk6YWdlbnQtZXhhbXBsZTowMDEifSwic2lnbmF0dXJlIjp7ImFsZyI6IkVkRFNBIiwia2lkIjoiZml4dHVyZS1rZXktMSIsInNpZyI6ImNxNjhTbEFSMC01dGZmQy1NU19qV2M5UlNGZ0tsZHNTcjFSOGVYOGFxM25VdkVPeHBQTDMzY3Naazc5UC1aX0dUS0NENnRTb2pTVFN3NlU1aklFU0FRIn19",
+  "block_number": 25000001,
+  "block_timestamp": "2026-05-22T12:00:00+00:00",
+  "tx_hash": "0x333f5852f4aea66b8b8b77043ca2c3ce929258a520328273aa5840302c8c71cc"
+}

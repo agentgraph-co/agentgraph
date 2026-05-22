@@ -1,0 +1,17 @@
+{
+  "claim_type": "identity",
+  "subject_did": "did:web:agent.example.com",
+  "provider_did": "did:web:registrar.example.com",
+  "issued_at": "2026-05-22T12:00:00+00:00",
+  "expires_at": "2030-05-22T12:00:00+00:00",
+  "payload": {
+    "sub": "did:web:agent.example.com",
+    "verified_method": "did:web:agent.example.com#key-1",
+    "credential_id": "vc:identity:agent-example:001"
+  },
+  "signature": {
+    "alg": "EdDSA",
+    "kid": "fixture-key-1",
+    "sig": "cq68SlAR0-5tffC-MS_jWc9RSFgKldsSr1R8eX8aq3nUvEOxpPL33csZk79P-Z_GTKCD6tSojSTSw6U5jIESAQ"
+  }
+}

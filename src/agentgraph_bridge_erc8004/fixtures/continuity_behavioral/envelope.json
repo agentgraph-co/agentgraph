@@ -1,0 +1,25 @@
+{
+  "claim_type": "continuity",
+  "subject_did": "did:web:agent.example.com",
+  "provider_did": "did:web:dominion-observatory.sgdata.workers.dev",
+  "issued_at": "2026-05-22T12:00:00+00:00",
+  "expires_at": "2030-05-22T12:00:00+00:00",
+  "payload": {
+    "subject_did": "did:web:agent.example.com",
+    "evidence_class": "behavioral",
+    "interaction_success_rate": 0.94,
+    "latency_p99_ms": 850,
+    "anomaly_score": 0.02,
+    "compliance_posture": [
+      "eu-ai-act-art-12",
+      "singapore-imda"
+    ],
+    "observation_window_days": 30
+  },
+  "claim_subtype": "behavioral_eval",
+  "signature": {
+    "alg": "EdDSA",
+    "kid": "fixture-key-1",
+    "sig": "VDgZbWdBx2H1YSD6sMSHNt1BpzlEaU1mhYUlINhrf9ZNAUMPuVK5-YCA1fmjUAvumGOSF0rHDZcufzbr4wC5Cg"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "source_urn": "urn:erc8004:identity:1",
+  "claim_type": "identity",
+  "claim_subtype": null,
+  "subject_did": "did:web:agent.example.com",
+  "provider_did": "did:web:registrar.example.com",
+  "payload": {
+    "sub": "did:web:agent.example.com",
+    "verified_method": "did:web:agent.example.com#key-1",
+    "credential_id": "vc:identity:agent-example:001"
+  },
+  "signature_verified": true,
+  "registry_signature_verified": true,
+  "issued_at": "2026-05-22T12:00:00+00:00",
+  "expires_at": "2030-05-22T12:00:00+00:00"
+}
