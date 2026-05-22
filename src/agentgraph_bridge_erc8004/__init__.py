@@ -31,6 +31,11 @@ from agentgraph_bridge_erc8004.models import (
     ERC8004Registry,
     NormalizedAttestation,
 )
+from agentgraph_bridge_erc8004.registry_reader import (
+    ERC8004RegistryReader,
+    RegistryReadError,
+    make_reader_from_env,
+)
 from agentgraph_bridge_erc8004.urn_resolver import (
     ParsedURN,
     URNParseError,
@@ -40,10 +45,13 @@ from agentgraph_bridge_erc8004.urn_resolver import (
 __all__ = [
     "ERC8004Entry",
     "ERC8004Registry",
+    "ERC8004RegistryReader",
     "NormalizedAttestation",
     "ParsedURN",
+    "RegistryReadError",
     "URNParseError",
+    "make_reader_from_env",
     "parse_erc8004_urn",
 ]
 
-__version__ = "0.0.1"  # MVP scaffold; bump to 0.1.0 when Day 2-3 wiring lands
+__version__ = "0.1.0"  # Day 2 ships registry_reader; Day 3 adds normalizer + score_ingest
