@@ -369,6 +369,43 @@ def _source_reputation_score(community_signals: dict) -> float:
     return round(score, 4)
 
 
+def _external_score_with_attestations(
+    community_signals: dict,
+    erc8004_attestations: list | None = None,
+) -> float:
+    """Compute external reputation, optionally blending in ERC-8004 attestations.
+
+    Behavior:
+    - No attestations passed → returns `_source_reputation_score()` unchanged.
+      Entities without on-chain attestations see no behavioral difference.
+    - Attestations passed → blends ERC-8004-derived score with community
+      signals via max-of-two strategy. Whichever source produces a higher
+      external-reputation score wins; entities with both strong on-chain
+      AND strong GitHub signals don't get to stack them (per the weight
+      isolation invariant).
+
+    The opt-in design is intentional: ERC-8004 attestation fetch is
+    expected to be done by a separate sync job (not fetched live during
+    trust recompute, which runs on every cycle). The recompute job
+    reads pre-synced attestations and passes them in; entities without
+    sync just get the community-signal score as before.
+    """
+    community_score = _source_reputation_score(community_signals)
+
+    if not erc8004_attestations:
+        return community_score
+
+    # Lazy import — the erc8004 bridge has web3 as an optional dep, and
+    # we only want to import it when attestations are actually present.
+    from agentgraph_bridge_erc8004.score_ingest import (
+        blend_with_community_signals,
+        score as erc8004_score,
+    )
+
+    erc_score = erc8004_score(erc8004_attestations)
+    return blend_with_community_signals(erc_score, community_score)
+
+
 async def create_import_trust_score(
     db: AsyncSession,
     entity_id: uuid.UUID,

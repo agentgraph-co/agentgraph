@@ -26,6 +26,10 @@ fixtures, integrate normalized attestations into src/trust/score.py.
 """
 from __future__ import annotations
 
+from agentgraph_bridge_erc8004.attestation_normalizer import (
+    NormalizationError,
+    normalize,
+)
 from agentgraph_bridge_erc8004.models import (
     ERC8004Entry,
     ERC8004Registry,
@@ -35,6 +39,11 @@ from agentgraph_bridge_erc8004.registry_reader import (
     ERC8004RegistryReader,
     RegistryReadError,
     make_reader_from_env,
+)
+from agentgraph_bridge_erc8004.score_ingest import (
+    blend_with_community_signals,
+    score,
+    score_breakdown,
 )
 from agentgraph_bridge_erc8004.urn_resolver import (
     ParsedURN,
@@ -46,12 +55,17 @@ __all__ = [
     "ERC8004Entry",
     "ERC8004Registry",
     "ERC8004RegistryReader",
+    "NormalizationError",
     "NormalizedAttestation",
     "ParsedURN",
     "RegistryReadError",
     "URNParseError",
+    "blend_with_community_signals",
     "make_reader_from_env",
+    "normalize",
     "parse_erc8004_urn",
+    "score",
+    "score_breakdown",
 ]
 
-__version__ = "0.1.0"  # Day 2 ships registry_reader; Day 3 adds normalizer + score_ingest
+__version__ = "0.2.0"  # Day 3 ships normalizer + score_ingest

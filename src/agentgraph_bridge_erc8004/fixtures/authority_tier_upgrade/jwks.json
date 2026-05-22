@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "kid": "fixture-key-1",
+      "x": "hqa4JplLpqWYmSuv1T0qpGU5N-IpojIcK8ign4C1jW4",
+      "use": "sig",
+      "alg": "EdDSA"
+    }
+  ]
+}

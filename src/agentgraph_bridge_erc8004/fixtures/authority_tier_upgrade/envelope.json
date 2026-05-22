@@ -1,0 +1,27 @@
+{
+  "claim_type": "authority",
+  "subject_did": "did:web:agent.example.com",
+  "provider_did": "did:web:trust.arkforge.tech",
+  "issued_at": "2026-05-22T12:00:00+00:00",
+  "expires_at": "2030-05-22T12:00:00+00:00",
+  "payload": {
+    "subject_did": "did:web:agent.example.com",
+    "from_tier": "NEUTRAL",
+    "to_tier": "TRUSTED",
+    "policy_ref": "sha256:aeb0208a00000000000000000000000000000000000000000000000000000000",
+    "scope_boundary": "session:ctef-tier-upgrade-fixture-v1",
+    "requester_did": "did:web:requester.example",
+    "constraint_evaluation": {
+      "facet": "ResourceViolation",
+      "limit": 100,
+      "actual": 42,
+      "delta": -58
+    }
+  },
+  "claim_subtype": "tier_upgrade",
+  "signature": {
+    "alg": "EdDSA",
+    "kid": "fixture-key-1",
+    "sig": "2N9EF_fnHteq7bN62b_fk2OaYnSTAy-6RH_Czs55cBbmuwWcOOfSbHCE0bYsi_1NEYJxbF3ydbA66MZqFsM3CQ"
+  }
+}

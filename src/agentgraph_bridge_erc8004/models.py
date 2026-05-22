@@ -10,7 +10,7 @@ Ed25519 by the attestation issuer (which may differ from the entry submitter).
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -78,9 +78,19 @@ class NormalizedAttestation(BaseModel):
 
     @property
     def is_admissible(self) -> bool:
-        """Both signature layers must verify and attestation must not be expired."""
-        return (
-            self.signature_verified
-            and self.registry_signature_verified
-            and (self.expires_at is None or self.expires_at > datetime.utcnow())
-        )
+        """Both signature layers must verify and attestation must not be expired.
+
+        Uses tz-aware UTC `now()` to compare against `expires_at`, which is
+        always tz-aware (per RFC 3339 parsing in the attestation_normalizer).
+        Comparing naive vs aware datetimes raises TypeError; tz-aware on
+        both sides avoids the silent-mismatch surface.
+        """
+        if not self.signature_verified or not self.registry_signature_verified:
+            return False
+        if self.expires_at is None:
+            return True
+        # Normalize expires_at to tz-aware UTC if it came in naive (defensive)
+        exp = self.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        return exp > datetime.now(timezone.utc)
