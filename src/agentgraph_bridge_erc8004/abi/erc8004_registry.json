@@ -1,0 +1,33 @@
+[
+  {
+    "type": "function",
+    "name": "getEntry",
+    "stateMutability": "view",
+    "inputs": [{"name": "entryId", "type": "uint256"}],
+    "outputs": [
+      {"name": "submitter", "type": "address"},
+      {"name": "subjectDid", "type": "string"},
+      {"name": "data", "type": "bytes"},
+      {"name": "timestamp", "type": "uint256"},
+      {"name": "exists", "type": "bool"}
+    ]
+  },
+  {
+    "type": "function",
+    "name": "entryCount",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{"name": "count", "type": "uint256"}]
+  },
+  {
+    "type": "event",
+    "name": "EntrySubmitted",
+    "anonymous": false,
+    "inputs": [
+      {"name": "entryId", "type": "uint256", "indexed": true},
+      {"name": "submitter", "type": "address", "indexed": true},
+      {"name": "subjectDid", "type": "string", "indexed": false},
+      {"name": "dataHash", "type": "bytes32", "indexed": false}
+    ]
+  }
+]
