@@ -27,14 +27,21 @@ class ERC8004Config:
     freshness_ttl_seconds: int = 24 * 60 * 60  # 24h default TTL for attestations
 
 
-# Placeholder addresses — replace with actual mainnet deployment addresses
-# from EIP-8004 once verified on-chain. These addresses are intentionally
-# 0x0000... to fail-fast if production config isn't loaded.
-ERC8004_PLACEHOLDER_ADDRESSES = {
-    "identity": "0x0000000000000000000000000000000000000000",
-    "reputation": "0x0000000000000000000000000000000000000000",
-    "validation": "0x0000000000000000000000000000000000000000",
+# Real EIP-8004 mainnet deployment addresses, verified live via eth_getCode
+# 2026-05-27 (Identity name()="AgentIdentity" symbol()="AGENT" getVersion()="2.0.0").
+# Source: github.com/erc-8004/erc-8004-contracts (mainnet, chain_id=1).
+# ERC-8004 went live on Ethereum mainnet 2026-01-29.
+#
+# NOTE: Validation Registry is NOT yet deployed on mainnet (testnets only) —
+# left as placeholder zero until it ships. Identity + Reputation are live.
+ERC8004_MAINNET_ADDRESSES = {
+    "identity": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "reputation": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    "validation": "0x0000000000000000000000000000000000000000",  # not on mainnet yet
 }
+
+# Back-compat alias (older imports referenced PLACEHOLDER); now points at real.
+ERC8004_PLACEHOLDER_ADDRESSES = ERC8004_MAINNET_ADDRESSES
 
 # Test addresses — use anvil/foundry mock chain in tests
 ERC8004_TEST_ADDRESSES = {
