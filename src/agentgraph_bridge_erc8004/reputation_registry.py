@@ -68,12 +68,12 @@ class ReputationRegistryReader:
     Web3 injected for test-friendliness, same pattern as IdentityRegistryReader.
     """
 
-    def __init__(self, web3: "Web3", config: ERC8004Config) -> None:
+    def __init__(self, web3: Web3, config: ERC8004Config) -> None:
         self._w3 = web3
         self._cfg = config
         from web3 import Web3
 
-        self._contract: "Contract" = web3.eth.contract(
+        self._contract: Contract = web3.eth.contract(
             address=Web3.to_checksum_address(config.reputation_registry_address),
             abi=_load_abi("ReputationRegistry"),
         )

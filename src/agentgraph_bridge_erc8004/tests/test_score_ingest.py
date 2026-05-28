@@ -8,15 +8,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from agentgraph_bridge_erc8004.models import NormalizedAttestation
 from agentgraph_bridge_erc8004.score_ingest import (
     blend_with_community_signals,
     score,
     score_breakdown,
 )
-
 
 _FUTURE = datetime.now(timezone.utc) + timedelta(days=365)
 _PAST = datetime.now(timezone.utc) - timedelta(days=1)

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agentgraph_bridge_erc8004.config import ERC8004Config, ERC8004_TEST_ADDRESSES
+from agentgraph_bridge_erc8004.config import ERC8004_TEST_ADDRESSES, ERC8004Config
 from agentgraph_bridge_erc8004.models import ERC8004Registry
 from agentgraph_bridge_erc8004.registry_reader import (
     ERC8004RegistryReader,

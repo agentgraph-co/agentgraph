@@ -17,7 +17,8 @@ There is NO embedded CTEF envelope in the registry. The registration file the
 tokenURI points at is where an agent's DID / capabilities / (optionally) a CTEF
 attestation live. So the bridge's consumption model is:
 
-  registry (pointer layer)  ->  tokenURI  ->  off-chain registration file  ->  CTEF attestation (if present)
+  registry (pointer layer)  ->  tokenURI  ->  off-chain registration file
+       ->  CTEF attestation (if present)
 
 This module reads the on-chain pointer layer into an `AgentRecord`. Resolving
 the registration file + extracting any CTEF attestation is the
@@ -33,7 +34,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from agentgraph_bridge_erc8004.config import ERC8004Config
 
@@ -59,7 +60,7 @@ class AgentRecord:
 
     agent_id: int                  # ERC-721 tokenId
     owner: str                     # ownerOf(tokenId)
-    agent_wallet: Optional[str]    # getAgentWallet(tokenId) — agent's operating address
+    agent_wallet: str | None    # getAgentWallet(tokenId) — agent's operating address
     registration_uri: str          # tokenURI(tokenId) — off-chain registration file
     source_urn: str                # urn:erc8004:identity:<agent_id>
 
@@ -76,12 +77,12 @@ class IdentityRegistryReader:
     pass a MagicMock; production passes Web3(HTTPProvider(rpc_url)).
     """
 
-    def __init__(self, web3: "Web3", config: ERC8004Config) -> None:
+    def __init__(self, web3: Web3, config: ERC8004Config) -> None:
         self._w3 = web3
         self._cfg = config
         from web3 import Web3  # local import — only when reader is used
 
-        self._contract: "Contract" = web3.eth.contract(
+        self._contract: Contract = web3.eth.contract(
             address=Web3.to_checksum_address(config.identity_registry_address),
             abi=_load_abi("IdentityRegistry"),
         )
@@ -113,7 +114,7 @@ class IdentityRegistryReader:
         except Exception as exc:
             raise IdentityReadError(f"{urn}: tokenURI failed: {exc}") from exc
 
-        agent_wallet: Optional[str] = None
+        agent_wallet: str | None = None
         try:
             w = c.getAgentWallet(agent_id).call()
             if w and int(w, 16) != 0:
@@ -129,7 +130,7 @@ class IdentityRegistryReader:
             source_urn=urn,
         )
 
-    def get_metadata(self, agent_id: int, key: str) -> Optional[bytes]:
+    def get_metadata(self, agent_id: int, key: str) -> bytes | None:
         """Read an arbitrary on-chain metadata value for an agent (getMetadata).
 
         Returns None if the key is unset. This is where an agent MAY publish a

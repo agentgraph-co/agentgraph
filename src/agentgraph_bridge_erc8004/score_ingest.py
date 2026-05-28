@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Iterable
+from collections.abc import Iterable
 
 from agentgraph_bridge_erc8004.models import NormalizedAttestation
 
@@ -164,7 +164,7 @@ def score_breakdown(attestations: Iterable[NormalizedAttestation]) -> dict:
         "non_admissible_filtered": len(all_atts) - len(admissible),
     }
 
-    type_counts = Counter(a.claim_type for a in admissible)
+    Counter(a.claim_type for a in admissible)
     for claim_type in ("identity", "authority", "continuity", "transport"):
         atts = [a for a in admissible if a.claim_type == claim_type]
         if not atts:

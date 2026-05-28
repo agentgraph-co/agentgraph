@@ -36,7 +36,6 @@ from __future__ import annotations
 import base64
 import json
 from datetime import datetime, timezone
-from typing import Optional
 
 import httpx
 import rfc8785
@@ -112,7 +111,7 @@ def _did_web_to_jwks_url(did: str) -> str:
     return f"https://{domain}/{path}/jwks.json"
 
 
-def _fetch_jwks(jwks_url: str, http_client: Optional[httpx.Client] = None) -> list[dict]:
+def _fetch_jwks(jwks_url: str, http_client: httpx.Client | None = None) -> list[dict]:
     """Fetch + parse JWKS from a URL.
 
     Returns the `keys` array. Caller is responsible for filtering by kid.
@@ -209,8 +208,8 @@ def normalize(
     entry: ERC8004Entry,
     *,
     registry_signature_verified: bool = True,
-    http_client: Optional[httpx.Client] = None,
-    freshness_ttl_seconds: Optional[int] = None,
+    http_client: httpx.Client | None = None,
+    freshness_ttl_seconds: int | None = None,
 ) -> NormalizedAttestation:
     """Normalize a raw ERC-8004 entry into a verified attestation.
 
@@ -283,7 +282,7 @@ def normalize(
             f"{source_urn}: issued_at not RFC 3339: {issued_at_raw!r} ({exc})",
         ) from exc
 
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     expires_at_raw = envelope.get("expires_at")
     if expires_at_raw is not None:
         if not isinstance(expires_at_raw, str):
@@ -317,7 +316,7 @@ def normalize(
     _verify_envelope_signature(envelope, pubkey)
 
     # Step 5: compute freshness TTL remaining
-    freshness_remaining: Optional[int] = None
+    freshness_remaining: int | None = None
     if expires_at is not None:
         delta = (expires_at - datetime.now(timezone.utc)).total_seconds()
         freshness_remaining = max(0, int(delta))

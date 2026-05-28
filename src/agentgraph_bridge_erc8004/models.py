@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +40,7 @@ class ERC8004Entry(BaseModel):
         pattern=r"^0x[0-9a-fA-F]{40}$",
         description="Ethereum address that submitted the entry",
     )
-    subject_did: Optional[str] = Field(
+    subject_did: str | None = Field(
         default=None,
         description="DID this entry attests about (e.g. did:web:agent.example.com)",
     )
@@ -61,8 +61,10 @@ class NormalizedAttestation(BaseModel):
     """
 
     source_urn: str = Field(description="urn:erc8004:{registry}:<entry_id> originating URN")
-    claim_type: str = Field(description="CTEF claim_type — one of {identity, transport, authority, continuity}")
-    claim_subtype: Optional[str] = Field(default=None)
+    claim_type: str = Field(
+        description="CTEF claim_type — one of {identity, transport, authority, continuity}",
+    )
+    claim_subtype: str | None = Field(default=None)
     subject_did: str = Field(description="The DID this attestation is about")
     provider_did: str = Field(description="The DID of the attestation issuer (CTEF provider)")
     payload: dict[str, Any] = Field(description="Parsed CTEF envelope payload")
@@ -73,8 +75,8 @@ class NormalizedAttestation(BaseModel):
         description="True iff ERC-8004 entry submitter signature verified on-chain",
     )
     issued_at: datetime
-    expires_at: Optional[datetime] = Field(default=None)
-    freshness_ttl_remaining_seconds: Optional[int] = Field(default=None)
+    expires_at: datetime | None = Field(default=None)
+    freshness_ttl_remaining_seconds: int | None = Field(default=None)
 
     @property
     def is_admissible(self) -> bool:

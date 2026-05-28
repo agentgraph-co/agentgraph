@@ -399,6 +399,8 @@ def _external_score_with_attestations(
     # we only want to import it when attestations are actually present.
     from agentgraph_bridge_erc8004.score_ingest import (
         blend_with_community_signals,
+    )
+    from agentgraph_bridge_erc8004.score_ingest import (
         score as erc8004_score,
     )
 

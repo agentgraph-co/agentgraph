@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from agentgraph_bridge_erc8004.abi import load_registry_abi
 from agentgraph_bridge_erc8004.config import ERC8004Config
@@ -66,11 +66,11 @@ class ERC8004RegistryReader:
         '0x...'
     """
 
-    def __init__(self, web3: "Web3", config: ERC8004Config) -> None:
+    def __init__(self, web3: Web3, config: ERC8004Config) -> None:
         self._w3 = web3
         self._cfg = config
         self._abi = load_registry_abi()
-        self._contracts: dict[ERC8004Registry, "Contract"] = {
+        self._contracts: dict[ERC8004Registry, Contract] = {
             ERC8004Registry.IDENTITY: self._make_contract(
                 config.identity_registry_address,
             ),
@@ -82,7 +82,7 @@ class ERC8004RegistryReader:
             ),
         }
 
-    def _make_contract(self, address: str) -> "Contract":
+    def _make_contract(self, address: str) -> Contract:
         """Construct a Web3 Contract bound to one registry's address + ABI."""
         # Web3 expects checksummed addresses. Normalize input.
         from web3 import Web3  # local import — only loaded when reader is used
