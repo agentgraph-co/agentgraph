@@ -20,6 +20,15 @@ PROJECT_DIR="agentgraph"
 COMPOSE_FILE="docker-compose.prod.yml"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 
+# Load prod secrets (POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, …) into the
+# remote shell BEFORE invoking docker-compose so the YAML's `${VAR:?must be set}`
+# interpolations resolve. `.env.production` carries the 28 prod vars; the
+# auto-loaded `.env` only carries 9 (and lacks the secrets since the 2026-05-26
+# cleanup that removed a stranded stash injection). `set -a` exports everything
+# sourced; shell env takes precedence over `.env` so the 3 `.env`-only vars
+# (NODE_ENV, TASK_MASTER_*) still come through compose's normal auto-load.
+LOAD_ENV='set -a && source .env.production && set +a'
+
 # --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -125,9 +134,9 @@ fi
 if $BACKEND; then
   step "Building backend Docker image"
   if $DRY_RUN; then
-    echo "    Would run: cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} build backend"
+    echo "    Would run: cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} build backend"
   else
-    remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} build backend" 2>&1 | while IFS= read -r line; do
+    remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} build backend" 2>&1 | while IFS= read -r line; do
       echo "    $line"
     done
     ok "Backend image built"
@@ -151,27 +160,27 @@ fi
 step "Restarting services"
 if $DRY_RUN; then
   if $BACKEND; then
-    echo "    Would run: docker-compose -f ${COMPOSE_FILE} up -d"
+    echo "    Would run: ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} up -d"
   fi
   if $FRONTEND; then
-    echo "    Would run: docker-compose -f ${COMPOSE_FILE} restart nginx"
+    echo "    Would run: ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} restart nginx"
   fi
 else
   if $BACKEND; then
-    remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} up -d" 2>&1 | while IFS= read -r line; do
+    remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} up -d" 2>&1 | while IFS= read -r line; do
       echo "    $line"
     done
     ok "Services started"
   fi
   if $FRONTEND && ! $BACKEND; then
     # Frontend-only: just restart nginx to pick up new web/dist
-    remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} restart nginx" 2>&1 | while IFS= read -r line; do
+    remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} restart nginx" 2>&1 | while IFS= read -r line; do
       echo "    $line"
     done
     ok "Nginx restarted"
   elif $FRONTEND && $BACKEND; then
     # Full deploy: also restart nginx to ensure it picks up the new static files
-    remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} restart nginx" 2>&1 | while IFS= read -r line; do
+    remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} restart nginx" 2>&1 | while IFS= read -r line; do
       echo "    $line"
     done
     ok "Nginx restarted (fresh static files)"
@@ -209,7 +218,7 @@ else
   # since the backend may still be starting after container recreation.
   LOGIN_RESULT=""
   for attempt in $(seq 1 5); do
-    LOGIN_RESULT=$(remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} exec -T backend python3 -c '
+    LOGIN_RESULT=$(remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} exec -T backend python3 -c '
 import httpx, sys, time
 time.sleep(1)
 import os
@@ -243,9 +252,9 @@ fi
 # --- Step 8: Show container status ---
 step "Container status"
 if $DRY_RUN; then
-  echo "    Would run: docker-compose -f ${COMPOSE_FILE} ps"
+  echo "    Would run: ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} ps"
 else
-  remote "cd ~/${PROJECT_DIR} && docker-compose -f ${COMPOSE_FILE} ps" 2>&1 | while IFS= read -r line; do
+  remote "cd ~/${PROJECT_DIR} && ${LOAD_ENV} && docker-compose -f ${COMPOSE_FILE} ps" 2>&1 | while IFS= read -r line; do
     echo "    $line"
   done
 fi
