@@ -26,7 +26,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
+          # 256M (bumped from 64M 2026-05-28 per task #103 post-mortem).
+          # nginx + WS upgrade buffering + gzip + SSL during backend recreates
+          # was hitting the 64M limit and getting OOM-killed (exit 137).
+          # EC2 has 2.3GiB available; 192MiB bump is negligible.
+          memory: 256M
 
   backend:
     build:
