@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgraph.co/standards/trust-score-envelope-v2.0.json",
+  "title": "AgentGraph Trust Score Envelope v2.0",
+  "description": "Signed, JCS-canonical, content-addressed aggregate trust score envelope. Composes Layer-1 attestations (CTEF v0.3.2) + on-chain reputation (ERC-8004) + scan corpus + third-party observer signals into a single verifiable score with methodology breakdown. Same substrate discipline as CTEF: byte-for-byte verifiable across implementations.",
+  "type": "object",
+  "required": [
+    "subject_did",
+    "subject_kind",
+    "trust_score",
+    "score_version",
+    "computed_at",
+    "freshness_ttl_seconds",
+    "contributions",
+    "shape_version",
+    "canonicalization",
+    "hash_algo",
+    "issuer",
+    "issued_at",
+    "proof"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "subject_did": {
+      "type": "string",
+      "description": "DID URI of the subject this envelope is about. did:web, did:erc8004, did:plc accepted.",
+      "pattern": "^did:[a-z0-9]+:.+",
+      "examples": ["did:web:example-agent.com", "did:erc8004:identity:42"]
+    },
+    "subject_kind": {
+      "type": "string",
+      "enum": ["agent", "human", "service"],
+      "description": "What kind of entity the subject is. agent = autonomous; human = person; service = non-autonomous endpoint/API."
+    },
+    "trust_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "The aggregate trust score, 0.0 = no trust, 1.0 = maximum. Derived from weighted contributions per §4 of the spec."
+    },
+    "score_version": {
+      "type": "string",
+      "const": "v2.0",
+      "description": "Score algorithm version. Bound to this envelope shape."
+    },
+    "computed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC timestamp with exactly 3ms digits and Z suffix (matches CTEF v0.3.2 timestamp discipline). When the aggregation engine computed this envelope.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "freshness_ttl_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How long this envelope is valid. Set to min(scan_freshness, oldest_contribution_freshness). Consumers MUST NOT trust the envelope after computed_at + freshness_ttl_seconds."
+    },
+    "contributions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Per-input-source breakdown. Each contribution names its source, hash, and weighted contribution. A consumer disputing the score knows exactly which input to challenge.",
+      "items": { "$ref": "#/$defs/contribution" }
+    },
+    "shape_version": {
+      "type": "string",
+      "const": "trust-score-envelope-v2.0",
+      "description": "Envelope shape version. Bound to this JSON Schema."
+    },
+    "canonicalization": {
+      "type": "string",
+      "const": "jcs-rfc8785-v1",
+      "description": "Canonicalization discipline. SHA-256 of the JCS-canonical preimage MUST be reproducible byte-for-byte across the 5 reference JCS implementations (rfc8785 Py, canonicalize JS, gowebpki/jcs Go, cyberphone Java, serde_jcs Rust)."
+    },
+    "hash_algo": {
+      "type": "string",
+      "const": "sha256",
+      "description": "Hash function for content addressing. lowercase-hex SHA-256."
+    },
+    "issuer": {
+      "type": "string",
+      "description": "DID of the envelope issuer. For envelopes issued by AgentGraph: did:web:agentgraph.co.",
+      "pattern": "^did:[a-z0-9]+:.+"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC timestamp with 3ms + Z. When the issuer signed this envelope. May be the same as computed_at or later (queue delay).",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "proof": {
+      "$ref": "#/$defs/proof",
+      "description": "Cryptographic proof. Ed25519Signature2020 over the JCS-canonical preimage of the envelope MINUS the proof block itself (depth-first proof-stripping per CTEF v0.3.2 normative addition)."
+    }
+  },
+  "$defs": {
+    "contribution": {
+      "type": "object",
+      "required": [
+        "source",
+        "raw_signal",
+        "weighted_contribution",
+        "freshness_ttl_seconds"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "ctef_attestation",
+            "erc8004_reputation",
+            "scan_corpus",
+            "third_party_observer",
+            "community_signal",
+            "self_attested"
+          ],
+          "description": "The kind of input. Drives weighting rules in §4 of the spec."
+        },
+        "source_attestation_hash": {
+          "type": "string",
+          "description": "lowercase-hex SHA-256 of the source artifact (CTEF envelope, scan report, ERC-8004 receipt, etc.). Lets a consumer re-fetch + re-verify the contribution. REQUIRED for ctef_attestation, scan_corpus, erc8004_reputation, third_party_observer.",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": ["identity", "authority", "continuity", "transport"],
+          "description": "CTEF v0.3.2 closed-set claim_type. Drives the per-claim_type cap in §4."
+        },
+        "evidenceType": {
+          "type": "string",
+          "enum": [
+            "behavioral",
+            "regulatory",
+            "self-attested",
+            "third-party",
+            "cryptographic",
+            "observational"
+          ],
+          "description": "Dominion taxonomy evidence type. Forms part of the discrimination tuple (claim_type, evidenceType, source_provider_did) per CTEF C1."
+        },
+        "source_provider_did": {
+          "type": "string",
+          "description": "Issuer DID of the source contribution. The third component of the discrimination tuple. Required for ctef_attestation + third_party_observer.",
+          "pattern": "^did:[a-z0-9]+:.+"
+        },
+        "raw_signal": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0,
+          "description": "The unweighted signal value, normalized to [-1.0, 1.0]. ERC-8004 negative feedback maps to negative raw_signal; everything else >= 0."
+        },
+        "weighted_contribution": {
+          "type": "number",
+          "minimum": -0.20,
+          "maximum": 0.60,
+          "description": "Contribution AFTER per-claim_type cap + provider-diversity weighting + freshness decay. Sum of all contributions (in 0..1) = trust_score. Floor at -0.20 for negative ERC-8004 feedback (per §4 open question default)."
+        },
+        "freshness_ttl_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How long this individual contribution remains valid. Used to compute envelope freshness_ttl_seconds = min(...)"
+        },
+        "contested_signal": {
+          "type": "boolean",
+          "default": false,
+          "description": "true if two attestations with same (claim_type, source_provider_did) disagreed by >0.30 — surfaces in methodology UI as a yellow flag. Never silently averaged or dropped per §4 conflict resolution rule."
+        },
+        "_metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Source-specific detail for UI rendering (e.g., feedback_count for ERC-8004, malware_classification for scan_corpus). Not load-bearing for the score; ignored by verifiers."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "ctef_attestation" } } },
+          "then": {
+            "required": ["source_attestation_hash", "claim_type", "evidenceType", "source_provider_did"]
+          }
+        },
+        {
+          "if": { "properties": { "source": { "const": "erc8004_reputation" } } },
+          "then": {
+            "required": ["source_attestation_hash"]
+          }
+        },
+        {
+          "if": { "properties": { "source": { "const": "scan_corpus" } } },
+          "then": {
+            "required": ["source_attestation_hash"]
+          }
+        }
+      ]
+    },
+    "proof": {
+      "type": "object",
+      "required": ["type", "verificationMethod", "jws"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Ed25519Signature2020"
+        },
+        "verificationMethod": {
+          "type": "string",
+          "description": "Resolvable JWKS key reference. For AgentGraph: did:web:agentgraph.co#trust-v2-2026",
+          "pattern": "^did:[a-z0-9]+:.+#.+"
+        },
+        "jws": {
+          "type": "string",
+          "description": "Compact JWS (header.payload.signature). Detached payload: SHA-256 of the JCS-canonical envelope-minus-proof. Verifier reconstructs by canonicalizing the envelope without the proof block, hashing, and verifying against jws.",
+          "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]+$"
+        }
+      }
+    }
+  }
+}
