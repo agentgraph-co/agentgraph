@@ -25,13 +25,13 @@ Consumption model is now: **registry (on-chain pointer) → tokenURI → off-cha
   - Reputation `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`
   - Validation — placeholder zero (not on mainnet yet)
 - ✅ `identity_registry.py` — `IdentityRegistryReader` matching the real ERC-721 interface + `AgentRecord` model. **Live-verified**: read agents 1/2/3 from mainnet (owner + wallet resolved; tokenURI empty for those early registrations).
+- ✅ `reputation_registry.py` — `ReputationRegistryReader` + `ReputationSummary` dataclass. Calls `getClients(agentId)` then `getSummary(agentId, clients, "", "")` for total/aggregate/recent. Returns zero-summary (not exception) for agents with no feedback. **Live-verified 2026-05-27**: mainnet agent 1 returns 6 feedback entries, aggregate score 51, 2 distinct clients. *(Was written + verified 2026-05-27 but missed the 658ef06 commit by accident; added in followup commit 2026-05-28.)*
 
 ## What's LEFT (the rest of activation)
 
-1. **Reputation reader** — `reputation_registry.py`: `getSummary(agentId, ...)` + `readAllFeedback(...)` → map to a behavioral-trust signal. This is the highest-value trust input (numeric feedback scores).
-2. **Normalizer rework** — `attestation_normalizer.py` currently expects embedded CTEF bytes in `entry.data`. New flow: fetch `registration_uri` → parse registration file → extract CTEF attestation (if present) → verify. If no CTEF attestation in the file, the agent still has an identity record but no composable attestation (that's a valid state).
-3. **score_ingest wiring** — feed Reputation summary + any CTEF attestation into the composite trust score `EXTERNAL` slot. The existing `score_ingest.py` discrimination-tuple logic mostly holds; the input shape changes.
-4. **Sync job + cache table** — hourly cron: enumerate registry → read agent records + reputation → cache in `erc8004_attestations` (schema in DEPLOY.md). Trust recompute reads the cache.
+1. **Normalizer rework** — `attestation_normalizer.py` currently expects embedded CTEF bytes in `entry.data`. New flow: fetch `registration_uri` → parse registration file → extract CTEF attestation (if present) → verify. If no CTEF attestation in the file, the agent still has an identity record but no composable attestation (that's a valid state).
+2. **score_ingest wiring** — feed Reputation summary + any CTEF attestation into the composite trust score `EXTERNAL` slot. The existing `score_ingest.py` discrimination-tuple logic mostly holds; the input shape changes.
+3. **Sync job + cache table** — hourly cron: enumerate registry → read agent records + reputation → cache in `erc8004_attestations` (schema in DEPLOY.md). Trust recompute reads the cache. **DB migration carries this — do not deploy unsupervised.**
 5. **Old `registry_reader.py` (getEntry model) is SUPERSEDED** — left in place so the 67 existing tests don't break on this branch; reconcile/remove on review. `identity_registry.py` is the correct path.
 
 ## Deploy gating
