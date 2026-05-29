@@ -22,7 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_history_reads, rate_limit_reads
 from src.database import get_db
-from src.signing import KID, canonicalize, create_jws
+from src.signing import KID, canonicalize, create_jws, get_signing_key
+from src.trust.aggregate_sources import components_to_contributions
+from src.trust.envelope_v2 import Contribution, EnvelopeError, build_envelope, sign_envelope
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +134,10 @@ class PublicScanResponse(BaseModel):
     jwks_url: str = "https://agentgraph.co/.well-known/jwks.json"
     # Entity trust (full composite) — only available for imported entities
     entity_trust: dict | None = None
+    # Signed Trust Score v2 envelope (design §5.2): full aggregate for an
+    # imported entity (Case B), else a scan-only single-contribution envelope
+    # (Case A). Verifiable against the JWKS in jwks_url.
+    trust_envelope: dict | None = None
     score_note: str = (
         "trust_score is the security scan score (code analysis only). "
         "For full entity trust including identity and external signals, "
@@ -221,6 +227,71 @@ async def _set_cached(owner: str, repo: str, data: dict) -> None:
     """Store scan result in Redis cache."""
     from src import cache
     await cache.set(f"{_CACHE_PREFIX}{owner}/{repo}", data, ttl=_CACHE_TTL)
+
+
+_SCAN_FRESHNESS_TTL = 604800  # 7 days — scan evidence freshness (design §3)
+_V2_VERIFICATION_METHOD = f"did:web:agentgraph.co#{KID}"
+
+
+async def _build_scan_envelope(
+    owner: str, repo: str, scan_data: dict, db: AsyncSession
+) -> dict | None:
+    """Build a signed Trust Score v2 envelope for a scanned repo (design §5.2).
+
+    Case B — repo maps to a known entity: full aggregate from the entity's
+    weighted v1 components (same shape as GET /aggregate/{did}).
+    Case A — no entity: a scan-only envelope carrying a single scan_corpus
+    contribution (score = the scan score), with a synthetic did:web subject
+    identifying the GitHub repo. Returns None if no contribution is available.
+    """
+    from src.models import EntityType
+    from src.trust.score import compute_trust_score
+
+    full_name = f"{owner}/{repo}"
+    entity = await _lookup_entity_by_repo(full_name, db)
+
+    if entity is not None:
+        ts = await compute_trust_score(db, entity.id)
+        contributions = components_to_contributions(
+            ts.components,
+            is_human=(entity.type == EntityType.HUMAN),
+            framework_modifier=getattr(entity, "framework_trust_modifier", None),
+        )
+        subject_did = entity.did_web
+        subject_kind = "human" if entity.type == EntityType.HUMAN else "agent"
+    else:
+        score01 = max(0.0, min(1.0, scan_data["trust_score"] / 100.0))
+        if score01 == 0:
+            return None
+        contributions = [
+            Contribution(
+                source="scan_corpus",
+                raw_signal=round(score01, 4),
+                weighted_contribution=round(score01, 4),
+                freshness_ttl_seconds=_SCAN_FRESHNESS_TTL,
+                metadata={
+                    "scan_result": scan_data.get("scan_result"),
+                    "findings": scan_data.get("findings", {}).get("total"),
+                },
+            )
+        ]
+        # Synthetic did:web subject identifying the repo (not a published DID
+        # doc — just a stable content identifier for the scan-only envelope).
+        subject_did = f"did:web:github.com:{owner}:{repo}"
+        subject_kind = "service"
+
+    if not contributions:
+        return None
+    try:
+        unsigned = build_envelope(
+            subject_did=subject_did,
+            subject_kind=subject_kind,
+            contributions=contributions,
+            freshness_ttl_seconds=_SCAN_FRESHNESS_TTL,
+        )
+    except EnvelopeError:
+        return None
+    return sign_envelope(unsigned, get_signing_key(), _V2_VERIFICATION_METHOD)
 
 
 def _build_scan_payload(repo: str, result_data: dict) -> dict:
@@ -433,6 +504,7 @@ async def public_scan(
 
             # Look up entity trust (full composite) if this repo is imported
             entity_trust = await _get_entity_trust(full_name, db)
+            trust_envelope = await _build_scan_envelope(owner, repo, cached, db)
 
             return PublicScanResponse(
                 repo=full_name,
@@ -449,6 +521,7 @@ async def public_scan(
                 cached=True,
                 jws=jws,
                 entity_trust=entity_trust,
+                trust_envelope=trust_envelope,
             )
 
     # Fetch previous cached score before running a fresh scan (for change detection)
@@ -501,6 +574,7 @@ async def public_scan(
 
     # Look up entity trust (full composite) if this repo is imported
     entity_trust = await _get_entity_trust(full_name, db)
+    trust_envelope = await _build_scan_envelope(owner, repo, data, db)
 
     return PublicScanResponse(
         repo=full_name,
@@ -517,6 +591,7 @@ async def public_scan(
         cached=False,
         jws=jws,
         entity_trust=entity_trust,
+        trust_envelope=trust_envelope,
     )
 
 

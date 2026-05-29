@@ -17,6 +17,7 @@ import axios from 'axios'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
 import { scoreToGrade, getGradeInfo } from '../components/trust/gradeSystem'
+import TrustEnvelopePanel, { type TrustEnvelope } from '../components/trust/TrustEnvelopePanel'
 import GradeCard from '../components/check/GradeCard'
 import SafetySummary from '../components/check/SafetySummary'
 import FindingsPanel from '../components/check/FindingsPanel'
@@ -56,6 +57,7 @@ interface ScanResult {
   scanned_at: string
   cached: boolean
   provider_count?: number
+  trust_envelope?: TrustEnvelope | null
 }
 
 interface SearchEntity {
@@ -414,6 +416,9 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           criticalFindings={scan.critical_findings}
           providerCount={isOnAgentGraph ? 3 : (scan.provider_count ?? 1)}
         />
+
+        {/* Trust Score v2 — signed, verifiable methodology (design §5.2) */}
+        {scan.trust_envelope && <TrustEnvelopePanel env={scan.trust_envelope} />}
 
         {/* Trust Dimensions — enriched when on AgentGraph */}
         {isOnAgentGraph ? (

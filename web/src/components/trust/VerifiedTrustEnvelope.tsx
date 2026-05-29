@@ -1,56 +1,16 @@
 /**
- * VerifiedTrustEnvelope — Trust Score v2 methodology breakdown (design §6.1).
- *
- * Purely additive: renders the signed v2 trust-score envelope's per-contribution
- * methodology below the existing TrustProfile grade display. Each contribution
- * names its source + weighted share; the footer links let anyone re-verify the
- * signed envelope against our published JWKS — no black box.
+ * VerifiedTrustEnvelope — fetches a subject's signed Trust Score v2 envelope by
+ * DID and renders it via the shared TrustEnvelopePanel (design §6.1).
  *
  * Renders nothing if no envelope is available yet (404 = subject has no
  * resolvable v2 signals), so it never disturbs the existing trust display.
  */
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import api from '../../lib/api'
-
-interface Contribution {
-  source: string
-  raw_signal: number
-  weighted_contribution: number
-  claim_type?: string
-  source_provider_did?: string
-  contested_signal?: boolean
-  _metadata?: { v1_component?: string; v1_weight?: number }
-}
-
-interface Envelope {
-  subject_did: string
-  trust_score: number
-  score_version: string
-  computed_at: string
-  freshness_ttl_seconds: number
-  contributions: Contribution[]
-  issuer: string
-  proof?: { verificationMethod?: string; jws?: string }
-}
-
-const SOURCE_LABEL: Record<string, string> = {
-  scan_corpus: 'AgentGraph security scan',
-  erc8004_reputation: 'On-chain reputation (ERC-8004)',
-  ctef_attestation: 'CTEF attestation',
-  community_signal: 'Community signals',
-  self_attested: 'Identity verification',
-  third_party_observer: 'Third-party evaluation',
-}
-
-function sourceLabel(c: Contribution): string {
-  return SOURCE_LABEL[c.source] ?? c.source
-}
+import TrustEnvelopePanel, { type TrustEnvelope } from './TrustEnvelopePanel'
 
 export default function VerifiedTrustEnvelope({ did }: { did: string }) {
-  const [open, setOpen] = useState(false)
-
-  const { data: env } = useQuery<Envelope>({
+  const { data: env } = useQuery<TrustEnvelope>({
     queryKey: ['aggregate-envelope', did],
     queryFn: async () => {
       const { data } = await api.get(`/aggregate/${encodeURIComponent(did)}`)
@@ -61,84 +21,12 @@ export default function VerifiedTrustEnvelope({ did }: { did: string }) {
     retry: false, // 404 = no v2 envelope yet; render nothing rather than retry
   })
 
-  if (!env || !env.contributions?.length) return null
-
-  const downloadEnvelope = () => {
-    const blob = new Blob([JSON.stringify(env, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `trust-envelope-${env.subject_did.replace(/[:/]/g, '_')}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  if (!env) return null
 
   return (
-    <div className="mb-4 rounded-xl border border-border bg-surface-1 p-4">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-left"
-      >
-        <span className="text-sm font-medium text-text-primary">
-          Verified methodology
-        </span>
-        <span className="text-xs text-text-muted">
-          {open ? 'Hide' : 'Show'} · {env.contributions.length} sources
-        </span>
-      </button>
-
-      {open && (
-        <div className="mt-3 space-y-2">
-          {env.contributions.map((c, i) => (
-            <div key={i} className="flex items-baseline justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-sm text-text-primary">{sourceLabel(c)}</span>
-                {c.contested_signal && (
-                  <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
-                    contested
-                  </span>
-                )}
-                {c.source_provider_did && (
-                  <p className="truncate text-xs text-text-muted">{c.source_provider_did}</p>
-                )}
-              </div>
-              <span className="shrink-0 tabular-nums text-sm text-text-secondary">
-                +{Math.round(c.weighted_contribution * 100)}%
-              </span>
-            </div>
-          ))}
-
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-xs">
-            <button
-              type="button"
-              onClick={downloadEnvelope}
-              className="text-accent hover:underline"
-            >
-              Download signed envelope ↓
-            </button>
-            <a
-              href={`/api/v1/aggregate/${encodeURIComponent(did)}/verify`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              Verify ↗
-            </a>
-            <a
-              href="/.well-known/jwks.json"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              Public key (JWKS) ↗
-            </a>
-            <span className="text-text-muted">
-              Signed {env.score_version} · refreshes hourly
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
+    <TrustEnvelopePanel
+      env={env}
+      verifyHref={`/api/v1/aggregate/${encodeURIComponent(did)}/verify`}
+    />
   )
 }
