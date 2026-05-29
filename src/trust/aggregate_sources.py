@@ -1,78 +1,93 @@
-"""Map existing trust-score inputs into v2 ``RawSignal`` objects.
+"""Map the existing v1 composite into v2 envelope ``Contribution`` objects.
 
-P1 bridge: the v1 composite (``src/trust/score.py``) already blends scan,
-external/ERC-8004, and community signals into a ``components`` dict. This
-module re-expresses those components as v2 ``RawSignal`` objects so the
-aggregation engine can wrap them in a signed, methodology-transparent v2
-envelope WITHOUT re-deriving the underlying score.
+P1 bridge: the v1 composite (``src/trust/score.py``) blends seven raw
+per-dimension signals into a single score via fixed weights. ``compute_trust_score``
+stores the **raw** per-dimension values in ``TrustScore.components`` and the
+weighted composite in ``TrustScore.score``. This module re-expresses that as v2
+envelope contributions so the score wraps into a signed, methodology-transparent
+v2 envelope whose ``trust_score`` equals the v1 composite.
 
-Because v1 components are already individually weighted (they sum to the
-composite), each maps to a RawSignal with ``max_contribution=1.0`` (no further
-cap), no ``claim_type`` and no ``source_provider_did`` (so the engine's
-diversity discount and conflict pass are inert), and ``signed_at=now`` (decay
-≈ 1.0). The v2 ``trust_score`` therefore equals the v1 composite — a faithful
-re-shaping, not a re-scoring.
+Crucially, each contribution's ``weighted_contribution`` is ``weight × raw``
+(the dimension's actual share of the composite), while ``raw_signal`` carries
+the dimension's raw 0-1 value — so the breakdown reads honestly ("verification
+raw 0.90 → +0.32 at 35% weight") and the contributions sum to the composite.
 
-When the per-attestation readers land (ERC-8004 sync #110, CTEF attestation
-reader, Dominion Observatory), they emit RawSignals with real
-``source_provider_did`` / ``claim_type`` / ``signed_at`` and the engine's full
-§4 machinery (caps, diversity, decay, conflict) engages on those. This module
-is the in-house-data path; those are the substrate-data paths. Both feed one
-engine.
+The weights mirror ``score.py`` exactly, including the human/agent adjustments
+(humans get +0.10 verification & external, no scan weight) and the per-entity
+``framework_trust_modifier`` that scales the whole score. When the per-attestation
+substrate readers land (ERC-8004 #110, CTEF, observer), they feed the §4
+``aggregator_v2.aggregate`` engine as ``RawSignal`` objects and their resulting
+contributions are merged with these — this is the in-house path, that is the
+substrate path, both produce ``Contribution`` objects for one envelope.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from src.trust.envelope_v2 import Contribution
+from src.trust.score import (
+    ACTIVITY_WEIGHT,
+    AGE_WEIGHT,
+    COMMUNITY_WEIGHT,
+    EXTERNAL_WEIGHT,
+    REPUTATION_WEIGHT,
+    SCAN_WEIGHT,
+    VERIFICATION_WEIGHT,
+)
 
-from src.trust.aggregator_v2 import RawSignal
+# Human bonus applied to verification & external weights (score.py §645-647).
+_HUMAN_WEIGHT_BONUS = 0.10
 
-# v1 component name → v2 envelope source. Components come from the WEIGHTS in
-# src/trust/score.py: verification, age, activity, reputation, community,
-# external, scan. Anything unmapped falls back to community_signal.
-_COMPONENT_SOURCE = {
-    "scan": "scan_corpus",
-    "external": "erc8004_reputation",
-    "verification": "self_attested",
+# component key → (v2 source, base weight, gets human bonus, zeroed for humans).
+# Keys MUST match the dict built in score.py:664-672.
+_COMPONENT_META = {
+    "verification": ("self_attested", VERIFICATION_WEIGHT, True, False),
+    "age": ("community_signal", AGE_WEIGHT, False, False),
+    "activity": ("community_signal", ACTIVITY_WEIGHT, False, False),
+    "reputation": ("community_signal", REPUTATION_WEIGHT, False, False),
+    "community": ("community_signal", COMMUNITY_WEIGHT, False, False),
+    "external_reputation": ("erc8004_reputation", EXTERNAL_WEIGHT, True, False),
+    "scan_score": ("scan_corpus", SCAN_WEIGHT, False, True),
 }
-_DEFAULT_SOURCE = "community_signal"
 
-# Components are already-weighted contributions; don't re-cap them.
-_PASS_THROUGH_CAP = 1.0
-# In-house signals get the standard envelope TTL.
 _DEFAULT_TTL_SECONDS = 3600
 
 
-def components_to_signals(
+def components_to_contributions(
     components: dict | None,
     *,
-    now: datetime | None = None,
+    is_human: bool = False,
+    framework_modifier: float | None = None,
     ttl_seconds: int = _DEFAULT_TTL_SECONDS,
-) -> list[RawSignal]:
-    """Convert a v1 ``TrustScore.components`` dict into v2 RawSignals.
+) -> list[Contribution]:
+    """Convert a v1 ``TrustScore.components`` dict into v2 envelope Contributions.
 
-    Zero / missing / non-numeric component values are skipped (they add
-    nothing and would clutter the methodology breakdown). The v1 component
-    name is preserved in each signal's metadata for traceability.
+    ``weighted_contribution`` = effective_weight × raw × framework_modifier,
+    matching ``score.py``'s composite so the contributions sum to the v1 score.
+    Zero-weight or zero-raw dimensions are dropped (they'd add nothing and clutter
+    the breakdown). Distributing ``framework_modifier`` across contributions is
+    equivalent to score.py applying it to the total (both scale the sum equally).
     """
-    now = now or datetime.now(timezone.utc)
-    signals: list[RawSignal] = []
-    for name, value in (components or {}).items():
-        if not isinstance(value, (int, float)):
+    modifier = framework_modifier if framework_modifier else 1.0
+    out: list[Contribution] = []
+    for key, (source, base_w, human_bonus, zero_for_human) in _COMPONENT_META.items():
+        raw = (components or {}).get(key)
+        if not isinstance(raw, (int, float)) or raw == 0:
             continue
-        if value == 0:
+        weight = base_w + (_HUMAN_WEIGHT_BONUS if (human_bonus and is_human) else 0.0)
+        if zero_for_human and is_human:
+            weight = 0.0
+        weighted = weight * float(raw) * modifier
+        if weighted == 0:
             continue
-        source = _COMPONENT_SOURCE.get(name, _DEFAULT_SOURCE)
-        signals.append(
-            RawSignal(
+        out.append(
+            Contribution(
                 source=source,
-                raw_signal=float(value),
-                signed_at=now,
+                raw_signal=float(raw),
+                weighted_contribution=round(weighted, 4),
                 freshness_ttl_seconds=ttl_seconds,
-                max_contribution=_PASS_THROUGH_CAP,
-                metadata={"v1_component": name},
+                metadata={"v1_component": key, "v1_weight": round(weight, 4)},
             )
         )
-    return signals
+    return out
 
 
-__all__ = ["components_to_signals"]
+__all__ = ["components_to_contributions"]

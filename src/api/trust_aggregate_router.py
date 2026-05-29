@@ -27,12 +27,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
-from src.models import Entity
+from src.models import Entity, EntityType
 from src.signing import KID, get_public_key, get_signing_key
-from src.trust.aggregate_sources import components_to_signals
-from src.trust.aggregator_v2 import aggregate
+from src.trust.aggregate_sources import components_to_contributions
 from src.trust.envelope_v2 import (
     EnvelopeError,
+    build_envelope,
     is_fresh,
     sign_envelope,
     verify_envelope,
@@ -71,20 +71,29 @@ async def _resolve_entity(subject_did: str, db: AsyncSession) -> Entity:
 
 
 async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
-    """Resolve → compute v1 composite → map to signals → aggregate → sign."""
+    """Resolve → compute v1 composite → map to weighted contributions → sign.
+
+    Each contribution's weighted_contribution is the dimension's actual share of
+    the v1 composite (weight × raw), so the envelope trust_score equals the v1
+    score and the breakdown is honest.
+    """
     entity = await _resolve_entity(subject_did, db)
     ts = await compute_trust_score(db, entity.id)
-    signals = components_to_signals(ts.components)
-    if not signals:
+    contributions = components_to_contributions(
+        ts.components,
+        is_human=(entity.type == EntityType.HUMAN),
+        framework_modifier=getattr(entity, "framework_trust_modifier", None),
+    )
+    if not contributions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No trust signals available for DID {subject_did}",
         )
     try:
-        unsigned = aggregate(
+        unsigned = build_envelope(
             subject_did=subject_did,
             subject_kind=_subject_kind(entity),
-            signals=signals,
+            contributions=contributions,
         )
     except EnvelopeError as exc:
         raise HTTPException(
