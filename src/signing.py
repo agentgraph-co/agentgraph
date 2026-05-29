@@ -27,8 +27,13 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 KID = "agentgraph-security-v1"
+# Dedicated kid for Trust Score v2 envelopes (spec §9.1). Only published/used
+# when a distinct trust_v2_signing_key_ed25519 is configured; otherwise v2
+# signing transparently falls back to the platform key + KID above.
+TRUST_V2_KID = "trust-v2-2026"
 
 _private_key: Ed25519PrivateKey | None = None
+_trust_v2_key: Ed25519PrivateKey | None = None
 
 
 def _b64url(data: bytes) -> str:
@@ -62,18 +67,54 @@ def get_public_key() -> Ed25519PublicKey:
     return get_signing_key().public_key()
 
 
-def get_jwk() -> dict:
-    """Return the public key as a JWK dict (RFC 7517 / RFC 8037)."""
-    pub = get_public_key()
-    raw_pub = pub.public_bytes_raw()
+def _jwk_for(pub: Ed25519PublicKey, kid: str) -> dict:
     return {
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": _b64url(raw_pub),
-        "kid": KID,
+        "x": _b64url(pub.public_bytes_raw()),
+        "kid": kid,
         "use": "sig",
         "alg": "EdDSA",
     }
+
+
+def get_jwk() -> dict:
+    """Return the platform public key as a JWK dict (RFC 7517 / RFC 8037)."""
+    return _jwk_for(get_public_key(), KID)
+
+
+def has_dedicated_trust_v2_key() -> bool:
+    """True iff a distinct Trust Score v2 signing key is configured."""
+    return bool(getattr(settings, "trust_v2_signing_key_ed25519", None))
+
+
+def get_trust_v2_signing_key() -> Ed25519PrivateKey:
+    """Return the Trust Score v2 signing key, or the platform key as fallback.
+
+    Lets v2 envelopes be signed today (with the platform key + KID) and
+    transparently upgrade to a dedicated key + TRUST_V2_KID once the secret is
+    provisioned — no code change, just an env var.
+    """
+    global _trust_v2_key
+    raw = getattr(settings, "trust_v2_signing_key_ed25519", None)
+    if not raw:
+        return get_signing_key()
+    if _trust_v2_key is None:
+        _trust_v2_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(raw))
+        logger.info("Loaded dedicated Trust Score v2 signing key")
+    return _trust_v2_key
+
+
+def get_trust_v2_kid() -> str:
+    """kid for v2 envelopes: TRUST_V2_KID if dedicated key set, else platform KID."""
+    return TRUST_V2_KID if has_dedicated_trust_v2_key() else KID
+
+
+def get_trust_v2_jwks() -> list[dict]:
+    """JWK list for v2 verification: the dedicated key if set, else the platform key."""
+    if has_dedicated_trust_v2_key():
+        return [_jwk_for(get_trust_v2_signing_key().public_key(), TRUST_V2_KID)]
+    return [get_jwk()]
 
 
 def sign_payload(payload_bytes: bytes) -> bytes:

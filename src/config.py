@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     # Generate with: scripts/generate_signing_key.py
     attestation_signing_key_ed25519: str | None = None
 
+    # Dedicated Ed25519 key for Trust Score v2 envelopes (base64 32-byte seed).
+    # When unset, v2 signing falls back to attestation_signing_key_ed25519 so
+    # nothing breaks; set this to publish a distinct kid (trust-v2-2026) per
+    # the spec (trust-score-v2-design §9.1).
+    trust_v2_signing_key_ed25519: str | None = None
+
     # SSO
     sso_enabled: bool = False  # Must be explicitly enabled; mock impl is not safe
     sso_saml_entity_id: str = "agentgraph-sp"

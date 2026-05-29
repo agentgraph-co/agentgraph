@@ -22,7 +22,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_history_reads, rate_limit_reads
 from src.database import get_db
-from src.signing import KID, canonicalize, create_jws, get_signing_key
+from src.signing import (
+    KID,
+    canonicalize,
+    create_jws,
+    get_trust_v2_kid,
+    get_trust_v2_signing_key,
+)
 from src.trust.aggregate_sources import components_to_contributions
 from src.trust.envelope_v2 import Contribution, EnvelopeError, build_envelope, sign_envelope
 
@@ -230,7 +236,6 @@ async def _set_cached(owner: str, repo: str, data: dict) -> None:
 
 
 _SCAN_FRESHNESS_TTL = 604800  # 7 days — scan evidence freshness (design §3)
-_V2_VERIFICATION_METHOD = f"did:web:agentgraph.co#{KID}"
 
 
 async def _build_scan_envelope(
@@ -291,7 +296,8 @@ async def _build_scan_envelope(
         )
     except EnvelopeError:
         return None
-    return sign_envelope(unsigned, get_signing_key(), _V2_VERIFICATION_METHOD)
+    vm = f"did:web:agentgraph.co#{get_trust_v2_kid()}"
+    return sign_envelope(unsigned, get_trust_v2_signing_key(), vm)
 
 
 def _build_scan_payload(repo: str, result_data: dict) -> dict:

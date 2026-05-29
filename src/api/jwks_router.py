@@ -8,7 +8,12 @@ import json
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from src.signing import canonicalize_jcs_strict, get_jwk
+from src.signing import (
+    canonicalize_jcs_strict,
+    get_jwk,
+    get_trust_v2_jwks,
+    has_dedicated_trust_v2_key,
+)
 
 router = APIRouter(tags=["jwks"])
 
@@ -36,9 +41,17 @@ _TEST_VECTOR_BODY_OBJ = {
 
 @router.get("/.well-known/jwks.json")
 async def jwks() -> JSONResponse:
-    """Return the platform JWKS (RFC 7517) for attestation verification."""
+    """Return the platform JWKS (RFC 7517) for attestation verification.
+
+    Includes the dedicated Trust Score v2 key when one is configured; otherwise
+    v2 envelopes are signed with (and verify against) the platform key already
+    published here.
+    """
+    keys = [get_jwk()]
+    if has_dedicated_trust_v2_key():
+        keys.extend(get_trust_v2_jwks())
     return JSONResponse(
-        content={"keys": [get_jwk()]},
+        content={"keys": keys},
         headers={
             "Cache-Control": "public, max-age=3600",
             "Access-Control-Allow-Origin": "*",

@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
 from src.models import Entity, EntityType
-from src.signing import KID, get_public_key, get_signing_key
+from src.signing import get_trust_v2_kid, get_trust_v2_signing_key
 from src.trust.aggregate_sources import components_to_contributions
 from src.trust.envelope_v2 import (
     EnvelopeError,
@@ -43,9 +43,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["trust-aggregate"])
 
-# verification_method whose fragment is the kid published in our JWKS, so
-# consumers resolve the right key. sign_envelope derives kid from the fragment.
-_VERIFICATION_METHOD = f"did:web:agentgraph.co#{KID}"
+
+def _verification_method() -> str:
+    """did:web verification method whose fragment is the kid published in our
+    JWKS (dedicated trust-v2 key if configured, else the platform key)."""
+    return f"did:web:agentgraph.co#{get_trust_v2_kid()}"
 
 
 def _subject_kind(entity: Entity) -> str:
@@ -70,13 +72,29 @@ async def _resolve_entity(subject_did: str, db: AsyncSession) -> Entity:
     return entity
 
 
+_CACHE_PREFIX = "aggregate:v2:"
+
+
 async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
     """Resolve → compute v1 composite → map to weighted contributions → sign.
 
     Each contribution's weighted_contribution is the dimension's actual share of
     the v1 composite (weight × raw), so the envelope trust_score equals the v1
     score and the breakdown is honest.
+
+    Best-effort Redis cache keyed by DID with TTL = the envelope's freshness
+    window (design §5.2 "envelope cached"). Cache ops degrade gracefully — a
+    Redis outage just means every request recomputes. The persistent
+    ``aggregate_envelopes`` table + event-driven recompute is a follow-up
+    (needs a supervised migration).
     """
+    from src import cache
+
+    cache_key = f"{_CACHE_PREFIX}{subject_did}"
+    cached = await cache.get(cache_key)
+    if cached:
+        return cached
+
     entity = await _resolve_entity(subject_did, db)
     ts = await compute_trust_score(db, entity.id)
     contributions = components_to_contributions(
@@ -99,7 +117,11 @@ async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    return sign_envelope(unsigned, get_signing_key(), _VERIFICATION_METHOD)
+    signed = sign_envelope(
+        unsigned, get_trust_v2_signing_key(), _verification_method()
+    )
+    await cache.set(cache_key, signed, ttl=int(signed["freshness_ttl_seconds"]))
+    return signed
 
 
 @router.get("/aggregate/{subject_did:path}/contributions")
@@ -137,14 +159,16 @@ async def verify_aggregate(
     re-verify against /.well-known/jwks.json.
     """
     envelope = await _build_signed_envelope(subject_did, db)
-    signature_valid = verify_envelope(envelope, get_public_key())
+    signature_valid = verify_envelope(
+        envelope, get_trust_v2_signing_key().public_key()
+    )
     return JSONResponse(
         content={
             "subject_did": envelope["subject_did"],
             "signature_valid": signature_valid,
             "fresh": is_fresh(envelope),
             "issuer": envelope["issuer"],
-            "kid": KID,
+            "kid": get_trust_v2_kid(),
             "jwks": "/.well-known/jwks.json",
         }
     )
