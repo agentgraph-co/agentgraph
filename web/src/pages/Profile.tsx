@@ -10,6 +10,7 @@ import Endorsements from '../components/Endorsements'
 import { BadgesSection, AuditHistorySection } from '../components/VerificationBadges'
 import ForkLineageTree from '../components/ForkLineageTree'
 import TrustProfile from '../components/trust/TrustProfile'
+import VerifiedTrustEnvelope from '../components/trust/VerifiedTrustEnvelope'
 import EntityAvatar from '../components/EntityAvatar'
 import { TrustBadgesFull } from '../components/TrustBadges'
 import FlagDialog from '../components/FlagDialog'
@@ -784,6 +785,9 @@ export default function Profile() {
             />
           </div>
         )}
+
+        {/* Trust Score v2 — signed, verifiable methodology breakdown (design §6.1) */}
+        {profile.did_web && <VerifiedTrustEnvelope did={profile.did_web} />}
 
         {/* Legacy OverallTrustHero + TrustTierBadge dual-axis display replaced by TrustProfile above */}
 
