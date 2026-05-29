@@ -80,6 +80,7 @@ from src.api.sso_router import router as sso_router
 from src.api.submolt_router import router as submolt_router
 from src.api.subscription_router import router as subscription_router
 from src.api.token_router import router as token_router
+from src.api.trust_aggregate_router import router as trust_aggregate_router
 from src.api.trust_explainer_router import router as trust_explainer_router
 from src.api.trust_gateway_router import router as trust_gateway_router
 from src.api.trust_router import router as trust_router
@@ -664,6 +665,7 @@ app.include_router(submolt_router, prefix=settings.api_v1_prefix)
 app.include_router(subscription_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_explainer_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_router, prefix=settings.api_v1_prefix)
+app.include_router(trust_aggregate_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(x402_router, prefix=settings.api_v1_prefix)
 app.include_router(disputes_router, prefix=settings.api_v1_prefix)
