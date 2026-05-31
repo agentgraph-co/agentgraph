@@ -626,6 +626,27 @@ async def cte_test_vectors() -> JSONResponse:
     )
 
 
+@router.get("/.well-known/action-ref-near-miss-vectors.json")
+async def action_ref_near_miss_vectors() -> JSONResponse:
+    """CTEF action_ref near-miss conformance vectors (A2A #1734/#1850).
+
+    The failure modes action_ref correlation MUST catch — ambiguous issuer
+    binding, rescoped replay, issuance→verification semantic drift — in canonical
+    fixture format (preimage JSON + expected receipt fields + failure-mode label),
+    byte-reproducible against any RFC 8785 canonicalizer. Contributed to the
+    draft-giskard-aeoess-action-ref I-D and the substrate-attestation suite.
+    """
+    from src.trust.action_ref_vectors import build_artifact
+
+    return JSONResponse(
+        content=build_artifact(),
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
 @router.get("/.well-known/agent-trust.json")
 async def agent_trust() -> JSONResponse:
     """Domain verification for Open Agent Trust Registry (OATR).
