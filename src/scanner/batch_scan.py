@@ -165,23 +165,56 @@ def _generate_summary(results: list[ScanResult]) -> dict:
 
 
 _GITHUB_SEARCH_QUERIES = [
-    ("topic:mcp-server", 5),
-    ("topic:mcp topic:server", 5),
+    # MCP ecosystem
+    ("topic:mcp-server", 2),
+    ("topic:mcp topic:server", 2),
     ('"model context protocol" in:readme', 5),
+    ("topic:mcp topic:tools", 2),
+    # Agent frameworks
+    ("topic:crewai", 1),
+    ("topic:autogen", 2),
+    ("topic:langchain topic:agent", 5),
+    ("topic:llama-index topic:agent", 5),
+    ("topic:ai-agent", 30),
+    ("topic:llm-agent", 15),
+    ("topic:autonomous-agents", 15),
+    # Skill / plugin marketplaces + protocols
+    ("topic:openclaw OR topic:open-claw", 1),
+    ("topic:agent-protocol OR topic:a2a", 2),
+    ("topic:x402 OR topic:agent-payments", 1),
 ]
 
 _MAX_STARS = 10000  # scan wider range than outreach — we want data
 
 
+def _load_skip_set(skip_file: str | None) -> set[str]:
+    """Load already-scanned repo full_names so recurring runs cover new ground."""
+    if not skip_file:
+        return set()
+    try:
+        with open(skip_file) as f:
+            return {line.strip() for line in f if line.strip()}
+    except FileNotFoundError:
+        return set()
+
+
+def _append_skip_set(skip_file: str | None, names: list[str]) -> None:
+    if not skip_file or not names:
+        return
+    with open(skip_file, "a") as f:
+        for n in names:
+            f.write(n + "\n")
+
+
 async def _discover_from_github(
-    token: str | None, limit: int,
+    token: str | None, limit: int, skip: set[str] | None = None,
 ) -> list[dict]:
-    """Discover MCP server repos directly from GitHub search API."""
+    """Discover MCP/agent repos from GitHub search, skipping already-scanned ones."""
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    seen: set[str] = set()
+    seen: set[str] = set(skip or set())  # pre-seed with already-scanned
     repos: list[dict] = []
 
     async with httpx.AsyncClient(timeout=20) as client:
@@ -223,8 +256,13 @@ async def _scan_repos(
     repos: list[dict],
     token: str | None,
     output_path: str,
+    skip_file: str | None = None,
 ) -> dict:
-    """Scan a list of repos and write the report."""
+    """Scan a list of repos and write the report.
+
+    Successfully-scanned repo names are appended to ``skip_file`` (if given) so
+    the next scheduled run covers new repos instead of repeating these.
+    """
     results: list[ScanResult] = []
     total = len(repos)
 
@@ -257,6 +295,12 @@ async def _scan_repos(
         if (i + 1) % 10 == 0:
             logger.info("  [pausing 2s for rate limit]")
             await asyncio.sleep(2)
+
+    # Record successfully-scanned repos so recurring runs don't repeat them.
+    _append_skip_set(
+        skip_file,
+        [repos[i]["full_name"] for i, r in enumerate(results) if not r.error],
+    )
 
     summary = _generate_summary(results)
 
@@ -295,6 +339,7 @@ async def run_batch_scan(
     limit: int = 0,
     output_path: str = "data/mcp_scan_report.json",
     from_github: bool = False,
+    skip_file: str | None = None,
 ) -> dict:
     """Run scan against MCP server repos.
 
@@ -308,7 +353,8 @@ async def run_batch_scan(
     token = await get_github_token()
 
     if from_github:
-        repos = await _discover_from_github(token, limit)
+        skip = _load_skip_set(skip_file)
+        repos = await _discover_from_github(token, limit, skip=skip)
     else:
         from sqlalchemy import select
         from sqlalchemy.ext.asyncio import (
@@ -345,7 +391,7 @@ async def run_batch_scan(
         ]
 
     logger.info("Total repos to scan: %d", len(repos))
-    return await _scan_repos(repos, token, output_path)
+    return await _scan_repos(repos, token, output_path, skip_file=skip_file)
 
 
 if __name__ == "__main__":
@@ -365,10 +411,17 @@ if __name__ == "__main__":
         "--from-github", action="store_true",
         help="Discover repos from GitHub API instead of DB",
     )
+    parser.add_argument(
+        "--skip-file", default=None,
+        help="Path to a newline-delimited set of already-scanned repo names; "
+             "discovery skips these and appends newly-scanned ones (lets "
+             "recurring runs accumulate coverage instead of repeating).",
+    )
     args = parser.parse_args()
 
     asyncio.run(run_batch_scan(
         limit=args.limit,
         output_path=args.output,
         from_github=args.from_github,
+        skip_file=args.skip_file,
     ))
