@@ -921,6 +921,28 @@ async def interop_harness() -> JSONResponse:
                     ),
                     "wg_proposal": "A2A #1803",
                 },
+                {
+                    "name": "substrate-attestation",
+                    "maintainer": "@andysalvo",
+                    "language": "Python",
+                    "role": "substrate_verifier",
+                    "description": (
+                        "Neutral verification-layer adapter; validates against the "
+                        "referenced CTEF / action_ref near-miss vectors for issuer "
+                        "binding, replay rescoping, and semantic drift cases."
+                    ),
+                    "repo": "https://github.com/andysalvo/substrate-attestation",
+                    "license": "Apache-2.0",
+                    "near_miss_corpus_pinned": (
+                        "agentgraph-co/agentgraph@a07cdf8 "
+                        "(action-ref-near-miss-vectors.json)"
+                    ),
+                    "ctef_anchor_pinned": (
+                        "agentgraph.co/.well-known/cte-test-vectors.json"
+                    ),
+                    "claim_type_live": False,
+                    "added": "2026-06-01 per A2A #1734",
+                },
             ],
             "in_flight": [
                 {
