@@ -292,6 +292,38 @@ function SearchResults({ query }: { query: string }) {
   )
 }
 
+// ─── Embed badge snippet (the billboard loop) ───
+
+function EmbedSnippet({ badgeUrl, checkUrl, repo }: { badgeUrl: string; checkUrl: string; repo: string }) {
+  const [copied, setCopied] = useState(false)
+  const markdown = `[![AgentGraph Trust](${badgeUrl})](${checkUrl})`
+  const copy = () => {
+    navigator.clipboard?.writeText(markdown).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+  return (
+    <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-text-muted">
+          Add the badge to {repo}'s README
+        </span>
+        <button
+          type="button"
+          onClick={copy}
+          className="text-xs text-primary-light hover:underline"
+        >
+          {copied ? 'Copied ✓' : 'Copy markdown'}
+        </button>
+      </div>
+      <code className="block overflow-x-auto whitespace-nowrap rounded bg-surface-2 px-2 py-1.5 text-[11px] text-text-muted">
+        {markdown}
+      </code>
+    </div>
+  )
+}
+
 // ─── Scan Result View ───
 
 function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
@@ -512,6 +544,19 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
 
         {/* Share + CTAs */}
         <ShareCard owner={owner} repo={repo} grade={grade} score={score} />
+
+        {/* Embed badge — the billboard loop: repos that add it link back here */}
+        <EmbedSnippet badgeUrl={badgeUrl} checkUrl={checkUrl} repo={`${owner}/${repo}`} />
+
+        {/* Scan another — the repeat-use loop */}
+        <div className="text-center">
+          <Link
+            to="/check"
+            className="inline-block rounded-lg bg-primary/15 px-5 py-2 text-sm font-medium text-primary-light hover:bg-primary/25 transition-colors"
+          >
+            ← Scan another repo
+          </Link>
+        </div>
 
         {/* Scan metadata */}
         <div className="text-center text-xs text-text-muted pb-2">
