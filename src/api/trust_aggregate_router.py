@@ -19,15 +19,18 @@ policy (design §9.1) is a follow-up that needs a provisioned prod secret.
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import rate_limit_reads
 from src.database import get_db
-from src.models import Entity, EntityType
+from src.models import AggregateEnvelope, Entity, EntityType
 from src.signing import get_trust_v2_kid, get_trust_v2_signing_key
 from src.trust.aggregate_sources import components_to_contributions
 from src.trust.envelope_v2 import (
@@ -75,6 +78,64 @@ async def _resolve_entity(subject_did: str, db: AsyncSession) -> Entity:
 _CACHE_PREFIX = "aggregate:v2:"
 
 
+async def _load_persisted(subject_did: str, db: AsyncSession) -> dict | None:
+    """Best-effort read of a still-fresh persisted envelope (L2 cache).
+
+    Survives Redis flushes. Returns None on any failure (e.g. table not yet
+    migrated) so the caller falls through to a fresh recompute.
+    """
+    try:
+        row = (
+            await db.execute(
+                select(AggregateEnvelope).where(
+                    AggregateEnvelope.subject_did == subject_did
+                )
+            )
+        ).scalar_one_or_none()
+        if row and row.envelope and is_fresh(row.envelope):
+            return row.envelope
+    except Exception:
+        # e.g. table not yet migrated — roll back so the aborted transaction
+        # doesn't poison the subsequent entity query, then recompute.
+        await db.rollback()
+        logger.debug("aggregate_envelopes read skipped", exc_info=True)
+    return None
+
+
+async def _persist_envelope(subject_did: str, signed: dict, db: AsyncSession) -> None:
+    """Best-effort upsert of the signed envelope into aggregate_envelopes.
+
+    The durable source of truth + Q3 "envelopes issued" metric. No-op (logged)
+    if the table is absent (pre-migration) so it never breaks the response.
+    """
+    try:
+        computed = datetime.fromisoformat(signed["computed_at"].replace("Z", "+00:00"))
+        expires = computed + timedelta(seconds=int(signed["freshness_ttl_seconds"]))
+        values = {
+            "id": uuid.uuid4(),
+            "subject_did": subject_did,
+            "trust_score": float(signed["trust_score"]),
+            "score_version": signed["score_version"],
+            "envelope": signed,
+            "computed_at": computed,
+            "expires_at": expires,
+        }
+        stmt = pg_insert(AggregateEnvelope.__table__).values(**values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["subject_did"],
+            set_={
+                k: values[k]
+                for k in ("trust_score", "score_version", "envelope",
+                          "computed_at", "expires_at")
+            },
+        )
+        await db.execute(stmt)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.debug("aggregate_envelopes persist skipped", exc_info=True)
+
+
 async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
     """Resolve → compute v1 composite → map to weighted contributions → sign.
 
@@ -82,11 +143,10 @@ async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
     the v1 composite (weight × raw), so the envelope trust_score equals the v1
     score and the breakdown is honest.
 
-    Best-effort Redis cache keyed by DID with TTL = the envelope's freshness
-    window (design §5.2 "envelope cached"). Cache ops degrade gracefully — a
-    Redis outage just means every request recomputes. The persistent
-    ``aggregate_envelopes`` table + event-driven recompute is a follow-up
-    (needs a supervised migration).
+    Two-tier cache (design §5.2): hot Redis cache keyed by DID, then the durable
+    ``aggregate_envelopes`` table (survives Redis flushes), then recompute. All
+    cache/persist ops degrade gracefully — a Redis or DB-table outage just means
+    every request recomputes.
     """
     from src import cache
 
@@ -94,6 +154,13 @@ async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
     cached = await cache.get(cache_key)
     if cached:
         return cached
+
+    persisted = await _load_persisted(subject_did, db)
+    if persisted:
+        await cache.set(
+            cache_key, persisted, ttl=int(persisted["freshness_ttl_seconds"])
+        )
+        return persisted
 
     entity = await _resolve_entity(subject_did, db)
     ts = await compute_trust_score(db, entity.id)
@@ -121,6 +188,7 @@ async def _build_signed_envelope(subject_did: str, db: AsyncSession) -> dict:
         unsigned, get_trust_v2_signing_key(), _verification_method()
     )
     await cache.set(cache_key, signed, ttl=int(signed["freshness_ttl_seconds"]))
+    await _persist_envelope(subject_did, signed, db)
     return signed
 
 

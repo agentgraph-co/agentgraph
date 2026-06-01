@@ -2326,5 +2326,39 @@ class ProviderIdMapping(Base):
     )
 
 
+class AggregateEnvelope(Base):
+    """Persisted Trust Score v2 signed envelope (design §5.2).
+
+    The durable store behind the /aggregate surface: one row per subject DID
+    holding the latest signed envelope JSON, its score, and freshness window.
+    Complements the Redis cache (the hot path) — this is the source of truth
+    that survives Redis flushes, backs event-driven recompute, and lets the Q3
+    paper count envelopes issued. Writes are best-effort from the endpoint;
+    absence of a row simply means "recompute".
+    """
+
+    __tablename__ = "aggregate_envelopes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subject_did = Column(String(500), nullable=False, unique=True)
+    trust_score = Column(Float, nullable=False)
+    score_version = Column(String(10), nullable=False)
+    envelope = Column(JSONB, nullable=False)  # full signed v2 envelope
+    computed_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_aggregate_envelopes_subject", "subject_did"),
+        Index("ix_aggregate_envelopes_expires", "expires_at"),
+    )
+
+
 # Import marketing models so Alembic can discover them
 from src.marketing.models import MarketingCampaign, MarketingPost  # noqa: E402, F401

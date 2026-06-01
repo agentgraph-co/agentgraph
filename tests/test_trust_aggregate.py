@@ -138,6 +138,28 @@ async def test_aggregate_no_signals_404(client, seeded_did, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_aggregate_persists_envelope_row(client, seeded_did, monkeypatch, db):
+    """Write-through: a /aggregate call persists a row in aggregate_envelopes."""
+    from sqlalchemy import select
+
+    from src.models import AggregateEnvelope
+
+    _stub_composite(monkeypatch, {"verification": 0.6, "scan_score": 0.5})
+    r = await client.get(f"/api/v1/aggregate/{seeded_did}")
+    assert r.status_code == 200
+    row = (
+        await db.execute(
+            select(AggregateEnvelope).where(
+                AggregateEnvelope.subject_did == seeded_did
+            )
+        )
+    ).scalar_one_or_none()
+    assert row is not None
+    assert row.envelope["subject_did"] == seeded_did
+    assert row.trust_score == pytest.approx(r.json()["trust_score"], abs=1e-4)
+
+
+@pytest.mark.asyncio
 async def test_aggregate_happy_path_signed_and_verifiable(
     client, seeded_did, monkeypatch
 ):
