@@ -739,6 +739,25 @@ async def compute_trust_score(
         await invalidate_pattern("search_leaderboard:*")
         await invalidate_pattern("search:*")
 
+        # Event-driven recompute (design §5.2): only when the score ACTUALLY
+        # changed, drop the v2 aggregate cache + persisted envelope so the next
+        # /aggregate recomputes fresh. Gated on change to avoid churning the
+        # cache on every (no-op) recompute, incl. the ones /aggregate triggers.
+        did = getattr(entity, "did_web", None)
+        if did and round(trust_score.score, 4) != round(old_score, 4):
+            await invalidate(f"aggregate:v2:{did}")
+            try:
+                from sqlalchemy import delete
+
+                from src.models import AggregateEnvelope
+                await db.execute(
+                    delete(AggregateEnvelope).where(
+                        AggregateEnvelope.subject_did == did
+                    )
+                )
+            except Exception:
+                logger.debug("aggregate_envelopes purge skipped", exc_info=True)
+
         logger.debug(
             "Cache invalidated for entity %s (trust, profile, search, leaderboard)",
             entity_id,
