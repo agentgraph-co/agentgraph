@@ -956,6 +956,11 @@ async def interop_harness() -> JSONResponse:
                     "ctef_anchor_pinned": (
                         "agentgraph.co/.well-known/cte-test-vectors.json"
                     ),
+                    "inline_vector_byte_match": (
+                        "4/4 SHA-256-exact (envelope, verdict, scope_violation, "
+                        "composition_failure) vs rfc8785 Python v0.1.4 — receipt "
+                        "CVR-2026-013.json, confirmed 2026-06-01"
+                    ),
                     "claim_type_live": False,
                     "added": "2026-06-01 per A2A #1734",
                 },
@@ -1137,11 +1142,11 @@ async def interop_harness() -> JSONResponse:
                 },
             },
             "summary": {
-                "implementations_byte_match_validated": 8,
-                "implementations_inline_vector_byte_match_validated": 5,
+                "implementations_byte_match_validated": 9,
+                "implementations_inline_vector_byte_match_validated": 6,
                 "evidence_providers": 6,
                 "enforcement_gateways": 1,
-                "substrate_verifiers": 1,
+                "substrate_verifiers": 2,
                 "languages": 2,
                 "independent_canonicalizers": 8,
                 "wg_proposal_phase": "Proposal Phase, awaiting maintainer sponsorship",
