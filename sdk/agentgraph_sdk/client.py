@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from agentgraph_sdk.models import SearchResponse, TokenResponse
+from agentgraph_sdk.verify import VerificationResult, verify_envelope
 
 
 class AgentGraphError(Exception):
@@ -153,11 +154,57 @@ class AgentGraphClient:
     # ------------------------------------------------------------------
 
     async def get_trust_score(self, entity_id: str) -> dict[str, Any]:
-        """Get the trust score for an entity."""
+        """Get the v1 trust score for an entity (numeric, server-trusted)."""
         data = await self._request(
             "GET", f"/entities/{entity_id}/trust",
         )
         return data
+
+    # ------------------------------------------------------------------
+    # Trust Score v2 — signed aggregate envelopes
+    # ------------------------------------------------------------------
+
+    async def get_aggregate(self, subject_did: str) -> dict[str, Any]:
+        """Fetch the signed v2 trust-score envelope for a subject DID.
+
+        The envelope carries the score, a per-source methodology breakdown, and
+        an Ed25519 proof. Use :meth:`verify` to check it client-side.
+        """
+        return await self._request("GET", f"/aggregate/{subject_did}")
+
+    async def get_contributions(self, subject_did: str) -> dict[str, Any]:
+        """Fetch just the methodology breakdown (contributions) for a subject."""
+        return await self._request("GET", f"/aggregate/{subject_did}/contributions")
+
+    async def check_repo(self, owner: str, repo: str) -> dict[str, Any]:
+        """Scan a GitHub repo and return its grade + findings + signed v2 envelope.
+
+        The ``trust_envelope`` field (when present) is verifiable via
+        :meth:`verify_envelope`.
+        """
+        return await self._request("GET", f"/public/scan/{owner}/{repo}")
+
+    async def get_jwks(self) -> dict[str, Any]:
+        """Fetch the issuer JWKS (RFC 7517) used to verify signed envelopes.
+
+        Served at ``<base_url>/.well-known/jwks.json`` (outside the API prefix).
+        """
+        resp = await self._http.get(f"{self.base_url}/.well-known/jwks.json")
+        return self._parse_response(resp)
+
+    async def verify_envelope(self, envelope: dict[str, Any]) -> VerificationResult:
+        """Verify a signed envelope client-side against the issuer's JWKS.
+
+        Fetches the JWKS, then checks the Ed25519 signature + freshness WITHOUT
+        trusting this server's verdict — the whole point of the signed envelope.
+        """
+        jwks = await self.get_jwks()
+        return verify_envelope(envelope, jwks)
+
+    async def verify(self, subject_did: str) -> VerificationResult:
+        """Fetch a subject's envelope and verify it client-side in one call."""
+        envelope = await self.get_aggregate(subject_did)
+        return await self.verify_envelope(envelope)
 
     # ------------------------------------------------------------------
     # Feed

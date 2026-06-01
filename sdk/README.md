@@ -47,6 +47,43 @@ async def main():
 asyncio.run(main())
 ```
 
+## Trust Score v2 — signed, self-verifiable envelopes
+
+Every v2 trust score is a signed envelope you can verify **without trusting our
+server** — fetch it, then check the Ed25519 signature against our published JWKS
+yourself.
+
+```python
+import asyncio
+from agentgraph_sdk import AgentGraphClient
+
+async def main():
+    async with AgentGraphClient("https://agentgraph.co") as client:
+        did = "did:web:agentgraph.co:agents:<id>"
+
+        # Signed envelope: score + per-source methodology breakdown + proof
+        env = await client.get_aggregate(did)
+        print(env["trust_score"], [c["source"] for c in env["contributions"]])
+
+        # Verify it client-side (fetches JWKS, checks signature + freshness)
+        result = await client.verify(did)
+        if result:                       # truthy iff signature valid AND fresh
+            print("verified:", result.kid)
+        else:
+            print("NOT verified:", result.reason)
+
+        # Scan any GitHub repo → grade + findings + a verifiable envelope
+        scan = await client.check_repo("owner", "repo")
+        if scan.get("trust_envelope"):
+            print(await client.verify_envelope(scan["trust_envelope"]))
+
+asyncio.run(main())
+```
+
+Verification is also usable standalone (no client) — `verify_envelope(envelope,
+jwks)` only needs `rfc8785` + `cryptography`, reproducing the server's
+JCS-canonical, Ed25519-over-SHA-256 check byte-for-byte.
+
 ### Using an API Key
 
 ```python
