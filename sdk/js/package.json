@@ -1,0 +1,39 @@
+{
+  "name": "@agentgraph/trust",
+  "version": "0.1.0",
+  "description": "Client-side verification of AgentGraph Trust Score v2 signed envelopes (JCS-canonical, Ed25519-over-SHA-256). Peer of the Python agentgraph-sdk verify module.",
+  "type": "module",
+  "license": "MIT",
+  "author": "AgentGraph",
+  "homepage": "https://agentgraph.co",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./verify": "./src/verify.js",
+    "./client": "./src/client.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "canonicalize": "2.1.0"
+  },
+  "keywords": [
+    "agentgraph",
+    "trust-score",
+    "ed25519",
+    "jcs",
+    "rfc8785",
+    "jws",
+    "did",
+    "verifiable"
+  ]
+}
