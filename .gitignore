@@ -104,3 +104,5 @@ registry/
 # MCP publisher binary
 mcp-publisher
 data/marketing_strategic_context.md
+sdk/dist/
+sdk/js/*.tgz
