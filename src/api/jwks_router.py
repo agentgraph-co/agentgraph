@@ -647,6 +647,22 @@ async def action_ref_near_miss_vectors() -> JSONResponse:
     )
 
 
+@router.get("/.well-known/ctef-error-codes.json")
+async def ctef_error_codes() -> JSONResponse:
+    """CTEF unified error vocabulary (v0.3.3 Artifact 2) — CTEF-side contribution
+    to the cross-spec error enum, layer-routed (wire / identity / authority /
+    continuity / correlation), every code structural + fail-closed."""
+    from src.trust.ctef_error_codes import build_vocabulary
+
+    return JSONResponse(
+        content=build_vocabulary(),
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
 @router.get("/.well-known/agent-trust.json")
 async def agent_trust() -> JSONResponse:
     """Domain verification for Open Agent Trust Registry (OATR).

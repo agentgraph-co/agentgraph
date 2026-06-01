@@ -1,0 +1,159 @@
+{
+  "spec": "CTEF unified error vocabulary (CTEF-side contribution)",
+  "version": "v0",
+  "umbrella_target": "aeoess/agent-governance-vocabulary",
+  "ordering_invariant": "Every code is a STRUCTURAL failure returned BEFORE any semantic or policy evaluation. Fail-closed by construction (CTEF v0.3.1 §ordering).",
+  "canonicalization": "RFC 8785 (JCS) for structured fields; RFC 9530 for wire bytes",
+  "layers": {
+    "wire": [
+      {
+        "code": "INVALID_SIGNATURE_INPUT",
+        "layer": "wire",
+        "triggers_on": "RFC 9421 Signature-Input line malformed or missing a required component (@method, @path, content-digest, created, nonce, keyid).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "CANONICALIZATION_MISMATCH",
+        "layer": "wire",
+        "triggers_on": "Recomputed canonical bytes differ from the signed bytes (JCS RFC 8785 for structured fields, or RFC 9530 content-digest for wire bytes).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "CONTENT_DIGEST_MISMATCH",
+        "layer": "wire",
+        "triggers_on": "RFC 9530 content-digest does not match the received wire body.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "STALE_NONCE",
+        "layer": "wire",
+        "triggers_on": "Nonce outside the freshness window (RECOMMENDED ≤300s) or replayed within it. Deterministic nonces (hash(created+keyid)) are prohibited.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      }
+    ],
+    "identity": [
+      {
+        "code": "DID_RESOLUTION_FAILED",
+        "layer": "identity",
+        "triggers_on": "Subject or issuer DID cannot be resolved by its method's rule (including resolve-at-time for ledger-anchored methods).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "JWKS_UNREACHABLE",
+        "layer": "identity",
+        "triggers_on": "Issuer JWKS endpoint unreachable during verification.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "KEY_NOT_IN_JWKS",
+        "layer": "identity",
+        "triggers_on": "The kid referenced by verificationMethod is not present in the resolved JWKS at the relevant (resolve-at-time) point.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "IDENTITY_BINDING_INVALID",
+        "layer": "identity",
+        "triggers_on": "verificationMethod key does not bind to the claimed identity (claim_type=identity composition failure).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      }
+    ],
+    "authority": [
+      {
+        "code": "INVALID_CLAIM_SCOPE",
+        "layer": "authority",
+        "triggers_on": "A claim carries fields outside its declared claim_type (e.g. identity-typed claim carrying authority-layer delegation).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "SCOPE_EXPANSION",
+        "layer": "authority",
+        "triggers_on": "A child scope expands a parent scope — violates monotonic narrowing; effective scope is the greatest lower bound of the chain.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "DELEGATION_DEPTH_EXCEEDED",
+        "layer": "authority",
+        "triggers_on": "Delegation chain depth exceeds the declared maximum.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "INVALID_COMPOSITION",
+        "layer": "authority",
+        "triggers_on": "Well-typed claims at each layer cannot be combined under the layer's composition rule (e.g. disjoint authority scopes).",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      }
+    ],
+    "continuity": [
+      {
+        "code": "ROTATION_GAP",
+        "layer": "continuity",
+        "triggers_on": "Rotation-attestation chain has a gap — a kid transition is unaccounted for in the history.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "EPOCH_MISMATCH",
+        "layer": "continuity",
+        "triggers_on": "session_epoch in the claim does not match the resolved epoch.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "SEQUENCE_VIOLATION",
+        "layer": "continuity",
+        "triggers_on": "Sequence number out of order in the rotation/continuity record.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      }
+    ],
+    "correlation": [
+      {
+        "code": "AMBIGUOUS_ISSUER_BINDING",
+        "layer": "correlation",
+        "triggers_on": "The same action_ref + subject + (claim_type, evidenceType) is bound to more than one issuer with disjoint verdicts — non-injective discrimination tuple. See action-ref-near-miss-vectors.json.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "RESCOPED_REPLAY",
+        "layer": "correlation",
+        "triggers_on": "Presented scope is not bound by the embedded action_ref; recomputing action_ref over the presented tuple diverges from the embedded value.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      },
+      {
+        "code": "SEMANTIC_DRIFT",
+        "layer": "correlation",
+        "triggers_on": "action_type or a field's semantics differ between issuance and verification, yielding divergent action_refs for one logical action.",
+        "fail_closed": true,
+        "ordering": "structural-before-semantic"
+      }
+    ]
+  },
+  "cross_spec_references": {
+    "A2A #1496 §5": [
+      "SCOPE_EXPANSION",
+      "DELEGATION_DEPTH_EXCEEDED",
+      "INVALID_SIGNATURE_INPUT (signature substitution)",
+      "ROTATION_GAP (expired chain)"
+    ],
+    "action_ref I-D (draft-giskard-aeoess-action-ref)": [
+      "AMBIGUOUS_ISSUER_BINDING",
+      "RESCOPED_REPLAY",
+      "SEMANTIC_DRIFT"
+    ]
+  },
+  "reference_implementation": "src.trust.ctef_error_codes (agentgraph-co/agentgraph)"
+}
