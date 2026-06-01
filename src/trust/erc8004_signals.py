@@ -12,10 +12,16 @@ the #110 sync job — ``Erc8004SignalSource.signals_for`` returns ``[]`` until
 into the endpoint is safe before the sync ships. Monday's #110 work is: provide
 env config + apply the (separate) erc8004 cache migration → signals flow.
 
-OPEN QUESTION (resolve with real contract semantics during #110): the exact
-normalization of ``ReputationSummary.aggregate_score`` (signed int128) to a 0-1
-``raw_signal``. The placeholder below is documented and conservative; it MUST be
-validated against the deployed Reputation Registry before going live.
+NORMALIZATION (resolved against REAL mainnet data, 2026-06-01): the v2
+ReputationRegistry `getSummary(...)` returns
+`(count uint64, summaryValue int128, summaryValueDecimals uint8)`. Read live,
+agent 1 = `summaryValue=51, count=6, decimals=0`; agents 2/3 = 55/58 — i.e.
+`summaryValue` is an AGGREGATE SCORE on a 0-100 scale (NOT a sum to divide by
+count), with `decimals` giving sub-integer precision. So:
+`raw_signal = clamp((summaryValue / 10**decimals) / 100, -1, 1)` → 0.51/0.55/0.58
+for agents 1/2/3. Negative values push a score down. NOTE: the reader stores
+`summaryValueDecimals` in `ReputationSummary.recent_indicator` (positional
+mapping; field name predates the v2 ABI — see reputation_registry.py).
 """
 from __future__ import annotations
 
@@ -30,11 +36,6 @@ if TYPE_CHECKING:  # the bridge package is only on path in app/prod, not bare te
     from agentgraph_bridge_erc8004.reputation_registry import ReputationSummary
 
 logger = logging.getLogger(__name__)
-
-# Placeholder per-feedback scale for normalizing the signed aggregate to 0-1.
-# TODO(#110): confirm against the deployed Reputation Registry contract — the
-# aggregate_score encoding (per-item range, decay weighting) determines this.
-_REPUTATION_FEEDBACK_SCALE = 100.0
 
 
 def attestation_to_signal(att: NormalizedAttestation) -> RawSignal | None:
@@ -79,9 +80,13 @@ def reputation_summary_to_signal(
     if summary.feedback_count <= 0:
         return None
     now = now or datetime.now(timezone.utc)
-    denom = summary.feedback_count * _REPUTATION_FEEDBACK_SCALE
-    raw = summary.aggregate_score / denom if denom else 0.0
-    raw = max(-1.0, min(1.0, raw))
+    # Validated against real mainnet data (2026-06-01): summaryValue is an
+    # AGGREGATE SCORE on a 0-100 scale (e.g. agent 1 = 51 over 6 feedbacks, NOT a
+    # sum), with summaryValueDecimals (stored in recent_indicator) giving
+    # sub-integer precision. Normalize 0-100 → 0-1; do NOT divide by count.
+    decimals = max(0, int(summary.recent_indicator))
+    score_0_100 = summary.aggregate_score / (10 ** decimals)
+    raw = max(-1.0, min(1.0, score_0_100 / 100.0))
     return RawSignal(
         source="erc8004_reputation",
         raw_signal=round(raw, 4),

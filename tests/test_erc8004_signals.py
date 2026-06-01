@@ -63,24 +63,38 @@ def test_attestation_default_confidence_when_absent():
 
 
 def test_reputation_summary_positive():
+    # Mirrors real agent 1: summaryValue=51, count=6, decimals=0 -> 51/100 = 0.51.
     s = ReputationSummary(
-        agent_id=42, feedback_count=6, aggregate_score=300,
-        recent_indicator=1, distinct_clients=2, source_urn="urn:erc8004:reputation:42",
+        agent_id=42, feedback_count=6, aggregate_score=51,
+        recent_indicator=0, distinct_clients=2, source_urn="urn:erc8004:reputation:42",
     )
     sig = reputation_summary_to_signal(s, now=NOW)
     assert sig is not None
     assert sig.source == "erc8004_reputation"
-    assert sig.raw_signal == pytest.approx(0.5, abs=1e-4)  # 300 / (6*100)
+    assert sig.raw_signal == pytest.approx(0.51, abs=1e-4)
+
+
+def test_reputation_summary_decimals_scale_the_value():
+    # 0-100 score with sub-integer precision: 5100/10^2 = 51.0 -> 0.51
+    base = dict(agent_id=1, feedback_count=4, distinct_clients=2,
+                source_urn="urn:erc8004:reputation:1")
+    s2 = reputation_summary_to_signal(
+        ReputationSummary(aggregate_score=5100, recent_indicator=2, **base), now=NOW)
+    s3 = reputation_summary_to_signal(
+        ReputationSummary(aggregate_score=5100, recent_indicator=3, **base), now=NOW)
+    assert s2.raw_signal == pytest.approx(0.51, abs=1e-4)   # 51.0/100
+    assert s3.raw_signal == pytest.approx(0.051, abs=1e-4)  # 5.1/100
 
 
 def test_reputation_summary_negative_allowed():
+    # negative aggregate score (-80) pushes a trust signal down: -80/100 = -0.8
     s = ReputationSummary(
-        agent_id=7, feedback_count=4, aggregate_score=-800,
+        agent_id=7, feedback_count=4, aggregate_score=-80,
         recent_indicator=0, distinct_clients=3, source_urn="urn:erc8004:reputation:7",
     )
     sig = reputation_summary_to_signal(s, now=NOW)
     assert sig is not None
-    assert sig.raw_signal < 0  # negative reputation can push a score down
+    assert sig.raw_signal == pytest.approx(-0.8, abs=1e-4)
 
 
 def test_reputation_summary_no_feedback_none():
