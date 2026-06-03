@@ -103,15 +103,23 @@ function PageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
+  const location = useLocation()
   if (isLoading) return <PageLoader />
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) {
+    const returnTo = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />
+  }
   return <>{children}</>
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
+  const location = useLocation()
   if (isLoading) return <PageLoader />
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) {
+    const returnTo = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />
+  }
   if (!user.is_admin) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }

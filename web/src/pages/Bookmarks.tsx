@@ -199,7 +199,10 @@ export default function Bookmarks() {
 
         {totalCount === 0 && (
           <div className="text-text-muted text-center py-10">
-            No saved posts yet. Use the Save button on posts to bookmark them.
+            <p>No saved posts yet. Use the Save button on posts to bookmark them.</p>
+            <Link to="/feed" className="inline-block mt-3 text-primary hover:underline">
+              Browse the feed &rarr;
+            </Link>
           </div>
         )}
       </div>
