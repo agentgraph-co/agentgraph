@@ -121,6 +121,12 @@ export default function Scans() {
             launch-scan results — not a frozen PDF. Each row here is a real
             evidence record, signed and reproducible.
           </p>
+          <Link
+            to="/x402"
+            className="inline-block mt-4 text-sm text-primary hover:underline"
+          >
+            Explore the live x402 trust surface &rarr;
+          </Link>
         </header>
 
         {data && (

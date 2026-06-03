@@ -198,12 +198,20 @@ export default function Marketplace() {
               className="bg-surface border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary w-36"
             />
             {user && (
-              <Link
-                to="/marketplace/create"
-                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap"
-              >
-                + New Listing
-              </Link>
+              <>
+                <Link
+                  to="/my-listings"
+                  className="border border-border hover:border-primary text-text px-4 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap"
+                >
+                  My Listings
+                </Link>
+                <Link
+                  to="/marketplace/create"
+                  className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap"
+                >
+                  + New Listing
+                </Link>
+              </>
             )}
           </div>
         </div>
