@@ -130,14 +130,16 @@ async def _generate_thread_reply(
     thread_title = detail["title"]
     thread_body = detail.get("selftext", "")[:1000]
     subreddit = detail.get("subreddit", "")
-    top_comments_text = ""
-    for c in detail.get("top_comments", [])[:3]:
-        top_comments_text += (
-            f"\n- u/{c['author']} ({c['score']} pts): "
-            f"{c['body'][:200]}"
-        )
+    # Reply-guy: reply to ONE specific comment a real person wrote (not the
+    # whole thread). Pick the top-scored comment as the target.
+    top_comments = detail.get("top_comments", [])
+    target = top_comments[0] if top_comments else None
+    target_author = target["author"] if target else "OP"
+    target_body = (target["body"] if target else thread_body)[:400]
+    target_permalink = (target.get("permalink") if target else "") or thread_url
 
-    # 10% self-promotion rule
+    # 10% self-promotion rule (on-topic / visible / non-promo post-selection
+    # stays upstream in thread-finding — unchanged).
     promo_eligible = False
     try:
         from src.redis_client import get_redis
@@ -148,67 +150,59 @@ async def _generate_thread_reply(
     except Exception:
         pass
 
-    if promo_eligible:
-        rules = (
-            "\n\nWrite a helpful, insightful reply that adds genuine "
-            "value to the discussion. Rules:\n"
-            "- Be helpful FIRST. Share knowledge or perspectives.\n"
-            "- Where relevant, link to specific GitHub repos, tools, "
-            "or libraries that help answer the question.\n"
-            "- This thread is a good fit to naturally mention "
-            "AgentGraph (agentgraph.co) if it's relevant to the "
-            "topic. Work it in organically — NOT as an ad. Pair it "
-            "with other useful recommendations.\n"
-            "- Do NOT be promotional. No 'check out' or 'sign up'.\n"
-            "- Match the subreddit's tone and culture.\n"
-            "- Keep it concise — 2-4 paragraphs max.\n"
-            "- No emojis, no hashtags, no marketing speak.\n"
-            "- Sound like a knowledgeable developer, not a brand.\n"
-        )
-    else:
-        rules = (
-            "\n\nWrite a helpful, insightful reply that adds genuine "
-            "value to the discussion. Rules:\n"
-            "- Be helpful FIRST. Answer the question or add insight.\n"
-            "- Do NOT mention AgentGraph, agentgraph.co, or any "
-            "product/project you work on. Pure community contribution.\n"
-            "- Where relevant, link to specific GitHub repos, tools, "
-            "or libraries that help. Use real, well-known repos — do "
-            "NOT invent URLs.\n"
-            "- Match the subreddit's tone and culture.\n"
-            "- Keep it concise — 2-4 paragraphs max.\n"
-            "- No emojis, no hashtags, no marketing speak.\n"
-            "- Sound like a knowledgeable developer sharing expertise.\n"
-        )
+    promo_line = (
+        "You MAY work in agentgraph.co/check ONLY if it's literally the punchline "
+        "— never a pitch."
+        if promo_eligible
+        else "Do NOT mention AgentGraph or any product. Pure community snark."
+    )
+
+    from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
 
     prompt = (
-        f"You are writing a Reddit comment for r/{subreddit}.\n\n"
-        f"Thread title: {thread_title}\n"
-        f"Thread body: {thread_body}\n"
+        f"You're a real dev lurking in r/{subreddit}. Reply to THIS comment like "
+        f"you'd thumb it out on your phone:\n\n"
+        f'Thread: "{thread_title}"\n'
+        f'u/{target_author} wrote: "{target_body}"\n\n'
+        f"Write ONE sentence (two MAX, and keep them short). Fun, a little snarky, "
+        f"genuinely on-topic — the kind of reply that gets upvoted for being funny "
+        f"and true, not for being a helpful bot. {promo_line}\n\n"
+        f"{VOICE_PROMPT_FRAGMENT}\n"
+        "Hard no's: emojis, hashtags, 'Great point/question', em-dashes, bullet "
+        "lists, corporate voice, 'it's worth noting'. lowercase is fine. It must "
+        "read like a human shitposting, not an AI being helpful.\n\n"
+        "Reply (just the text):"
     )
-    if top_comments_text:
-        prompt += f"\nTop comments:{top_comments_text}\n"
-    prompt += rules
 
     system = (
-        "You are a knowledgeable developer and AI researcher who "
-        "genuinely participates in Reddit discussions. You are NOT "
-        "a marketing bot. Write like a real person sharing expertise."
+        "You write Reddit comments that pass for a real, slightly-snarky "
+        "developer. Short, specific, funny. You never sound like AI or marketing."
     )
 
     result = await llm_generate(
         prompt,
         content_type="reddit_scout_draft",
         system=system,
-        max_tokens=512,
-        temperature=0.7,
+        max_tokens=120,
+        temperature=0.85,
     )
 
     if result.error:
         logger.warning("LLM failed for Reddit draft: %s", result.error)
         return None, None, None
 
-    # Save as draft in the marketing_posts table
+    # Flag if it still reads like AI (human reviews + posts Reddit anyway).
+    from src.marketing.content.ai_tells import check as check_ai_tells
+
+    tells = check_ai_tells(result.text, platform="reddit", strict=True)
+    if not tells.passed:
+        logger.warning(
+            "Reddit draft tripped AI-tell check (%s): %s",
+            tells.reasons, result.text[:120],
+        )
+
+    # Save as draft. utm_params carries the REPLY TARGET so review shows exactly
+    # which comment this answers, plus a direct permalink to it.
     from src.marketing.draft_queue import enqueue_draft
 
     cost = estimate_cost(result.model, result.tokens_in, result.tokens_out)
@@ -222,7 +216,14 @@ async def _generate_thread_reply(
         llm_tokens_in=result.tokens_in,
         llm_tokens_out=result.tokens_out,
         llm_cost_usd=cost,
-        utm_params={"thread_url": thread_url, "thread_title": thread_title},
+        utm_params={
+            "thread_url": thread_url,
+            "thread_title": thread_title,
+            "reply_to_author": target_author,
+            "reply_to_excerpt": target_body[:280],
+            "reply_to_permalink": target_permalink,
+            "ai_tells_ok": tells.passed,
+        },
     )
     await db.flush()
 
