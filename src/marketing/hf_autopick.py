@@ -199,12 +199,15 @@ async def generate_hf_reply(disc: HFDiscussion) -> str | None:
         f"{news_snippet}"
     )
 
+    from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
+    from src.marketing.content.ai_tells import check as check_ai_tells
+
     system = (
         "You are a knowledgeable AI/ML engineer who participates "
         "in HuggingFace model discussions. You have expertise in "
         "agent identity, trust scoring, and multi-agent systems. "
         "Write like a real researcher sharing expertise."
-    )
+    ) + VOICE_PROMPT_FRAGMENT
 
     result = await llm_generate(
         prompt,
@@ -221,6 +224,31 @@ async def generate_hf_reply(disc: HFDiscussion) -> str | None:
     if not result.text or not result.text.strip():
         logger.warning("HF reply LLM returned empty content")
         return None
+
+    # Reject AI-tell-laden drafts; one retry with the specific hint, same as
+    # the reply-guy + engine paths. HF is an auto-post platform, so this is the
+    # last gate before public posting.
+    tell_check = check_ai_tells(result.text, platform="huggingface", strict=True)
+    if not tell_check.passed:
+        logger.info("HF draft tripped AI-tell check (%s); retrying", tell_check.reasons)
+        retry = await llm_generate(
+            prompt + f"\n\nYour previous draft read as AI-written. {tell_check.hint()}\n",
+            content_type="hf_scout_draft",
+            system=system,
+            max_tokens=512,
+            temperature=0.7,
+        )
+        if retry.text and retry.text.strip() and not retry.error:
+            second = check_ai_tells(retry.text, platform="huggingface", strict=True)
+            if second.passed:
+                return retry.text.strip()
+            logger.warning(
+                "HF retry still tripped AI-tell check (%s); using cleaner of the two",
+                second.reasons,
+            )
+            # Fall through to whichever had fewer flagged reasons.
+            return (retry if len(second.reasons) < len(tell_check.reasons)
+                    else result).text.strip()
 
     return result.text.strip()
 

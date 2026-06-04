@@ -68,6 +68,23 @@ BLOCKLIST_WORDS: frozenset[str] = frozenset({
     "stunning",
     "breathtaking",
     "captivating",
+    # 2026 marketing-AI verbs/adjectives (the "elevate your workflow" cluster)
+    "elevate", "elevates", "elevating",
+    "streamline", "streamlines", "streamlining",
+    "supercharge", "supercharges", "supercharging",
+    "unlock", "unlocks", "unlocking",
+    "unleash", "unleashes", "unleashing",
+    "empower", "empowers", "empowering",
+    "transformative",
+    "unparalleled",
+    "effortless", "effortlessly",
+    "revolutionize", "revolutionizes", "revolutionizing",
+    "redefine", "redefines", "redefining",
+    "reimagine", "reimagines", "reimagining",
+    "turbocharge", "turbocharged",
+    "ever-evolving",
+    "cornerstone",
+    "powerhouse",
 })
 
 # Multi-word phrases. Lowercased substring match against the lowercased text.
@@ -108,6 +125,48 @@ BLOCKLIST_PHRASES: tuple[str, ...] = (
     "revolutionary",  # already in twitter prompt as banned
     "state-of-the-art",
     "best-in-class",
+    # Faux-conversational signposts (the chatbot "let me walk you through it" tic)
+    "dive into",
+    "let's dive",
+    "deep dive",
+    "let's explore",
+    "let's unpack",
+    "let's break it down",
+    "let's break this down",
+    "here's the thing",
+    "here's the kicker",
+    "here's the best part",
+    "the best part?",
+    "the result?",
+    "but here's the catch",
+    "needless to say",
+    "rest assured",
+    "look no further",
+    "say goodbye to",
+    "buckle up",
+    # Empty intensifier filler
+    "when it comes to",
+    "at the end of the day",
+    "the bottom line",
+    "more than ever",
+    "now more than ever",
+    "the power of",
+    "the key to",
+    "a game changer",
+    "a testament to",
+    "plays a key role",
+    "plays a vital role",
+    "plays a crucial role",
+    "plays a pivotal role",
+    "plays a significant role",
+    # Faux-vivid openers
+    "in a world where",
+    "imagine a world",
+    "picture this",
+    # Over-clean closers
+    "in short",
+    "in a nutshell",
+    "long story short",
 )
 
 # Copula avoidance — AI rarely writes "X is Y", reaches for these instead.
@@ -137,6 +196,47 @@ NEG_PARALLELISM_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     # "X isn't just Y; it's Z"
     re.compile(r"\b\w+\s+isn'?t\s+just\s+\w[\w\s]{0,40}[,;\u2014\u2013-]\s*it'?s\b", re.IGNORECASE),
+)
+
+# Structural tells \u2014 the 2026 article's point: AI gives itself away through
+# *shape*, not vocabulary. These catch the rhythm even when every word is clean.
+STRUCTURAL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # Participial benefit-tail: "..., ensuring seamless integration" /
+    # "..., making it easier than ever" / "..., allowing you to scale".
+    # The single most reliable structural tell in 2026 marketing copy.
+    (
+        "participial_tail",
+        re.compile(
+            r",\s+(ensuring|allowing|enabling|empowering|helping|making|"
+            r"providing|offering|delivering|driving|fostering|creating|"
+            r"unlocking|streamlining|paving)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Signpost transition at sentence start: "Moreover," "Furthermore,"
+    # "Additionally," "Notably," "Importantly," "Consequently," "That said,".
+    (
+        "signpost_transition",
+        re.compile(
+            r"(?:^|[.!?]\s+|\n)(Moreover|Furthermore|Additionally|Notably|"
+            r"Importantly|Consequently|Subsequently|That said),",
+        ),
+    ),
+    # "plays a <adj> role" with any adjective (catches ones not in the phrase list).
+    (
+        "plays_a_role",
+        re.compile(r"\bplays?\s+an?\s+\w+\s+role\b", re.IGNORECASE),
+    ),
+    # Rhetorical-question hook as the OPENER: "Ever wondered...?" "Ready to...?"
+    # "What if...?" "Tired of...?" "Want to...?" \u2014 classic AI ad lead-in.
+    (
+        "rhetorical_opener",
+        re.compile(
+            r"^\s*(Ever\s+(wonder|wondered|thought)|Ready\s+to|What\s+if|"
+            r"Tired\s+of|Want\s+to|Have\s+you\s+ever|Imagine\s+if)\b[^.?!]*\?",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 # Word-boundary regex builder for the single-word blocklist.
@@ -183,6 +283,24 @@ class CheckResult:
             parts.append(
                 'Drop the "not just X, it\'s Y" / "not just X, but Y" structure. '
                 'Just say what you mean directly.'
+            )
+        if "participial_tail" in self.reasons:
+            parts.append(
+                'Drop the "..., ensuring/allowing/making it..." benefit-clause '
+                'tail. End the sentence at the point. Start a new one if there '
+                'is genuinely a second idea.'
+            )
+        if "signpost_transition" in self.reasons:
+            parts.append(
+                'Cut sentence-opening signposts (Moreover, Furthermore, '
+                'Additionally, Notably, That said). Just make the point.'
+            )
+        if "plays_a_role" in self.reasons:
+            parts.append('Replace "plays a ___ role" with a concrete verb.')
+        if "rhetorical_opener" in self.reasons:
+            parts.append(
+                "Don't open with a rhetorical question hook (Ever wondered..., "
+                "Ready to..., What if...). Open with a real statement."
             )
         if "high_em_dash_density" in self.reasons:
             parts.append("Replace most em-dashes with periods or commas.")
@@ -238,6 +356,13 @@ def check(
     if any(pat.search(text) for pat in NEG_PARALLELISM_PATTERNS):
         reasons.append("neg_parallelism")
         severity = "block" if strict else "warn"
+
+    # 3b. Structural tells (participial tails, signpost transitions, etc.).
+    # These are the 2026 "it's the shape, not the words" giveaways.
+    for name, pat in STRUCTURAL_PATTERNS:
+        if pat.search(text):
+            reasons.append(name)
+            severity = "block" if strict else "warn"
 
     # 4. Em-dash density (per 500 chars). Only fires above threshold AND
     # requires another tell present — em-dashes alone are fine punctuation.
@@ -297,18 +422,37 @@ VOICE_PROMPT_FRAGMENT = (
     "garner, showcase, foster, interplay, vibrant, robust, seamless, leverage, "
     "navigate (as metaphor), harness, endeavor, myriad, plethora, realm, "
     "paramount, indispensable, noteworthy, compelling, cutting-edge, "
-    "game-changing, groundbreaking, revolutionary, state-of-the-art.\n"
-    "Never use 'it's not just X, it's Y' or 'not just X, but Y' — say what "
-    "you mean directly.\n"
+    "game-changing, groundbreaking, revolutionary, state-of-the-art, elevate, "
+    "streamline, supercharge, unlock, unleash, empower, transformative, "
+    "unparalleled, effortless, revolutionize, redefine, reimagine, "
+    "ever-evolving, cornerstone, powerhouse.\n"
+    "## The shape gives it away more than the words. Avoid these STRUCTURES:\n"
+    "- The benefit-tail: do NOT end sentences with '..., ensuring/allowing/"
+    "enabling/making/helping/empowering ...'. Put the period at the point. "
+    "If there's a real second idea, make it its own sentence.\n"
+    "- No 'it's not just X, it's Y' / 'not just X, but Y'. Say it straight.\n"
+    "- No sentence-opening signposts: Moreover, Furthermore, Additionally, "
+    "Notably, Importantly, That said, Consequently.\n"
+    "- No rule-of-three padding ('fast, reliable, and scalable'). One precise "
+    "word beats three vague ones.\n"
+    "- No rhetorical-question hooks ('Ever wondered...?', 'Ready to...?', "
+    "'What if...?'). Open with a real statement.\n"
+    "- No 'plays a key/vital/crucial role' — use a concrete verb.\n"
+    "- No fake-conversational signposts: 'Here's the thing', 'dive into', "
+    "'let's unpack', 'the best part?', 'at the end of the day', 'the bottom "
+    "line', 'when it comes to', 'in a world where'.\n"
     "Use plain 'is' / 'are' instead of 'serves as', 'stands as', 'represents', "
     "'boasts', 'embodies'.\n"
     "Don't open with 'In today's...', 'In an era of...', 'In the realm of...', "
-    "'At its core', 'At the heart of'.\n"
-    "Don't close with 'In conclusion', 'In summary', 'Ultimately', 'Moving forward'.\n"
+    "'At its core', 'At the heart of'. Don't close with 'In conclusion', "
+    "'In summary', 'In short', 'Ultimately', 'Moving forward'.\n"
     "Vary sentence length. Include at least one sentence under 8 words "
     "(unless the platform limit makes that impossible). Humans don't write "
     "at uniform medium length.\n"
-    "Em-dashes are fine in moderation; don't substitute them for every comma.\n"
+    "## Don't OVERCORRECT into the other tell: mechanically choppy, em-dash-"
+    "free, perfectly-even prose reads as a bot trying not to look like a bot. "
+    "Em-dashes are fine in moderation. The goal is a real human's uneven "
+    "rhythm and specific detail, not sanitized blandness.\n"
     "Skip 'I'd be happy to' / 'Certainly!' / 'Great question' openers — "
     "just answer.\n"
 )

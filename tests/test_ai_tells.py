@@ -167,3 +167,78 @@ def test_strict_false_warns_instead_of_blocking():
     assert r.passed  # soft mode passes
     assert r.severity == "warn"
     assert "blocklist_word" in r.reasons
+
+
+# --- 2026 structural tells (the "shape, not words" additions) -------------
+
+
+def test_participial_benefit_tail_blocked():
+    """The '..., ensuring X' / '..., making it Y' tail is the top 2026 tell."""
+    text = (
+        "The platform signs every score, ensuring you can verify it yourself "
+        "without trusting our server at all."
+    )
+    r = check(text, platform="devto", strict=True)
+    assert not r.passed
+    assert "participial_tail" in r.reasons
+    assert "benefit-clause" in r.hint().lower() or "tail" in r.hint().lower()
+
+
+def test_signpost_transition_blocked():
+    """Sentence-opening 'Moreover,' / 'Furthermore,' is an AI signpost tell."""
+    text = (
+        "The scanner is free to use. Moreover, every result is independently "
+        "verifiable against our published keys."
+    )
+    r = check(text, platform="devto", strict=True)
+    assert not r.passed
+    assert "signpost_transition" in r.reasons
+
+
+def test_plays_a_role_blocked():
+    """'plays a <adj> role' with any adjective is caught by the regex."""
+    text = "Identity plays a central role in how agents trust each other today."
+    r = check(text, platform="github_discussions", strict=True)
+    assert not r.passed
+    assert "plays_a_role" in r.reasons
+
+
+def test_rhetorical_question_opener_blocked():
+    """A 'Ever wondered...?' opener is a classic AI ad lead-in."""
+    text = "Ever wondered if that MCP server is safe? We built a scanner for it."
+    r = check(text, platform="bluesky", strict=True)
+    assert not r.passed
+    assert "rhetorical_opener" in r.reasons
+
+
+def test_new_marketing_verbs_blocked():
+    """The 2026 'elevate / streamline / supercharge' cluster is blocked."""
+    for word in ("elevate", "streamline", "supercharge", "unlock", "empower"):
+        text = f"This will {word} your agent workflow in production."
+        r = check(text, platform="bluesky", strict=True)
+        assert not r.passed, f"{word!r} should be blocked"
+        assert word in r.blocked_words
+
+
+def test_faux_conversational_signpost_blocked():
+    """'Here's the thing' / 'dive into' faux-chat signposts are blocked."""
+    text = "Here's the thing about agent trust: nobody actually verifies it."
+    r = check(text, platform="bluesky", strict=True)
+    assert not r.passed
+    assert "blocklist_phrase" in r.reasons
+
+
+def test_clean_human_draft_still_passes_after_additions():
+    """A genuinely human, specific draft must NOT trip the new structural rules."""
+    text = (
+        "Scanned 950 MCP repos. Most run unsafe exec. We sign every result so "
+        "you can check it yourself. Try it on something you actually use."
+    )
+    r = check(text, platform="devto", strict=True)
+    assert r.passed, f"reasons: {r.reasons}, blocked: {r.blocked_words}"
+
+
+def test_voice_fragment_warns_against_overcorrection():
+    """The fragment must tell the model NOT to swing into choppy blandness."""
+    assert "overcorrect" in VOICE_PROMPT_FRAGMENT.lower()
+    assert "em-dash" in VOICE_PROMPT_FRAGMENT.lower()
