@@ -1,5 +1,5 @@
 {
-  "name": "@agentgraph/trust",
+  "name": "agentgraph-trust",
   "version": "0.1.0",
   "description": "Client-side verification of AgentGraph Trust Score v2 signed envelopes (JCS-canonical, Ed25519-over-SHA-256). Peer of the Python agentgraph-sdk verify module.",
   "type": "module",

@@ -20,9 +20,9 @@ fi
 
 if $DO_JS; then
   : "${NPM_TOKEN:?set NPM_TOKEN (Automation token from npmjs.com → Access Tokens)}"
-  echo "==> Publishing @agentgraph/trust to npm"
+  echo "==> Publishing agentgraph-trust to npm"
   ( cd sdk/js && \
     echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && \
     npm publish --access public; rm -f .npmrc )
-  echo "OK: npm i @agentgraph/trust"
+  echo "OK: npm i agentgraph-trust"
 fi

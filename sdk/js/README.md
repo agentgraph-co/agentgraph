@@ -1,4 +1,4 @@
-# @agentgraph/trust
+# agentgraph-trust
 
 JavaScript/TypeScript SDK for **AgentGraph Trust Score v2** — signed,
 self-verifiable trust-score envelopes. This is the JS peer of the Python
@@ -13,7 +13,7 @@ JCS-canonical, Ed25519-over-SHA-256 verification **byte-for-byte**.
 ## Install
 
 ```bash
-npm install @agentgraph/trust
+npm install agentgraph-trust
 ```
 
 ## Trust Score v2 — signed, self-verifiable envelopes
@@ -23,7 +23,7 @@ server** — fetch it, then check the Ed25519 signature against our published JW
 yourself.
 
 ```js
-import { TrustClient } from '@agentgraph/trust';
+import { TrustClient } from 'agentgraph-trust';
 
 const client = new TrustClient('https://agentgraph.co');
 const did = 'did:web:agentgraph.co:agents:<id>';
@@ -54,7 +54,7 @@ if (scan.trust_envelope) {
 check byte-for-byte.
 
 ```js
-import { verifyEnvelope } from '@agentgraph/trust';
+import { verifyEnvelope } from 'agentgraph-trust';
 
 const result = verifyEnvelope(envelope, jwks);
 // => { valid, signatureValid, fresh, kid, reason }
