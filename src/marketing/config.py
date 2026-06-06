@@ -128,7 +128,9 @@ PLATFORM_SCHEDULE: dict[str, dict] = {
     "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},
     "huggingface": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
     "devto": {"posts_per_week": 1, "auto_post": True, "days": ["thu"]},  # weekly article/update
-    "linkedin": {"posts_per_week": 0, "auto_post": False, "days": []},  # not set up
+    # Manual: 1 draft/week to human_review (you post from the page); never auto-posts.
+    # Major announcements add extra drafts via the milestone trigger.
+    "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["tue"]},
     "hashnode": {"posts_per_week": 0, "auto_post": False, "days": []},  # manual only
     "github_discussions": {"posts_per_week": 0, "auto_post": False, "days": []},  # MCP ban risk
     "telegram": {"posts_per_week": 0, "auto_post": False, "days": []},  # no audience
