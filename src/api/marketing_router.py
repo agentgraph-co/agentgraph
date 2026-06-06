@@ -45,8 +45,17 @@ class DraftResponse(BaseModel):
     scheduled_day: str | None = None
     thread_url: str | None = None
     thread_title: str | None = None
+    # Per-platform playbook context (HN talking points/checklist/pre-scanned repos,
+    # LinkedIn featured links, etc.) — surfaced in the admin UI to guide manual posting.
+    playbook: dict | None = None
 
     model_config = {"from_attributes": True}
+
+
+def _draft_playbook(post: object) -> dict | None:
+    """Extract the platform-specific playbook block from utm_params, if any."""
+    utm = getattr(post, "utm_params", None) or {}
+    return (utm.get("platform_playbook") or {}).get(getattr(post, "platform", ""))
 
 
 class DraftActionRequest(BaseModel):
@@ -54,6 +63,18 @@ class DraftActionRequest(BaseModel):
     content: str | None = None  # Required for edit_approve
     reason: str | None = None   # Optional for reject
     posted_url: str | None = None  # Optional URL where it was manually posted
+
+
+class CreateDraftRequest(BaseModel):
+    """Admin-authored draft (hand-written, not LLM-generated) — e.g. LinkedIn / HN."""
+    platform: str = Field(..., description="reddit, linkedin, hackernews, etc.")
+    content: str = Field(..., min_length=1)
+    topic: str | None = None
+    post_type: str = "admin_manual"
+    # Per-platform playbook: HN talking_points/checklist/pre_scanned/title_options,
+    # LinkedIn featured_links/hashtags, etc. Stored under utm_params.platform_playbook.
+    playbook: dict | None = None
+    utm_params: dict | None = None
 
 
 class WeeklyDigestResponse(BaseModel):
@@ -213,9 +234,56 @@ async def get_pending_drafts(
             scheduled_day=_get_scheduled_day(d),
             thread_url=(d.utm_params or {}).get("thread_url"),
             thread_title=(d.utm_params or {}).get("thread_title"),
+            playbook=_draft_playbook(d),
         )
         for d in drafts
     ]
+
+
+@router.post("/drafts/create", response_model=DraftResponse)
+async def create_manual_draft(
+    req: CreateDraftRequest,
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> DraftResponse:
+    """Create a hand-written draft directly into the human-review queue.
+
+    For platforms where content is authored by a human (LinkedIn, HN) rather than
+    LLM-generated. Optional `playbook` carries per-platform posting guidance that
+    the admin UI renders alongside the draft.
+    """
+    require_admin(current_entity)
+    from src.marketing.draft_queue import enqueue_draft
+
+    utm: dict = dict(req.utm_params or {})
+    if req.playbook:
+        utm["platform_playbook"] = {req.platform: req.playbook}
+
+    post = await enqueue_draft(
+        db,
+        platform=req.platform,
+        content=req.content,
+        topic=req.topic or "manual",
+        post_type=req.post_type,
+        utm_params=utm or None,
+    )
+    await db.commit()
+    await db.refresh(post)
+    return DraftResponse(
+        id=post.id,
+        platform=post.platform,
+        content=post.content,
+        topic=post.topic,
+        post_type=post.post_type,
+        status=post.status,
+        llm_model=post.llm_model,
+        created_at=post.created_at.isoformat(),
+        image_url=_topic_image_url(post.topic, post.platform),
+        parent_external_id=post.parent_external_id,
+        thread_url=(post.utm_params or {}).get("thread_url"),
+        thread_title=(post.utm_params or {}).get("thread_title"),
+        playbook=_draft_playbook(post),
+    )
 
 
 @router.post("/drafts/{post_id}", response_model=DraftResponse)
@@ -324,6 +392,7 @@ async def action_draft(
         parent_external_id=post.parent_external_id,
         thread_url=(post.utm_params or {}).get("thread_url"),
         thread_title=(post.utm_params or {}).get("thread_title"),
+        playbook=_draft_playbook(post),
     )
 
 

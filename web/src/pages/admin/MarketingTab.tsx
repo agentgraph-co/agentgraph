@@ -16,6 +16,54 @@ import type {
   BotActivity,
 } from './types'
 
+// Platforms where the human posts manually (we never auto-post via an API):
+// content is authored/approved here, then posted by hand and marked posted.
+const MANUAL_POST_PLATFORMS = ['reddit', 'hackernews', 'producthunt', 'linkedin']
+
+function renderPlaybookValue(val: unknown) {
+  if (Array.isArray(val)) {
+    return (
+      <ul className="list-disc list-inside space-y-0.5">
+        {val.map((item, i) => {
+          if (item && typeof item === 'object' && 'url' in (item as Record<string, unknown>)) {
+            const o = item as { url: string; anchor?: string }
+            return (
+              <li key={i}>
+                <a href={o.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-light hover:underline">{o.anchor || o.url}</a>
+              </li>
+            )
+          }
+          return <li key={i} className="text-text/70">{String(item)}</li>
+        })}
+      </ul>
+    )
+  }
+  const s = String(val)
+  if (/^https?:\/\//.test(s)) {
+    return <a href={s} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-light hover:underline">{s}</a>
+  }
+  return <span className="text-text/70 whitespace-pre-wrap">{s}</span>
+}
+
+// Renders per-platform posting guidance (HN talking points/checklist/pre-scanned
+// repos, LinkedIn featured links/hashtags, etc.) stored on the draft.
+function PlaybookBox({ playbook }: { playbook?: Record<string, unknown> | null }) {
+  if (!playbook || Object.keys(playbook).length === 0) return null
+  return (
+    <div className="mb-3 bg-blue-400/5 border border-blue-400/20 rounded-lg px-3 py-2">
+      <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1.5">📋 Posting playbook</p>
+      <div className="space-y-2">
+        {Object.entries(playbook).map(([key, val]) => (
+          <div key={key}>
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">{key.replace(/_/g, ' ')}</p>
+            <div className="text-xs">{renderPlaybookValue(val)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function MarketingTab() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
@@ -461,9 +509,12 @@ export default function MarketingTab() {
                     {/* Content preview */}
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
 
+                    {/* Per-platform posting playbook (HN talking points, LinkedIn featured links, etc.) */}
+                    <div className="mt-3"><PlaybookBox playbook={draft.playbook} /></div>
+
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
-                      {['reddit', 'hackernews', 'producthunt'].includes(draft.platform) ? (
+                      {MANUAL_POST_PLATFORMS.includes(draft.platform) ? (
                         <>
                           {markPostedId === draft.id ? (
                             <div className="flex items-center gap-2 w-full">

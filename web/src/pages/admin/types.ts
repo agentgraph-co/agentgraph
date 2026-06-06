@@ -106,6 +106,9 @@ export interface MarketingDraft {
   scheduled_day: string | null
   thread_url: string | null
   thread_title: string | null
+  // Per-platform posting guidance (HN talking points/checklist/pre-scanned repos,
+  // LinkedIn featured links/hashtags, etc.) — rendered in the draft card.
+  playbook?: Record<string, unknown> | null
 }
 
 export interface MarketingHealth {
@@ -333,7 +336,7 @@ export const PLATFORM_DESTINATIONS: Record<string, string> = {
   reddit: 'r/artificial, r/MachineLearning, r/LangChain, r/LocalLLaMA',
   devto: 'dev.to/agentgraph',
   hashnode: 'hashnode.com/agentgraph',
-  linkedin: 'AgentGraph company page',
+  linkedin: 'linkedin.com/company/agentgraph-co',
   discord: 'AI/agent community servers',
   huggingface: 'HF model page discussions',
   github_discussions: 'agentgraph repo discussions',
