@@ -468,6 +468,11 @@ async def post_approved_drafts(db: AsyncSession) -> dict:
     posts = list(queued.scalars().all())
 
     for post in posts:
+        # Manual-post platforms (LinkedIn/HN/Reddit/...) are posted by hand via
+        # "Manually Posted" in the admin tool — never auto-post them or alert on
+        # them as failures, even if one ends up queued.
+        if not _is_auto_post(post.platform):
+            continue
         adapter = adapters.get(post.platform)
         if not adapter or not await adapter.is_configured():
             post.status = "failed"

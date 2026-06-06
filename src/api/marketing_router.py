@@ -328,10 +328,11 @@ async def action_draft(
 
     await db.commit()
 
-    # If approved/edited, immediately post to the platform
+    # If approved/edited, immediately post — but ONLY for auto-post platforms.
     _logger = logging.getLogger(__name__)
+    from src.marketing.orchestrator import _is_auto_post
 
-    if req.action in ("approve", "edit_approve"):
+    if req.action in ("approve", "edit_approve") and _is_auto_post(post.platform):
         try:
             from src.marketing.orchestrator import _get_adapters
 
@@ -376,6 +377,13 @@ async def action_draft(
             await notify_post_failure(
                 post.platform, post.content[:200], str(exc),
             )
+        await db.commit()
+    elif req.action in ("approve", "edit_approve"):
+        # Manual-post platform (LinkedIn/HN/Reddit/...): keep the (possibly edited)
+        # draft in human_review so the human finalizes it via "Manually Posted".
+        # Never auto-post or queue it for the poster cycle (avoids "Adapter not
+        # configured" failure spam).
+        post.status = "human_review"
         await db.commit()
 
     await db.refresh(post)
