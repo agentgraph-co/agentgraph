@@ -314,6 +314,74 @@ async def _send_dry_feed_alert() -> None:
         logger.debug("Failed to send Reddit dry-feed alert", exc_info=True)
 
 
+async def _generate_standalone_post(db: AsyncSession) -> bool:
+    """Fallback when there's no thread to reply to: generate a standalone Reddit
+    post draft (value-first) into the review queue + email it, so the day isn't
+    silent. Reply-guy stays primary; this only fires when the thread feed is dry.
+
+    Returns True if a draft was produced.
+    """
+    try:
+        from src.marketing.content.engine import generate_proactive
+
+        recent: list = []
+        try:
+            from src.marketing.orchestrator import get_recent_topics
+
+            recent = await get_recent_topics("reddit")
+        except Exception:
+            pass
+        content = await generate_proactive("reddit", recent_topics=recent)
+        if content.error or not content.text:
+            return False
+    except Exception:
+        logger.debug("Standalone Reddit post generation failed", exc_info=True)
+        return False
+
+    playbook = {
+        "mode": "standalone post — FALLBACK (no thread to reply to; feed is dry)",
+        "subreddits": ["r/SideProject", "r/programming", "r/LocalLLaMA"],
+        "tips": [
+            "This is a standalone post, not a reply. Self-posts get removed in "
+            "some AI subs — pick a self-post-friendly sub.",
+            "Value-first (scan data / findings), no promo lead.",
+            "You post manually, then mark Posted + paste the URL.",
+        ],
+    }
+    try:
+        from src.marketing.draft_queue import enqueue_draft
+
+        await enqueue_draft(
+            db, platform="reddit", content=content.text,
+            topic=content.topic or "standalone", post_type="proactive",
+            llm_model=content.llm_model,
+            utm_params={"platform_playbook": {"reddit": playbook}},
+        )
+        await db.flush()
+    except Exception:
+        logger.debug("Failed to enqueue standalone Reddit draft", exc_info=True)
+
+    try:
+        from src.email import send_email
+
+        html = (
+            "<p><b>No Reddit thread to reply to today</b> — the news-digest thread "
+            "feed is dry, so here's a <b>standalone post draft</b> instead "
+            "(it's in your review queue too).</p>"
+            "<p>Post to a self-post-friendly sub (r/SideProject, r/programming), "
+            "value-first — you post manually.</p>"
+            f"<hr><pre style='white-space:pre-wrap'>{content.text}</pre>"
+        )
+        await send_email(
+            marketing_settings.marketing_notify_email,
+            "Reddit standalone post draft (no thread to reply to)",
+            html,
+        )
+    except Exception:
+        logger.debug("Failed to email standalone Reddit draft", exc_info=True)
+    return True
+
+
 async def send_reddit_reminder(db: AsyncSession) -> bool:
     """Send a daily Reddit reply reminder email.
 
@@ -350,10 +418,13 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
             thread_info["url"], db,
         )
 
-    # Nothing to draft (feed dry, or detail not cached) → alert, don't go silent.
+    # No thread to reply to → fall back to a standalone post draft (reply-guy
+    # stays primary). Only if that also fails do we send the dry-feed alert.
     if not draft_content:
-        logger.info("No Reddit draft available — sending dry-feed alert")
-        await _send_dry_feed_alert()
+        logger.info("No Reddit thread to reply to — trying standalone post fallback")
+        produced = await _generate_standalone_post(db)
+        if not produced:
+            await _send_dry_feed_alert()
         try:
             from src.redis_client import get_redis
 
@@ -362,7 +433,7 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
             await r.set(f"ag:mktg:reddit_reminder:{today_str}", "1", ex=86400)
         except Exception:
             pass
-        return False
+        return produced
 
     thread_url = thread_info["url"]
     await _mark_thread_used(thread_url)
