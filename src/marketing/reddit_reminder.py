@@ -314,71 +314,119 @@ async def _send_dry_feed_alert() -> None:
         logger.debug("Failed to send Reddit dry-feed alert", exc_info=True)
 
 
-async def _generate_standalone_post(db: AsyncSession) -> bool:
-    """Fallback when there's no thread to reply to: generate a standalone Reddit
-    post draft (value-first) into the review queue + email it, so the day isn't
-    silent. Reply-guy stays primary; this only fires when the thread feed is dry.
+async def _generate_news_post(db: AsyncSession) -> bool:
+    """Fallback when there's no thread to reply to: the old-style 3-paragraph
+    Reddit post grounded in the news-digest signals (the news/reddit items the
+    digest collected — `sent_articles`, which keep flowing even when the reply
+    thread feed is dry). Goes to the review queue + email. Reply-guy stays
+    primary; this only fires when there's no thread to reply to.
 
-    Returns True if a draft was produced.
+    Returns True if a draft was produced, False if there's no news to post about.
     """
     try:
-        from src.marketing.content.engine import generate_proactive
+        from src.marketing.news_signals import gather_news_signals
 
-        recent: list = []
-        try:
-            from src.marketing.orchestrator import get_recent_topics
-
-            recent = await get_recent_topics("reddit")
-        except Exception:
-            pass
-        content = await generate_proactive("reddit", recent_topics=recent)
-        if content.error or not content.text:
-            return False
+        signals = await gather_news_signals(limit=5, days=7)
     except Exception:
-        logger.debug("Standalone Reddit post generation failed", exc_info=True)
+        logger.debug("Failed to gather news signals", exc_info=True)
+        signals = []
+    if not signals:
         return False
 
+    headlines = "\n".join(
+        f"- {s['title']} ({s.get('source', '')})"
+        + (f": {s['summary'][:160]}" if s.get("summary") else "")
+        for s in signals[:5]
+    )
+
+    from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
+    from src.marketing.content.ai_tells import check as check_ai_tells
+    from src.marketing.llm.cost_tracker import estimate_cost
+    from src.marketing.llm.router import generate as llm_generate
+
+    prompt = (
+        "You're a developer who works on AI-agent trust/security, writing a Reddit "
+        "post for a sub like r/LocalLLaMA or r/programming. React to what's actually "
+        "happening in the news below — pick the most interesting item and write about "
+        "IT, with a real point of view, not about your product.\n\n"
+        f"Today's AI/agent news:\n{headlines}\n\n"
+        "Write a hooky one-line title, then ~3 short paragraphs. Be specific and a "
+        "little opinionated. You MAY mention agentgraph.co/check once, only if it's "
+        "genuinely relevant to the point — never as a pitch, and it's fine to leave "
+        "it out entirely.\n\n"
+        f"{VOICE_PROMPT_FRAGMENT}\n"
+        "Hard no's: emojis, hashtags, 'Great point', em-dash spam, corporate voice, "
+        "listicles. Read like a human with an opinion.\n\n"
+        "Format:\nTitle: <title>\n\n<post body>"
+    )
+    system = (
+        "You write Reddit posts that pass for a real, opinionated developer reacting "
+        "to industry news. You never sound like AI or marketing."
+    )
+
+    result = await llm_generate(
+        prompt,
+        content_type="reddit_news_post",
+        system=system,
+        max_tokens=420,
+        temperature=0.8,
+    )
+    if result.error or not result.text:
+        logger.warning("LLM failed for Reddit news post: %s", result.error)
+        return False
+
+    tells = check_ai_tells(result.text, platform="reddit", strict=True)
+    if not tells.passed:
+        logger.warning("Reddit news-post tripped AI-tell check: %s", tells.reasons)
+
+    top = signals[0]
     playbook = {
-        "mode": "standalone post — FALLBACK (no thread to reply to; feed is dry)",
-        "subreddits": ["r/SideProject", "r/programming", "r/LocalLLaMA"],
+        "mode": "news-grounded 3-paragraph post — FALLBACK (no thread to reply to)",
+        "based_on": [f"{s['title']} ({s.get('source', '')})" for s in signals[:5]],
+        "subreddits": ["r/LocalLLaMA", "r/programming", "r/SideProject"],
         "tips": [
-            "This is a standalone post, not a reply. Self-posts get removed in "
-            "some AI subs — pick a self-post-friendly sub.",
-            "Value-first (scan data / findings), no promo lead.",
+            "Standalone post reacting to news, not a reply — pick a self-post-friendly sub.",
+            "Lead with the take on the news, not the product.",
             "You post manually, then mark Posted + paste the URL.",
         ],
     }
     try:
         from src.marketing.draft_queue import enqueue_draft
 
+        cost = estimate_cost(result.model, result.tokens_in, result.tokens_out)
         await enqueue_draft(
-            db, platform="reddit", content=content.text,
-            topic=content.topic or "standalone", post_type="proactive",
-            llm_model=content.llm_model,
-            utm_params={"platform_playbook": {"reddit": playbook}},
+            db, platform="reddit", content=result.text, topic="news_post",
+            post_type="proactive", llm_model=result.model,
+            llm_tokens_in=result.tokens_in, llm_tokens_out=result.tokens_out,
+            llm_cost_usd=cost,
+            utm_params={
+                "platform_playbook": {"reddit": playbook},
+                "ai_tells_ok": tells.passed,
+            },
         )
         await db.flush()
     except Exception:
-        logger.debug("Failed to enqueue standalone Reddit draft", exc_info=True)
+        logger.debug("Failed to enqueue Reddit news-post draft", exc_info=True)
 
     try:
         from src.email import send_email
 
         html = (
-            "<p><b>No Reddit thread to reply to today</b> — the news-digest thread "
-            "feed is dry, so here's a <b>standalone post draft</b> instead "
-            "(it's in your review queue too).</p>"
-            "<p>Post to a self-post-friendly sub (r/SideProject, r/programming), "
-            "value-first — you post manually.</p>"
-            f"<hr><pre style='white-space:pre-wrap'>{content.text}</pre>"
+            "<p><b>No Reddit thread to reply to today</b> — the reply thread feed is "
+            "dry, so here's a news-grounded post draft instead (in your review queue "
+            "too).</p>"
+            f"<p><b>Based on:</b> {top['title']} ({top.get('source', '')})</p>"
+            "<p>Post to a self-post-friendly sub, lead with the take — you post "
+            "manually.</p>"
+            f"<hr><pre style='white-space:pre-wrap'>{result.text}</pre>"
         )
         await send_email(
             marketing_settings.marketing_notify_email,
-            "Reddit standalone post draft (no thread to reply to)",
+            "Reddit post draft (news-based — no thread to reply to)",
             html,
         )
     except Exception:
-        logger.debug("Failed to email standalone Reddit draft", exc_info=True)
+        logger.debug("Failed to email Reddit news-post draft", exc_info=True)
     return True
 
 
@@ -421,8 +469,8 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
     # No thread to reply to → fall back to a standalone post draft (reply-guy
     # stays primary). Only if that also fails do we send the dry-feed alert.
     if not draft_content:
-        logger.info("No Reddit thread to reply to — trying standalone post fallback")
-        produced = await _generate_standalone_post(db)
+        logger.info("No Reddit thread to reply to — trying news-grounded post fallback")
+        produced = await _generate_news_post(db)
         if not produced:
             await _send_dry_feed_alert()
         try:
