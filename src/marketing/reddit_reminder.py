@@ -315,29 +315,37 @@ async def _send_dry_feed_alert() -> None:
 
 
 async def _generate_news_post(db: AsyncSession) -> bool:
-    """Fallback when there's no thread to reply to: the old-style 3-paragraph
-    Reddit post grounded in the news-digest signals (the news/reddit items the
-    digest collected — `sent_articles`, which keep flowing even when the reply
-    thread feed is dry). Goes to the review queue + email. Reply-guy stays
-    primary; this only fires when there's no thread to reply to.
+    """Fallback when there's no thread to reply to: pick the SINGLE most relevant
+    item from the digest, write a short post reacting to THAT one item, and put
+    THAT item's link in the header — exactly one place to go, directly tied to the
+    draft (same shape as a reply). Reply-guy stays primary; this only fires when
+    there's no thread to reply to.
 
-    Returns True if a draft was produced, False if there's no news to post about.
+    Returns True if a draft was produced, False if there's no item to post about.
     """
     try:
         from src.marketing.news_signals import gather_news_signals
 
-        signals = await gather_news_signals(limit=5, days=7)
+        signals = await gather_news_signals(limit=8, days=7)
     except Exception:
         logger.debug("Failed to gather news signals", exc_info=True)
         signals = []
-    if not signals:
+
+    # Pick ONE item, on purpose: the most relevant one with a real URL, and prefer
+    # a discussion link (reddit/HN) since that's somewhere to actually post.
+    def _is_discussion(u: str) -> bool:
+        return "reddit.com" in u or "news.ycombinator.com" in u
+
+    signal = next(
+        (s for s in signals if s.get("url") and _is_discussion(s["url"])), None,
+    ) or next((s for s in signals if s.get("url")), None)
+    if signal is None:
         return False
 
-    headlines = "\n".join(
-        f"- {s['title']} ({s.get('source', '')})"
-        + (f": {s['summary'][:160]}" if s.get("summary") else "")
-        for s in signals[:5]
-    )
+    title = signal["title"]
+    url = signal["url"]
+    source = signal.get("source", "")
+    summary = (signal.get("summary") or "")[:300]
 
     from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
     from src.marketing.content.ai_tells import check as check_ai_tells
@@ -345,15 +353,14 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     from src.marketing.llm.router import generate as llm_generate
 
     prompt = (
-        "You're a developer who works on AI-agent trust/security, writing a Reddit "
-        "post for a sub like r/LocalLLaMA or r/programming. React to what's actually "
-        "happening in the news below — pick the most interesting item and write about "
-        "IT, with a real point of view, not about your product.\n\n"
-        f"Today's AI/agent news:\n{headlines}\n\n"
-        "Write a hooky one-line title, then ~3 short paragraphs. Be specific and a "
-        "little opinionated. You MAY mention agentgraph.co/check once, only if it's "
-        "genuinely relevant to the point — never as a pitch, and it's fine to leave "
-        "it out entirely.\n\n"
+        "You're a developer who works on AI-agent trust/security. Write a short "
+        "Reddit post reacting to THIS specific item — a real take on it, not a "
+        "pitch:\n\n"
+        f'"{title}" ({source})\n'
+        + (f"{summary}\n" if summary else "")
+        + "\nHooky one-line title, then 2-3 short paragraphs with a point of view on "
+        "this item specifically. You MAY mention agentgraph.co/check once only if "
+        "it's genuinely relevant — never as a pitch, fine to omit.\n\n"
         f"{VOICE_PROMPT_FRAGMENT}\n"
         "Hard no's: emojis, hashtags, 'Great point', em-dash spam, corporate voice, "
         "listicles. Read like a human with an opinion.\n\n"
@@ -361,7 +368,7 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     )
     system = (
         "You write Reddit posts that pass for a real, opinionated developer reacting "
-        "to industry news. You never sound like AI or marketing."
+        "to a specific item. You never sound like AI or marketing."
     )
 
     result = await llm_generate(
@@ -379,22 +386,12 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     if not tells.passed:
         logger.warning("Reddit news-post tripped AI-tell check: %s", tells.reasons)
 
-    top = signals[0]
-    # Clickable source links so the draft says exactly what it's reacting to
-    # (rendered as links in the admin playbook + the email).
-    sources = [
-        {"url": s["url"], "anchor": f"{s['title']} ({s.get('source', '')})"}
-        for s in signals[:5] if s.get("url")
-    ]
     playbook = {
-        "mode": "news-grounded 3-paragraph post — FALLBACK (no thread to reply to)",
-        "sources": sources or [
-            f"{s['title']} ({s.get('source', '')})" for s in signals[:5]
-        ],
-        "subreddits": ["r/LocalLLaMA", "r/programming", "r/SideProject"],
+        "mode": "news post — FALLBACK (no thread to reply to)",
+        "go_here": "The link in the header is the one item this post is about — "
+                   "go there to comment, or post your take to a relevant sub.",
         "tips": [
-            "Standalone post reacting to news, not a reply — pick a self-post-friendly sub.",
-            "Lead with the take; link a source above if it fits.",
+            "Lead with the take, not the product.",
             "You post manually, then mark Posted + paste the URL.",
         ],
     }
@@ -408,6 +405,8 @@ async def _generate_news_post(db: AsyncSession) -> bool:
             llm_tokens_in=result.tokens_in, llm_tokens_out=result.tokens_out,
             llm_cost_usd=cost,
             utm_params={
+                "thread_url": url,        # the ONE link, shown in the draft header
+                "thread_title": title,
                 "platform_playbook": {"reddit": playbook},
                 "ai_tells_ok": tells.passed,
             },
@@ -416,27 +415,23 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     except Exception:
         logger.debug("Failed to enqueue Reddit news-post draft", exc_info=True)
 
+    # Email with the ONE link in the header — same template as reply drafts.
     try:
-        from src.email import send_email
+        from src.email import _load_template, send_email
 
-        sources_html = (
-            "".join(f"<li><a href=\"{s['url']}\">{s['anchor']}</a></li>" for s in sources)
-            if sources
-            else f"<li>{top['title']} ({top.get('source', '')})</li>"
-        )
-        html = (
-            "<p><b>No Reddit thread to reply to today</b> — the reply thread feed is "
-            "dry, so here's a news-grounded post draft instead (in your review queue "
-            "too).</p>"
-            f"<p><b>Reacting to (sources — click to read/discuss):</b></p>"
-            f"<ul>{sources_html}</ul>"
-            "<p>Post to a self-post-friendly sub, lead with the take — you post "
-            "manually.</p>"
-            f"<hr><pre style='white-space:pre-wrap'>{result.text}</pre>"
+        today_date = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+        html = _load_template(
+            "marketing_reddit_reminder.html",
+            today_date=today_date,
+            subreddit=source or "Reddit",
+            thread_title=title,
+            thread_url=url,
+            draft_content=result.text,
+            fallback=f"Reddit post re: {title} — {url}",
         )
         await send_email(
             marketing_settings.marketing_notify_email,
-            "Reddit post draft (news-based — no thread to reply to)",
+            f"Reddit post draft (news) — {title[:50]}",
             html,
         )
     except Exception:
