@@ -16,14 +16,17 @@ from src.marketing.config import marketing_settings
 logger = logging.getLogger(__name__)
 
 
-async def _find_best_thread() -> dict | None:
+async def _find_best_thread(allow_used: bool = False) -> dict | None:
     """Pick the single best thread to reply to today.
 
     Sources (in order):
     1. Reddit scout cache (from news-digest on Windows server)
     2. digest_history.json fallback
 
-    Returns the thread dict or None if nothing worth replying to.
+    With ``allow_used=False`` (default) only fresh, never-drafted threads are
+    returned. With ``allow_used=True`` it falls back to re-surfacing the best
+    already-used thread when the feed has run dry, so we still have something to
+    post. Returned dict carries ``recycled`` to flag that fallback.
     """
     from src.marketing.reddit_scout import get_cached_threads
 
@@ -58,13 +61,26 @@ async def _find_best_thread() -> dict | None:
                 with open(path) as f:
                     data = _json.load(f)
                 details = data.get("reddit_thread_details", {})
+                recycle = None
                 for url, detail in details.items():
-                    if url not in used_urls and detail.get("title"):
+                    if not detail.get("title"):
+                        continue
+                    if url not in used_urls:
                         return {
                             "url": url,
                             "title": detail["title"],
                             "subreddit": detail.get("subreddit", ""),
+                            "recycled": False,
                         }
+                    if recycle is None:
+                        recycle = {
+                            "url": url,
+                            "title": detail["title"],
+                            "subreddit": detail.get("subreddit", ""),
+                            "recycled": True,
+                        }
+                if allow_used and recycle:
+                    return recycle
                 break  # Only read from the first available path
         except Exception:
             logger.debug("Failed to read digest thread details", exc_info=True)
@@ -97,6 +113,7 @@ async def _find_best_thread() -> dict | None:
     except Exception:
         pass
 
+    recycle = None
     for t in threads:
         if t.url not in used_urls:
             return {
@@ -105,8 +122,19 @@ async def _find_best_thread() -> dict | None:
                 "subreddit": t.subreddit,
                 "score": t.score,
                 "num_comments": t.num_comments,
+                "recycled": False,
             }
-
+        if recycle is None:
+            recycle = {
+                "url": t.url,
+                "title": t.title,
+                "subreddit": t.subreddit,
+                "score": t.score,
+                "num_comments": t.num_comments,
+                "recycled": True,
+            }
+    if allow_used and recycle:
+        return recycle
     return None
 
 
@@ -248,13 +276,52 @@ async def _mark_thread_used(thread_url: str) -> None:
         pass
 
 
+async def _send_dry_feed_alert() -> None:
+    """Email the admin when the Reddit feed has nothing to draft from.
+
+    Throttled to once every 2 days so it nudges without nagging. Fires when the
+    upstream news-digest stops populating ``reddit_thread_details`` — AgentGraph
+    is fine, the feed is just dry.
+    """
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        if await r.get("ag:mktg:reddit_dry_alert"):
+            return
+        await r.set("ag:mktg:reddit_dry_alert", "1", ex=86400 * 2)
+    except Exception:
+        pass
+    try:
+        from src.email import send_email
+
+        html = (
+            "<p>No Reddit threads were available to draft a reply from "
+            "(fresh or re-surfaced).</p>"
+            "<p>AgentGraph is working as intended — the upstream "
+            "<b>news-digest</b> isn't populating <code>reddit_thread_details</code>, "
+            "so the Reddit feed is dry. Check the news-digest's Reddit capture "
+            "(Windows server).</p>"
+            "<p>Reply drafts resume automatically once the feed returns.</p>"
+        )
+        await send_email(
+            marketing_settings.marketing_notify_email,
+            "Reddit feed is dry — no reply drafts (check the news-digest)",
+            html,
+        )
+        logger.info("Sent Reddit dry-feed alert")
+    except Exception:
+        logger.debug("Failed to send Reddit dry-feed alert", exc_info=True)
+
+
 async def send_reddit_reminder(db: AsyncSession) -> bool:
     """Send a daily Reddit reply reminder email.
 
-    Finds the best thread to reply to, generates a draft, and emails
-    it. Skips the day if no good thread is found.
+    Finds the best thread (fresh, or a re-surfaced older one if the feed has run
+    dry), generates a draft, and emails it. If there's genuinely nothing to draft,
+    sends a throttled dry-feed alert instead of going silent.
 
-    Returns True if the email was sent, False otherwise.
+    Returns True if a draft email was sent, False otherwise.
     """
     # Guard against sending multiple reminders per day
     try:
@@ -270,22 +337,34 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
     except Exception:
         pass
 
-    # Find the best thread
+    # Find the best thread — fresh first, then recycle an older one if the feed
+    # has run dry, so we still surface something to post.
     thread_info = await _find_best_thread()
     if not thread_info:
-        logger.info("No good Reddit thread found today, skipping reminder")
+        thread_info = await _find_best_thread(allow_used=True)
+    recycled = bool(thread_info and thread_info.get("recycled"))
+
+    draft_content = llm_model = detail = None
+    if thread_info:
+        draft_content, llm_model, detail = await _generate_thread_reply(
+            thread_info["url"], db,
+        )
+
+    # Nothing to draft (feed dry, or detail not cached) → alert, don't go silent.
+    if not draft_content:
+        logger.info("No Reddit draft available — sending dry-feed alert")
+        await _send_dry_feed_alert()
+        try:
+            from src.redis_client import get_redis
+
+            r = get_redis()
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            await r.set(f"ag:mktg:reddit_reminder:{today_str}", "1", ex=86400)
+        except Exception:
+            pass
         return False
 
     thread_url = thread_info["url"]
-
-    # Generate a reply
-    draft_content, llm_model, detail = await _generate_thread_reply(
-        thread_url, db,
-    )
-    if not draft_content:
-        logger.info("Could not generate Reddit draft, skipping reminder")
-        return False
-
     await _mark_thread_used(thread_url)
 
     # Build email
@@ -308,9 +387,12 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
         ),
     )
 
+    subject = f"Reddit reply draft — r/{subreddit}"
+    if recycled:
+        subject = f"Reddit reply draft (re-surfaced older thread) — r/{subreddit}"
     sent = await send_email(
         marketing_settings.marketing_notify_email,
-        f"Reddit reply draft — r/{subreddit}",
+        subject,
         html,
     )
 
