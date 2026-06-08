@@ -380,13 +380,21 @@ async def _generate_news_post(db: AsyncSession) -> bool:
         logger.warning("Reddit news-post tripped AI-tell check: %s", tells.reasons)
 
     top = signals[0]
+    # Clickable source links so the draft says exactly what it's reacting to
+    # (rendered as links in the admin playbook + the email).
+    sources = [
+        {"url": s["url"], "anchor": f"{s['title']} ({s.get('source', '')})"}
+        for s in signals[:5] if s.get("url")
+    ]
     playbook = {
         "mode": "news-grounded 3-paragraph post — FALLBACK (no thread to reply to)",
-        "based_on": [f"{s['title']} ({s.get('source', '')})" for s in signals[:5]],
+        "sources": sources or [
+            f"{s['title']} ({s.get('source', '')})" for s in signals[:5]
+        ],
         "subreddits": ["r/LocalLLaMA", "r/programming", "r/SideProject"],
         "tips": [
             "Standalone post reacting to news, not a reply — pick a self-post-friendly sub.",
-            "Lead with the take on the news, not the product.",
+            "Lead with the take; link a source above if it fits.",
             "You post manually, then mark Posted + paste the URL.",
         ],
     }
@@ -411,11 +419,17 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     try:
         from src.email import send_email
 
+        sources_html = (
+            "".join(f"<li><a href=\"{s['url']}\">{s['anchor']}</a></li>" for s in sources)
+            if sources
+            else f"<li>{top['title']} ({top.get('source', '')})</li>"
+        )
         html = (
             "<p><b>No Reddit thread to reply to today</b> — the reply thread feed is "
             "dry, so here's a news-grounded post draft instead (in your review queue "
             "too).</p>"
-            f"<p><b>Based on:</b> {top['title']} ({top.get('source', '')})</p>"
+            f"<p><b>Reacting to (sources — click to read/discuss):</b></p>"
+            f"<ul>{sources_html}</ul>"
             "<p>Post to a self-post-friendly sub, lead with the take — you post "
             "manually.</p>"
             f"<hr><pre style='white-space:pre-wrap'>{result.text}</pre>"
