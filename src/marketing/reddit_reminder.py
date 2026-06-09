@@ -138,12 +138,93 @@ async def _find_best_thread(allow_used: bool = False) -> dict | None:
     return None
 
 
+# Subreddits that don't gate low-karma commenters → safe for our account to
+# reply in; high-barrier ones often auto-remove new/low-karma accounts.
+_LOW_BARRIER_SUBS = {"sideproject", "artificial", "locallama", "langchain"}
+_HIGH_BARRIER_SUBS = {"machinelearning", "programming"}
+
+
+def _karma_friendliness(subreddit: str) -> int:
+    """0 = low-karma-friendly (prefer), 2 = high-karma-gated (avoid)."""
+    s = (subreddit or "").lower().lstrip("r/").strip("/")
+    if s in _LOW_BARRIER_SUBS:
+        return 0
+    if s in _HIGH_BARRIER_SUBS:
+        return 2
+    return 1
+
+
+async def _candidate_threads() -> list[dict]:
+    """Reply-candidate threads, karma-friendliest first, fresh (unused) before
+    already-used. Each: {url, title, subreddit, used}."""
+    import json as _json
+    from pathlib import Path
+
+    from src.marketing.reddit_scout import _DIGEST_PATHS, get_cached_threads
+    from src.redis_client import get_redis
+
+    used_urls: set[str] = set()
+    try:
+        r = get_redis()
+        data = await r.get("ag:reddit:used_threads")
+        if data:
+            used_urls = set(_json.loads(data))
+    except Exception:
+        pass
+
+    cands: list[dict] = []
+    seen: set[str] = set()
+
+    # Live source: digest reddit_thread_details
+    try:
+        for p in _DIGEST_PATHS:
+            path = Path(p)
+            if not path.exists():
+                continue
+            with open(path) as f:
+                data = _json.load(f)
+            for url, detail in data.get("reddit_thread_details", {}).items():
+                if not detail.get("title") or url in seen:
+                    continue
+                seen.add(url)
+                cands.append({
+                    "url": url,
+                    "title": detail["title"],
+                    "subreddit": detail.get("subreddit", ""),
+                    "used": url in used_urls,
+                })
+            break  # first available path only
+    except Exception:
+        logger.debug("Failed to read digest thread details", exc_info=True)
+
+    # Redis scout cache (usually empty now, but include if present)
+    try:
+        for t in await get_cached_threads():
+            if t.url in seen:
+                continue
+            seen.add(t.url)
+            cands.append({
+                "url": t.url,
+                "title": t.title,
+                "subreddit": t.subreddit,
+                "used": t.url in used_urls,
+            })
+    except Exception:
+        pass
+
+    cands.sort(key=lambda c: (c["used"], _karma_friendliness(c["subreddit"])))
+    return cands
+
+
 async def _generate_thread_reply(
     thread_url: str,
     db: AsyncSession,
+    style: str = "short",
 ) -> tuple[str | None, str | None, dict | None]:
     """Generate a draft reply for a specific thread.
 
+    style="short" → a 1-2 sentence reply-guy comment.
+    style="long"  → a 3-4 paragraph reply to join the thread with.
     Returns (draft_content, llm_model, thread_detail) or (None, None, None).
     """
     from src.marketing.llm.cost_tracker import estimate_cost
@@ -156,18 +237,22 @@ async def _generate_thread_reply(
         return None, None, None
 
     thread_title = detail["title"]
-    thread_body = detail.get("selftext", "")[:1000]
+    thread_body = detail.get("selftext", "")[:1500]
     subreddit = detail.get("subreddit", "")
-    # Reply-guy: reply to ONE specific comment a real person wrote (not the
-    # whole thread). Pick the top-scored comment as the target.
+    # Pick a specific comment to answer if any exist; with RSS-sourced threads
+    # there are no comments, so we reply to the post itself.
     top_comments = detail.get("top_comments", [])
     target = top_comments[0] if top_comments else None
     target_author = target["author"] if target else "OP"
-    target_body = (target["body"] if target else thread_body)[:400]
+    target_body = (target["body"] if target else thread_body)[:600]
     target_permalink = (target.get("permalink") if target else "") or thread_url
+    what = (
+        f'u/{target_author} wrote: "{target_body}"'
+        if target
+        else f'The post says: "{target_body}"'
+    )
 
-    # 10% self-promotion rule (on-topic / visible / non-promo post-selection
-    # stays upstream in thread-finding — unchanged).
+    # 10% self-promotion rule.
     promo_eligible = False
     try:
         from src.redis_client import get_redis
@@ -182,36 +267,55 @@ async def _generate_thread_reply(
         "You MAY work in agentgraph.co/check ONLY if it's literally the punchline "
         "— never a pitch."
         if promo_eligible
-        else "Do NOT mention AgentGraph or any product. Pure community snark."
+        else "Do NOT mention AgentGraph or any product. Pure community value."
     )
 
     from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
 
-    prompt = (
-        f"You're a real dev lurking in r/{subreddit}. Reply to THIS comment like "
-        f"you'd thumb it out on your phone:\n\n"
-        f'Thread: "{thread_title}"\n'
-        f'u/{target_author} wrote: "{target_body}"\n\n'
-        f"Write ONE sentence (two MAX, and keep them short). Fun, a little snarky, "
-        f"genuinely on-topic — the kind of reply that gets upvoted for being funny "
-        f"and true, not for being a helpful bot. {promo_line}\n\n"
-        f"{VOICE_PROMPT_FRAGMENT}\n"
-        "Hard no's: emojis, hashtags, 'Great point/question', em-dashes, bullet "
-        "lists, corporate voice, 'it's worth noting'. lowercase is fine. It must "
-        "read like a human shitposting, not an AI being helpful.\n\n"
-        "Reply (just the text):"
-    )
-
-    system = (
-        "You write Reddit comments that pass for a real, slightly-snarky "
-        "developer. Short, specific, funny. You never sound like AI or marketing."
-    )
+    if style == "long":
+        prompt = (
+            f"You're a real developer in r/{subreddit}. Write a substantive reply to "
+            f"this thread that adds something genuine — your take, a relevant "
+            f"experience, or a useful pointer.\n\n"
+            f'Thread: "{thread_title}"\n{what}\n\n'
+            f"Write 3-4 SHORT paragraphs. Conversational and specific, like a human "
+            f"who actually knows the topic — not a wall of text, not a listicle, not "
+            f"an essay. {promo_line}\n\n"
+            f"{VOICE_PROMPT_FRAGMENT}\n"
+            "Hard no's: emojis, hashtags, 'Great point/question', em-dash spam, "
+            "bullet lists, corporate voice, 'it's worth noting'.\n\n"
+            "Reply (just the text):"
+        )
+        system = (
+            "You write Reddit replies that pass for a real, knowledgeable developer "
+            "adding genuine value to a thread. You never sound like AI or marketing."
+        )
+        max_tokens = 420
+    else:
+        prompt = (
+            f"You're a real dev lurking in r/{subreddit}. Reply to THIS like you'd "
+            f"thumb it out on your phone:\n\n"
+            f'Thread: "{thread_title}"\n{what}\n\n'
+            f"Write ONE sentence (two MAX, and keep them short). Fun, a little "
+            f"snarky, genuinely on-topic — the kind of reply that gets upvoted for "
+            f"being funny and true, not for being a helpful bot. {promo_line}\n\n"
+            f"{VOICE_PROMPT_FRAGMENT}\n"
+            "Hard no's: emojis, hashtags, 'Great point/question', em-dashes, bullet "
+            "lists, corporate voice, 'it's worth noting'. lowercase is fine. It must "
+            "read like a human shitposting, not an AI being helpful.\n\n"
+            "Reply (just the text):"
+        )
+        system = (
+            "You write Reddit comments that pass for a real, slightly-snarky "
+            "developer. Short, specific, funny. You never sound like AI or marketing."
+        )
+        max_tokens = 120
 
     result = await llm_generate(
         prompt,
         content_type="reddit_scout_draft",
         system=system,
-        max_tokens=120,
+        max_tokens=max_tokens,
         temperature=0.85,
     )
 
@@ -238,7 +342,7 @@ async def _generate_thread_reply(
         db,
         platform="reddit",
         content=result.text,
-        topic=f"reply:{subreddit}",
+        topic=(f"reply-long:{subreddit}" if style == "long" else f"reply:{subreddit}"),
         post_type="reactive",
         llm_model=result.model,
         llm_tokens_in=result.tokens_in,
@@ -250,6 +354,7 @@ async def _generate_thread_reply(
             "reply_to_author": target_author,
             "reply_to_excerpt": target_body[:280],
             "reply_to_permalink": target_permalink,
+            "reply_style": style,
             "ai_tells_ok": tells.passed,
         },
     )
@@ -439,66 +544,14 @@ async def _generate_news_post(db: AsyncSession) -> bool:
     return True
 
 
-async def send_reddit_reminder(db: AsyncSession) -> bool:
-    """Send a daily Reddit reply reminder email.
-
-    Finds the best thread (fresh, or a re-surfaced older one if the feed has run
-    dry), generates a draft, and emails it. If there's genuinely nothing to draft,
-    sends a throttled dry-feed alert instead of going silent.
-
-    Returns True if a draft email was sent, False otherwise.
-    """
-    # Guard against sending multiple reminders per day
-    try:
-        from src.redis_client import get_redis
-
-        r = get_redis()
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        sent_key = f"ag:mktg:reddit_reminder:{today_str}"
-        already_sent = await r.get(sent_key)
-        if already_sent:
-            logger.debug("Reddit reminder already sent today")
-            return False
-    except Exception:
-        pass
-
-    # Find the best thread — fresh first, then recycle an older one if the feed
-    # has run dry, so we still surface something to post.
-    thread_info = await _find_best_thread()
-    if not thread_info:
-        thread_info = await _find_best_thread(allow_used=True)
-    recycled = bool(thread_info and thread_info.get("recycled"))
-
-    draft_content = llm_model = detail = None
-    if thread_info:
-        draft_content, llm_model, detail = await _generate_thread_reply(
-            thread_info["url"], db,
-        )
-
-    # No thread to reply to → fall back to a standalone post draft (reply-guy
-    # stays primary). Only if that also fails do we send the dry-feed alert.
-    if not draft_content:
-        logger.info("No Reddit thread to reply to — trying news-grounded post fallback")
-        produced = await _generate_news_post(db)
-        if not produced:
-            await _send_dry_feed_alert()
-        try:
-            from src.redis_client import get_redis
-
-            r = get_redis()
-            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            await r.set(f"ag:mktg:reddit_reminder:{today_str}", "1", ex=86400)
-        except Exception:
-            pass
-        return produced
-
-    thread_url = thread_info["url"]
-    await _mark_thread_used(thread_url)
-
-    # Build email
+async def _email_reddit_draft(
+    thread_info: dict, draft_content: str, detail: dict | None, style: str,
+) -> bool:
+    """Email one Reddit draft with the thread link in the header."""
     today_date = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
     thread_title = (detail or {}).get("title", thread_info.get("title", ""))
     subreddit = (detail or {}).get("subreddit", thread_info.get("subreddit", ""))
+    thread_url = thread_info["url"]
 
     from src.email import _load_template, send_email
 
@@ -510,34 +563,82 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
         thread_url=thread_url,
         draft_content=draft_content,
         fallback=(
-            f"Reddit reply: {thread_title}. "
+            f"Reddit {'post' if style == 'long' else 'reply'}: {thread_title}. "
             f"Review at https://agentgraph.co/admin"
         ),
     )
-
-    subject = f"Reddit reply draft — r/{subreddit}"
-    if recycled:
-        subject = f"Reddit reply draft (re-surfaced older thread) — r/{subreddit}"
-    sent = await send_email(
-        marketing_settings.marketing_notify_email,
-        subject,
-        html,
+    label = "join-this post" if style == "long" else "reply"
+    subject = (
+        f"Reddit {label} draft — r/{subreddit}" if subreddit
+        else f"Reddit {label} draft"
     )
+    return bool(await send_email(
+        marketing_settings.marketing_notify_email, subject, html,
+    ))
 
-    if sent:
-        logger.info(
-            "Reddit reminder sent: r/%s — %s", subreddit, thread_title[:60],
+
+async def send_reddit_reminder(db: AsyncSession) -> bool:
+    """Daily Reddit drafts for manual posting: up to two 1-2 sentence reply-guy
+    comments + one longer 3-4 paragraph "join this thread" reply, each to a
+    distinct karma-friendly thread, with the thread link in the header. Falls back
+    to a news-grounded post / dry-feed alert only when there are no threads at all.
+
+    Returns True if at least one draft was sent.
+    """
+    # Guard against running more than once per day (the batch is per-day).
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if await r.get(f"ag:mktg:reddit_reminder:{today_str}"):
+            logger.debug("Reddit reminder already sent today")
+            return False
+    except Exception:
+        pass
+
+    cands = await _candidate_threads()
+    pool = [c for c in cands if not c["used"]] or cands  # fresh first, recycle if dry
+
+    # Plan: short, long, short → 1 thread = 1 short; 2 = short + long; 3 = 2 short + 1 long.
+    styles = ["short", "long", "short"]
+    used_now: set[str] = set()
+    sent = 0
+    for style in styles:
+        thread_info = next((c for c in pool if c["url"] not in used_now), None)
+        if not thread_info:
+            break
+        used_now.add(thread_info["url"])
+        draft, _model, detail = await _generate_thread_reply(
+            thread_info["url"], db, style=style,
         )
-        try:
-            from src.redis_client import get_redis
+        if not draft:
+            continue
+        await _mark_thread_used(thread_info["url"])
+        if await _email_reddit_draft(thread_info, draft, detail, style):
+            sent += 1
+            logger.info(
+                "Reddit %s draft sent: r/%s — %s",
+                style, thread_info.get("subreddit", ""),
+                thread_info.get("title", "")[:50],
+            )
 
-            r = get_redis()
-            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            sent_key = f"ag:mktg:reddit_reminder:{today_str}"
-            await r.set(sent_key, "1", ex=86400)
-        except Exception:
-            pass
-    else:
-        logger.warning("Failed to send Reddit reminder email")
+    # No thread produced a draft → news-grounded post fallback, then dry alert.
+    if sent == 0:
+        logger.info("No Reddit thread drafts — trying news-grounded post fallback")
+        if await _generate_news_post(db):
+            sent = 1
+        else:
+            await _send_dry_feed_alert()
 
-    return sent
+    # Mark the day done (one batch per day) regardless of outcome.
+    try:
+        from src.redis_client import get_redis
+
+        r = get_redis()
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        await r.set(f"ag:mktg:reddit_reminder:{today_str}", "1", ex=86400)
+    except Exception:
+        pass
+
+    return sent > 0
