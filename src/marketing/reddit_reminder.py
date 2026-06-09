@@ -419,131 +419,6 @@ async def _send_dry_feed_alert() -> None:
         logger.debug("Failed to send Reddit dry-feed alert", exc_info=True)
 
 
-async def _generate_news_post(db: AsyncSession) -> bool:
-    """Fallback when there's no thread to reply to: pick the SINGLE most relevant
-    item from the digest, write a short post reacting to THAT one item, and put
-    THAT item's link in the header — exactly one place to go, directly tied to the
-    draft (same shape as a reply). Reply-guy stays primary; this only fires when
-    there's no thread to reply to.
-
-    Returns True if a draft was produced, False if there's no item to post about.
-    """
-    try:
-        from src.marketing.news_signals import gather_news_signals
-
-        signals = await gather_news_signals(limit=8, days=7)
-    except Exception:
-        logger.debug("Failed to gather news signals", exc_info=True)
-        signals = []
-
-    # Pick ONE item, on purpose: the most relevant one with a real URL, and prefer
-    # a discussion link (reddit/HN) since that's somewhere to actually post.
-    def _is_discussion(u: str) -> bool:
-        return "reddit.com" in u or "news.ycombinator.com" in u
-
-    signal = next(
-        (s for s in signals if s.get("url") and _is_discussion(s["url"])), None,
-    ) or next((s for s in signals if s.get("url")), None)
-    if signal is None:
-        return False
-
-    title = signal["title"]
-    url = signal["url"]
-    source = signal.get("source", "")
-    summary = (signal.get("summary") or "")[:300]
-
-    from src.marketing.content.ai_tells import VOICE_PROMPT_FRAGMENT
-    from src.marketing.content.ai_tells import check as check_ai_tells
-    from src.marketing.llm.cost_tracker import estimate_cost
-    from src.marketing.llm.router import generate as llm_generate
-
-    prompt = (
-        "You're a developer who works on AI-agent trust/security. Write a short "
-        "Reddit post reacting to THIS specific item — a real take on it, not a "
-        "pitch:\n\n"
-        f'"{title}" ({source})\n'
-        + (f"{summary}\n" if summary else "")
-        + "\nHooky one-line title, then 2-3 short paragraphs with a point of view on "
-        "this item specifically. You MAY mention agentgraph.co/check once only if "
-        "it's genuinely relevant — never as a pitch, fine to omit.\n\n"
-        f"{VOICE_PROMPT_FRAGMENT}\n"
-        "Hard no's: emojis, hashtags, 'Great point', em-dash spam, corporate voice, "
-        "listicles. Read like a human with an opinion.\n\n"
-        "Format:\nTitle: <title>\n\n<post body>"
-    )
-    system = (
-        "You write Reddit posts that pass for a real, opinionated developer reacting "
-        "to a specific item. You never sound like AI or marketing."
-    )
-
-    result = await llm_generate(
-        prompt,
-        content_type="reddit_news_post",
-        system=system,
-        max_tokens=420,
-        temperature=0.8,
-    )
-    if result.error or not result.text:
-        logger.warning("LLM failed for Reddit news post: %s", result.error)
-        return False
-
-    tells = check_ai_tells(result.text, platform="reddit", strict=True)
-    if not tells.passed:
-        logger.warning("Reddit news-post tripped AI-tell check: %s", tells.reasons)
-
-    playbook = {
-        "mode": "news post — FALLBACK (no thread to reply to)",
-        "go_here": "The link in the header is the one item this post is about — "
-                   "go there to comment, or post your take to a relevant sub.",
-        "tips": [
-            "Lead with the take, not the product.",
-            "You post manually, then mark Posted + paste the URL.",
-        ],
-    }
-    try:
-        from src.marketing.draft_queue import enqueue_draft
-
-        cost = estimate_cost(result.model, result.tokens_in, result.tokens_out)
-        await enqueue_draft(
-            db, platform="reddit", content=result.text, topic="news_post",
-            post_type="proactive", llm_model=result.model,
-            llm_tokens_in=result.tokens_in, llm_tokens_out=result.tokens_out,
-            llm_cost_usd=cost,
-            utm_params={
-                "thread_url": url,        # the ONE link, shown in the draft header
-                "thread_title": title,
-                "platform_playbook": {"reddit": playbook},
-                "ai_tells_ok": tells.passed,
-            },
-        )
-        await db.flush()
-    except Exception:
-        logger.debug("Failed to enqueue Reddit news-post draft", exc_info=True)
-
-    # Email with the ONE link in the header — same template as reply drafts.
-    try:
-        from src.email import _load_template, send_email
-
-        today_date = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
-        html = _load_template(
-            "marketing_reddit_reminder.html",
-            today_date=today_date,
-            subreddit=source or "Reddit",
-            thread_title=title,
-            thread_url=url,
-            draft_content=result.text,
-            fallback=f"Reddit post re: {title} — {url}",
-        )
-        await send_email(
-            marketing_settings.marketing_notify_email,
-            f"Reddit post draft (news) — {title[:50]}",
-            html,
-        )
-    except Exception:
-        logger.debug("Failed to email Reddit news-post draft", exc_info=True)
-    return True
-
-
 async def _email_reddit_draft(
     thread_info: dict, draft_content: str, detail: dict | None, style: str,
 ) -> bool:
@@ -623,13 +498,11 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
                 thread_info.get("title", "")[:50],
             )
 
-    # No thread produced a draft → news-grounded post fallback, then dry alert.
+    # No thread produced a draft → dry-feed alert (no news-post fallback; the
+    # reply-guy feed is restored, so empty means a genuine feed problem to flag).
     if sent == 0:
-        logger.info("No Reddit thread drafts — trying news-grounded post fallback")
-        if await _generate_news_post(db):
-            sent = 1
-        else:
-            await _send_dry_feed_alert()
+        logger.info("No Reddit threads to draft — sending dry-feed alert")
+        await _send_dry_feed_alert()
 
     # Mark the day done (one batch per day) regardless of outcome.
     try:
