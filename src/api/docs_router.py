@@ -18,6 +18,7 @@ _SLUG_MAP: dict[str, str] = {
     "marketplace-seller": "docs/tutorials/marketplace-seller.md",
     "aip-spec": "docs/protocol/aip-v1-spec.md",
     "ctef-v0-3-2": "docs/standards/ctef-v0.3.2.md",
+    "ctef-v0-3-3": "docs/standards/ctef-v0.3.3.md",
     "mcp-bridge": "docs/protocol/mcp-bridge-spec.md",
     "aip-integration": "docs/tutorials/aip-integration.md",
     "trust-gateway": "docs/trust-gateway.md",
