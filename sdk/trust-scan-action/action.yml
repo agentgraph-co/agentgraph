@@ -1,5 +1,5 @@
 name: "AgentGraph Trust Scan"
-description: "Scan an MCP/agent-tool repo via AgentGraph's free public scan API. Posts the trust grade as a PR comment, sets outputs, and can fail the build below a threshold."
+description: "Scan an MCP/agent-tool repo via AgentGraph's free API; posts the trust grade as a PR comment, can fail the build."
 author: "AgentGraph"
 
 branding:
