@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.marketing.content.engine import content_hash
+from src.marketing.content.engine import content_hash, content_quality_issue
 from src.marketing.models import MarketingPost
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,24 @@ async def enqueue_draft(
     utm_params: dict | None = None,
     campaign_id: uuid.UUID | None = None,
 ) -> MarketingPost:
-    """Create a draft post awaiting human review."""
+    """Create a draft post awaiting human review.
+
+    Bulletproof quality gate: if ``content`` is an unfilled brief/placeholder
+    (LLM scaffolding, not finished copy) it is recorded as ``failed`` instead of
+    ``human_review`` — so garbage is auditable but never clutters the review
+    queue or gets approved by mistake.
+    """
+    issue = content_quality_issue(content)
+    status = "human_review"
+    error_message = None
+    if issue:
+        status = "failed"
+        error_message = f"Auto-rejected (quality gate): {issue}"
+        logger.warning(
+            "Draft auto-rejected for %s (topic=%s): %s | %s",
+            platform, topic, issue, (content or "")[:80],
+        )
+
     post = MarketingPost(
         id=uuid.uuid4(),
         campaign_id=campaign_id,
@@ -41,7 +58,8 @@ async def enqueue_draft(
         content_hash=content_hash(content),
         post_type=post_type,
         topic=topic,
-        status="human_review",
+        status=status,
+        error_message=error_message,
         llm_model=llm_model,
         llm_tokens_in=llm_tokens_in,
         llm_tokens_out=llm_tokens_out,
@@ -50,7 +68,10 @@ async def enqueue_draft(
     )
     db.add(post)
     await db.flush()
-    logger.info("Draft enqueued for %s: %s (topic=%s)", platform, post.id, topic)
+    if issue:
+        logger.info("Draft gated for %s: %s (topic=%s)", platform, post.id, topic)
+    else:
+        logger.info("Draft enqueued for %s: %s (topic=%s)", platform, post.id, topic)
     return post
 
 

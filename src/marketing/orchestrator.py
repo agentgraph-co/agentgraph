@@ -205,6 +205,26 @@ async def _post_planned_campaign_posts(
             })
             continue
 
+        # Quality gate: planned posts store the campaign's content_brief, which is
+        # sometimes the LLM's plan description ("Tweet sharing ... %") rather than
+        # finished copy. Never post an unfilled brief — fail it loudly instead.
+        from src.marketing.content.engine import content_quality_issue
+
+        _quality = content_quality_issue(post.content)
+        if _quality:
+            post.status = "failed"
+            post.error_message = f"Quality gate (planned post): {_quality}"
+            logger.warning(
+                "Planned post %s (%s) blocked by quality gate: %s | %s",
+                post.id, post.platform, _quality, (post.content or "")[:80],
+            )
+            results["errors"].append({
+                "id": str(post.id),
+                "platform": post.platform,
+                "error": f"quality_gate: {_quality}",
+            })
+            continue
+
         try:
             result = await adapter.post(post.content)
             if result.success:

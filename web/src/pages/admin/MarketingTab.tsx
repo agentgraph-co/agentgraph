@@ -45,10 +45,96 @@ function renderPlaybookValue(val: unknown) {
   return <span className="text-text/70 whitespace-pre-wrap">{s}</span>
 }
 
-// Renders per-platform posting guidance (HN talking points/checklist/pre-scanned
-// repos, LinkedIn featured links/hashtags, etc.) stored on the draft.
-function PlaybookBox({ playbook }: { playbook?: Record<string, unknown> | null }) {
+// Hacker News submissions need a strict shape or they get flagged: a Show HN
+// title (≤80 chars), the URL in the *url* field, an (almost always empty) body,
+// and a substantive first comment. This renders that contract explicitly so the
+// format can't drift back into "paste this body" (which gets insta-flagged).
+const HN_FIELD_KEYS = ['title', 'url', 'body', 'first_comment']
+
+function HNContract({ playbook }: { playbook: Record<string, unknown> }) {
+  const title = playbook.title != null ? String(playbook.title) : ''
+  const url = playbook.url != null ? String(playbook.url) : ''
+  const body = playbook.body != null ? String(playbook.body) : ''
+  const firstComment = playbook.first_comment != null ? String(playbook.first_comment) : ''
+  const titleOver = title.length > 80
+  const refEntries = Object.entries(playbook).filter(([k]) => !HN_FIELD_KEYS.includes(k))
+
+  const Copy = ({ text }: { text: string }) =>
+    text ? (
+      <button
+        type="button"
+        onClick={() => navigator.clipboard?.writeText(text)}
+        className="text-[10px] text-blue-400 hover:text-blue-300 ml-2"
+      >copy</button>
+    ) : null
+
+  return (
+    <div className="mb-3 bg-orange-500/5 border border-orange-500/25 rounded-lg px-3 py-2.5 space-y-2.5">
+      <p className="text-[10px] text-orange-400 uppercase tracking-wider">🟠 Hacker News — Show HN submission</p>
+
+      {/* 1. Title */}
+      <div>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] text-text-muted uppercase tracking-wider">1 · Title (the headline)</p>
+          <span className={`text-[10px] font-mono ${titleOver ? 'text-red-400' : 'text-text-muted'}`}>{title.length}/80{titleOver ? ' — TOO LONG' : ''}</span>
+        </div>
+        <div className="flex items-start">
+          <p className="text-xs font-mono whitespace-pre-wrap flex-1 text-text/90">{title || <span className="text-text-muted italic">— not set —</span>}</p>
+          <Copy text={title} />
+        </div>
+      </div>
+
+      {/* 2. URL */}
+      <div>
+        <p className="text-[10px] text-text-muted uppercase tracking-wider">2 · URL (goes in HN's "url" field — not the body)</p>
+        <div className="flex items-center">
+          {url
+            ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex-1 break-all">{url}</a>
+            : <span className="text-xs text-text-muted italic flex-1">— not set —</span>}
+          <Copy text={url} />
+        </div>
+      </div>
+
+      {/* 3. Body */}
+      <div>
+        <p className="text-[10px] text-text-muted uppercase tracking-wider">3 · Post body</p>
+        {body.trim()
+          ? <div className="flex items-start"><p className="text-xs whitespace-pre-wrap flex-1 text-text/80">{body}</p><Copy text={body} /></div>
+          : <p className="text-xs text-green-400/80 italic">Leave empty ✓ — Show HN with a URL doesn&apos;t need body copy (and body copy reads as promo → flagged).</p>}
+      </div>
+
+      {/* 4. First comment */}
+      <div>
+        <p className="text-[10px] text-text-muted uppercase tracking-wider">4 · First comment (post immediately — this is where the substance goes)</p>
+        <div className="flex items-start">
+          <p className="text-xs whitespace-pre-wrap flex-1 text-text/80">{firstComment || <span className="text-text-muted italic">— not set —</span>}</p>
+          <Copy text={firstComment} />
+        </div>
+      </div>
+
+      {/* Reference (alternatives, pre-scanned, talking points, checklist) */}
+      {refEntries.length > 0 && (
+        <details className="pt-1 border-t border-orange-500/15">
+          <summary className="text-[10px] text-text-muted uppercase tracking-wider cursor-pointer">Reference (alternatives, pre-scanned, talking points, checklist)</summary>
+          <div className="space-y-2 mt-2">
+            {refEntries.map(([key, val]) => (
+              <div key={key}>
+                <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">{key.replace(/_/g, ' ')}</p>
+                <div className="text-xs">{renderPlaybookValue(val)}</div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
+
+// Renders per-platform posting guidance. HN gets the strict 4-field contract
+// above; every other platform gets the generic key/value list.
+function PlaybookBox({ playbook, platform }: { playbook?: Record<string, unknown> | null; platform?: string }) {
   if (!playbook || Object.keys(playbook).length === 0) return null
+  if (platform === 'hackernews') return <HNContract playbook={playbook} />
   return (
     <div className="mb-3 bg-blue-400/5 border border-blue-400/20 rounded-lg px-3 py-2">
       <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1.5">📋 Posting playbook</p>
@@ -510,7 +596,7 @@ export default function MarketingTab() {
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-text/80 max-h-[200px] overflow-y-auto bg-surface-hover rounded-lg p-3">{draft.content}</pre>
 
                     {/* Per-platform posting playbook (HN talking points, LinkedIn featured links, etc.) */}
-                    <div className="mt-3"><PlaybookBox playbook={draft.playbook} /></div>
+                    <div className="mt-3"><PlaybookBox playbook={draft.playbook} platform={draft.platform} /></div>
 
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">

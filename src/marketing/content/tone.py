@@ -5,7 +5,7 @@ matches the expected style for each platform.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass
@@ -199,6 +199,37 @@ TONE_PROFILES: dict[str, ToneProfile] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Universal human-voice rules. Injected into EVERY platform prompt (social AND
+# GitHub) so nothing the bot writes reads like AI. This is the single source of
+# truth for "sound like a human" — Kenne keeps it current by feeding in example
+# articles/posts; update the banned tells + guidance HERE, never per-platform.
+# ---------------------------------------------------------------------------
+HUMAN_VOICE_RULES = (
+    "\n\n--- WRITE LIKE A HUMAN, NEVER LIKE AI (applies on every platform) ---\n"
+    "This is non-negotiable. If a sentence could appear verbatim in any company's "
+    "blog, rewrite it.\n"
+    "BANNED phrases/tells: 'In today's fast-paced', 'In the world of', "
+    "'It's not just X, it's Y', 'game-changer', 'revolutionize', 'delve', "
+    "'dive in/into', 'unlock', 'leverage' (as a verb), 'seamless', 'robust', "
+    "'cutting-edge', 'navigate the landscape', 'when it comes to', "
+    "'that being said', 'at the end of the day', 'it's worth noting', "
+    "'importantly', 'notably', 'Here's the thing', 'Let's be honest'.\n"
+    "BANNED patterns: em-dash-balanced clauses for rhythm; 'not only... but also'; "
+    "rule-of-three lists just for cadence; throat-clearing hedges; tidy summary "
+    "closers that restate the opening.\n"
+    "DO: vary sentence length; use the occasional fragment; start some sentences "
+    "with 'And' or 'But'; prefer concrete nouns and real numbers over abstractions; "
+    "sound like one engineer who actually built this typing fast — not a brand."
+)
+
+
 def get_tone(platform: str) -> ToneProfile:
-    """Get tone profile for a platform, falling back to twitter."""
-    return TONE_PROFILES.get(platform, TONE_PROFILES["twitter"])
+    """Get tone profile for a platform, falling back to twitter.
+
+    The universal human-voice rules are appended to every platform's system
+    prompt here, so the "don't sound like AI" requirement is enforced uniformly
+    and can't drift out of any single platform's prompt.
+    """
+    base = TONE_PROFILES.get(platform, TONE_PROFILES["twitter"])
+    return replace(base, system_prompt=base.system_prompt + HUMAN_VOICE_RULES)

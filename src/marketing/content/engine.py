@@ -191,6 +191,46 @@ def _strip_meta_prefix(text: str) -> str:
     return t
 
 
+# Unfilled template placeholders: a bare "%" (NOT "12%"), {var}, <var>, XX, ___.
+_PLACEHOLDER_RE = re.compile(
+    r"(?:^|\s)%(?:\s|$)"      # bare percent sign, e.g. "...: % with unsafe exec"
+    r"|\{[a-z0-9_]{2,}\}"     # {variable}
+    r"|<[a-z0-9_]{2,}>"       # <variable>
+    r"|\bXX+\b"               # XX / XXX numeric placeholder
+    r"|_{3,}",                # ___ blank
+    re.IGNORECASE,
+)
+# Brief-echo: the content DESCRIBES the post instead of being it. Must start with
+# a post-type noun (modulo a/an/the) followed by a meta verb within ~50 chars.
+_BRIEF_ECHO_RE = re.compile(
+    r"^\s*(?:a |an |the )?"
+    r"(?:tweet|post|thread|reply|skeet|toot|article|blog\s*post|linkedin\s*post)\b"
+    r"[^.\n]{0,50}?\b"
+    r"(?:sharing|share|about|that|which|covering|highlighting|announcing|"
+    r"recapping|summari[sz]ing|describing|explaining|discussing|promoting|linking)\b",
+    re.IGNORECASE,
+)
+
+
+def content_quality_issue(text: str) -> str | None:
+    """Return a reason string if ``text`` looks like an unfilled brief/template
+    rather than finished copy, else None.
+
+    Single source of truth for "is this real content or LLM scaffolding?" —
+    called at every boundary that posts or queues content (proactive generation,
+    the draft queue, planned campaign posts) so brief-echoes and unfilled
+    placeholders can never reach a live post or the review queue again.
+    """
+    t = (text or "").strip()
+    if not t:
+        return "empty"
+    if _BRIEF_ECHO_RE.match(t):
+        return "brief-echo (describes the post instead of being the post)"
+    if _PLACEHOLDER_RE.search(t):
+        return "unfilled placeholder (bare %, {var}, XX, or ___)"
+    return None
+
+
 async def generate_proactive(
     platform: str,
     recent_topics: list[str] | None = None,
@@ -376,6 +416,19 @@ async def generate_proactive(
         return GeneratedContent(
             text="", topic=topic.key, platform=platform, post_type="proactive",
             error="LLM instruction leakage detected — content rejected",
+        )
+
+    # Guard against unfilled briefs/placeholders ("Tweet sharing ... %") reaching
+    # a live post. Same gate runs in enqueue_draft + planned-post posting.
+    _quality = content_quality_issue(stripped)
+    if _quality:
+        logger.warning(
+            "Content quality gate rejected %s/%s: %s | %s",
+            platform, topic.key, _quality, stripped[:80],
+        )
+        return GeneratedContent(
+            text="", topic=topic.key, platform=platform, post_type="proactive",
+            error=f"Content quality gate: {_quality}",
         )
 
     # Apply disclosure footer
