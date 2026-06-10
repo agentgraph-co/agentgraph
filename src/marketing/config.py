@@ -122,15 +122,14 @@ marketing_settings = MarketingSettings()
 # Every post must contain original scan data or analysis.
 # Reply guy (Job 21) stays at 20/day. Auto-follow stays on.
 PLATFORM_SCHEDULE: dict[str, dict] = {
-    # GATED to human_review (Jun 9): the proactive content engine was leaking prompt
-    # instructions into posted text ("Short post (under 300 chars):", "Long-form
-    # (1500-2000 words).", etc.) — auto_post off until the engine leak is fixed.
-    "twitter": {"posts_per_week": 1, "auto_post": False, "days": ["wed"]},
-    "bluesky": {"posts_per_week": 2, "auto_post": False, "days": ["mon", "fri"]},
+    # Auto-post restored Jun 9 after fixing the engine self-label leak
+    # (_strip_meta_prefix + prompt guards in content/engine.py).
+    "twitter": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
+    "bluesky": {"posts_per_week": 2, "auto_post": True, "days": ["mon", "fri"]},
     # DISABLED until May 1 — account karma is -1, dead channel
     "reddit": {"posts_per_week": 0, "auto_post": False, "days": []},
     "huggingface": {"posts_per_week": 1, "auto_post": True, "days": ["wed"]},
-    "devto": {"posts_per_week": 1, "auto_post": False, "days": ["thu"]},  # gated → human_review
+    "devto": {"posts_per_week": 1, "auto_post": True, "days": ["thu"]},  # weekly article
     # Manual: 1 draft/week to human_review (you post from the page); never auto-posts.
     # Major announcements add extra drafts via the milestone trigger.
     "linkedin": {"posts_per_week": 1, "auto_post": False, "days": ["tue"]},

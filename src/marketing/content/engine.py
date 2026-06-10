@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -161,6 +162,35 @@ def build_utm_link(
     return f"{BASE_URL}{path}?{query}"
 
 
+# The LLM sometimes labels its own output ("Short post (under 300 chars):",
+# "Long-form (1500-2000 words).", "Single post, bot-labelled.", "2-post thread.
+# Post 1:") or wraps the whole post in quotes — strip that so it never ships.
+_META_PREFIX_RE = re.compile(
+    r"^\s*(?:"
+    r"short post[^:.\n]*[:.]|long[- ]?form[^:.\n]*[:.]|"
+    r"single post[^:.\n]*[:.]|(?:\d+|two|three)[- ]post thread[^:.\n]*[:.]|"
+    r"post\s*\d+\s*:|thread\s*:|title\s*:|draft\s*:|"
+    r"here'?s?\s+(?:a|the)\s+\w+[^:\n]*:"
+    r")\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_meta_prefix(text: str) -> str:
+    """Remove leading format-labels / wrapping quotes the LLM sometimes adds to
+    its own output, so they never get posted as the content."""
+    t = (text or "").strip()
+    for _ in range(3):  # labels can stack, e.g. "2-post thread. Post 1:"
+        m = _META_PREFIX_RE.match(t)
+        if not m:
+            break
+        t = t[m.end():].strip()
+    # Unwrap if the entire post is wrapped in matching quotes.
+    if len(t) >= 2 and t[0] in "\"'‘“" and t[-1] in "\"'’”":
+        t = t[1:-1].strip()
+    return t
+
+
 async def generate_proactive(
     platform: str,
     recent_topics: list[str] | None = None,
@@ -279,7 +309,10 @@ async def generate_proactive(
             f"{angle}\n\n"
             f"Include this full link (keep the https://): {utm_link}\n\n"
             f"Maximum length: {tone.max_length} characters.\n"
-            f"Platform: {platform}"
+            f"Platform: {platform}\n"
+            f"Output ONLY the post text itself — no labels (never write "
+            f"'Short post:', 'Single post', 'Thread:', '2-post thread.', etc.), "
+            f"no surrounding quotes, no preamble or meta-commentary about format.\n"
             f"{news_context}"
             f"{launch_context}"
             f"{recruitment_context}"
@@ -305,8 +338,10 @@ async def generate_proactive(
             error=result.error,
         )
 
-    # Guard against empty LLM responses (no error but no content)
-    if not result.text or not result.text.strip():
+    # Strip self-labels ("Short post:", "Long-form:", "2-post thread. Post 1:")
+    # the LLM sometimes prepends, then guard against empty output.
+    stripped = _strip_meta_prefix(result.text)
+    if not stripped:
         return GeneratedContent(
             text="", topic=topic.key, platform=platform, post_type="proactive",
             error="LLM returned empty content",
@@ -331,7 +366,7 @@ async def generate_proactive(
     )
     # Check first 3 lines, not just the first — leakage can start on line 2
     check_text = "\n".join(
-        result.text.strip().split("\n", 3)[:3],
+        stripped.split("\n", 3)[:3],
     ).lower()
     if any(marker in check_text for marker in _leakage_markers):
         logger.warning(
@@ -344,7 +379,7 @@ async def generate_proactive(
         )
 
     # Apply disclosure footer
-    text = result.text
+    text = stripped
     if tone.disclosure:
         text = text + tone.disclosure
 
@@ -579,7 +614,9 @@ def _build_blog_prompt(
         f"- End with a conclusion and a link to learn more\n"
         f"- Include this link naturally in the article: {utm_link}\n"
         f"- Do NOT include YAML front matter (no --- block)\n"
-        f"- Start directly with the article content (the title is set separately)\n\n"
+        f"- Start directly with the article content (the title is set separately)\n"
+        f"- Do NOT prefix with a length/format label — never write 'Long-form "
+        f"(1500-2000 words).' or similar; just the article\n\n"
         f"## About AgentGraph\n"
         f"AgentGraph is a trust infrastructure platform for AI agents. "
         f"It provides verifiable identity (W3C DIDs), trust scoring, "
