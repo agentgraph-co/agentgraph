@@ -1,0 +1,166 @@
+{
+  "spec": "pre-execution-verdict-v0 (A2A#1920 v0.4-aligned) — AgentGraph verifier-side reference",
+  "verify_instructions": "jws is compact EdDSA(JCS(header)).EdDSA(JCS(core)) over the signing input, verified against the embedded JWKS. binding_digest=sha256(JCS({amount_usd,charge_ref,nonce,subject_did})) — byte-identical to the converged gateway construction (evidai reserve-confirm-v1 / gated-preflight-v1, azender1 exactly-once-v1, haroldmalikfrimpong-ops verifier_attestation). action_ref=argentum-core action-ref-v1: SHA-256(agent_id‖action_type‖scope‖timestamp_ms). Run: node verify_fixture.mjs",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "kzNM-IUkwg7zU3Ox1baO1PAPlwo1hKOhiw9rGQrI0B8",
+        "kid": "agentgraph-verifier-v0",
+        "use": "sig",
+        "alg": "EdDSA"
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "scenario": "admit",
+      "expect": {
+        "verdict": "admit",
+        "reason_code": "ok"
+      },
+      "binding_digest": "8a6c78b98d0726aa1bbe2024c29875c14e599fe08bc86e356a8f8dd0c2ee4f4f",
+      "jws": "eyJhbGciOiJFZERTQSIsImtpZCI6ImFnZW50Z3JhcGgtdmVyaWZpZXItdjAiLCJ0eXAiOiJKT1NFIn0.eyJhZG1pc3Npb24iOnsiY29uZmlkZW5jZSI6MC45OCwiZHluYW1pY19saW1pdF91c2QiOjUwLCJyZWFzb25fY29kZSI6Im9rIiwidmVyZGljdCI6ImFkbWl0In0sImJpbmRpbmciOnsiYWN0aW9uX3JlZiI6IjUwY2YxMzIwMTliOGRhMGFlOTUwZmI0OGJmYzhiMWIzZWU0ZGY1ZWMzYWMyZmI5ZTZkMjQ3NzBlOTBlMWZkNDMiLCJhY3Rpb25fcmVmX21ldGhvZCI6ImFyZ2VudHVtLWNvcmUgYWN0aW9uLXJlZi12MSIsImFtb3VudF91c2QiOjI1LCJiaW5kaW5nX2RpZ2VzdCI6IjhhNmM3OGI5OGQwNzI2YWExYmJlMjAyNGMyOTg3NWMxNGU1OTlmZTA4YmM4NmUzNTZhOGY4ZGQwYzJlZTRmNGYiLCJjaGFyZ2VfcmVmIjoiY2hnX2FkbWl0XzAwMSIsIm5vbmNlIjoibjFRbTh5VjByMlRiNlhjOVBhN0xrM1cifSwiZW52ZWxvcGUiOiJwcmUtZXhlY3V0aW9uLXZlcmRpY3QtdjAiLCJleHBpcmVzX2F0IjoiMjAyNi0wNi0xMlQxNjowMDozNVoiLCJmcmVzaG5lc3NfdHRsX3NlY29uZHMiOjM1LCJnYXRlc19yZWNoZWNrZWQiOlsiaWRlbnRpdHkiLCJjZXJ0aWZpY2F0ZSIsImtleV9saWZlY3ljbGUiXSwiaXNzdWVkX2F0IjoiMjAyNi0wNi0xMlQxNjowMDowMFoiLCJrZXlfc291cmNlIjoicmVzb2x2ZXIiLCJzdWJqZWN0X2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbzphZ2VudDpkZW1vLTAwMSIsInZlcmlmaWVyX2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbyJ9.f_pQq_17ezF5toYOpxDgjeexh3xwrHoFn-NiGM3BQ1oYcTCxTQ1QZ9DUr1CwTxmT-3DNDGwWzJ7iVjRAhCHMDQ",
+      "core": {
+        "envelope": "pre-execution-verdict-v0",
+        "verifier_did": "did:web:agentgraph.co",
+        "subject_did": "did:web:agentgraph.co:agent:demo-001",
+        "admission": {
+          "verdict": "admit",
+          "dynamic_limit_usd": 50,
+          "reason_code": "ok",
+          "confidence": 0.98
+        },
+        "binding": {
+          "charge_ref": "chg_admit_001",
+          "amount_usd": 25,
+          "nonce": "n1Qm8yV0r2Tb6Xc9Pa7Lk3W",
+          "binding_digest": "8a6c78b98d0726aa1bbe2024c29875c14e599fe08bc86e356a8f8dd0c2ee4f4f",
+          "action_ref": "50cf132019b8da0ae950fb48bfc8b1b3ee4df5ec3ac2fb9e6d24770e90e1fd43",
+          "action_ref_method": "argentum-core action-ref-v1"
+        },
+        "gates_rechecked": [
+          "identity",
+          "certificate",
+          "key_lifecycle"
+        ],
+        "key_source": "resolver",
+        "issued_at": "2026-06-12T16:00:00Z",
+        "expires_at": "2026-06-12T16:00:35Z",
+        "freshness_ttl_seconds": 35
+      }
+    },
+    {
+      "scenario": "scope-deny",
+      "expect": {
+        "verdict": "deny",
+        "reason_code": "scope_denied"
+      },
+      "binding_digest": "10bc810c382dff5c733517c75cc4b10b88d8de37effe9db5d9c225f6efe8f989",
+      "jws": "eyJhbGciOiJFZERTQSIsImtpZCI6ImFnZW50Z3JhcGgtdmVyaWZpZXItdjAiLCJ0eXAiOiJKT1NFIn0.eyJhZG1pc3Npb24iOnsiY29uZmlkZW5jZSI6MC45OSwiZHluYW1pY19saW1pdF91c2QiOjAsInJlYXNvbl9jb2RlIjoic2NvcGVfZGVuaWVkIiwidmVyZGljdCI6ImRlbnkifSwiYmluZGluZyI6eyJhY3Rpb25fcmVmIjoiNTBjZjEzMjAxOWI4ZGEwYWU5NTBmYjQ4YmZjOGIxYjNlZTRkZjVlYzNhYzJmYjllNmQyNDc3MGU5MGUxZmQ0MyIsImFjdGlvbl9yZWZfbWV0aG9kIjoiYXJnZW50dW0tY29yZSBhY3Rpb24tcmVmLXYxIiwiYW1vdW50X3VzZCI6MjUsImJpbmRpbmdfZGlnZXN0IjoiMTBiYzgxMGMzODJkZmY1YzczMzUxN2M3NWNjNGIxMGI4OGQ4ZGUzN2VmZmU5ZGI1ZDljMjI1ZjZlZmU4Zjk4OSIsImNoYXJnZV9yZWYiOiJjaGdfc2NvcGVfMDAyIiwibm9uY2UiOiJ6N0hmMlJkNVZwMFlxNFRjOExtMU5iNiJ9LCJlbnZlbG9wZSI6InByZS1leGVjdXRpb24tdmVyZGljdC12MCIsImV4cGlyZXNfYXQiOiIyMDI2LTA2LTEyVDE2OjAwOjM1WiIsImZyZXNobmVzc190dGxfc2Vjb25kcyI6MzUsImdhdGVzX3JlY2hlY2tlZCI6WyJpZGVudGl0eSIsImNlcnRpZmljYXRlIiwia2V5X2xpZmVjeWNsZSJdLCJpc3N1ZWRfYXQiOiIyMDI2LTA2LTEyVDE2OjAwOjAwWiIsImtleV9zb3VyY2UiOiJyZXNvbHZlciIsInN1YmplY3RfZGlkIjoiZGlkOndlYjphZ2VudGdyYXBoLmNvOmFnZW50OmRlbW8tMDAxIiwidmVyaWZpZXJfZGlkIjoiZGlkOndlYjphZ2VudGdyYXBoLmNvIn0.9cRMWi6t04cSQWUUJXnNkBvlb8g0ElEDkyFujtmmplvoEycChLwFo78ixP-kUA8Nm0tKq9SCKSeiZRF4XPRtCA",
+      "core": {
+        "envelope": "pre-execution-verdict-v0",
+        "verifier_did": "did:web:agentgraph.co",
+        "subject_did": "did:web:agentgraph.co:agent:demo-001",
+        "admission": {
+          "verdict": "deny",
+          "dynamic_limit_usd": 0,
+          "reason_code": "scope_denied",
+          "confidence": 0.99
+        },
+        "binding": {
+          "charge_ref": "chg_scope_002",
+          "amount_usd": 25,
+          "nonce": "z7Hf2Rd5Vp0Yq4Tc8Lm1Nb6",
+          "binding_digest": "10bc810c382dff5c733517c75cc4b10b88d8de37effe9db5d9c225f6efe8f989",
+          "action_ref": "50cf132019b8da0ae950fb48bfc8b1b3ee4df5ec3ac2fb9e6d24770e90e1fd43",
+          "action_ref_method": "argentum-core action-ref-v1"
+        },
+        "gates_rechecked": [
+          "identity",
+          "certificate",
+          "key_lifecycle"
+        ],
+        "key_source": "resolver",
+        "issued_at": "2026-06-12T16:00:00Z",
+        "expires_at": "2026-06-12T16:00:35Z",
+        "freshness_ttl_seconds": 35
+      }
+    },
+    {
+      "scenario": "limit-deny",
+      "expect": {
+        "verdict": "deny",
+        "reason_code": "limit_exceeded"
+      },
+      "binding_digest": "ef3b978df540cd0ee0d6319ae1d25847264cdcbb8cc8a2b2f2508f4cc15262d8",
+      "jws": "eyJhbGciOiJFZERTQSIsImtpZCI6ImFnZW50Z3JhcGgtdmVyaWZpZXItdjAiLCJ0eXAiOiJKT1NFIn0.eyJhZG1pc3Npb24iOnsiY29uZmlkZW5jZSI6MC45NywiZHluYW1pY19saW1pdF91c2QiOjUwLCJyZWFzb25fY29kZSI6ImxpbWl0X2V4Y2VlZGVkIiwidmVyZGljdCI6ImRlbnkifSwiYmluZGluZyI6eyJhY3Rpb25fcmVmIjoiNTBjZjEzMjAxOWI4ZGEwYWU5NTBmYjQ4YmZjOGIxYjNlZTRkZjVlYzNhYzJmYjllNmQyNDc3MGU5MGUxZmQ0MyIsImFjdGlvbl9yZWZfbWV0aG9kIjoiYXJnZW50dW0tY29yZSBhY3Rpb24tcmVmLXYxIiwiYW1vdW50X3VzZCI6MjUwLCJiaW5kaW5nX2RpZ2VzdCI6ImVmM2I5NzhkZjU0MGNkMGVlMGQ2MzE5YWUxZDI1ODQ3MjY0Y2RjYmI4Y2M4YTJiMmYyNTA4ZjRjYzE1MjYyZDgiLCJjaGFyZ2VfcmVmIjoiY2hnX2xpbWl0XzAwMyIsIm5vbmNlIjoiazNKdzlTeDFRZTZVYjJNYzdQYTBMZDQifSwiZW52ZWxvcGUiOiJwcmUtZXhlY3V0aW9uLXZlcmRpY3QtdjAiLCJleHBpcmVzX2F0IjoiMjAyNi0wNi0xMlQxNjowMDozNVoiLCJmcmVzaG5lc3NfdHRsX3NlY29uZHMiOjM1LCJnYXRlc19yZWNoZWNrZWQiOlsiaWRlbnRpdHkiLCJjZXJ0aWZpY2F0ZSIsImtleV9saWZlY3ljbGUiXSwiaXNzdWVkX2F0IjoiMjAyNi0wNi0xMlQxNjowMDowMFoiLCJrZXlfc291cmNlIjoicmVzb2x2ZXIiLCJzdWJqZWN0X2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbzphZ2VudDpkZW1vLTAwMSIsInZlcmlmaWVyX2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbyJ9.Ik5-ndBD7kMoLD6IPANelFN1mlXzk9IlXQoZlV1hUZKIK6Q-Y3T3GQyaBv1Jtdho7XeFuNaUGlgl-UElJ8ExDg",
+      "core": {
+        "envelope": "pre-execution-verdict-v0",
+        "verifier_did": "did:web:agentgraph.co",
+        "subject_did": "did:web:agentgraph.co:agent:demo-001",
+        "admission": {
+          "verdict": "deny",
+          "dynamic_limit_usd": 50,
+          "reason_code": "limit_exceeded",
+          "confidence": 0.97
+        },
+        "binding": {
+          "charge_ref": "chg_limit_003",
+          "amount_usd": 250,
+          "nonce": "k3Jw9Sx1Qe6Ub2Mc7Pa0Ld4",
+          "binding_digest": "ef3b978df540cd0ee0d6319ae1d25847264cdcbb8cc8a2b2f2508f4cc15262d8",
+          "action_ref": "50cf132019b8da0ae950fb48bfc8b1b3ee4df5ec3ac2fb9e6d24770e90e1fd43",
+          "action_ref_method": "argentum-core action-ref-v1"
+        },
+        "gates_rechecked": [
+          "identity",
+          "certificate",
+          "key_lifecycle"
+        ],
+        "key_source": "resolver",
+        "issued_at": "2026-06-12T16:00:00Z",
+        "expires_at": "2026-06-12T16:00:35Z",
+        "freshness_ttl_seconds": 35
+      }
+    },
+    {
+      "scenario": "dual-approval-flag",
+      "expect": {
+        "verdict": "flag",
+        "reason_code": "dual_approval_required"
+      },
+      "binding_digest": "d67489053a7023f5ed977c85a7d95b6dc5505ae9219e4851c137ced67d6c29df",
+      "jws": "eyJhbGciOiJFZERTQSIsImtpZCI6ImFnZW50Z3JhcGgtdmVyaWZpZXItdjAiLCJ0eXAiOiJKT1NFIn0.eyJhZG1pc3Npb24iOnsiY29uZmlkZW5jZSI6MC44LCJkeW5hbWljX2xpbWl0X3VzZCI6NTAsInJlYXNvbl9jb2RlIjoiZHVhbF9hcHByb3ZhbF9yZXF1aXJlZCIsInZlcmRpY3QiOiJmbGFnIn0sImJpbmRpbmciOnsiYWN0aW9uX3JlZiI6IjUwY2YxMzIwMTliOGRhMGFlOTUwZmI0OGJmYzhiMWIzZWU0ZGY1ZWMzYWMyZmI5ZTZkMjQ3NzBlOTBlMWZkNDMiLCJhY3Rpb25fcmVmX21ldGhvZCI6ImFyZ2VudHVtLWNvcmUgYWN0aW9uLXJlZi12MSIsImFtb3VudF91c2QiOjUwMCwiYmluZGluZ19kaWdlc3QiOiJkNjc0ODkwNTNhNzAyM2Y1ZWQ5NzdjODVhN2Q5NWI2ZGM1NTA1YWU5MjE5ZTQ4NTFjMTM3Y2VkNjdkNmMyOWRmIiwiY2hhcmdlX3JlZiI6ImNoZ19kdWFsXzAwNCIsIm5vbmNlIjoicDVUZzhabjJXZDdZYzFSYjRMazlNeDAifSwiZW52ZWxvcGUiOiJwcmUtZXhlY3V0aW9uLXZlcmRpY3QtdjAiLCJleHBpcmVzX2F0IjoiMjAyNi0wNi0xMlQxNjowMDozNVoiLCJmcmVzaG5lc3NfdHRsX3NlY29uZHMiOjM1LCJnYXRlc19yZWNoZWNrZWQiOlsiaWRlbnRpdHkiLCJjZXJ0aWZpY2F0ZSIsImtleV9saWZlY3ljbGUiXSwiaXNzdWVkX2F0IjoiMjAyNi0wNi0xMlQxNjowMDowMFoiLCJrZXlfc291cmNlIjoicmVzb2x2ZXIiLCJzdWJqZWN0X2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbzphZ2VudDpkZW1vLTAwMSIsInZlcmlmaWVyX2RpZCI6ImRpZDp3ZWI6YWdlbnRncmFwaC5jbyJ9.q_VLxfMbGwJwCt-1bmEGrvPBiWfJdC2KRGr7yuWF9YaMRzeVarMaleaPTgWBJ_qKcF7JThh2p1sp2nFhkPnFCw",
+      "core": {
+        "envelope": "pre-execution-verdict-v0",
+        "verifier_did": "did:web:agentgraph.co",
+        "subject_did": "did:web:agentgraph.co:agent:demo-001",
+        "admission": {
+          "verdict": "flag",
+          "dynamic_limit_usd": 50,
+          "reason_code": "dual_approval_required",
+          "confidence": 0.8
+        },
+        "binding": {
+          "charge_ref": "chg_dual_004",
+          "amount_usd": 500,
+          "nonce": "p5Tg8Zn2Wd7Yc1Rb4Lk9Mx0",
+          "binding_digest": "d67489053a7023f5ed977c85a7d95b6dc5505ae9219e4851c137ced67d6c29df",
+          "action_ref": "50cf132019b8da0ae950fb48bfc8b1b3ee4df5ec3ac2fb9e6d24770e90e1fd43",
+          "action_ref_method": "argentum-core action-ref-v1"
+        },
+        "gates_rechecked": [
+          "identity",
+          "certificate",
+          "key_lifecycle"
+        ],
+        "key_source": "resolver",
+        "issued_at": "2026-06-12T16:00:00Z",
+        "expires_at": "2026-06-12T16:00:35Z",
+        "freshness_ttl_seconds": 35
+      }
+    }
+  ]
+}
