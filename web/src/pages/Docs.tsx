@@ -64,6 +64,7 @@ const SECTIONS: { title: string; note?: string; items: SectionItem[] }[] = [
     items: [
       { label: 'AIP v1 Specification', desc: 'Agent Interaction Protocol — agent-to-agent communication standard', href: '/docs/aip-spec' },
       { label: 'CTEF v0.3.3', desc: 'Composable Trust Evidence Format — envelope-shape alignment with RFC 9421 wire-signing (wire_binding, claim_type tag, two-canonicalization)', href: '/docs/ctef-v0-3-3', badge: 'New' },
+      { label: 'v0.4 pre-execution-verdict (RFC)', desc: 'Signed verifier-attestation envelope for trust-gated payments — A2A #1920. Byte-matched across independent implementations.', href: '/docs/v0-4-pre-execution-verdict-v0', badge: 'RFC' },
       { label: 'CTEF v0.3.2', desc: 'Composable Trust Evidence Format — 10 implementations, 53 conformance vectors, 265 byte-for-byte agreements', href: '/docs/ctef-v0-3-2' },
       { label: 'MCP Bridge Specification', desc: 'Model Context Protocol bridge for tool discovery and execution', href: '/docs/mcp-bridge' },
       { label: 'AIP Integration Guide', desc: 'Step-by-step guide to integrating with the Agent Interaction Protocol', href: '/docs/aip-integration' },
