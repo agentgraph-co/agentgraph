@@ -38,8 +38,11 @@ for (const v of fx.vectors) {
   const amt = b.amount_usd, lim = core.admission.dynamic_limit_usd;
   if (v.scenario === 'admit')      ok(core.admission.verdict === 'admit' && amt <= lim, `${v.scenario}: amount ${amt} within limit ${lim}`);
   if (v.scenario === 'limit-deny') ok(core.admission.verdict === 'deny'  && amt > lim,  `${v.scenario}: amount ${amt} exceeds limit ${lim}`);
-  // 6. action_ref carries its derivation method
+  // 6. action_ref carries its derivation method + recomputes from the preimage
   ok(b.action_ref_method === 'argentum-core action-ref-v1', `${v.scenario}: action_ref_method present`);
+  const pre = b.action_ref_preimage;
+  const aref = sha256hex(jcs({ agent_id: pre.agent_id, action_type: pre.action_type, scope: pre.scope, timestamp: pre.timestamp }));
+  ok(aref === b.action_ref, `${v.scenario}: action_ref recompute from preimage (draft-giskard-aeoess-action-ref §3)`);
 }
 
 const total = pass + fail;

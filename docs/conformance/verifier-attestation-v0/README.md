@@ -19,7 +19,7 @@ node cross_impl_check.mjs      # recomputes other impls' binding_digests with th
 
 Expected:
 ```
-✓ 30/30 assertions pass — agentgraph-pre-execution-verdict-v0
+✓ 34/34 assertions pass — agentgraph-pre-execution-verdict-v0
 ✓ 11/11 cross-impl binding_digests byte-match this reference
 ```
 
@@ -36,8 +36,10 @@ Expected:
   RFC 8785 JCS, lowercase-hex SHA-256. Byte-identical to the converged gateway construction.
 - **JWS** = compact EdDSA over `JCS(header).JCS(payload)`, `payload = JCS(core)`; verified
   against the embedded `jwks` (kid `agentgraph-verifier-v0`). No network, no trust in the producer.
-- **`action_ref`** = argentum-core `action-ref-v1`: `SHA-256(agent_id‖action_type‖scope‖timestamp_ms)`,
-  with **`action_ref_method`** naming the derivation so an auditor knows which recipe to recompute.
+- **`action_ref`** = `lowercase-hex(SHA-256(JCS({agent_id, action_type, scope, timestamp})))` per
+  [draft-giskard-aeoess-action-ref §3](https://github.com/giskard09/draft-giskard-aeoess-action-ref)
+  (timestamp = RFC 3339 millisecond string). Recomputable from `binding.action_ref_preimage`;
+  **`action_ref_method`** names the derivation. Verified to reproduce the draft's Appendix A Vector 1.
 - **`key_source`** ∈ `{inline, cache, resolver}`; `cache` is a derivation (population event auditable),
   per [#1829](https://github.com/a2aproject/A2A/issues/1829).
 
