@@ -41,5 +41,12 @@ _PATTERN = re.compile(
 
 
 def matches_keywords(text: str) -> list[str]:
-    """Return list of matched keywords in text. Empty if no match."""
+    """Return list of matched keywords in text. Empty if no match.
+
+    Guards against non-string input — Bluesky records without a text field
+    (reposts, some embeds) surface ``text`` as None, which crashed the Jetstream
+    subscriber on ``_PATTERN.finditer`` (expected string or bytes-like object).
+    """
+    if not isinstance(text, str):
+        return []
     return list({m.group().lower() for m in _PATTERN.finditer(text)})

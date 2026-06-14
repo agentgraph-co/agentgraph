@@ -475,8 +475,8 @@ async def send_reddit_reminder(db: AsyncSession) -> bool:
     cands = await _candidate_threads()
     pool = [c for c in cands if not c["used"]] or cands  # fresh first, recycle if dry
 
-    # Plan: short, long, short → 1 thread = 1 short; 2 = short + long; 3 = 2 short + 1 long.
-    styles = ["short", "long", "short"]
+    # Plan: 2 replies/day — one 1-2 sentence (short) + one 3-4 paragraph (long).
+    styles = ["short", "long"]
     used_now: set[str] = set()
     sent = 0
     for style in styles:
