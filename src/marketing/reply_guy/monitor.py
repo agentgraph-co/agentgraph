@@ -59,6 +59,21 @@ async def _check_target(target: ReplyTarget) -> int:
 
     if target.platform == "bluesky":
         posts = await _fetch_bluesky_posts(target.handle, since)
+        if posts is None:
+            # Permanent getAuthorFeed 400 (profile not found) — retire the dead target
+            # so it stops erroring every cycle. Real accounts are unaffected.
+            async with async_session() as db:
+                await db.execute(
+                    update(ReplyTarget)
+                    .where(ReplyTarget.id == target.id)
+                    .values(is_active=False)
+                )
+                await db.commit()
+            logger.warning(
+                "Retired dead bluesky target %s (%s) — getAuthorFeed 400",
+                target.id, target.handle,
+            )
+            return 0
     elif target.platform == "twitter":
         posts = await _fetch_twitter_posts(target.handle, since)
     else:
@@ -135,8 +150,13 @@ def _calculate_urgency(post: dict, target: ReplyTarget) -> float:
     return time_decay * tier_multiplier + relevance + engagement
 
 
-async def _fetch_bluesky_posts(handle: str, since: datetime) -> list:
-    """Fetch recent posts from a Bluesky account."""
+async def _fetch_bluesky_posts(handle: str, since: datetime) -> list | None:
+    """Fetch recent posts from a Bluesky account.
+
+    Returns a list of posts, or ``None`` if the account is permanently
+    unfetchable (getAuthorFeed 400 — profile not found / deactivated), which
+    signals the caller to retire the target.
+    """
     try:
         import httpx
 
@@ -156,6 +176,10 @@ async def _fetch_bluesky_posts(handle: str, since: datetime) -> list:
                     handle,
                     resp.status_code,
                 )
+                # 400 = permanent (deactivated / no profile / bad actor). Signal the
+                # caller to retire the target so we stop hammering a dead handle.
+                if resp.status_code == 400:
+                    return None
                 return []
             data = resp.json()
 
