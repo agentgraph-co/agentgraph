@@ -171,6 +171,9 @@ class Settings(BaseSettings):
     reply_guy_max_daily: int = 20
     reply_guy_monitor_interval: int = 300  # seconds
     reply_guy_auto_post: bool = True  # auto-post drafted replies (no manual approval)
+    # Pacing — spread the daily batch instead of bursting at the 00:00 UTC counter reset.
+    reply_guy_min_gap_minutes: int = 40  # min spacing between auto-posted replies (anti-burst)
+    reply_guy_active_start_hour_utc: int = 14  # only auto-post from this UTC hour (lands in US daytime)
 
     # Email rate limiting & retry
     email_rate_limit_per_minute: int = 30

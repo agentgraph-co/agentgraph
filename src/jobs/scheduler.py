@@ -519,14 +519,40 @@ async def _reply_poster_loop(interval: int = REPLY_POSTER_INTERVAL) -> None:
                         posted_today = posted_today_result.scalar() or 0
 
                         remaining = _rg_settings.reply_guy_max_daily - posted_today
+
+                        # Pacing: spread the daily batch instead of bursting at the
+                        # 00:00 UTC reset. Only post inside the active UTC window, and
+                        # only once enough time has passed since the last reply.
+                        now = datetime.now(timezone.utc)
+                        in_window = now.hour >= _rg_settings.reply_guy_active_start_hour_utc
+                        last_posted = (
+                            await session.execute(
+                                sa.select(sa.func.max(ReplyOpportunity.posted_at))
+                                .where(ReplyOpportunity.status == "posted")
+                            )
+                        ).scalar()
+                        gap_ok = last_posted is None or (
+                            now - last_posted
+                        ).total_seconds() >= _rg_settings.reply_guy_min_gap_minutes * 60
+
                         if remaining <= 0:
                             logger.info(
                                 "Reply guy poster: daily limit reached (%d/%d)",
                                 posted_today, _rg_settings.reply_guy_max_daily,
                             )
+                        elif not in_window:
+                            logger.debug(
+                                "Reply guy poster: outside active window (hour %d < %d UTC)",
+                                now.hour, _rg_settings.reply_guy_active_start_hour_utc,
+                            )
+                        elif not gap_ok:
+                            logger.debug(
+                                "Reply guy poster: pacing — last reply too recent",
+                            )
                         else:
                             posted = 0
-                            for opp in opps[:remaining]:
+                            # One per cycle → paced across the day, not a burst.
+                            for opp in opps[:1]:
                                 try:
                                     target_result = await session.execute(
                                         sa.select(ReplyTarget)
