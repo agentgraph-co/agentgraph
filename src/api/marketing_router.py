@@ -585,6 +585,60 @@ async def trigger_recap_post(
     return result
 
 
+@router.get("/comment-worthy")
+async def get_comment_worthy(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Curated 'worth your personal comment this week' digest for the admin Engage panel.
+
+    Relevant news events (founder-take fodder) + the top posts the reply-guy flagged. For
+    Kenne's personal engagement (the high-ROI lever), esp. LinkedIn. NOTE: LinkedIn has no
+    post-search API, so this surfaces events + tracked-account activity to engage with — not
+    LinkedIn posts directly.
+    """
+    require_admin(current_entity)
+    from src.marketing.news_signals import gather_news_signals
+    from src.models import ReplyOpportunity, ReplyTarget
+
+    news: list[dict] = []
+    try:
+        for a in (await gather_news_signals(limit=6, days=7)) or []:
+            news.append({
+                "title": a.get("title", ""),
+                "source": a.get("source", ""),
+                "url": a.get("url", ""),
+                "summary": (a.get("summary") or "")[:240],
+            })
+    except Exception:  # noqa: BLE001 - digest is best-effort
+        pass
+
+    posts: list[dict] = []
+    try:
+        rows = await db.execute(
+            select(ReplyOpportunity, ReplyTarget.handle)
+            .join(
+                ReplyTarget,
+                ReplyOpportunity.target_id == ReplyTarget.id,
+                isouter=True,
+            )
+            .where(ReplyOpportunity.status.in_(["new", "drafted"]))
+            .order_by(ReplyOpportunity.urgency_score.desc().nullslast())
+            .limit(5),
+        )
+        for opp, handle in rows.all():
+            posts.append({
+                "platform": opp.platform,
+                "handle": handle or "",
+                "snippet": (opp.post_content or "").strip().replace("\n", " ")[:140],
+                "url": opp.post_uri or "",
+            })
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {"news": news, "posts": posts}
+
+
 @router.get("/activity", response_model=BotActivityResponse)
 async def get_bot_activity(
     limit: int = Query(50, ge=1, le=200),

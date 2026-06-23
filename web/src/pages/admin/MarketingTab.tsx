@@ -306,6 +306,15 @@ export default function MarketingTab() {
     staleTime: 30_000,
   })
 
+  const { data: engage } = useQuery<{
+    news: { title: string; source: string; url: string; summary: string }[]
+    posts: { platform: string; handle: string; snippet: string; url: string }[]
+  }>({
+    queryKey: ['admin-marketing-comment-worthy'],
+    queryFn: async () => (await api.get('/admin/marketing/comment-worthy')).data,
+    staleTime: 5 * 60_000,
+  })
+
   return (
     <div className="space-y-6">
       {mktLoading ? (
@@ -341,6 +350,42 @@ export default function MarketingTab() {
               </div>
             )}
           </div>
+
+          {/* Engage — comment-worthy this week (personal engagement, the high-ROI lever) */}
+          {engage && ((engage.news?.length ?? 0) > 0 || (engage.posts?.length ?? 0) > 0) ? (
+            <div>
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-1">💬 Engage — comment-worthy this week</h2>
+              <p className="text-xs text-text-muted mb-3">Your <b>personal</b> voice on these beats another scheduled post — post a take on LinkedIn or comment in-thread. (No LinkedIn post-search API, so these are events + tracked-account activity to engage with, not LinkedIn posts.)</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="bg-emerald-400/5 border border-emerald-400/20 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2">📰 News — post a take</p>
+                  <ul className="space-y-2">
+                    {(engage.news ?? []).map((n, i) => (
+                      <li key={i} className="text-xs">
+                        <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">{n.title}</a>
+                        {n.source ? <span className="text-text-muted"> · {n.source}</span> : null}
+                        {n.summary ? <p className="text-text/70 mt-0.5">{n.summary}</p> : null}
+                      </li>
+                    ))}
+                    {(engage.news?.length ?? 0) === 0 ? <li className="text-xs text-text-muted">No fresh news signals.</li> : null}
+                  </ul>
+                </div>
+                <div className="bg-emerald-400/5 border border-emerald-400/20 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2">💬 Posts to comment on</p>
+                  <ul className="space-y-2">
+                    {(engage.posts ?? []).map((p, i) => (
+                      <li key={i} className="text-xs">
+                        <span className="font-medium">[{p.platform}] {p.handle}</span>
+                        {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">open</a> : null}
+                        {p.snippet ? <p className="text-text/70 mt-0.5">“{p.snippet}…”</p> : null}
+                      </li>
+                    ))}
+                    {(engage.posts?.length ?? 0) === 0 ? <li className="text-xs text-text-muted">No flagged posts right now.</li> : null}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {/* Campaign Planner */}
           <div>
