@@ -1,0 +1,186 @@
+{
+  "schema_version": "1.0",
+  "artefact_id": "x402-safety-screen-conformance-v0",
+  "plugin": {
+    "name": "agentgraph.safety",
+    "version": "v0",
+    "declares": [
+      "resource_url",
+      "safety_attestation"
+    ],
+    "interface": "screen(input, ctx) -> {verdict: admit|deny, reason?, entities?}",
+    "properties": [
+      "deny-only",
+      "mutation-free",
+      "keys_off_raw: resource_url+safety_attestation"
+    ]
+  },
+  "canonicalizer": "rfc8785 0.1.4 (RFC 8785 JCS)",
+  "hash": "SHA-256, lowercase hex (over JCS of the verdict object)",
+  "derivation": "For each vector, run the reference safety_screen.screen(input, ctx); the verdict object is canonicalized with RFC 8785 and SHA-256ed. A conforming implementation MUST reproduce verdict_canonical_bytes_utf8 and verdict_sha256 exactly.",
+  "vectors": [
+    {
+      "name": "admit_clean",
+      "input": {
+        "resource_url": "https://api.example.com/x402",
+        "safety_attestation": {
+          "type": "TrustAttestation",
+          "version": "0.3.3",
+          "claim_type": "authority",
+          "subject": {
+            "resource_url": "https://api.example.com/x402"
+          },
+          "attestation": {
+            "type": "SecurityAttestation",
+            "confidence": 0.9,
+            "payload": {
+              "grade": "A",
+              "trust_score": 95,
+              "findings": {
+                "critical": 0,
+                "high": 0,
+                "medium": 1,
+                "total": 1
+              }
+            }
+          }
+        }
+      },
+      "ctx": {},
+      "expected_verdict": {
+        "verdict": "admit"
+      },
+      "verdict_canonical_bytes_utf8": "{\"verdict\":\"admit\"}",
+      "verdict_sha256": "47978ae01a507908f79bcc5cdebf659da2cab6078ebb9abad94d81aa20b6d20c"
+    },
+    {
+      "name": "deny_critical",
+      "input": {
+        "resource_url": "https://api.example.com/x402",
+        "safety_attestation": {
+          "type": "TrustAttestation",
+          "version": "0.3.3",
+          "claim_type": "authority",
+          "subject": {
+            "resource_url": "https://api.example.com/x402"
+          },
+          "attestation": {
+            "type": "SecurityAttestation",
+            "confidence": 0.9,
+            "payload": {
+              "grade": "F",
+              "trust_score": 20,
+              "findings": {
+                "critical": 2,
+                "high": 3,
+                "medium": 4,
+                "total": 9
+              }
+            }
+          }
+        }
+      },
+      "ctx": {},
+      "expected_verdict": {
+        "verdict": "deny",
+        "reason": "endpoint graded F: 2 critical, 3 high finding(s)",
+        "entities": [
+          "critical",
+          "high"
+        ]
+      },
+      "verdict_canonical_bytes_utf8": "{\"entities\":[\"critical\",\"high\"],\"reason\":\"endpoint graded F: 2 critical, 3 high finding(s)\",\"verdict\":\"deny\"}",
+      "verdict_sha256": "d8aa81ecf89b3478ffe9c8685cea854029354a5eb7cdbff9ea402bb88f1a3884"
+    },
+    {
+      "name": "deny_high",
+      "input": {
+        "resource_url": "https://api.example.com/x402",
+        "safety_attestation": {
+          "type": "TrustAttestation",
+          "version": "0.3.3",
+          "claim_type": "authority",
+          "subject": {
+            "resource_url": "https://api.example.com/x402"
+          },
+          "attestation": {
+            "type": "SecurityAttestation",
+            "confidence": 0.9,
+            "payload": {
+              "grade": "D",
+              "trust_score": 40,
+              "findings": {
+                "critical": 0,
+                "high": 4,
+                "medium": 5,
+                "total": 9
+              }
+            }
+          }
+        }
+      },
+      "ctx": {},
+      "expected_verdict": {
+        "verdict": "deny",
+        "reason": "endpoint graded D: 4 high finding(s)",
+        "entities": [
+          "high"
+        ]
+      },
+      "verdict_canonical_bytes_utf8": "{\"entities\":[\"high\"],\"reason\":\"endpoint graded D: 4 high finding(s)\",\"verdict\":\"deny\"}",
+      "verdict_sha256": "8486d019aa797918cc09cdf0364a2f9a8d76669948bea3443f60dbf7e3e34ba4"
+    },
+    {
+      "name": "admit_no_attestation",
+      "input": {
+        "resource_url": "https://api.example.com/x402"
+      },
+      "ctx": {},
+      "expected_verdict": {
+        "verdict": "admit",
+        "reason": "no_safety_attestation"
+      },
+      "verdict_canonical_bytes_utf8": "{\"reason\":\"no_safety_attestation\",\"verdict\":\"admit\"}",
+      "verdict_sha256": "70b1177545801027ec65acf4579c1d6301c009eabd37cf8ca65441532dfe8be2"
+    },
+    {
+      "name": "deny_critical_and_high",
+      "input": {
+        "resource_url": "https://api.example.com/x402",
+        "safety_attestation": {
+          "type": "TrustAttestation",
+          "version": "0.3.3",
+          "claim_type": "authority",
+          "subject": {
+            "resource_url": "https://api.example.com/x402"
+          },
+          "attestation": {
+            "type": "SecurityAttestation",
+            "confidence": 0.9,
+            "payload": {
+              "grade": "F",
+              "trust_score": 20,
+              "findings": {
+                "critical": 1,
+                "high": 1,
+                "medium": 0,
+                "total": 2
+              }
+            }
+          }
+        }
+      },
+      "ctx": {},
+      "expected_verdict": {
+        "verdict": "deny",
+        "reason": "endpoint graded F: 1 critical, 1 high finding(s)",
+        "entities": [
+          "critical",
+          "high"
+        ]
+      },
+      "verdict_canonical_bytes_utf8": "{\"entities\":[\"critical\",\"high\"],\"reason\":\"endpoint graded F: 1 critical, 1 high finding(s)\",\"verdict\":\"deny\"}",
+      "verdict_sha256": "eb42717a96252fa8b3ea3c18ff34a0b3aa2e6c634783bdac08f018fed57a552c"
+    }
+  ]
+}
