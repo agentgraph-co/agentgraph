@@ -307,8 +307,8 @@ export default function MarketingTab() {
   })
 
   const { data: engage } = useQuery<{
-    news: { title: string; source: string; url: string; summary: string }[]
-    posts: { platform: string; handle: string; snippet: string; url: string }[]
+    news: { title: string; source: string; url: string; summary: string; angle: string; draft: string }[]
+    posts: { platform: string; handle: string; snippet: string; url: string; angle: string; draft: string }[]
   }>({
     queryKey: ['admin-marketing-comment-worthy'],
     queryFn: async () => (await api.get('/admin/marketing/comment-worthy')).data,
@@ -364,7 +364,13 @@ export default function MarketingTab() {
                       <li key={i} className="text-xs">
                         <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">{n.title}</a>
                         {n.source ? <span className="text-text-muted"> · {n.source}</span> : null}
-                        {n.summary ? <p className="text-text/70 mt-0.5">{n.summary}</p> : null}
+                        {n.angle ? <p className="text-emerald-300/80 italic mt-0.5">↳ {n.angle}</p> : null}
+                        {n.draft ? (
+                          <div className="mt-1 bg-black/20 rounded p-2">
+                            <p className="text-text/80 whitespace-pre-wrap">{n.draft}</p>
+                            <button onClick={() => navigator.clipboard?.writeText(n.draft)} className="text-[10px] text-emerald-400 hover:text-emerald-300 mt-1 cursor-pointer">📋 copy</button>
+                          </div>
+                        ) : (n.summary ? <p className="text-text/70 mt-0.5">{n.summary}</p> : null)}
                       </li>
                     ))}
                     {(engage.news?.length ?? 0) === 0 ? <li className="text-xs text-text-muted">No fresh news signals.</li> : null}
@@ -378,6 +384,13 @@ export default function MarketingTab() {
                         <span className="font-medium">[{p.platform}] {p.handle}</span>
                         {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">open</a> : null}
                         {p.snippet ? <p className="text-text/70 mt-0.5">“{p.snippet}…”</p> : null}
+                        {p.angle ? <p className="text-emerald-300/80 italic mt-0.5">↳ {p.angle}</p> : null}
+                        {p.draft ? (
+                          <div className="mt-1 bg-black/20 rounded p-2">
+                            <p className="text-text/80 whitespace-pre-wrap">{p.draft}</p>
+                            <button onClick={() => navigator.clipboard?.writeText(p.draft)} className="text-[10px] text-emerald-400 hover:text-emerald-300 mt-1 cursor-pointer">📋 copy</button>
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                     {(engage.posts?.length ?? 0) === 0 ? <li className="text-xs text-text-muted">No flagged posts right now.</li> : null}

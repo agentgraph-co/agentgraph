@@ -585,19 +585,10 @@ async def trigger_recap_post(
     return result
 
 
-@router.get("/comment-worthy")
-async def get_comment_worthy(
-    current_entity: Entity = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Curated 'worth your personal comment this week' digest for the admin Engage panel.
-
-    Relevant news events (founder-take fodder) + the top posts the reply-guy flagged. For
-    Kenne's personal engagement (the high-ROI lever), esp. LinkedIn. NOTE: LinkedIn has no
-    post-search API, so this surfaces events + tracked-account activity to engage with — not
-    LinkedIn posts directly.
-    """
-    require_admin(current_entity)
+async def _build_comment_worthy(db: AsyncSession) -> dict:
+    """Gather the comment-worthy digest (news events + top reply-guy posts) and enrich each
+    item with a one-line angle + a paste-ready, founder-voice draft via one LLM pass."""
+    from src.marketing.config import marketing_settings
     from src.marketing.news_signals import gather_news_signals
     from src.models import ReplyOpportunity, ReplyTarget
 
@@ -605,38 +596,102 @@ async def get_comment_worthy(
     try:
         for a in (await gather_news_signals(limit=6, days=7)) or []:
             news.append({
-                "title": a.get("title", ""),
-                "source": a.get("source", ""),
-                "url": a.get("url", ""),
-                "summary": (a.get("summary") or "")[:240],
+                "title": a.get("title", ""), "source": a.get("source", ""),
+                "url": a.get("url", ""), "summary": (a.get("summary") or "")[:240],
+                "angle": "", "draft": "",
             })
-    except Exception:  # noqa: BLE001 - digest is best-effort
+    except Exception:  # noqa: BLE001 - best-effort
         pass
 
     posts: list[dict] = []
     try:
         rows = await db.execute(
             select(ReplyOpportunity, ReplyTarget.handle)
-            .join(
-                ReplyTarget,
-                ReplyOpportunity.target_id == ReplyTarget.id,
-                isouter=True,
-            )
+            .join(ReplyTarget, ReplyOpportunity.target_id == ReplyTarget.id, isouter=True)
             .where(ReplyOpportunity.status.in_(["new", "drafted"]))
             .order_by(ReplyOpportunity.urgency_score.desc().nullslast())
             .limit(5),
         )
         for opp, handle in rows.all():
             posts.append({
-                "platform": opp.platform,
-                "handle": handle or "",
+                "platform": opp.platform, "handle": handle or "",
                 "snippet": (opp.post_content or "").strip().replace("\n", " ")[:140],
-                "url": opp.post_uri or "",
+                "url": opp.post_uri or "", "angle": "", "draft": "",
             })
     except Exception:  # noqa: BLE001
         pass
 
+    # One LLM pass: angle + paste-ready founder-voice draft per item.
+    llm_items = (
+        [{"idx": f"n{i}", "kind": "news", "text": f"{n['title']} — {n['summary']}"}
+         for i, n in enumerate(news)]
+        + [{"idx": f"p{i}", "kind": "post", "text": f"[{p['platform']}] {p['handle']}: {p['snippet']}"}
+           for i, p in enumerate(posts)]
+    )
+    if llm_items:
+        try:
+            import json as _json
+
+            from src.marketing.campaign_planner import _parse_json_response
+            from src.marketing.llm.anthropic_client import generate as anthropic_generate
+
+            prompt = (
+                "You draft LinkedIn/social engagement for Kenne Ives, founder of AgentGraph "
+                "(the trust + security layer for AI agents). For EACH item below return an "
+                "\"angle\" (one line: why it's worth Kenne's personal take) and a \"draft\" "
+                "(paste-ready, FIRST-PERSON founder voice, 2-4 sentences, specific, no hashtag "
+                "spam, no AI-tells; kind=news -> a short LinkedIn take post, kind=post -> a reply "
+                "to that post). Return ONLY JSON: "
+                "{\"items\":[{\"idx\":\"\",\"angle\":\"\",\"draft\":\"\"}]}.\n\n"
+                + _json.dumps(llm_items)
+            )
+            resp = await anthropic_generate(
+                prompt=prompt, model=marketing_settings.anthropic_sonnet_model,
+                max_tokens=2500, temperature=0.6,
+            )
+            if not resp.error:
+                by_idx = {it.get("idx"): it for it in (_parse_json_response(resp.text) or {}).get("items", [])}
+                for i, n in enumerate(news):
+                    it = by_idx.get(f"n{i}", {})
+                    n["angle"], n["draft"] = it.get("angle", ""), it.get("draft", "")
+                for i, p in enumerate(posts):
+                    it = by_idx.get(f"p{i}", {})
+                    p["angle"], p["draft"] = it.get("angle", ""), it.get("draft", "")
+        except Exception:  # noqa: BLE001 - enrichment best-effort; links/snippets still useful
+            pass
+
     return {"news": news, "posts": posts}
+
+
+@router.get("/comment-worthy")
+async def get_comment_worthy(
+    current_entity: Entity = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Comment-worthy digest for the admin Engage panel — news events + top reply-guy posts,
+    each with an angle + a paste-ready founder-voice draft. Cached daily (one LLM pass/day).
+    NOTE: no LinkedIn post-search API, so this surfaces events + tracked-account activity to
+    engage with, not LinkedIn posts directly.
+    """
+    require_admin(current_entity)
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
+    from src import cache
+
+    key = f"ag:mktg:comment_worthy:{_dt.now(_tz.utc).date().isoformat()}"
+    try:
+        cached = await cache.get(key)
+        if cached:
+            return cached
+    except Exception:  # noqa: BLE001
+        pass
+    data = await _build_comment_worthy(db)
+    try:
+        await cache.set(key, data, ttl=26 * 3600)
+    except Exception:  # noqa: BLE001
+        pass
+    return data
 
 
 @router.get("/activity", response_model=BotActivityResponse)
