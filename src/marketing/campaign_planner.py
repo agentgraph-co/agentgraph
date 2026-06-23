@@ -408,6 +408,54 @@ async def reject_campaign_plan(
     }
 
 
+async def _comment_worthy_html(db: AsyncSession, plan: dict) -> str:
+    """Build the 'worth your personal comment this week' digest for the proposal email.
+
+    The high-ROI engagement lever: Kenne commenting personally (esp. on LinkedIn) beats
+    another scheduled post. Sources = the week's news hooks (founder-take fodder) + the top
+    posts the reply-guy already flagged (real people in our space, often also on LinkedIn).
+    """
+    from sqlalchemy import select as _select
+
+    from src.models import ReplyOpportunity, ReplyTarget
+
+    items: list[str] = []
+    for hook in plan.get("news_hooks", [])[:4]:
+        title = hook.get("title", "")
+        if title:
+            items.append(
+                f"<li>📰 <b>{title}</b> &mdash; your take: {hook.get('angle', '')}</li>"
+            )
+    try:
+        rows = await db.execute(
+            _select(ReplyOpportunity, ReplyTarget.handle)
+            .join(
+                ReplyTarget,
+                ReplyOpportunity.target_id == ReplyTarget.id,
+                isouter=True,
+            )
+            .where(ReplyOpportunity.status.in_(["new", "drafted"]))
+            .order_by(ReplyOpportunity.urgency_score.desc().nullslast())
+            .limit(3),
+        )
+        for opp, handle in rows.all():
+            snip = (opp.post_content or "").strip().replace("\n", " ")[:90]
+            who = f"[{opp.platform}] {handle or ''}".strip()
+            items.append(f"<li>💬 <b>{who}</b>: “{snip}…”</li>")
+    except Exception:  # noqa: BLE001 - digest is best-effort
+        pass
+
+    if not items:
+        return ""
+    return (
+        "<h3>💬 Comment-worthy this week (engage personally)</h3>"
+        "<p>Your <b>personal</b> voice on these beats another scheduled post &mdash; post a "
+        "take on LinkedIn or comment in-thread. (Reply-guy handles routine X/Bluesky replies; "
+        "these are the higher-touch ones worth <em>you</em>.)</p>"
+        f"<ul>{''.join(items)}</ul>"
+    )
+
+
 async def send_campaign_proposal_email(
     db: AsyncSession,
     plan: dict,
@@ -438,12 +486,7 @@ async def send_campaign_proposal_email(
             f"</tr>"
         )
 
-    news_items = ""
-    for hook in plan.get("news_hooks", []):
-        news_items += (
-            f"<li><b>{hook.get('title', '')}</b> "
-            f"&mdash; {hook.get('angle', '')}</li>"
-        )
+    comment_html = await _comment_worthy_html(db, plan)
 
     avoid_items = ", ".join(plan.get("avoid_this_week", []))
     budget = plan.get("budget_estimate_usd", 0)
@@ -467,7 +510,7 @@ async def send_campaign_proposal_email(
         f"<th style='padding:6px;border:1px solid #444'>"
         f"Type</th>"
         f"</tr>{posts_html}</table>"
-        f"<h3>News Hooks</h3><ul>{news_items}</ul>"
+        f"{comment_html}"
         f"<h3>Avoid This Week</h3><p>{avoid_items}</p>"
         f"<h3>Budget Estimate</h3>"
         f"<p>${budget:.2f} USD</p>"
