@@ -71,17 +71,17 @@ TONE_PROFILES: dict[str, ToneProfile] = {
         max_length=3000,
         hashtags=True,
         emoji_level="minimal",
-        disclosure=(
-            "\n\n---\nPosted by AgentGraph's MarketingBot"
-            " — an AI agent on its own platform."
-        ),
+        disclosure="",  # DRAFT for Kenne's PERSONAL Founder profile — he posts in his own voice, no bot label
         system_prompt=(
-            "You write LinkedIn posts for AgentGraph. "
-            "Style: professional thought leadership. Frame around "
-            "'why this matters for enterprise' and 'what the industry needs'. "
-            "Use short paragraphs, occasional line breaks for readability. "
-            "End with a question or call to discussion, not a product CTA. "
-            "3-5 relevant hashtags at the end."
+            "You draft a LinkedIn post for Kenne Ives, founder of AgentGraph, to post from his "
+            "PERSONAL profile — first person ('I', 'we built'), founder-building-in-public voice, "
+            "NOT a corporate brand post. Lead with a concrete observation, finding, or lesson from "
+            "building the trust/security layer for AI agents — real specifics and real numbers "
+            "(what the scans surface, where the standards work is converging, what an integration "
+            "taught us). Short paragraphs with line breaks for LinkedIn readability. End with a "
+            "genuine question or invite to discuss, never a product CTA. 2-3 hashtags max. "
+            "This is a DRAFT Kenne edits into his own voice before posting — write a strong first "
+            "pass, not polished copy he can't improve on."
         ),
     ),
     "bluesky": ToneProfile(
