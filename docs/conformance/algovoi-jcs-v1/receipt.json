@@ -1,0 +1,19 @@
+{
+  "implementor": "AgentGraph (agentgraph-co)",
+  "did": "did:web:agentgraph.co",
+  "canonicalizer": "rfc8785 v0.1.4",
+  "language": "Python",
+  "runtime": "production (src/signing.py canonicalize path)",
+  "corpus": "chopmob-cloud/algovoi-jcs-conformance-vectors",
+  "corpus_commit": "f31f4af55bb6f2b8d5f75722e674687391c52a6f",
+  "corpus_manifest": "0.16.0",
+  "checked_at": "2026-06-22",
+  "anchor_sets_verified": 24,
+  "total_checks": 253,
+  "passed_checks": 253,
+  "byte_match": true,
+  "sha256_match": true,
+  "method": "For every vector carrying an input object plus an expected canonical form (expected_jcs_bytes_b64 / canonical_bytes_utf8 / payload_canonical_json) and/or an expected SHA-256 (canonical_sha256 / *content_sha256 / *_hash), AgentGraph's rfc8785 0.1.4 canonicalizer was run on the input and compared byte-for-byte and digest-for-digest. Adversarial reject vectors are scored on their authoritative expected_* fields; deliberately-stale audit-chain linkage fields (content_hash/prev_hash) are excluded as they are integrity metadata, not canonicalization targets.",
+  "scope_note": "Covers all 24 anchor-set files in the corpus that contain JCS re-canonicalization vectors (CTEF/APS, action_ref family, AP2 open-mandate-hash, settlement/cancellation/refund/compliance receipts, privacy-class, per-chain envelopes, PEF, ZKP receipt, retention chains, adversarial isolation, multichain ed25519 substrate). The RFC 9421 HTTP-message-signature proxy-chain wire fixtures are out of scope (AgentGraph does not implement the RFC 9421 signing-base layer); AgentGraph shares only the JCS RFC 8785 canonicalization substrate, which is what this attestation covers.",
+  "reproduce": "./fetch_vectors.sh && python3 run_conformance.py"
+}

@@ -1,0 +1,3 @@
+# AlgoVoi's vector corpus is fetched on demand (Apache-2.0, pinned in fetch_vectors.sh),
+# not vendored into this repo.
+vectors/
