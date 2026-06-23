@@ -1,0 +1,107 @@
+{
+  "set_name": "agentgraph-static-analysis-v0",
+  "description": "EvidenceAnchor vectors for AgentGraph static-analysis scan attestations. action_ref = SHA-256(JCS({agent_id, action_type, scope, timestamp})) per argentum-core action-ref-v1; the verdict (grade/findings/CVEs) is kept SEPARATE from the preimage so the correlation key is stable across re-scans of the same target. action_type encodes the scanner operation; scope is the MCP server / tool identity.",
+  "canonicalizer": "rfc8785 0.1.4 (RFC 8785 JCS)",
+  "hash_algo": "SHA-256, lowercase hex",
+  "invariants": [
+    "same {agent_id, action_type, scope, timestamp} -> same action_ref (re-scan idempotency)",
+    "different timestamp -> different action_ref (distinct scan event)",
+    "verdict is not in the action_ref preimage (evidence verifiable independently of the key)"
+  ],
+  "vectors": [
+    {
+      "name": "pass_clean_mcp",
+      "expectation": "PASS",
+      "action_ref_preimage": {
+        "agent_id": "did:web:agentgraph.co",
+        "action_type": "static_analysis.scan",
+        "scope": "mcp://github.com/example/clean-mcp-server",
+        "timestamp": "2026-06-23T12:00:00.000Z"
+      },
+      "action_ref": "64e29b6d1ed28c9fbeebbd0c98bdc1a97acaa4b4630371d51d2dede39fdfcc62",
+      "action_ref_canonical_hex": "7b22616374696f6e5f74797065223a227374617469635f616e616c797369732e7363616e222c226167656e745f6964223a226469643a7765623a6167656e7467726170682e636f222c2273636f7065223a226d63703a2f2f6769746875622e636f6d2f6578616d706c652f636c65616e2d6d63702d736572766572222c2274696d657374616d70223a22323032362d30362d32335431323a30303a30302e3030305a227d",
+      "verdict": {
+        "grade": "A",
+        "findings": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "total": 1
+        },
+        "cve_list": [],
+        "outcome": "clean"
+      }
+    },
+    {
+      "name": "fail_critical_mcp",
+      "expectation": "FAIL",
+      "action_ref_preimage": {
+        "agent_id": "did:web:agentgraph.co",
+        "action_type": "static_analysis.scan",
+        "scope": "mcp://github.com/example/leaky-mcp-server",
+        "timestamp": "2026-06-23T12:00:00.000Z"
+      },
+      "action_ref": "daea703a63a24cf16e872800b1d75c44b983caf62e4a2d31281d54fc2e000e2b",
+      "action_ref_canonical_hex": "7b22616374696f6e5f74797065223a227374617469635f616e616c797369732e7363616e222c226167656e745f6964223a226469643a7765623a6167656e7467726170682e636f222c2273636f7065223a226d63703a2f2f6769746875622e636f6d2f6578616d706c652f6c65616b792d6d63702d736572766572222c2274696d657374616d70223a22323032362d30362d32335431323a30303a30302e3030305a227d",
+      "verdict": {
+        "grade": "F",
+        "findings": {
+          "critical": 2,
+          "high": 3,
+          "medium": 4,
+          "total": 9
+        },
+        "cve_list": [
+          "CVE-2026-31000"
+        ],
+        "outcome": "high_or_critical"
+      }
+    },
+    {
+      "name": "rescan_same_target_stable_ref",
+      "expectation": "PASS",
+      "action_ref_preimage": {
+        "agent_id": "did:web:agentgraph.co",
+        "action_type": "static_analysis.scan",
+        "scope": "mcp://github.com/example/clean-mcp-server",
+        "timestamp": "2026-06-23T12:00:00.000Z"
+      },
+      "action_ref": "64e29b6d1ed28c9fbeebbd0c98bdc1a97acaa4b4630371d51d2dede39fdfcc62",
+      "action_ref_canonical_hex": "7b22616374696f6e5f74797065223a227374617469635f616e616c797369732e7363616e222c226167656e745f6964223a226469643a7765623a6167656e7467726170682e636f222c2273636f7065223a226d63703a2f2f6769746875622e636f6d2f6578616d706c652f636c65616e2d6d63702d736572766572222c2274696d657374616d70223a22323032362d30362d32335431323a30303a30302e3030305a227d",
+      "verdict": {
+        "grade": "B",
+        "findings": {
+          "critical": 0,
+          "high": 0,
+          "medium": 2,
+          "total": 2
+        },
+        "cve_list": [],
+        "outcome": "clean"
+      }
+    },
+    {
+      "name": "rescan_later_distinct_ref",
+      "expectation": "PASS",
+      "action_ref_preimage": {
+        "agent_id": "did:web:agentgraph.co",
+        "action_type": "static_analysis.scan",
+        "scope": "mcp://github.com/example/clean-mcp-server",
+        "timestamp": "2026-06-24T12:00:00.000Z"
+      },
+      "action_ref": "f4f27298194d90077b599e9b4c1cd525e4c5859167272745fb0dc042009e2e44",
+      "action_ref_canonical_hex": "7b22616374696f6e5f74797065223a227374617469635f616e616c797369732e7363616e222c226167656e745f6964223a226469643a7765623a6167656e7467726170682e636f222c2273636f7065223a226d63703a2f2f6769746875622e636f6d2f6578616d706c652f636c65616e2d6d63702d736572766572222c2274696d657374616d70223a22323032362d30362d32345431323a30303a30302e3030305a227d",
+      "verdict": {
+        "grade": "A",
+        "findings": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "total": 1
+        },
+        "cve_list": [],
+        "outcome": "clean"
+      }
+    }
+  ]
+}
