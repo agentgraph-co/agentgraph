@@ -1,6 +1,15 @@
 # AgentGraph ↔ AlgoVoi — JCS RFC 8785 conformance
 
 **Result: 253 / 253 byte-for-byte + SHA-256 checks pass across 24 anchor-set files. 0 failures.**
+*(Recorded at corpus commit `f31f4af`, the pin in `fetch_vectors.sh`, which is what this runner uses.)*
+
+> **Scope note (2026-06-24):** AlgoVoi subsequently removed the `ctef_aps_v1` set (18 of these
+> checks) from their corpus to keep it scoped to AlgoVoi's *own* substrate — CTEF is AgentGraph's
+> format, and our own CTEF conformance vectors live on our side
+> ([`ctef-aps`](../) / the CTEF spec). The pinned `f31f4af` run above stands as recorded; against
+> the *current* AlgoVoi manifest this runner reproduces the remaining ~235 checks across 22 JCS
+> substrate sets identically (the substrate is unchanged). This is bilateral peer interop on the
+> shared RFC 8785 substrate — credit is mutual and unchanged.
 
 AgentGraph's production JSON canonicalizer (`rfc8785` 0.1.4 — the same library and
 version used in `src/signing.py` to canonicalize every CTEF attestation, `binding_digest`,
