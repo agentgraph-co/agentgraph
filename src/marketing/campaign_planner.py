@@ -178,16 +178,12 @@ async def _configured_platforms() -> list[str]:
     get a draft generated WITHOUT a posting-API token. Gating those on ``is_configured()``
     silently drops them from the plan (the LinkedIn-drafts bug).
     """
-    from src.marketing.orchestrator import _get_adapters
+    from src.marketing.orchestrator import _get_adapters, _is_manual_review_platform
 
     adapters = _get_adapters()
     eligible: list[str] = []
     for name, adapter in adapters.items():
-        sched = PLATFORM_SCHEDULE.get(name)
-        manual_review = bool(
-            sched and not sched.get("auto_post", True) and sched.get("posts_per_week", 0) > 0
-        )
-        if manual_review or await adapter.is_configured():
+        if _is_manual_review_platform(name) or await adapter.is_configured():
             eligible.append(name)
     return eligible
 

@@ -138,4 +138,5 @@ PLATFORM_SCHEDULE: dict[str, dict] = {
     "hashnode": {"posts_per_week": 0, "auto_post": False, "days": []},  # manual only
     "github_discussions": {"posts_per_week": 0, "auto_post": False, "days": []},  # MCP ban risk
     "telegram": {"posts_per_week": 0, "auto_post": False, "days": []},  # no audience
+    "discord": {"posts_per_week": 0, "auto_post": False, "days": []},  # DISABLED — no audience
 }

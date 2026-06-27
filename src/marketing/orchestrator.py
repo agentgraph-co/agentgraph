@@ -59,6 +59,23 @@ def _is_auto_post(platform: str) -> bool:
     return schedule.get("auto_post", False)
 
 
+def _is_manual_review_platform(platform: str) -> bool:
+    """True only for INTENTIONAL human_review platforms — explicitly scheduled with
+    ``auto_post: False`` and ``posts_per_week > 0`` (e.g. LinkedIn).
+
+    These generate drafts without a posting-API token (a human posts them). This is
+    deliberately strict: an UNLISTED platform (e.g. discord) is NOT a manual-review
+    platform — it still requires a configured adapter — so it can't silently start
+    drafting just because it defaults to human review.
+    """
+    schedule = PLATFORM_SCHEDULE.get(platform)
+    return bool(
+        schedule
+        and not schedule.get("auto_post", True)
+        and schedule.get("posts_per_week", 0) > 0
+    )
+
+
 # Platforms that require human approval.  Now derived from PLATFORM_SCHEDULE
 # for scheduled platforms; all others still require approval by default.
 HUMAN_APPROVAL_PLATFORMS = {
@@ -370,10 +387,10 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
             continue
 
         try:
-            # Auto-post platforms need the posting API configured. human_review/manual
-            # platforms (auto_post=False, e.g. LinkedIn) are posted by hand, so they only
-            # need a draft generated — don't gate them on adapter config.
-            if _is_auto_post(platform_name) and not await adapter.is_configured():
+            # Intentional human_review platforms (LinkedIn) are posted by hand, so they
+            # only need a draft generated — no posting API required. Everything else
+            # (auto-post platforms AND unlisted ones like discord) must be configured.
+            if not _is_manual_review_platform(platform_name) and not await adapter.is_configured():
                 results["skipped"].append(
                     {"platform": platform_name, "reason": "not_configured"},
                 )
