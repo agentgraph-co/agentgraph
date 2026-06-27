@@ -170,15 +170,26 @@ def _parse_json_response(raw: str) -> dict | None:
 
 
 async def _configured_platforms() -> list[str]:
-    """Return names of platforms whose adapters are configured."""
+    """Return platforms eligible for content generation.
+
+    A platform is eligible if its adapter is API-configured (needed to *auto-post*) OR
+    it's a scheduled **human_review/manual** platform (``auto_post: False`` with
+    ``posts_per_week > 0``). The latter — e.g. LinkedIn — is posted by hand, so it must
+    get a draft generated WITHOUT a posting-API token. Gating those on ``is_configured()``
+    silently drops them from the plan (the LinkedIn-drafts bug).
+    """
     from src.marketing.orchestrator import _get_adapters
 
     adapters = _get_adapters()
-    configured: list[str] = []
+    eligible: list[str] = []
     for name, adapter in adapters.items():
-        if await adapter.is_configured():
-            configured.append(name)
-    return configured
+        sched = PLATFORM_SCHEDULE.get(name)
+        manual_review = bool(
+            sched and not sched.get("auto_post", True) and sched.get("posts_per_week", 0) > 0
+        )
+        if manual_review or await adapter.is_configured():
+            eligible.append(name)
+    return eligible
 
 
 async def generate_weekly_plan(
@@ -253,8 +264,8 @@ async def generate_weekly_plan(
         "3. **Bluesky / Twitter** (3 posts/week each): "
         "credibility and presence only — zero reach until we "
         "build followers.\n"
-        "4. **LinkedIn** (1 post/week if configured): "
-        "professional credibility.\n"
+        "4. **LinkedIn** (3 founder-voice drafts/week, Mon/Wed/Fri → human review): "
+        "first-person posts for Kenne's personal profile; professional credibility.\n"
         "5. **Discord** (if configured): community engagement "
         "in existing servers.\n"
         "Allocate posts according to the platform schedule above. "

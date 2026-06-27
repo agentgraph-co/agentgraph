@@ -370,8 +370,10 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
             continue
 
         try:
-            # Check if adapter is configured
-            if not await adapter.is_configured():
+            # Auto-post platforms need the posting API configured. human_review/manual
+            # platforms (auto_post=False, e.g. LinkedIn) are posted by hand, so they only
+            # need a draft generated — don't gate them on adapter config.
+            if _is_auto_post(platform_name) and not await adapter.is_configured():
                 results["skipped"].append(
                     {"platform": platform_name, "reason": "not_configured"},
                 )
