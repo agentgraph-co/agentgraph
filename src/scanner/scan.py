@@ -5,6 +5,7 @@ Designed to run against the recruitment_prospects table of discovered repos.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -112,6 +113,10 @@ class ScanResult:
     category_scores: dict[str, int] = field(default_factory=dict)  # per-category 0-100
     is_mcp_server: bool = False  # context-aware: MCP servers have expected tool patterns
     is_media_tool: bool = False  # context-aware: audio/TTS/video tools have expected fs patterns
+    # #8 tool-definition pinning: canonical digest per agent/tool manifest, so a re-scan
+    # can prove a tool definition drifted (rug-pull) even if the code still scans clean.
+    tool_digests: dict[str, str] = field(default_factory=dict)  # path -> "sha256:..."
+    tool_manifest_digest: str | None = None  # combined digest folded into the attestation
     error: str | None = None
 
     @property
@@ -1044,6 +1049,38 @@ def _scan_install_hooks(content: str, file_path: str) -> list[Finding]:
     return findings
 
 
+def _canonical_tool_digest(content: str, file_path: str) -> str | None:
+    """#8 — canonical sha256 of an agent/tool definition file, for drift-pinning.
+
+    Returns None for non-metadata files. JSON manifests (mcp.json/server.json/
+    ai-plugin.json) are canonicalized (sorted keys, no whitespace) so reformatting
+    is NOT drift — only a semantic change to the tool definition is. Markdown/text
+    (SKILL.md, agents.md) is line-normalized (strip trailing ws, collapse blank ends).
+    """
+    name = Path(file_path).name.lower()
+    if name not in AGENT_METADATA_FILES:
+        return None
+    if name.endswith(".json"):
+        try:
+            obj = json.loads(content)
+            canon = json.dumps(
+                obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            )
+        except (ValueError, TypeError):
+            canon = "\n".join(ln.rstrip() for ln in content.splitlines())
+    else:
+        canon = "\n".join(ln.rstrip() for ln in content.splitlines()).strip("\n")
+    return "sha256:" + hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _compute_manifest_digest(tool_digests: dict[str, str]) -> str | None:
+    """Combine per-file tool digests into one manifest digest for the attestation."""
+    if not tool_digests:
+        return None
+    joined = "\n".join(f"{p}={tool_digests[p]}" for p in sorted(tool_digests))
+    return "sha256:" + hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
 def _calculate_trust_score(result: ScanResult) -> int:
     """Calculate a trust score (0-100) based on findings and signals.
 
@@ -1322,7 +1359,7 @@ async def scan_repo(
         sem = asyncio.Semaphore(scan_concurrency)
 
         async def _scan_one(item: dict) -> tuple:
-            """Fetch and scan a single file. Returns (findings, positives, suppressed)."""
+            """Fetch and scan a file. Returns (findings, positives, suppressed, digest)."""
             path = item["path"]
             try:
                 async with sem:
@@ -1331,20 +1368,24 @@ async def scan_repo(
                         timeout=per_file_timeout,
                     )
                 if not content:
-                    return [], [], 0
+                    return [], [], 0, None
                 f, p, s = _scan_content(content, path, allowlist)
-                return f, p, s
+                return f, p, s, (path, _canonical_tool_digest(content, path))
             except (asyncio.TimeoutError, Exception):
-                return [], [], 0
+                return [], [], 0, None
 
         tasks = [_scan_one(item) for item in scan_files]
         scan_results = await asyncio.gather(*tasks)
 
-        for findings_list, positives_list, suppressed in scan_results:
+        for findings_list, positives_list, suppressed, digest in scan_results:
             result.files_scanned += 1
             result.findings.extend(findings_list)
             result.positive_signals.extend(positives_list)
             result.suppressed_count += suppressed
+            if digest and digest[1]:
+                result.tool_digests[digest[0]] = digest[1]
+
+        result.tool_manifest_digest = _compute_manifest_digest(result.tool_digests)
 
         # --- Dependency vulnerability scanning ---
         dep_file_names = {f.lower() for f in _DEP_FILES}

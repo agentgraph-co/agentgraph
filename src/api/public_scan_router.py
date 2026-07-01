@@ -134,6 +134,10 @@ class PublicScanResponse(BaseModel):
     metadata: ScanMetadata
     scanned_at: str
     cached: bool = False
+    # #8 tool-definition pinning — signed into the JWS `scan` block
+    tool_manifest_digest: str | None = None
+    tool_digests: dict[str, str] = {}
+    tool_drift: dict | None = None  # digest diff vs the previous scan (rug-pull signal)
     jws: str  # Signed attestation (EdDSA, RFC 7515)
     algorithm: str = "EdDSA"
     key_id: str = KID
@@ -300,7 +304,7 @@ async def _build_scan_envelope(
     return sign_envelope(unsigned, get_trust_v2_signing_key(), vm)
 
 
-def _build_scan_payload(repo: str, result_data: dict) -> dict:
+def _build_scan_payload(repo: str, result_data: dict, drift: dict | None = None) -> dict:
     """Build the JWS attestation payload for a public scan.
 
     Timestamps follow the insumer WG convention:
@@ -308,9 +312,27 @@ def _build_scan_payload(repo: str, result_data: dict) -> dict:
     - issuedAt:  when this JWS attestation was minted (signature freshness)
     - expiresAt: when the attestation expires (24h TTL)
     Consumers can diff scannedAt vs issuedAt to assess evidence staleness.
+
+    #8: the signed ``scan`` block pins ``toolManifestDigest`` + per-file
+    ``toolDigests`` (canonical hashes of the tool/skill/MCP definitions). A
+    consumer who saved a prior attestation can prove drift by diffing the digest
+    — the tool definition changed after it was trusted (rug-pull), even if the
+    code still scans clean. ``toolDrift`` records drift vs the previous scan.
     """
     now = datetime.now(timezone.utc)
-    return {
+    scan_block = {
+        "trustScore": result_data["trust_score"],
+        "trustTier": result_data["trust_tier"],
+        "result": result_data["scan_result"],
+        "findings": result_data["findings"],
+        "positiveSignals": result_data["positive_signals"],
+        "filesScanned": result_data["metadata"]["files_scanned"],
+        "primaryLanguage": result_data["metadata"]["primary_language"],
+        "categoryScores": result_data.get("category_scores", {}),
+        "toolManifestDigest": result_data.get("tool_manifest_digest"),
+        "toolDigests": result_data.get("tool_digests", {}),
+    }
+    payload = {
         "@context": "https://schema.agentgraph.co/attestation/security/v1",
         "type": "SecurityPostureAttestation",
         "issuer": {
@@ -325,18 +347,12 @@ def _build_scan_payload(repo: str, result_data: dict) -> dict:
         "scannedAt": result_data.get("scanned_at", now.isoformat()),
         "issuedAt": now.isoformat(),
         "expiresAt": (now + timedelta(hours=24)).isoformat(),
-        "scan": {
-            "trustScore": result_data["trust_score"],
-            "trustTier": result_data["trust_tier"],
-            "result": result_data["scan_result"],
-            "findings": result_data["findings"],
-            "positiveSignals": result_data["positive_signals"],
-            "filesScanned": result_data["metadata"]["files_scanned"],
-            "primaryLanguage": result_data["metadata"]["primary_language"],
-            "categoryScores": result_data.get("category_scores", {}),
-        },
+        "scan": scan_block,
         "recommendedLimits": result_data["recommended_limits"],
     }
+    if drift:
+        payload["toolDrift"] = drift
+    return payload
 
 
 def _scan_result_to_dict(result: object) -> dict:
@@ -379,7 +395,40 @@ def _scan_result_to_dict(result: object) -> dict:
             "is_mcp_server": getattr(result, "is_mcp_server", False),
         },
         "category_scores": getattr(result, "category_scores", {}),
+        "tool_digests": getattr(result, "tool_digests", {}) or {},
+        "tool_manifest_digest": getattr(result, "tool_manifest_digest", None),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _compute_tool_drift(old: dict | None, new: dict) -> dict | None:
+    """#8 — diff pinned tool digests between the previous scan and this one.
+
+    A changed digest means a tool/skill/manifest definition was altered after it was
+    last attested — the rug-pull signal, even when the code still scans clean. Returns
+    None when there's no prior scan or nothing changed.
+    """
+    if not old:
+        return None
+    old_digests = old.get("tool_digests") or {}
+    new_digests = new.get("tool_digests") or {}
+    if not old_digests and not new_digests:
+        return None
+    changed = sorted(
+        p for p in old_digests.keys() & new_digests.keys()
+        if old_digests[p] != new_digests[p]
+    )
+    added = sorted(new_digests.keys() - old_digests.keys())
+    removed = sorted(old_digests.keys() - new_digests.keys())
+    if not (changed or added or removed):
+        return None
+    return {
+        "drift_detected": bool(changed or removed),  # added-only = new tool, not drift
+        "changed": changed,
+        "added": added,
+        "removed": removed,
+        "previous_manifest_digest": old.get("tool_manifest_digest"),
+        "previous_scanned_at": old.get("scanned_at"),
     }
 
 
@@ -526,6 +575,8 @@ async def public_scan(
                 scanned_at=cached["scanned_at"],
                 cached=True,
                 jws=jws,
+                tool_manifest_digest=cached.get("tool_manifest_digest"),
+                tool_digests=cached.get("tool_digests", {}),
                 entity_trust=entity_trust,
                 trust_envelope=trust_envelope,
             )
@@ -573,8 +624,11 @@ async def public_scan(
         except Exception:
             logger.debug("Failed to dispatch scan-change webhook for %s", full_name)
 
+    # #8 — detect tool-definition drift vs the previous scan (rug-pull signal)
+    drift = _compute_tool_drift(old_cached, data)
+
     # Sign (JCS-canonical payload for cross-implementation verification)
-    payload = _build_scan_payload(full_name, data)
+    payload = _build_scan_payload(full_name, data, drift)
     payload_bytes = canonicalize(payload)
     jws = create_jws(payload_bytes)
 
@@ -596,6 +650,9 @@ async def public_scan(
         scanned_at=data["scanned_at"],
         cached=False,
         jws=jws,
+        tool_manifest_digest=data.get("tool_manifest_digest"),
+        tool_digests=data.get("tool_digests", {}),
+        tool_drift=drift,
         entity_trust=entity_trust,
         trust_envelope=trust_envelope,
     )
