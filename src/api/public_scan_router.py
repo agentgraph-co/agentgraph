@@ -74,6 +74,17 @@ def _compute_tier(score: int) -> dict:
 
 # ── Response Models ──────────────────────────────────────────────────────
 
+class ScanFinding(BaseModel):
+    """One individual finding surfaced in the public scan response (no raw snippet)."""
+
+    category: str
+    name: str
+    severity: str  # critical | high | medium | low
+    file_path: str
+    line_number: int
+    remediation: str = ""
+
+
 class FindingsSummary(BaseModel):
     critical: int = 0
     high: int = 0
@@ -81,6 +92,7 @@ class FindingsSummary(BaseModel):
     total: int = 0
     categories: dict[str, int] = {}
     suppressed_lines: int = 0  # Lines with ag-scan:ignore — transparency
+    items: list[ScanFinding] = []  # individual findings (capped, severity-sorted)
 
 
 class RecommendedLimits(BaseModel):
@@ -370,6 +382,21 @@ def _scan_result_to_dict(result: object) -> dict:
     for f in result.findings:
         categories[f.category] = categories.get(f.category, 0) + 1
 
+    # Individual findings — severity-sorted, capped, NO raw snippet (avoid leaking any
+    # matched secret value into the public API; file_path + line_number are public).
+    _sev_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    finding_items = [
+        {
+            "category": f.category,
+            "name": f.name,
+            "severity": f.severity,
+            "file_path": f.file_path,
+            "line_number": f.line_number,
+            "remediation": f.remediation or "",
+        }
+        for f in sorted(result.findings, key=lambda x: _sev_rank.get(x.severity, 5))
+    ][:100]
+
     tier_info = _compute_tier(result.trust_score)
 
     return {
@@ -384,6 +411,7 @@ def _scan_result_to_dict(result: object) -> dict:
             "total": len(result.findings),
             "categories": categories,
             "suppressed_lines": result.suppressed_count,
+            "items": finding_items,
         },
         "positive_signals": list(set(result.positive_signals)),
         "metadata": {

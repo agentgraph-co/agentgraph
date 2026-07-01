@@ -16,13 +16,19 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import SEOHead from '../components/SEOHead'
 import { PageTransition } from '../components/Motion'
-import { scoreToGrade, getGradeInfo } from '../components/trust/gradeSystem'
+import { scoreToGrade, getGradeInfo, type LetterGrade } from '../components/trust/gradeSystem'
+import { getCategoryInfo, SUBSCORE_LABELS, SUBSCORE_ORDER, type ScoreFamily } from '../components/trust/scanCategories'
 import TrustEnvelopePanel, { type TrustEnvelope } from '../components/trust/TrustEnvelopePanel'
 import GradeCard from '../components/check/GradeCard'
 import SafetySummary from '../components/check/SafetySummary'
 import FindingsPanel from '../components/check/FindingsPanel'
 import ScanHistoryPanel from '../components/check/ScanHistoryPanel'
+import ToolIntegrityPanel from '../components/check/ToolIntegrityPanel'
+import AttestationPanel from '../components/check/AttestationPanel'
+import ScanFactsPanel from '../components/check/ScanFactsPanel'
 import ShareCard from '../components/check/ShareCard'
+import { fetchPublicScan, fetchWalletScan, badgeUrl as buildBadgeUrl, publicApi } from '../lib/scanApi'
+import type { RecommendedLimits, ScanMetadata, ToolDrift } from '../types/scan'
 import { Pulse } from '../components/Skeleton'
 
 // ─── Types ───
@@ -58,6 +64,20 @@ interface ScanResult {
   cached: boolean
   provider_count?: number
   trust_envelope?: TrustEnvelope | null
+  // Full API surface (audit fix — previously dropped)
+  positive_signals?: string[]
+  trust_tier?: string
+  recommended_limits?: RecommendedLimits
+  metadata?: ScanMetadata
+  suppressed_lines?: number
+  tool_manifest_digest?: string | null
+  tool_digests?: Record<string, string>
+  tool_drift?: ToolDrift | null
+  jws?: string
+  key_id?: string
+  algorithm?: string
+  jwks_url?: string
+  entity_trust?: Record<string, unknown> | null
 }
 
 interface SearchEntity {
@@ -72,14 +92,20 @@ interface SearchEntity {
 // ─── Input Parsing ───
 
 interface ParsedInput {
-  type: 'github_url' | 'owner_repo' | 'search'
+  type: 'github_url' | 'owner_repo' | 'search' | 'wallet'
   owner?: string
   repo?: string
   query?: string
+  wallet?: string
 }
 
 function parseInput(raw: string): ParsedInput {
   const trimmed = raw.trim()
+
+  // Wallet address (0x + 40 hex) — resolve to the linked agent's repo scan
+  if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return { type: 'wallet', wallet: trimmed }
+  }
 
   // GitHub URL: https://github.com/owner/repo or github.com/owner/repo
   const ghUrlMatch = trimmed.match(
@@ -98,14 +124,6 @@ function parseInput(raw: string): ParsedInput {
   // Anything else is a name/search query
   return { type: 'search', query: trimmed }
 }
-
-// ─── API client (public, no auth needed) ───
-
-const publicApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 30_000, // scans can take a while
-})
 
 // ─── Trust Dimensions (consumer-friendly icons) ───
 
@@ -330,25 +348,43 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
   const { data: scan, isLoading, isError, error } = useQuery<ScanResult>({
     queryKey: ['public-scan', owner, repo],
     queryFn: async () => {
-      const { data } = await publicApi.get(`/public/scan/${owner}/${repo}`)
-      // Map API response fields to component interface
+      const data = await fetchPublicScan(owner, repo)
       const findings = data.findings || {}
       const catScores = data.category_scores || {}
+      const items = findings.items ?? []
+
+      // Per-family finding counts (map the 12 threat categories into the 5 sub-score axes)
+      const familyCounts: Partial<Record<ScoreFamily, number>> = {}
+      Object.entries(findings.categories ?? {}).forEach(([key, count]) => {
+        const fam = getCategoryInfo(key).family
+        familyCounts[fam] = (familyCounts[fam] ?? 0) + (count as number)
+      })
+
       return {
         ...data,
+        owner,
+        repo,
         overall_score: data.trust_score ?? data.security_score ?? 0,
         grade: scoreToGrade(data.trust_score ?? data.security_score ?? 0),
         total_findings: findings.total ?? 0,
         critical_findings: findings.critical ?? 0,
         high_findings: findings.high ?? 0,
         medium_findings: findings.medium ?? 0,
-        low_findings: findings.low ?? 0,
-        categories: Object.entries(catScores).map(([name, score]) => ({
-          name,
-          score: score as number,
-          finding_count: 0,
+        low_findings: (findings as { low?: number }).low ?? 0,
+        categories: SUBSCORE_ORDER.filter((fam) => fam in catScores).map((fam) => ({
+          name: SUBSCORE_LABELS[fam],
+          score: (catScores as Record<string, number>)[fam],
+          finding_count: familyCounts[fam] ?? 0,
         })),
-        top_findings: [],
+        top_findings: items.map((it) => ({
+          severity: it.severity,
+          category: it.category,
+          description: it.name,
+          file_path: it.file_path,
+          line: it.line_number,
+          remediation: it.remediation,
+        })),
+        suppressed_lines: findings.suppressed_lines ?? 0,
         provider_count: 1,
       } as ScanResult
     },
@@ -388,13 +424,19 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
   if (!scan) return null
 
   // When entity exists on AgentGraph, use composite score as primary
-  const entityTrust = (scan as any).entity_trust
+  const entityTrust = scan.entity_trust as {
+    imported?: boolean
+    composite_score?: number
+    grade?: string
+    entity_id?: string
+  } | null | undefined
   const isOnAgentGraph = entityTrust?.imported === true
   const securityScore = Math.round(scan.overall_score)
-  const score = isOnAgentGraph ? Math.round(entityTrust.composite_score) : securityScore
-  const grade = isOnAgentGraph ? (entityTrust.grade || scoreToGrade(score)) : scoreToGrade(score)
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-  const badgeUrl = `${window.location.origin}${baseUrl}/public/scan/${owner}/${repo}/badge`
+  const score = isOnAgentGraph ? Math.round(entityTrust?.composite_score ?? 0) : securityScore
+  const grade: LetterGrade = isOnAgentGraph
+    ? ((entityTrust?.grade as LetterGrade) || scoreToGrade(score))
+    : scoreToGrade(score)
+  const badgeUrl = buildBadgeUrl(owner, repo)
   const checkUrl = `https://agentgraph.co/check/${owner}/${repo}`
   const ogImageUrl = `https://agentgraph.co/api/v1/public/scan/${owner}/${repo}/og-image`
 
@@ -447,6 +489,14 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           totalFindings={scan.total_findings}
           criticalFindings={scan.critical_findings}
           providerCount={isOnAgentGraph ? 3 : (scan.provider_count ?? 1)}
+        />
+
+        {/* Tool-definition pinning + drift (#8) — the rug-pull signal. High in the
+            view because a drift warning is the most urgent thing a user can see. */}
+        <ToolIntegrityPanel
+          manifestDigest={scan.tool_manifest_digest}
+          digests={scan.tool_digests}
+          drift={scan.tool_drift}
         />
 
         {/* Trust Score v2 — signed, verifiable methodology (design §5.2) */}
@@ -529,7 +579,16 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           </div>
         )}
 
-        {/* Developer Details (expandable) */}
+        {/* Good practices, recommended limits, scan facts */}
+        <ScanFactsPanel
+          positiveSignals={scan.positive_signals}
+          trustTier={scan.trust_tier}
+          limits={scan.recommended_limits}
+          metadata={scan.metadata}
+          suppressedLines={scan.suppressed_lines}
+        />
+
+        {/* Developer Details (expandable) — real findings + threat breakdown */}
         <FindingsPanel
           categories={scan.categories ?? []}
           findings={scan.top_findings ?? []}
@@ -537,6 +596,16 @@ function ScanResultView({ owner, repo }: { owner: string; repo: string }) {
           repo={repo}
           badgeUrl={badgeUrl}
           checkUrl={checkUrl}
+        />
+
+        {/* Signed, verifiable attestation */}
+        <AttestationPanel
+          jws={scan.jws}
+          keyId={scan.key_id}
+          algorithm={scan.algorithm}
+          jwksUrl={scan.jwks_url}
+          owner={owner}
+          repo={repo}
         />
 
         {/* Living-record history — score timeline + framework scan badges */}
@@ -584,6 +653,7 @@ export default function Check() {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [walletStatus, setWalletStatus] = useState<'idle' | 'loading' | 'notfound'>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
   const hasResult = !!(owner && repo)
 
@@ -603,7 +673,25 @@ export default function Check() {
       navigate(`/check/${parsed.owner}/${parsed.repo}`)
       setInput('')
       setSearchQuery('')
+    } else if (parsed.type === 'wallet') {
+      // Resolve a wallet address to the linked agent's repo, then scan it
+      setWalletStatus('loading')
+      setSearchQuery('')
+      fetchWalletScan(parsed.wallet!)
+        .then((res) => {
+          const repoSlug = res.scan?.repo
+          if (res.found && repoSlug && repoSlug.includes('/')) {
+            const [o, r] = repoSlug.split('/')
+            setWalletStatus('idle')
+            setInput('')
+            navigate(`/check/${o}/${r}`)
+          } else {
+            setWalletStatus('notfound')
+          }
+        })
+        .catch(() => setWalletStatus('notfound'))
     } else {
+      setWalletStatus('idle')
       setSearchQuery(parsed.query ?? '')
     }
   }
@@ -648,7 +736,7 @@ export default function Check() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="owner/repo, package name, or agent name..."
+              placeholder="owner/repo, package, agent name, or 0x wallet..."
               aria-label="Check an agent"
               className="w-full bg-surface border border-border rounded-lg pl-6 pr-28 py-4 sm:py-5 text-text focus:outline-none focus:border-primary text-base sm:text-lg"
             />
@@ -672,6 +760,17 @@ export default function Check() {
       {/* Result or Search */}
       {hasResult ? (
         <ScanResultView owner={owner} repo={repo} />
+      ) : walletStatus === 'loading' ? (
+        <div className="text-center py-10 text-sm text-text-muted">
+          Resolving wallet to its linked agent…
+        </div>
+      ) : walletStatus === 'notfound' ? (
+        <div className="text-center py-10">
+          <p className="text-sm text-text-primary mb-1">No agent linked to that wallet</p>
+          <p className="text-xs text-text-muted">
+            This wallet isn&rsquo;t mapped to an imported agent yet. Try a GitHub repo or agent name.
+          </p>
+        </div>
       ) : searchQuery ? (
         <SearchResults query={searchQuery} />
       ) : (

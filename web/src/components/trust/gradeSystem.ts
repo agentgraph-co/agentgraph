@@ -194,15 +194,20 @@ export interface SecuritySubScores {
   code_safety: number
   data_handling: number
   filesystem_access: number
+  dependency_health?: number
 }
 
 export function getSecuritySubGrades(scores: SecuritySubScores): Record<string, GradeInfo> {
-  return {
+  const grades: Record<string, GradeInfo> = {
     'Secret Hygiene': getGradeInfo(scores.secret_hygiene),
     'Code Safety': getGradeInfo(scores.code_safety),
     'Data Handling': getGradeInfo(scores.data_handling),
     'Filesystem Access': getGradeInfo(scores.filesystem_access),
   }
+  if (scores.dependency_health != null) {
+    grades['Dependency Health'] = getGradeInfo(scores.dependency_health)
+  }
+  return grades
 }
 
 // ─── Dimension Reasons (one-line explanations) ───

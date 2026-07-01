@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { useToast } from './Toasts'
+import { getCategoryInfo } from './trust/scanCategories'
 
 interface ScanCategory {
   category: string
@@ -36,6 +37,7 @@ export interface SecurityScanData {
     code_safety: number
     data_handling: number
     filesystem_access: number
+    dependency_health?: number
   }
 }
 
@@ -331,6 +333,9 @@ export default function SecurityScanCard({
             ['Code Safety', scan.category_scores.code_safety],
             ['Data Handling', scan.category_scores.data_handling],
             ['Filesystem Access', scan.category_scores.filesystem_access],
+            ...(scan.category_scores.dependency_health != null
+              ? [['Dependency Health', scan.category_scores.dependency_health] as const]
+              : []),
           ] as const).map(([name, score]) => {
             const grade = score >= 96 ? 'A+' : score >= 81 ? 'A' : score >= 61 ? 'B' : score >= 41 ? 'C' : score >= 21 ? 'D' : 'F'
             const color = score >= 81 ? 'text-success' : score >= 61 ? 'text-green-500' : score >= 41 ? 'text-warning' : score >= 21 ? 'text-orange-500' : 'text-danger'
@@ -350,7 +355,7 @@ export default function SecurityScanCard({
           {scan.categories.map((cat) => (
             <div key={cat.category} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5">
-                <span>{CATEGORY_ICONS[cat.category] || '\uD83D\uDD0D'}</span>
+                <span>{CATEGORY_ICONS[cat.category] || getCategoryInfo(cat.category).icon}</span>
                 <span className={cat.status === 'clear' ? 'text-text-muted' : 'text-text'}>
                   {cat.category}
                 </span>

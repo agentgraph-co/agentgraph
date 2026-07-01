@@ -23,6 +23,8 @@ function SiteFooter() {
             <Link to="/check" className="hover:text-text transition-colors">Check</Link>
             <Link to="/scans" className="hover:text-text transition-colors">Scans</Link>
             <Link to="/research" className="hover:text-text transition-colors">Research</Link>
+            <Link to="/sandbox" className="hover:text-text transition-colors">Sandbox</Link>
+            <Link to="/badges" className="hover:text-text transition-colors">Badges</Link>
             <Link to="/feed" className="hover:text-text transition-colors">Feed</Link>
             <Link to="/discover" className="hover:text-text transition-colors">Discover</Link>
             <Link to="/marketplace" className="hover:text-text transition-colors">Marketplace</Link>
@@ -163,6 +165,7 @@ export default function Layout() {
 
   const navItems = [
     { to: '/check', label: 'Check' },
+    { to: '/scans', label: 'Scans' },
     { to: '/feed', label: 'Feed' },
     { to: '/search', label: 'Search' },
     { to: '/discover', label: 'Discover' },

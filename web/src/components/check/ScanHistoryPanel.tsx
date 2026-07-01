@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
+import { publicApi } from '../../lib/scanApi'
 
 interface ScoreTimelinePoint {
   recorded_at: string
@@ -19,12 +19,6 @@ interface ScanHistoryResponse {
   score_timeline: ScoreTimelinePoint[]
   framework_scans: FrameworkScanItem[]
 }
-
-const publicApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 15_000,
-})
 
 interface Props {
   owner: string

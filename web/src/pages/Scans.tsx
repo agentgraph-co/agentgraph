@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import axios from 'axios'
 import { Link } from 'react-router-dom'
+import { publicApi } from '../lib/scanApi'
 
 type Surface = 'x402' | 'mcp' | 'npm' | 'pypi' | 'openclaw'
 type Severity = 'critical' | 'high' | 'clean' | 'skipped'
@@ -45,12 +45,6 @@ interface CatalogResponse {
   limit: number
   surfaces: string[]
 }
-
-const publicApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 30_000,
-})
 
 const PAGE_SIZE = 50
 

@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { getGradeInfo, scoreToGrade } from '../trust/gradeSystem'
+import { getCategoryInfo } from '../trust/scanCategories'
 
 interface Finding {
   severity: string
@@ -88,6 +89,17 @@ export default function FindingsPanel({
 
   const displayFindings = showAllFindings ? sortedFindings : sortedFindings.slice(0, 5)
 
+  // Group findings by threat category (the 12-category granularity) for an
+  // at-a-glance "what kind of threats" summary — e.g. Rug-Pull ×9, Prompt Injection ×2.
+  const threatGroups = Object.entries(
+    findings.reduce<Record<string, number>>((acc, f) => {
+      acc[f.category] = (acc[f.category] ?? 0) + 1
+      return acc
+    }, {}),
+  )
+    .map(([key, count]) => ({ info: getCategoryInfo(key), count }))
+    .sort((a, b) => b.count - a.count)
+
   const badgeMarkdown = `[![AgentGraph Trust Score](${badgeUrl})](${checkUrl})`
   const ciYaml = `# Add to .github/workflows/trust-scan.yml
 name: Trust Scan
@@ -120,6 +132,28 @@ jobs:
 
       {expanded && (
         <div className="px-4 pb-4 space-y-5 border-t border-border">
+          {/* Threats detected — grouped by category with registry labels/icons */}
+          {threatGroups.length > 0 && (
+            <div className="pt-4">
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+                Threats Detected
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {threatGroups.map(({ info, count }) => (
+                  <span
+                    key={info.key}
+                    title={info.description}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border px-2.5 py-1 text-xs text-text-primary"
+                  >
+                    <span aria-hidden="true">{info.icon}</span>
+                    {info.label}
+                    <span className="tabular-nums text-text-muted">×{count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Category Scores */}
           {categories.length > 0 && (
             <div className="pt-4">
@@ -159,12 +193,17 @@ jobs:
                 Findings ({sortedFindings.length})
               </h3>
               <div className="space-y-2">
-                {displayFindings.map((f, i) => (
+                {displayFindings.map((f, i) => {
+                  const cat = getCategoryInfo(f.category)
+                  return (
                   <div key={i} className="bg-background rounded-lg px-3 py-2">
                     <div className="flex items-start gap-2">
                       <SeverityBadge severity={f.severity} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-text-primary">{f.description}</p>
+                        <p className="text-[11px] text-text-muted mt-0.5">
+                          <span aria-hidden="true">{cat.icon}</span> {cat.label}
+                        </p>
                         {f.file_path && (
                           <p className="text-xs text-text-muted font-mono mt-0.5 truncate">
                             {f.file_path}{f.line ? `:${f.line}` : ''}
@@ -176,7 +215,8 @@ jobs:
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
               {sortedFindings.length > 5 && !showAllFindings && (
                 <button
