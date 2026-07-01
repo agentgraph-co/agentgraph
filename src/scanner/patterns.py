@@ -290,6 +290,50 @@ EXEC_SINK_RE = re.compile(
     r"""(?:pickle|marshal)\.loads?\s*\(|importlib\.""",
 )
 
+# --- Toxic-flow / capability composition (#9) — the "lethal trifecta" ---
+# category="toxic_flow". Individually-benign capabilities that compose into an attack
+# chain. The canonical agent threat (Willison's "lethal trifecta"; Invariant Labs' GitHub
+# MCP exploit): a tool that (1) reads PRIVATE DATA, (2) ingests UNTRUSTED CONTENT, and (3)
+# can SEND OUTBOUND is a prompt-injection→exfiltration chain even if each part is fine.
+# We require all three legs present in one file (= one tool) to keep precision high — a
+# pure API wrapper with no untrusted-content ingestion does NOT trigger. NOT discounted
+# for MCP servers: the GitHub-MCP trifecta is a real documented attack, not a capability.
+
+# Leg 1a — high-confidence private-data read (env / credential files / keychain)
+SENSITIVE_READ_RE = re.compile(
+    r"""os\.environ|os\.getenv\s*\(|\bgetenv\s*\(|process\.env\b|"""
+    r"""["'][^"'\n]*(?:\.ssh/|\.aws/credentials|\.aws/config|\.netrc|id_rsa|/\.env\b|\.pem\b)|"""
+    r"""keyring\.get_password|\bkeychain\b|SecItemCopy|CredentialCache""",
+    re.IGNORECASE,
+)
+# Leg 1b — generic file/listing read (weaker private-data signal → lower severity)
+FILE_READ_RE = re.compile(
+    r"""open\s*\([^)]*\)\s*\.?\s*read|\.read_text\s*\(|\.read_bytes\s*\(|"""
+    r"""fs\.readFile(?:Sync)?\s*\(|\breadFileSync\s*\(|"""
+    r"""\bglob\.glob\s*\(|os\.listdir\s*\(|os\.walk\s*\(""",
+)
+# Leg 2 — untrusted/attacker-influenceable INBOUND input (fetched content or request
+# body). Deliberately excludes requests.post/put (those are OUTBOUND, leg 3) so a plain
+# API-wrapper POST cannot masquerade as the untrusted-input leg.
+UNTRUSTED_INPUT_RE = re.compile(
+    r"""requests\.get\b|httpx\.get\b|urllib\.request\.urlopen|urlopen\s*\(|"""
+    r"""\bfetch\s*\(|axios\.get\b|"""
+    r"""request\.(?:json|body|args|form|data|files|params|values)|req\.(?:body|query|params)|"""
+    r"""\bwebhook\b""",
+    re.IGNORECASE,
+)
+# Leg 3 — outbound send (data leaves the tool)
+OUTBOUND_SEND_RE = re.compile(
+    r"""requests\.(?:post|put|patch)\s*\(|httpx\.(?:post|put|patch)\s*\(|"""
+    r"""axios\.(?:post|put)\s*\(|fetch\s*\([^)]*(?:method\s*[:=]\s*['"]POST|['"]POST['"])|"""
+    r"""\bsmtplib\b|\bsendmail\b|\.send(?:_message)?\s*\(|"""
+    r"""socket\.(?:send|sendto|connect)\s*\(|"""
+    r"""(?:slack|discord|telegram)[._]\w*(?:send|post|message|webhook)|"""
+    r"""boto3[^\n]*put_object|\.upload_file\s*\(|"""
+    r"""dns\.resolver|socket\.gethostbyname""",
+    re.IGNORECASE,
+)
+
 # --- Insecure deserialization (#7) ---
 # category="insecure_deserialization". Deserializing untrusted data with a format that
 # can construct arbitrary objects = RCE. Distinct from unsafe_exec (NOT discounted for

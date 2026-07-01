@@ -21,6 +21,7 @@ from src.scanner.patterns import (
     EXEC_SINK_RE,
     EXFILTRATION_PATTERNS,
     EXTENSIONLESS_SCAN_FILES,
+    FILE_READ_RE,
     FS_ACCESS_PATTERNS,
     INSECURE_DESERIALIZATION_PATTERNS,
     INSTALL_SCRIPT_DANGER_RE,
@@ -29,12 +30,15 @@ from src.scanner.patterns import (
     NET_READ_RE,
     NPM_INSTALL_HOOKS,
     OBFUSCATION_PATTERNS,
+    OUTBOUND_SEND_RE,
     PROMPT_INJECTION_PATTERNS,
     SECRET_PATTERNS,
+    SENSITIVE_READ_RE,
     SKIP_DIRS,
     SKIP_EXTENSIONS,
     SOURCE_EXTENSIONS,
     UNSAFE_EXEC_PATTERNS,
+    UNTRUSTED_INPUT_RE,
 )
 
 # Inline suppression marker — append to any line to skip scanning it
@@ -76,6 +80,11 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "install_hook": (
         "Audit npm pre/post-install lifecycle scripts — they auto-run on `npm install` "
         "and are a top supply-chain vector; avoid fetching/executing remote content there"
+    ),
+    "toxic_flow": (
+        "This tool combines private-data access, untrusted-input ingestion, and outbound "
+        "send — the prompt-injection→exfiltration chain. Isolate the capabilities: don't "
+        "let untrusted content reach an outbound path that can carry secrets"
     ),
 }
 
@@ -910,6 +919,9 @@ def _scan_content(
     if is_metadata and Path(file_path).name.lower().endswith(".json"):
         findings.extend(_scan_manifest_exec(content, file_path))
 
+    # Toxic-flow / lethal-trifecta composition (#9) — whole-file capability co-occurrence
+    findings.extend(_composite_findings(content, file_path, lines, is_test_or_doc, allowlist))
+
     # Add remediation hints to all findings
     for f in findings:
         if not f.remediation:
@@ -1081,6 +1093,70 @@ def _compute_manifest_digest(tool_digests: dict[str, str]) -> str | None:
     return "sha256:" + hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+def _composite_findings(
+    content: str,
+    file_path: str,
+    lines: list[str],
+    is_test_or_doc: bool,
+    allowlist: object,
+) -> list[Finding]:
+    """#9 — the lethal trifecta: private-data read + untrusted input + outbound send.
+
+    Each capability is benign alone; together in one tool they form the prompt-injection
+    → exfiltration chain (Willison's "lethal trifecta"; the Invariant GitHub-MCP exploit).
+    We require ALL THREE legs present to keep precision high — a pure API wrapper that
+    reads an env key and posts to one endpoint, with no untrusted-content ingestion,
+    does NOT trigger. Emits at most one finding per file.
+    """
+    # Cheap pre-check on the whole blob before the per-line pass
+    if not (
+        UNTRUSTED_INPUT_RE.search(content)
+        and OUTBOUND_SEND_RE.search(content)
+        and (SENSITIVE_READ_RE.search(content) or FILE_READ_RE.search(content))
+    ):
+        return []
+
+    def _hits(rx: re.Pattern[str]) -> list[int]:
+        out = []
+        for i, ln in enumerate(lines):
+            stripped = ln.strip()
+            if not stripped or stripped.startswith(("#", "//", "*", "/*")):
+                continue
+            if rx.search(ln):
+                out.append(i + 1)
+        return out
+
+    untrusted = _hits(UNTRUSTED_INPUT_RE)
+    outbound = _hits(OUTBOUND_SEND_RE)
+    sensitive = _hits(SENSITIVE_READ_RE)
+    file_read = _hits(FILE_READ_RE)
+    if not (untrusted and outbound and (sensitive or file_read)):
+        return []
+
+    if sensitive:
+        name = "Lethal trifecta: private-data read + untrusted input + outbound network"
+        severity = "high"
+        line = sensitive[0]
+    else:
+        name = "Toxic flow: file read + untrusted input + outbound network"
+        severity = "medium"
+        line = file_read[0]
+
+    if _is_allowlisted(file_path, name, allowlist):
+        return []
+    if is_test_or_doc and severity in ("critical", "high"):
+        severity = "medium"
+
+    return [Finding(
+        category="toxic_flow",
+        name=name,
+        severity=severity,
+        file_path=file_path,
+        line_number=line,
+        snippet="capability composition — each part benign alone, dangerous together",
+    )]
+
+
 def _calculate_trust_score(result: ScanResult) -> int:
     """Calculate a trust score (0-100) based on findings and signals.
 
@@ -1182,6 +1258,7 @@ def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
         "prompt_injection": "code_safety",
         "insecure_deserialization": "code_safety",
         "exfiltration": "data_handling",
+        "toxic_flow": "data_handling",
         "fs_access": "filesystem_access",
         "dependency": "dependency_health",
         "install_hook": "dependency_health",
