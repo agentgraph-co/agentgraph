@@ -21,8 +21,12 @@ from src.scanner.patterns import (
     EXFILTRATION_PATTERNS,
     EXTENSIONLESS_SCAN_FILES,
     FS_ACCESS_PATTERNS,
+    INSECURE_DESERIALIZATION_PATTERNS,
+    INSTALL_SCRIPT_DANGER_RE,
     INVISIBLE_UNICODE_PATTERNS,
+    MANIFEST_EXEC_PATTERNS,
     NET_READ_RE,
+    NPM_INSTALL_HOOKS,
     OBFUSCATION_PATTERNS,
     PROMPT_INJECTION_PATTERNS,
     SECRET_PATTERNS,
@@ -63,6 +67,14 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "prompt_injection": (
         "Remove instruction-override / hidden-directive text from tool descriptions and "
         "metadata — it poisons the agent that reads the tool"
+    ),
+    "insecure_deserialization": (
+        "Never deserialize untrusted data with pickle/marshal/dill/yaml.load — use a "
+        "safe format (JSON) or yaml.safe_load / allow_pickle=False"
+    ),
+    "install_hook": (
+        "Audit npm pre/post-install lifecycle scripts — they auto-run on `npm install` "
+        "and are a top supply-chain vector; avoid fetching/executing remote content there"
     ),
 }
 
@@ -742,6 +754,24 @@ def _scan_content(
                 ))
                 break
 
+        # Check insecure deserialization (#7) — RCE class; NOT discounted for MCP
+        for name, pattern, severity in INSECURE_DESERIALIZATION_PATTERNS:
+            if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                effective_severity = severity
+                if is_test_or_doc and severity in ("critical", "high"):
+                    effective_severity = "medium"
+                findings.append(Finding(
+                    category="insecure_deserialization",
+                    name=name,
+                    severity=effective_severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
         # Check file system access
         for name, pattern, severity in FS_ACCESS_PATTERNS:
             if pattern.search(line):
@@ -871,6 +901,10 @@ def _scan_content(
                 snippet="network read + exec sink co-occur — remote payload may be swappable",
             ))
 
+    # Manifest command/args rug-pull (#4, MCPoison) — structural, not per-line
+    if is_metadata and Path(file_path).name.lower().endswith(".json"):
+        findings.extend(_scan_manifest_exec(content, file_path))
+
     # Add remediation hints to all findings
     for f in findings:
         if not f.remediation:
@@ -924,6 +958,89 @@ def _scan_dependencies(content: str, file_path: str) -> list[Finding]:
                 ))
                 break  # one finding per package per file
 
+    # --- Install-script analysis (#5) — npm lifecycle hooks run on `npm install` ---
+    if filename == "package.json":
+        findings.extend(_scan_install_hooks(content, file_path))
+
+    return findings
+
+
+def _iter_command_specs(node):
+    """Yield every {command, args} object nested anywhere in a parsed manifest."""
+    if isinstance(node, dict):
+        if isinstance(node.get("command"), str):
+            args = node.get("args")
+            args_str = " ".join(str(a) for a in args) if isinstance(args, list) else ""
+            yield f"{node['command']} {args_str}".strip()
+        for value in node.values():
+            yield from _iter_command_specs(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _iter_command_specs(value)
+
+
+def _scan_manifest_exec(content: str, file_path: str) -> list[Finding]:
+    """#4 — inspect an MCP manifest's command/args for rug-pull exec (CVE-2025-54136).
+
+    A mutable mcp.json/server.json whose command launches an inline interpreter-eval or
+    pipes a remote fetch to a shell is the MCPoison vector: the client re-reads the file,
+    so a swapped command runs on re-launch. Structural (parses JSON), not line-by-line.
+    """
+    findings: list[Finding] = []
+    try:
+        data = json.loads(content)
+    except (ValueError, TypeError):
+        return findings
+    seen: set[tuple[str, str]] = set()
+    for command_line in _iter_command_specs(data):
+        for name, pattern, severity in MANIFEST_EXEC_PATTERNS:
+            if pattern.search(command_line):
+                if (name, command_line) in seen:
+                    continue
+                seen.add((name, command_line))
+                findings.append(Finding(
+                    category="dynamic_remote_load",
+                    name=name,
+                    severity=severity,
+                    file_path=file_path,
+                    line_number=1,
+                    snippet=command_line[:120],
+                ))
+                break  # one finding per command spec
+    return findings
+
+
+def _scan_install_hooks(content: str, file_path: str) -> list[Finding]:
+    """#5 — flag npm pre/post/install lifecycle scripts (a top supply-chain vector).
+
+    These run automatically on `npm install`. Presence alone is a medium signal; a hook
+    that fetches/pipes-to-shell/evals is escalated to critical.
+    """
+    findings: list[Finding] = []
+    try:
+        data = json.loads(content)
+    except (ValueError, TypeError):
+        return findings
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    if not isinstance(scripts, dict):
+        return findings
+    for hook in NPM_INSTALL_HOOKS:
+        cmd = scripts.get(hook)
+        if not isinstance(cmd, str) or not cmd.strip():
+            continue
+        if INSTALL_SCRIPT_DANGER_RE.search(cmd):
+            severity, label = "critical", "runs remote/shell/eval content"
+        else:
+            severity, label = "medium", "auto-runs on install"
+        findings.append(Finding(
+            category="install_hook",
+            name=f"npm '{hook}' lifecycle script ({label})",
+            severity=severity,
+            file_path=file_path,
+            line_number=1,
+            snippet=f"{hook}: {cmd}"[:120],
+            remediation=_REMEDIATION_HINTS["install_hook"],
+        ))
     return findings
 
 
@@ -1023,9 +1140,14 @@ def _calculate_category_scores(result: ScanResult) -> dict[str, int]:
         "secret": "secret_hygiene",
         "unsafe_exec": "code_safety",
         "obfuscation": "code_safety",
+        "dynamic_remote_load": "code_safety",
+        "hidden_unicode": "code_safety",
+        "prompt_injection": "code_safety",
+        "insecure_deserialization": "code_safety",
         "exfiltration": "data_handling",
         "fs_access": "filesystem_access",
         "dependency": "dependency_health",
+        "install_hook": "dependency_health",
     }
     severity_weights = {"critical": 25, "high": 15, "medium": 8, "low": 3}
 

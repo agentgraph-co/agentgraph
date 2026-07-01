@@ -290,6 +290,101 @@ EXEC_SINK_RE = re.compile(
     r"""(?:pickle|marshal)\.loads?\s*\(|importlib\.""",
 )
 
+# --- Insecure deserialization (#7) ---
+# category="insecure_deserialization". Deserializing untrusted data with a format that
+# can construct arbitrary objects = RCE. Distinct from unsafe_exec (NOT discounted for
+# MCP servers — an MCP tool that unpickles untrusted input is a real vuln, not an
+# intentional capability). Local counterpart to the remote-pickle rug-pull pattern.
+INSECURE_DESERIALIZATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "pickle.load(s) on untrusted data (Python)",
+        re.compile(r"""\b(?:cPickle|_pickle|pickle)\.loads?\s*\("""),
+        "high",
+    ),
+    (
+        "marshal.load(s) (Python)",
+        re.compile(r"""\bmarshal\.loads?\s*\("""),
+        "high",
+    ),
+    (
+        "dill.load(s) (Python)",
+        re.compile(r"""\bdill\.loads?\s*\("""),
+        "high",
+    ),
+    (
+        "jsonpickle.decode (Python)",
+        re.compile(r"""\bjsonpickle\.decode\s*\("""),
+        "high",
+    ),
+    (
+        "yaml.load without SafeLoader (Python)",
+        re.compile(r"""\byaml\.(?:unsafe_)?load(?:_all)?\s*\((?!.*Safe)""", re.IGNORECASE),
+        "high",
+    ),
+    (
+        "numpy.load allow_pickle=True (Python)",
+        re.compile(r"""\ballow_pickle\s*=\s*True\b"""),
+        "high",
+    ),
+    (
+        "torch.load (pickle-backed) (Python)",
+        re.compile(r"""\btorch\.load\s*\("""),
+        "medium",
+    ),
+    (
+        "Java/Ruby native deserialization",
+        re.compile(r"""\bObjectInputStream\s*\(|\bMarshal\.load\b|\bYAML\.unsafe_load\b"""),
+        "high",
+    ),
+]
+
+# --- Manifest command exec / MCPoison rug-pull (#4) ---
+# CVE-2025-54136. An MCP manifest (mcp.json / server.json) whose command/args launch an
+# inline interpreter-eval or pipe-to-shell — a mutable config the client re-reads, so a
+# swapped command runs on the user's machine. category="dynamic_remote_load" (same
+# rug-pull family). Run over the reconstructed "command + args" string, not per-line.
+MANIFEST_EXEC_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "MCP manifest command pipes remote fetch to shell",
+        re.compile(r"""(?:curl|wget)\b[^|]*\|\s*(?:sudo\s+)?(?:ba)?sh\b""", re.IGNORECASE),
+        "critical",
+    ),
+    (
+        "MCP manifest shell -c invokes remote fetch",
+        re.compile(r"""\b(?:ba)?sh\b[^\n]*-c\b[^\n]*(?:curl|wget|https?://)""", re.IGNORECASE),
+        "critical",
+    ),
+    (
+        "MCP manifest runs inline interpreter eval (node -e / python -c)",
+        re.compile(
+            r"""\b(?:node|deno|bun)\b[^\n]*(?:\s-e\b|--eval\b)|"""
+            r"""\bpython3?\b[^\n]*\s-c\b|\bruby\b[^\n]*\s-e\b|\bperl\b[^\n]*\s-e\b""",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    (
+        "MCP manifest command fetches a remote script",
+        re.compile(r"""https?://\S+\.(?:sh|py|js|ts|rb|ps1)\b""", re.IGNORECASE),
+        "high",
+    ),
+    (
+        "MCP manifest launches unpinned npx/uvx package",
+        re.compile(r"""\b(?:npx|uvx)\s+(?:-y\s+)?(?!.*@)[a-zA-Z@][\w\-/]+"""),
+        "medium",
+    ),
+]
+
+# Dangerous content inside an npm lifecycle install hook (#5).
+INSTALL_SCRIPT_DANGER_RE = re.compile(
+    r"""(?:curl|wget)\b|\|\s*(?:ba)?sh\b|\bnode\s+(?:-e|--eval)\b|"""
+    r"""\bpython3?\s+-c\b|base64\s+(?:-d|--decode|-D)\b|\beval\b|"""
+    r"""https?://|\bchmod\s+\+x\b|>\s*/dev/""",
+    re.IGNORECASE,
+)
+# npm lifecycle hooks that auto-run on `npm install` (the supply-chain entry point).
+NPM_INSTALL_HOOKS = ("preinstall", "install", "postinstall")
+
 # --- Invisible / smuggled Unicode (hidden-instruction vector) ---
 # category="hidden_unicode". Invisible characters in code/config/tool-metadata are a
 # prompt-injection smuggling vector: a tool description can carry instructions a human
