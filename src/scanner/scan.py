@@ -15,9 +15,12 @@ import httpx
 
 from src.scanner.patterns import (
     AUTH_POSITIVE_PATTERNS,
+    DYNAMIC_REMOTE_LOAD_PATTERNS,
+    EXEC_SINK_RE,
     EXFILTRATION_PATTERNS,
     EXTENSIONLESS_SCAN_FILES,
     FS_ACCESS_PATTERNS,
+    NET_READ_RE,
     OBFUSCATION_PATTERNS,
     SECRET_PATTERNS,
     SKIP_DIRS,
@@ -46,6 +49,10 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "exfiltration": "Add authentication to outbound data endpoints",
     "obfuscation": "Replace obfuscated code with readable equivalent",
     "dependency": "Update to a patched version or find an alternative package",
+    "dynamic_remote_load": (
+        "Pin remote payloads by commit SHA / content hash and never eval/exec fetched "
+        "content — a mutable remote URL can be swapped after integration (rug-pull)"
+    ),
 }
 
 
@@ -760,6 +767,25 @@ def _scan_content(
                 ))
                 break
 
+        # Check dynamic remote payload / rug-pull (external-URL-swap)
+        for name, pattern, severity in DYNAMIC_REMOTE_LOAD_PATTERNS:
+            if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                # Downgrade in test/doc/example files like other groups
+                effective_severity = severity
+                if is_test_or_doc and severity in ("critical", "high"):
+                    effective_severity = "medium"
+                findings.append(Finding(
+                    category="dynamic_remote_load",
+                    name=name,
+                    severity=effective_severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
         # Check code obfuscation
         for name, pattern, severity in OBFUSCATION_PATTERNS:
             if pattern.search(line):
@@ -774,6 +800,24 @@ def _scan_content(
                     snippet=stripped[:120],
                 ))
                 break
+
+    # Split fetch->exec across lines: a network read + an exec sink co-occurring in
+    # one file is the classic rug-pull loader the per-line scan can't see. Fire only
+    # when they're within ~40 lines of each other (keeps the composite finding tight).
+    if not is_test_or_doc and NET_READ_RE.search(content) and EXEC_SINK_RE.search(content):
+        net_lines = [i for i, ln in enumerate(lines) if NET_READ_RE.search(ln)]
+        exec_lines = [i for i, ln in enumerate(lines) if EXEC_SINK_RE.search(ln)]
+        if net_lines and exec_lines and any(
+            abs(n - e) <= 40 for n in net_lines for e in exec_lines
+        ):
+            findings.append(Finding(
+                category="dynamic_remote_load",
+                name="Remote fetch + dynamic exec in same file (possible rug-pull)",
+                severity="high",
+                file_path=file_path,
+                line_number=min(net_lines) + 1,
+                snippet="network read + exec sink co-occur — remote payload may be swappable",
+            ))
 
     # Add remediation hints to all findings
     for f in findings:

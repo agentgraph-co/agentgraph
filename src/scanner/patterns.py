@@ -191,6 +191,105 @@ EXFILTRATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     ),
 ]
 
+# --- Dynamic remote payload / rug-pull (external-URL-swap) ---
+# category="dynamic_remote_load". Flags a skill/MCP tool that fetches code, config,
+# prompts, or tool definitions from an EXTERNAL URL that the owner can SWAP after a
+# user has integrated it — the mutable-remote-payload / rug-pull threat class. This
+# is distinct from EXFILTRATION (data leaving) — here untrusted content is coming IN
+# and being executed/trusted, and the remote is mutable so a clean scan can go rogue.
+DYNAMIC_REMOTE_LOAD_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    # (A) fetch-then-exec on one line — highest confidence
+    (
+        "Remote fetch piped into eval/exec (Python)",
+        re.compile(
+            r"""(?:eval|exec)\s*\(\s*(?:requests\.(?:get|post)|httpx\.(?:get|post)|urllib\.request\.urlopen|urlopen)\s*\(""",
+        ),
+        "critical",
+    ),
+    (
+        "Remote response text fed to exec/eval (Python)",
+        re.compile(r"""(?:eval|exec)\s*\(.*\.(?:text|content|body|json\(\))"""),
+        "high",
+    ),
+    (
+        "Remote fetch into Function/eval (JS)",
+        re.compile(r"""(?:eval|new\s+Function)\s*\(\s*await\s+(?:fetch|axios\.get)\s*\("""),
+        "critical",
+    ),
+    (
+        "vm.runInContext on fetched content (Node)",
+        re.compile(r"""vm\.(?:runInContext|runInNewContext|compileFunction)\s*\("""),
+        "high",
+    ),
+    # (B) remote code/module load — download then import/run
+    (
+        "Remote pickle/marshal load from response",
+        re.compile(
+            r"""(?:pickle|marshal)\.loads?\s*\(\s*(?:requests\.|httpx\.|urlopen|response|resp|r)\b""",
+        ),
+        "critical",
+    ),
+    (
+        "Runtime pip install from remote URL/git",
+        re.compile(
+            r"""subprocess\.[a-z_]+\([^)]*pip['"]?\s*,?\s*['"]?install[^)]*(?:https?://|git\+|\.git\b)""",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    # (C) remote-hosted tool description / prompt / config
+    (
+        "Tool description/prompt built from remote fetch",
+        re.compile(
+            r"""(?:description|instructions?|prompt|system_prompt|tools?)\s*=\s*(?:await\s+)?(?:requests\.get|httpx\.get|fetch|axios\.get|urlopen)\s*\(""",
+            re.IGNORECASE,
+        ),
+        "critical",
+    ),
+    # (D) auto-update-from-URL / self-update loop
+    (
+        "Auto-update payload from hardcoded endpoint",
+        re.compile(
+            r"""(?:update|refresh|reload|self_update|check_update)[\w_]*\s*\([^)]*https?://""",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    # (E) pipe-to-shell (rug-pull via install/launch)
+    (
+        "curl/wget piped to shell",
+        re.compile(
+            r"""(?:curl|wget)\s+[^\n|]*\|\s*(?:sudo\s+)?(?:ba)?sh\b|python3?\s+<\(\s*(?:curl|wget)""",
+        ),
+        "critical",
+    ),
+    # (F) NON-PINNED remote resource feeding load/exec (mutable ref = swappable)
+    (
+        "Unpinned remote resource (branch/latest/HEAD)",
+        re.compile(
+            r"""https?://[^\s'"]+/(?:raw/)?(?:main|master|HEAD|latest)/[^\s'"]+\.(?:py|js|ts|sh|json)""",
+            re.IGNORECASE,
+        ),
+        "medium",
+    ),
+    (
+        "Unpinned npx/uvx package (no @version pin)",
+        re.compile(r"""\b(?:npx|uvx)\s+(?!.*@)[a-zA-Z@][\w\-/]+"""),
+        "medium",
+    ),
+]
+
+# Co-occurrence pass: a network read + an exec sink in the same file (split across
+# lines) is the classic rug-pull loader the per-line scan can't see.
+NET_READ_RE = re.compile(
+    r"""requests\.(?:get|post)|httpx\.(?:get|post)|urllib\.request\.urlopen|urlopen\s*\(|"""
+    r"""fetch\s*\(|axios\.(?:get|post)""",
+)
+EXEC_SINK_RE = re.compile(
+    r"""\beval\s*\(|\bexec\s*\(|new\s+Function\s*\(|vm\.run|"""
+    r"""(?:pickle|marshal)\.loads?\s*\(|importlib\.""",
+)
+
 # --- Code obfuscation patterns ---
 OBFUSCATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     (
