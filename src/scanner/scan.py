@@ -14,14 +14,17 @@ from pathlib import Path
 import httpx
 
 from src.scanner.patterns import (
+    AGENT_METADATA_FILES,
     AUTH_POSITIVE_PATTERNS,
     DYNAMIC_REMOTE_LOAD_PATTERNS,
     EXEC_SINK_RE,
     EXFILTRATION_PATTERNS,
     EXTENSIONLESS_SCAN_FILES,
     FS_ACCESS_PATTERNS,
+    INVISIBLE_UNICODE_PATTERNS,
     NET_READ_RE,
     OBFUSCATION_PATTERNS,
+    PROMPT_INJECTION_PATTERNS,
     SECRET_PATTERNS,
     SKIP_DIRS,
     SKIP_EXTENSIONS,
@@ -52,6 +55,14 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "dynamic_remote_load": (
         "Pin remote payloads by commit SHA / content hash and never eval/exec fetched "
         "content — a mutable remote URL can be swapped after integration (rug-pull)"
+    ),
+    "hidden_unicode": (
+        "Remove invisible/bidi/tag Unicode — it can smuggle instructions a human reviewer "
+        "never sees (prompt injection)"
+    ),
+    "prompt_injection": (
+        "Remove instruction-override / hidden-directive text from tool descriptions and "
+        "metadata — it poisons the agent that reads the tool"
     ),
 }
 
@@ -127,7 +138,10 @@ def _is_source_file(path: str) -> bool:
         return True
     # Check extensionless files by name (Dockerfile, Makefile, etc.)
     filename = Path(path).name
-    return filename in EXTENSIONLESS_SCAN_FILES
+    if filename in EXTENSIONLESS_SCAN_FILES:
+        return True
+    # Agent metadata files (SKILL.md etc.) — the tool's instruction surface
+    return filename.lower() in AGENT_METADATA_FILES
 
 
 def _redact_secret(line: str, match: re.Match) -> str:  # type: ignore[type-arg]
@@ -655,6 +669,9 @@ def _scan_content(
         allowlist = set()
 
     is_test_or_doc = _is_test_or_doc_file(file_path)
+    # Manifest / skill files ARE the tool's instruction surface — never downgrade
+    # prompt-injection / hidden-unicode there even if they look doc-ish.
+    is_metadata = Path(file_path).name.lower() in AGENT_METADATA_FILES
     lines = content.split("\n")
 
     for line_num, line in enumerate(lines, 1):
@@ -778,6 +795,41 @@ def _scan_content(
                     effective_severity = "medium"
                 findings.append(Finding(
                     category="dynamic_remote_load",
+                    name=name,
+                    severity=effective_severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
+        # Check invisible / smuggled Unicode (dangerous anywhere — no downgrade)
+        for name, pattern, severity in INVISIBLE_UNICODE_PATTERNS:
+            if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                findings.append(Finding(
+                    category="hidden_unicode",
+                    name=name,
+                    severity=severity,
+                    file_path=file_path,
+                    line_number=line_num,
+                    snippet=stripped[:120],
+                ))
+                break
+
+        # Check prompt injection / tool-description poisoning
+        for name, pattern, severity in PROMPT_INJECTION_PATTERNS:
+            if pattern.search(line):
+                if _is_allowlisted(file_path, name, allowlist):
+                    continue
+                # Downgrade in test/doc/example files — EXCEPT manifest/skill metadata,
+                # which is the actual attack surface (a poisoned description is not a doc).
+                effective_severity = severity
+                if is_test_or_doc and not is_metadata and severity in ("critical", "high"):
+                    effective_severity = "medium"
+                findings.append(Finding(
+                    category="prompt_injection",
                     name=name,
                     severity=effective_severity,
                     file_path=file_path,

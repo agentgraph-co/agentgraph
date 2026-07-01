@@ -290,6 +290,93 @@ EXEC_SINK_RE = re.compile(
     r"""(?:pickle|marshal)\.loads?\s*\(|importlib\.""",
 )
 
+# --- Invisible / smuggled Unicode (hidden-instruction vector) ---
+# category="hidden_unicode". Invisible characters in code/config/tool-metadata are a
+# prompt-injection smuggling vector: a tool description can carry instructions a human
+# reviewer never sees. Tags-block + bidi are essentially always malicious in this context.
+INVISIBLE_UNICODE_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "Unicode Tags block (invisible smuggled instructions)",
+        re.compile(r"[\U000e0000-\U000e007f]"),
+        "critical",
+    ),
+    (
+        "Bidirectional control character (Trojan Source)",
+        re.compile("[\u202a-\u202e\u2066-\u2069]"),
+        "high",
+    ),
+    (
+        "Zero-width / invisible character",
+        re.compile("[\u200b\u200c\u200d\u2060\u180e]"),
+        "medium",
+    ),
+    (
+        "ANSI escape sequence in text (hidden/spoofed content)",
+        re.compile(r"\x1b\["),
+        "medium",
+    ),
+]
+
+# --- Prompt injection / tool-description poisoning ---
+# category="prompt_injection". Imperative-override or hidden-instruction phrases in tool
+# descriptions / manifests / SKILL.md — the #1 agent-tool attack (tool poisoning). The
+# scanner now READS metadata instead of only discounting it.
+PROMPT_INJECTION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "Instruction-override phrase",
+        re.compile(
+            r"ignore\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above|earlier)\s+instructions?"
+            r"|disregard\s+(?:the\s+)?(?:above|previous|prior|earlier|system)",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    (
+        "Hide-from-user directive (tool poisoning)",
+        re.compile(
+            r"(?:do\s+not|don't|never)\s+(?:tell|inform|mention|reveal|show)\s+(?:this\s+)?(?:to\s+)?the\s+user"
+            r"|without\s+(?:telling|informing|notifying)\s+the\s+user|hide\s+this\s+from",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    (
+        "Injected system/role directive",
+        re.compile(
+            r"<\s*/?\s*(?:system|important|instructions?)\s*>"
+            r"|(?:^|[\s\"'])system\s*prompt\s*:"
+            r"|you\s+are\s+now\s+(?:a|an|the)?\s"
+            r"|your\s+(?:new|real|actual)\s+(?:instructions?|task|role)\s+(?:is|are)",
+            re.IGNORECASE,
+        ),
+        "high",
+    ),
+    (
+        "Exfiltration directive in description",
+        re.compile(
+            r"send\s+(?:the\s+|all\s+)?(?:secret|api[_\s]?key|token|password|credential|env(?:ironment)?)"
+            r"[\w\s,]*?\s+to\s+https?://",
+            re.IGNORECASE,
+        ),
+        "critical",
+    ),
+    (
+        "Mandatory pre-tool action injection",
+        re.compile(
+            r"before\s+(?:using|calling|running)\s+(?:this|any|the)\s+tool.{0,40}?(?:you\s+must|always|first)",
+            re.IGNORECASE,
+        ),
+        "medium",
+    ),
+]
+
+# Files that ARE the tool's instruction surface (manifest / skill metadata). Prompt-injection
+# and invisible-unicode here are the ATTACK SURFACE, not documentation — scan them + never
+# downgrade. (mcp.json/server.json are already scanned via .json; SKILL.md is added here.)
+AGENT_METADATA_FILES = frozenset({
+    "skill.md", "mcp.json", "server.json", ".mcp.json", "ai-plugin.json", "agents.md",
+})
+
 # --- Code obfuscation patterns ---
 OBFUSCATION_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     (
