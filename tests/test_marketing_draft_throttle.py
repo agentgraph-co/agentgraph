@@ -34,7 +34,9 @@ async def test_draft_platform_records_cadence(monkeypatch):
     monkeypatch.setattr(orchestrator, "generate_proactive", AsyncMock(return_value=_content()))
     monkeypatch.setattr(orchestrator, "_is_duplicate", AsyncMock(return_value=False))
     monkeypatch.setattr(orchestrator, "enqueue_draft", AsyncMock())
-    monkeypatch.setattr("src.marketing.llm.cost_tracker.get_daily_spend", AsyncMock(return_value=0.0))
+    monkeypatch.setattr(
+        "src.marketing.llm.cost_tracker.get_daily_spend", AsyncMock(return_value=0.0),
+    )
 
     rec_post = AsyncMock()
     rec_topic = AsyncMock()
