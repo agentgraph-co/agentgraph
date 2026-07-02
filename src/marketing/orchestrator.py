@@ -434,6 +434,11 @@ async def run_proactive_cycle(db: AsyncSession) -> dict:
                     llm_cost_usd=content.llm_cost_usd,
                     utm_params=content.utm_params,
                 )
+                # Record cadence + topic for DRAFT platforms too — otherwise should_post()
+                # never throttles and every proactive tick regenerates a fresh draft (each
+                # with different LLM text, so dedup can't catch it → a pile of drafts/day).
+                await record_post(platform_name)
+                await record_topic(platform_name, content.topic)
                 results["drafts"].append({"platform": platform_name, "topic": content.topic})
                 continue
 
