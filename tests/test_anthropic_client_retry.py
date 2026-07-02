@@ -59,9 +59,10 @@ async def _noop():
     return None
 
 
-_OK = _FakeResp(
-    {"content": [{"type": "text", "text": "hello"}], "usage": {"input_tokens": 3, "output_tokens": 1}}
-)
+_OK = _FakeResp({
+    "content": [{"type": "text", "text": "hello"}],
+    "usage": {"input_tokens": 3, "output_tokens": 1},
+})
 
 
 @pytest.mark.asyncio
