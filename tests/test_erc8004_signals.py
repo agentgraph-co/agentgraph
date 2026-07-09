@@ -23,7 +23,10 @@ from src.trust.erc8004_signals import (
     reputation_summary_to_signal,
 )
 
-NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+# Anchored to the real clock: NormalizedAttestation.is_admissible compares
+# expires_at against wall-clock now(), so a frozen fixture date rots — the
+# original datetime(2026, 6, 1) started failing the moment it "expired" Jun 2.
+NOW = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _att(**kw) -> NormalizedAttestation:
