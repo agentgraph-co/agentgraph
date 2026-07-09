@@ -32,24 +32,64 @@ MAX_FEED_SIZE = 2000
 # How often to log stats (seconds)
 STATS_INTERVAL = 300
 
+# Nth consecutive connect failure at which recovered-blip warnings escalate to
+# ERROR (= Sentry). Transient Jetstream blips self-heal in one or two attempts;
+# only a sustained outage should page (same policy as the Anthropic client fix).
+SUSTAINED_ERROR_THRESHOLD = 6
+
+
+def _reconnect_plan(consecutive_failures: int) -> tuple[str, float]:
+    """(log_level, delay_seconds) for the nth consecutive failure (1-based).
+
+    Backoff 5s → 10 → 20 → 40 → 60 (capped). ERROR fires once at the sustained
+    threshold and every 10th attempt after — everything else stays WARNING so
+    recovered blips never page.
+    """
+    delay = float(min(5 * (2 ** min(consecutive_failures - 1, 4)), 60))
+    if consecutive_failures >= SUSTAINED_ERROR_THRESHOLD and (
+        consecutive_failures == SUSTAINED_ERROR_THRESHOLD
+        or consecutive_failures % 10 == 0
+    ):
+        return "error", delay
+    return "warning", delay
+
 
 async def run_subscriber() -> None:
     """Connect to Jetstream and filter posts into Redis.  Reconnects on failure."""
+    streak = {"failures": 0}
+
+    def _mark_connected() -> None:
+        streak["failures"] = 0
+
     while True:
         try:
-            await _subscribe()
+            await _subscribe(on_connect=_mark_connected)
+            streak["failures"] = 0
         except asyncio.CancelledError:
             logger.info("Jetstream subscriber cancelled")
             return
         except websockets.exceptions.ConnectionClosed:
+            # We had a working session — a close is normal churn, not a failure streak.
+            streak["failures"] = 0
             logger.warning("Jetstream connection closed — reconnecting in 5s")
             await asyncio.sleep(5)
-        except Exception:
-            logger.exception("Jetstream subscriber error — reconnecting in 5s")
-            await asyncio.sleep(5)
+        except Exception as exc:
+            streak["failures"] += 1
+            level, delay = _reconnect_plan(streak["failures"])
+            if level == "error":
+                logger.exception(
+                    "Jetstream subscriber DOWN — %d consecutive failed attempts, "
+                    "reconnecting in %.0fs", streak["failures"], delay,
+                )
+            else:
+                logger.warning(
+                    "Jetstream subscriber error (%r) — attempt %d, reconnecting in %.0fs",
+                    exc, streak["failures"], delay,
+                )
+            await asyncio.sleep(delay)
 
 
-async def _subscribe() -> None:
+async def _subscribe(on_connect=None) -> None:
     """Single subscription session."""
     from src.redis_client import get_redis
 
@@ -69,6 +109,8 @@ async def _subscribe() -> None:
 
     async with websockets.connect(url, ping_interval=30, ping_timeout=10) as ws:
         logger.info("Connected to Jetstream")
+        if on_connect is not None:
+            on_connect()
         async for raw in ws:
             try:
                 event = json.loads(raw)
